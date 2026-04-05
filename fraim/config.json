@@ -1,0 +1,28 @@
+{
+  "version": "2.0.47",
+  "mode": "integrated",
+  "project": {
+    "name": "SKB",
+    "industry": "restaurant-operations"
+  },
+  "repository": {
+    "provider": "github",
+    "owner": "mathursrus",
+    "name": "SKB",
+    "url": "https://github.com/mathursrus/SKB.git",
+    "defaultBranch": "master"
+  },
+  "issueTracking": {
+    "provider": "github",
+    "owner": "mathursrus",
+    "name": "SKB",
+    "url": "https://github.com/mathursrus/SKB.git",
+    "defaultBranch": "master"
+  },
+  "customizations": {},
+  "competitors": {
+    "yelp-waitlist": "https://www.yelpforbusiness.com/guest-manager",
+    "waitly": "https://waitly.com",
+    "nextme": "https://www.nextmeapp.com"
+  }
+}

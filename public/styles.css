@@ -1,0 +1,256 @@
+/* ============================================================================
+   SKB — styles
+   Diner palette matches restaurant brand:
+   - Black (#000) + White (#fff) base
+   - Gold accent (#e3bf3d)
+   - Fira Sans typography
+   Host palette (at bottom) uses a slightly different neutral set for contrast.
+   ============================================================================ */
+
+:root {
+    --bg: #ffffff;
+    --fg: #111111;
+    --muted: #4d4c4c;
+    --accent: #e3bf3d;
+    --accent-dark: #b89624;
+    --accent-fg: #111111;
+    --card: #ffffff;
+    --border: #eaeaea;
+    --divider: #f3f3f3;
+    --surface-alt: #fafafa;
+    --ok: #15803d;
+    --danger: #b91c1c;
+    --row-hover: #fafafa;
+}
+* { box-sizing: border-box; }
+body {
+    margin: 0;
+    font-family: 'Fira Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font-size: 16px;
+    line-height: 1.5;
+    background: var(--bg);
+    color: var(--fg);
+}
+
+/* ---------- Diner page ---------- */
+.diner { background: var(--surface-alt); }
+.diner header {
+    background: #000;
+    color: #fff;
+    padding: 24px 16px 20px;
+    text-align: center;
+    border-bottom: 4px solid var(--accent);
+}
+.diner header .mark {
+    display: inline-block;
+    font-weight: 700;
+    font-size: 26px;
+    letter-spacing: 6px;
+    color: var(--accent);
+    border: 2px solid var(--accent);
+    padding: 4px 14px;
+    border-radius: 4px;
+    margin-bottom: 10px;
+}
+.diner header h1 {
+    margin: 0;
+    font-size: 20px;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+}
+.diner header .sub {
+    color: #cfcbba;
+    font-size: 13px;
+    margin-top: 4px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+}
+.diner main { padding: 20px 16px; max-width: 480px; margin: 0 auto; }
+.card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 22px;
+    margin-bottom: 14px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+}
+.status { text-align: center; }
+.status .line-len {
+    font-size: 56px;
+    font-weight: 700;
+    color: #111;
+    line-height: 1;
+}
+.status .line-label {
+    color: var(--muted);
+    font-size: 13px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    margin-top: 4px;
+}
+.status .eta {
+    margin-top: 14px;
+    padding-top: 14px;
+    border-top: 1px solid var(--divider);
+    color: var(--muted);
+    font-size: 14px;
+}
+label {
+    display: block;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin: 14px 0 6px;
+}
+label:first-child { margin-top: 0; }
+input[type=text], input[type=tel], input[type=number], input[type=password] {
+    width: 100%;
+    padding: 12px 14px;
+    font-family: inherit;
+    font-size: 16px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: #fff;
+    color: var(--fg);
+}
+input:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(227,191,61,0.25);
+}
+button.primary {
+    display: block;
+    width: 100%;
+    margin-top: 20px;
+    min-height: 48px;
+    background: #000;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-family: inherit;
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+button.primary:hover { background: #333; }
+button.primary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.confirmation { text-align: center; padding: 24px 20px; }
+.confirmation .pos-label {
+    color: var(--muted);
+    font-size: 12px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    font-weight: 600;
+}
+.confirmation .pos {
+    font-size: 84px;
+    font-weight: 700;
+    color: #111;
+    line-height: 1;
+    margin: 4px 0 8px;
+}
+.confirmation .code {
+    display: inline-block;
+    margin: 6px 0 14px;
+    padding: 10px 18px;
+    background: var(--accent);
+    color: #111;
+    border-radius: 6px;
+    font-family: ui-monospace, Menlo, Consolas, monospace;
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: 2px;
+}
+.confirmation .eta-time { font-size: 17px; color: var(--fg); }
+.confirmation .eta-mins { color: var(--muted); font-size: 15px; font-weight: 500; }
+.confirmation .hint { color: var(--muted); font-size: 13px; margin: 14px 0 4px; line-height: 1.5; }
+.callout {
+    background: var(--accent);
+    color: #111;
+    padding: 14px 16px;
+    border-radius: 8px;
+    margin-top: 16px;
+    font-weight: 600;
+    text-align: center;
+}
+.callout .called-times {
+    font-size: 13px;
+    font-weight: 500;
+    margin-top: 6px;
+    color: #2a2305;
+}
+.error { color: var(--danger); font-size: 13px; margin-top: 6px; }
+footer {
+    text-align: center;
+    color: var(--muted);
+    font-size: 11px;
+    padding: 20px 16px;
+    letter-spacing: 0.3px;
+}
+
+/* ---------- Host page ---------- */
+.host { background: #f5f5f4; }
+.host .topbar {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 24px; background: #fff; border-bottom: 1px solid var(--border);
+    flex-wrap: wrap; gap: 12px;
+}
+.host .brand { font-weight: 700; letter-spacing: 0.5px; }
+.host .counts { display: flex; gap: 24px; font-size: 14px; color: var(--muted); }
+.host .counts strong { color: var(--fg); font-size: 18px; }
+.host .turn { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
+.host .turn input { width: 72px; min-height: 44px; padding: 8px 10px; font-size: 15px; border: 1px solid var(--border); border-radius: 6px; }
+.host .logout { background: none; border: 1px solid var(--border); border-radius: 6px; padding: 10px 14px; min-height: 44px; cursor: pointer; color: var(--muted); font-size: 13px; }
+.host main { padding: 20px 24px; }
+table {
+    width: 100%; background: #fff;
+    border-collapse: separate; border-spacing: 0;
+    border: 1px solid var(--border); border-radius: 10px; overflow: hidden;
+}
+th, td { padding: 12px 14px; text-align: left; border-bottom: 1px solid var(--border); }
+th { background: #fafaf9; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--muted); }
+tr:last-child td { border-bottom: none; }
+tr:hover { background: var(--row-hover); }
+td.num { font-weight: 700; color: var(--fg); font-size: 18px; width: 56px; }
+td.size { text-align: center; width: 60px; }
+td.phone { font-family: ui-monospace, Menlo, Consolas, monospace; color: var(--muted); width: 80px; }
+td.eta { width: 100px; font-weight: 600; }
+td.wait { width: 90px; color: var(--muted); }
+td.actions { width: 260px; text-align: right; white-space: nowrap; }
+tr.row-called td { background: #fff8e1; }
+.badge-called {
+    display: inline-block;
+    background: var(--accent);
+    color: #111;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    padding: 3px 7px;
+    border-radius: 4px;
+    margin-left: 6px;
+    vertical-align: middle;
+    white-space: nowrap;
+}
+button.call-btn {
+    background: #111; color: #fff;
+    border: 1px solid #111;
+    padding: 10px 14px; border-radius: 8px;
+    font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer;
+    min-height: 44px; margin-right: 6px;
+}
+button.call-btn:hover { background: #333; }
+button.remove {
+    background: #fff; color: var(--danger);
+    border: 1px solid var(--danger);
+    padding: 10px 14px; border-radius: 8px;
+    font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer;
+    min-height: 44px; margin-left: 6px;
+}
+button.remove:hover { background: var(--danger); color: #fff; }
+.empty { text-align: center; color: var(--muted); padding: 40px; }
+.login-card { max-width: 360px; margin: 80px auto; }

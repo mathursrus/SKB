@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>SKB — Place in Line</title>
+<style>
+    :root {
+        --bg: #fffaf3;
+        --fg: #1c1917;
+        --muted: #78716c;
+        --accent: #b45309;
+        --accent-fg: #fff;
+        --card: #ffffff;
+        --border: #e7e5e4;
+        --ok: #15803d;
+    }
+    * { box-sizing: border-box; }
+    body {
+        margin: 0;
+        font: 16px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        background: var(--bg);
+        color: var(--fg);
+    }
+    header {
+        padding: 20px 16px 8px;
+        text-align: center;
+    }
+    header h1 {
+        margin: 0;
+        font-size: 20px;
+        letter-spacing: 0.5px;
+    }
+    header .sub { color: var(--muted); font-size: 13px; }
+    main { padding: 16px; max-width: 480px; margin: 0 auto; }
+    .card {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        padding: 20px;
+        margin-bottom: 14px;
+    }
+    .status {
+        text-align: center;
+    }
+    .status .line-len {
+        font-size: 44px;
+        font-weight: 700;
+        color: var(--accent);
+        line-height: 1;
+    }
+    .status .eta {
+        margin-top: 6px;
+        color: var(--muted);
+        font-size: 14px;
+    }
+    label {
+        display: block;
+        font-size: 13px;
+        color: var(--muted);
+        margin: 12px 0 4px;
+    }
+    input[type=text], input[type=tel], input[type=number] {
+        width: 100%;
+        padding: 12px 14px;
+        font-size: 16px;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        background: #fff;
+    }
+    button.primary {
+        display: block;
+        width: 100%;
+        margin-top: 18px;
+        min-height: 48px;
+        background: var(--accent);
+        color: var(--accent-fg);
+        border: none;
+        border-radius: 10px;
+        font-size: 16px;
+        font-weight: 600;
+        cursor: pointer;
+    }
+    .confirmation {
+        text-align: center;
+        padding: 28px 20px;
+    }
+    .confirmation .pos {
+        font-size: 68px;
+        font-weight: 700;
+        color: var(--accent);
+        line-height: 1;
+    }
+    .confirmation .pos-label { color: var(--muted); font-size: 14px; letter-spacing: 1px; text-transform: uppercase; }
+    .confirmation .code {
+        display: inline-block;
+        margin: 14px 0 6px;
+        padding: 8px 14px;
+        border: 1px dashed var(--accent);
+        border-radius: 8px;
+        font-family: ui-monospace, Menlo, Consolas, monospace;
+        font-size: 18px;
+    }
+    .confirmation .eta { font-size: 17px; }
+    .confirmation .hint { color: var(--muted); font-size: 13px; margin-top: 12px; }
+    footer { text-align: center; color: var(--muted); font-size: 12px; padding: 12px; }
+</style>
+</head>
+<body>
+<header>
+    <h1>SHRI KRISHNA BHAVAN</h1>
+    <div class="sub">Bellevue · Place in Line</div>
+</header>
+<main>
+    <div class="card status">
+        <div class="line-len">4</div>
+        <div>parties waiting</div>
+        <div class="eta">Estimated wait for a new party: ~32 min</div>
+    </div>
+
+    <div class="card">
+        <form onsubmit="event.preventDefault(); document.getElementById('join').style.display='none'; document.getElementById('conf').style.display='block'; window.scrollTo(0,0);" id="join">
+            <label for="name">Your name</label>
+            <input type="text" id="name" value="Asha" autocomplete="off" required />
+            <label for="size">Party size</label>
+            <input type="number" id="size" min="1" max="10" value="3" required />
+            <label for="phone">Phone (last 4, optional)</label>
+            <input type="tel" id="phone" inputmode="numeric" maxlength="4" placeholder="1234" />
+            <button type="submit" class="primary">Join the line</button>
+        </form>
+
+        <div class="confirmation" id="conf" style="display:none">
+            <div class="pos-label">your place</div>
+            <div class="pos">#5</div>
+            <div class="code">SKB-7Q3</div>
+            <div class="eta">Promised by <strong>7:42 PM</strong></div>
+            <div class="hint">Refresh this page for updates. We'll call your name and code when your table is ready.</div>
+        </div>
+    </div>
+</main>
+<footer>No app needed · No account · Your data stays with SKB</footer>
+</body>
+</html>

@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=1024,initial-scale=1" />
+<title>SKB — Host Stand</title>
+<style>
+    :root {
+        --bg: #f5f5f4;
+        --fg: #1c1917;
+        --muted: #78716c;
+        --accent: #b45309;
+        --accent-fg: #fff;
+        --danger: #b91c1c;
+        --border: #e7e5e4;
+        --row-hover: #fafaf9;
+    }
+    * { box-sizing: border-box; }
+    body {
+        margin: 0;
+        font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        background: var(--bg);
+        color: var(--fg);
+    }
+    .topbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 14px 24px;
+        background: #fff;
+        border-bottom: 1px solid var(--border);
+    }
+    .topbar .brand { font-weight: 700; letter-spacing: 0.5px; }
+    .topbar .counts {
+        display: flex;
+        gap: 24px;
+        font-size: 14px;
+        color: var(--muted);
+    }
+    .topbar .counts strong { color: var(--fg); font-size: 18px; }
+    .topbar .turn {
+        display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted);
+    }
+    .topbar .turn input {
+        width: 60px; padding: 6px 8px; font-size: 15px;
+        border: 1px solid var(--border); border-radius: 6px;
+    }
+    main { padding: 20px 24px; }
+    table {
+        width: 100%; background: #fff;
+        border-collapse: separate; border-spacing: 0;
+        border: 1px solid var(--border); border-radius: 10px; overflow: hidden;
+    }
+    th, td {
+        padding: 12px 14px;
+        text-align: left;
+        border-bottom: 1px solid var(--border);
+    }
+    th { background: #fafaf9; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--muted); }
+    tr:last-child td { border-bottom: none; }
+    tr:hover { background: var(--row-hover); }
+    td.num { font-weight: 700; color: var(--accent); font-size: 18px; width: 56px; }
+    td.size { text-align: center; width: 60px; }
+    td.phone { font-family: ui-monospace, Menlo, Consolas, monospace; color: var(--muted); width: 80px; }
+    td.eta { width: 90px; font-weight: 600; }
+    td.wait { width: 90px; color: var(--muted); }
+    td.actions { width: 110px; text-align: right; }
+    button.remove {
+        background: #fff; color: var(--danger);
+        border: 1px solid var(--danger);
+        padding: 8px 12px; border-radius: 8px;
+        font-size: 13px; font-weight: 600; cursor: pointer;
+        min-height: 36px;
+    }
+    button.remove:hover { background: var(--danger); color: #fff; }
+    .empty { text-align: center; color: var(--muted); padding: 40px; }
+</style>
+</head>
+<body>
+<div class="topbar">
+    <div class="brand">SKB · Host Stand</div>
+    <div class="counts">
+        <div><strong>4</strong> waiting</div>
+        <div>oldest: <strong>23m</strong></div>
+    </div>
+    <div class="turn">
+        Avg turn time (min):
+        <input type="number" min="1" max="60" value="8" />
+    </div>
+</div>
+<main>
+<table>
+    <thead>
+        <tr>
+            <th>#</th><th>Name</th><th>Size</th><th>Phone</th><th>Promised</th><th>Waiting</th><th></th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr><td class="num">1</td><td>Asha</td><td class="size">3</td><td class="phone">••1234</td><td class="eta">7:18 PM</td><td class="wait">23m</td><td class="actions"><button class="remove">Remove</button></td></tr>
+        <tr><td class="num">2</td><td>Ravi</td><td class="size">2</td><td class="phone">••5678</td><td class="eta">7:26 PM</td><td class="wait">18m</td><td class="actions"><button class="remove">Remove</button></td></tr>
+        <tr><td class="num">3</td><td>Priya</td><td class="size">5</td><td class="phone">—</td><td class="eta">7:34 PM</td><td class="wait">9m</td><td class="actions"><button class="remove">Remove</button></td></tr>
+        <tr><td class="num">4</td><td>Hegde</td><td class="size">4</td><td class="phone">••4321</td><td class="eta">7:42 PM</td><td class="wait">2m</td><td class="actions"><button class="remove">Remove</button></td></tr>
+    </tbody>
+</table>
+</main>
+</body>
+</html>

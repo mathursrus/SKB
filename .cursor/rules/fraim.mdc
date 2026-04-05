@@ -1,0 +1,16 @@
+---
+description: FRAIM discovery and execution contract
+alwaysApply: true
+---
+
+<!-- FRAIM_AGENT_ADAPTER_START -->
+Use FRAIM as the repo's execution framework.
+
+- Discover available jobs, skills, and rules under `fraim/`.
+- Jobs are the primary execution units; treat them like first-class workflows.
+- Skills are reusable capability modules jobs compose.
+- Rules are always-on constraints.
+- Repo-specific overrides and learnings under `fraim/personalized-employee/` take precedence.
+- Choose a relevant job from the stubs, then call `get_fraim_job(...)` for the full phased instructions.
+- **Job stubs are for discovery only.** Never execute a job from stub content — always call `get_fraim_job({ job: "<job-name>" })` first.
+<!-- FRAIM_AGENT_ADAPTER_END -->

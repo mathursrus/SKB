@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=1024,initial-scale=1" />
+<title>SKB — Host Stand</title>
+<link rel="stylesheet" href="/styles.css" />
+</head>
+<body class="host">
+<div id="login-view">
+    <div class="card login-card">
+        <h2 style="margin-top:0">SKB · Host Stand</h2>
+        <p style="color:#78716c;font-size:14px">Enter device PIN to continue.</p>
+        <form id="login-form">
+            <label for="pin">PIN</label>
+            <input type="password" id="pin" required inputmode="numeric" autocomplete="off" />
+            <div class="error" id="login-error" style="display:none"></div>
+            <button type="submit" class="primary">Unlock</button>
+        </form>
+    </div>
+</div>
+
+<div id="queue-view" style="display:none">
+    <div class="topbar">
+        <div class="brand">SKB · Host Stand</div>
+        <div class="counts">
+            <div><strong id="count-waiting">0</strong> waiting</div>
+            <div>oldest: <strong id="count-oldest">0m</strong></div>
+        </div>
+        <div class="turn">
+            Avg turn time (min):
+            <input type="number" id="turn" min="1" max="60" value="8" />
+        </div>
+        <button class="logout" id="logout-btn">Log out</button>
+    </div>
+    <main>
+        <table>
+            <thead>
+                <tr>
+                    <th>#</th><th>Name</th><th>Size</th><th>Phone</th><th>Promised</th><th>Waiting</th><th></th>
+                </tr>
+            </thead>
+            <tbody id="rows"><tr><td colspan="7" class="empty">Loading…</td></tr></tbody>
+        </table>
+    </main>
+</div>
+<script src="/host.js"></script>
+</body>
+</html>

@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>SKB — Place in Line</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fira+Sans:wght@400;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="/styles.css" />
+</head>
+<body class="diner">
+<header>
+    <div class="mark">SKB</div>
+    <h1>Shri Krishna Bhavan</h1>
+    <div class="sub">Bellevue · Place in Line</div>
+</header>
+<main>
+    <div class="card status" id="status-card">
+        <div class="line-len" id="line-len">—</div>
+        <div class="line-label">parties waiting</div>
+        <div class="eta" id="eta-new">Checking wait time…</div>
+    </div>
+
+    <div class="card" id="join-card">
+        <form id="join-form">
+            <label for="name">Your name</label>
+            <input type="text" id="name" required maxlength="60" autocomplete="off" />
+            <label for="size">Party size</label>
+            <input type="number" id="size" min="1" max="10" value="2" required />
+            <label for="phone">Phone (last 4, optional)</label>
+            <input type="tel" id="phone" inputmode="numeric" maxlength="4" placeholder="1234" />
+            <div class="error" id="join-error" style="display:none"></div>
+            <button type="submit" class="primary" id="submit-btn">Join the line</button>
+        </form>
+    </div>
+
+    <div class="card confirmation" id="conf-card" style="display:none">
+        <div class="pos-label">your place</div>
+        <div class="pos" id="conf-pos">—</div>
+        <div class="code" id="conf-code">SKB-—</div>
+        <div class="eta-time">Promised by <strong id="conf-eta">—</strong> · <span id="conf-eta-mins" class="eta-mins">—</span></div>
+        <div class="hint">We'll call your name and code when your table is ready. Tap below to refresh.</div>
+        <button type="button" class="primary" id="refresh-btn">Refresh</button>
+        <div class="callout" id="called-callout" style="display:none">
+            <div>The host has called your party — please come to the front.</div>
+            <div id="called-times" class="called-times"></div>
+        </div>
+    </div>
+</main>
+<footer>No app needed · No account · Your data stays with SKB</footer>
+<script src="/queue.js"></script>
+</body>
+</html>

@@ -1,6 +1,6 @@
 # Feature Specification: QR Code for Waitlist at the Restaurant Door
 Issue: [#2](https://github.com/mathursrus/SKB/issues/2)
-PR: (linked upon creation)
+PR: [#17](https://github.com/mathursrus/SKB/pull/17)
 
 ## Summary
 - **Issue**: #2 - QR code for queue.html at the restaurant door
@@ -41,8 +41,8 @@ PR: (linked upon creation)
 - 3 open questions for owner review
 
 ## Completeness Evidence
-- Issue tagged with label `phase:spec`: Pending
-- Issue tagged with label `status:needs-review`: Pending
+- Issue tagged with label `phase:spec`: Yes
+- Issue tagged with label `status:needs-review`: Yes
 - All specification documents committed/synced to branch: Yes
 
 | Customer Research Area | Sources of Information |

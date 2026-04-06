@@ -1,12 +1,12 @@
 // Unit tests for JSON-LD and meta tag generation (Issue #8)
-import { runTests } from './test-utils.js';
+import { runTests } from '../test-utils.js';
 import {
     buildJsonLd,
     buildMetaDescription,
     buildOgDescription,
     buildOgTitle,
-} from '../src/services/jsonld.js';
-import type { QueueStateDTO } from '../src/types/queue.js';
+} from '../../src/services/jsonld.js';
+import type { QueueStateDTO } from '../../src/types/queue.js';
 
 interface T {
     name: string;

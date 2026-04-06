@@ -26,6 +26,10 @@ const DEFAULT_BRANCH = 'master';
  * Falls back to env vars (PORT, WEBSITES_PORT, FRAIM_MCP_PORT) then DEFAULT_PORT.
  */
 export function getPort(): number {
+    // Explicit PORT env takes highest priority (production, CI, test overrides).
+    if (Number(process.env.PORT)) return Number(process.env.PORT);
+
+    // Issue-based allocation from branch name for local dev parallelism.
     try {
         const branchName = process.env.FRAIM_BRANCH || getCurrentGitBranch();
         const issueMatch = branchName.match(/issue-(\d+)/i) || branchName.match(/(\d+)-/);
@@ -35,11 +39,10 @@ export function getPort(): number {
             return 10000 + (issueNum % 55535);
         }
     } catch {
-        // Silently fall through to env-var fallback
+        // Silently fall through
     }
 
     return (
-        Number(process.env.PORT) ||
         Number(process.env.WEBSITES_PORT) ||
         Number(process.env.FRAIM_MCP_PORT) ||
         DEFAULT_PORT

@@ -1,12 +1,12 @@
 // Unit tests for pure helpers in src/services/stats.ts
-import { runTests } from './test-utils.js';
+import { runTests } from '../test-utils.js';
 import {
     computeAvgWait,
     computePeakHour,
     buildStats,
     formatHourLabel,
-} from '../src/services/stats.js';
-import type { QueueEntry } from '../src/types/queue.js';
+} from '../../src/services/stats.js';
+import type { QueueEntry } from '../../src/types/queue.js';
 
 type Entry = Pick<QueueEntry, 'state' | 'joinedAt' | 'removedAt' | 'removedReason'>;
 

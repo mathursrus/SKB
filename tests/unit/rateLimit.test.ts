@@ -1,6 +1,6 @@
 // Unit tests for src/middleware/rateLimit.ts
-import { runTests } from './test-utils.js';
-import { rateLimit } from '../src/middleware/rateLimit.js';
+import { runTests } from '../test-utils.js';
+import { rateLimit } from '../../src/middleware/rateLimit.js';
 import type { Request, Response } from 'express';
 
 interface T { name: string; description?: string; tags?: string[]; testFn?: () => Promise<boolean>; }

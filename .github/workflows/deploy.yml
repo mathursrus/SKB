@@ -31,12 +31,7 @@ jobs:
         run: npm run typecheck
 
       - name: Unit tests
-        run: |
-          npx tsx tests/codes.test.ts
-          npx tsx tests/serviceDay.test.ts
-          npx tsx tests/queue.test.ts
-          npx tsx tests/hostAuth.test.ts
-          npx tsx tests/rateLimit.test.ts
+        run: npm test
 
       - name: Deploy to Azure Web App
         uses: azure/webapps-deploy@v3

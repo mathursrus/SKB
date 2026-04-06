@@ -2,12 +2,12 @@
 import { readFileSync, existsSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { runTests } from './test-utils.js';
+import { runTests } from '../test-utils.js';
 
 interface T { name: string; description?: string; tags?: string[]; testFn?: () => Promise<boolean>; }
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const QR_SVG_PATH = path.resolve(__dirname, '..', 'public', 'qr.svg');
+const QR_SVG_PATH = path.resolve(__dirname, '..', '..', 'public', 'qr.svg');
 
 const cases: T[] = [
     {

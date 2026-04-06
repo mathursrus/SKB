@@ -1,6 +1,6 @@
 // Unit tests for pure helpers in src/services/queue.ts
-import { runTests } from './test-utils.js';
-import { computeEtaMinutes, positionInList } from '../src/services/queue.js';
+import { runTests } from '../test-utils.js';
+import { computeEtaMinutes, positionInList } from '../../src/services/queue.js';
 
 interface T { name: string; description?: string; tags?: string[]; testFn?: () => Promise<boolean>; }
 

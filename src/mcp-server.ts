@@ -2,7 +2,7 @@
 // SKB - MCP Server + REST API + static UI
 // ============================================================================
 // - /health, /health/db            (health routes)
-// - /api/queue/*                   (diner-facing)
+// - /api/queue/*                   (diner-facing + public board)
 // - /api/host/*                    (host-stand, PIN-gated)
 // - /mcp                           (JSON-RPC 2.0 MCP endpoint, tools)
 // - static /*                      (public/ served as-is)
@@ -141,4 +141,5 @@ app.listen(port, () => {
     console.log(`[MCP Server] Health: http://localhost:${port}/health`);
     console.log(`[MCP Server] Diner:  http://localhost:${port}/queue.html`);
     console.log(`[MCP Server] Host:   http://localhost:${port}/host.html`);
+    console.log(`[MCP Server] Board:  http://localhost:${port}/board.html`);
 });

@@ -74,6 +74,12 @@ export interface HostQueueDTO {
     avgTurnTimeMinutes: number;
 }
 
+export interface BoardEntryDTO {
+    position: number;
+    code: string;
+    state: string;
+}
+
 export interface ErrorDTO {
     error: string;
     field?: string;

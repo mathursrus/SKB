@@ -13,6 +13,7 @@ import { generateCode } from './codes.js';
 import { getAvgTurnTime } from './settings.js';
 import { addMinutes, minutesBetween, serviceDay } from '../core/utils/time.js';
 import type {
+    BoardEntryDTO,
     HostPartyDTO,
     HostQueueDTO,
     JoinRequestDTO,
@@ -244,4 +245,23 @@ export async function callParty(
         },
     );
     return { ok: res.matchedCount === 1 };
+}
+
+/**
+ * Return active queue entries for the public TV board display.
+ * Only exposes position, code, and state — no PII.
+ */
+export async function getBoardEntries(now: Date = new Date()): Promise<BoardEntryDTO[]> {
+    const db = await getDb();
+    const today = serviceDay(now);
+    const docs = await queueEntries(db)
+        .find({ serviceDay: today, state: { $in: ACTIVE_STATES } })
+        .sort({ joinedAt: 1 })
+        .toArray();
+
+    return docs.map((d, i): BoardEntryDTO => ({
+        position: i + 1,
+        code: d.code,
+        state: d.state,
+    }));
 }

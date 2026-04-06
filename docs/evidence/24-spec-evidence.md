@@ -1,6 +1,6 @@
 # Feature Specification: Full Dining Party Lifecycle
 Issue: [#24](https://github.com/mathursrus/SKB/issues/24)
-PR: (linked below upon creation)
+PR: [#25](https://github.com/mathursrus/SKB/pull/25)
 
 ## Summary
 - **Issue**: #24 - Full dining party lifecycle -- from queue to checkout

@@ -46,3 +46,5 @@ jobs:
           app-name: ${{ env.AZURE_WEBAPP_NAME }}
           publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE }}
           package: deploy-package
+        env:
+          SCM_DO_BUILD_DURING_DEPLOYMENT: 'false'

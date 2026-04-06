@@ -1,6 +1,6 @@
 # Feature Specification: End-of-Day Operations Dashboard
 Issue: [#6](https://github.com/mathursrus/SKB/issues/6)
-PR: TBD
+PR: [#19](https://github.com/mathursrus/SKB/pull/19)
 
 ## Summary
 - **Issue**: #6 - End-of-day operations dashboard
@@ -42,9 +42,9 @@ PR: TBD
 - 3 open questions for owner review
 
 ## Completeness Evidence
-- Issue tagged with label `phase:spec`: Pending (will be set on submission)
-- Issue tagged with label `status:needs-review`: Pending (will be set on submission)
-- All specification documents committed/synced to branch: Pending
+- Issue tagged with label `phase:spec`: Yes
+- Issue tagged with label `status:needs-review`: Yes
+- All specification documents committed/synced to branch: Yes
 
 | Customer Research Area | Sources of Information |
 |---|---|

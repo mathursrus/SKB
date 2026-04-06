@@ -18,6 +18,7 @@ import { fileIssue } from './issues.js';
 import { queueRouter } from './routes/queue.js';
 import { hostRouter } from './routes/host.js';
 import { healthRouter } from './routes/health.js';
+import { renderQueuePage } from './services/queue-template.js';
 
 const SERVER_NAME = 'skb-mcp';
 const SERVER_VERSION = '0.1.0';
@@ -29,10 +30,23 @@ const publicDir = path.resolve(__dirname, '..', 'public');
 const app = express();
 app.use(express.json({ limit: '10mb' }));
 
-// Health + REST + static
+// Health + REST
 app.use(healthRouter(SERVER_NAME));
 app.use('/api', queueRouter());
 app.use('/api', hostRouter());
+
+// Server-side rendered queue page (JSON-LD + OG meta injected from live queue state)
+app.get(['/queue.html', '/queue'], async (_req: Request, res: Response) => {
+    try {
+        const html = await renderQueuePage();
+        res.type('html').send(html);
+    } catch (err) {
+        console.error('[MCP Server] queue template error:', err);
+        res.status(500).send('Internal server error');
+    }
+});
+
+// Static assets (queue.js, styles.css, host.html, host.js, board.html, board.js, qr.svg, etc.)
 app.use(express.static(publicDir));
 
 // ----------------------------------------------------------------------------
@@ -141,4 +155,5 @@ app.listen(port, () => {
     console.log(`[MCP Server] Health: http://localhost:${port}/health`);
     console.log(`[MCP Server] Diner:  http://localhost:${port}/queue.html`);
     console.log(`[MCP Server] Host:   http://localhost:${port}/host.html`);
+    console.log(`[MCP Server] Board:  http://localhost:${port}/board.html`);
 });

@@ -1,0 +1,246 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>SKB — Queue Board</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fira+Sans:wght@400;600;700&display=swap" rel="stylesheet" />
+<style>
+/* ============================================================================
+   SKB Queue Display Board — TV-optimized (1080p landscape)
+   Brand palette: Black + White + Gold (#e3bf3d), Fira Sans
+   ============================================================================ */
+
+:root {
+    --bg: #0a0a0a;
+    --fg: #f5f5f5;
+    --muted: #888888;
+    --accent: #e3bf3d;
+    --accent-dark: #b89624;
+    --card-bg: #1a1a1a;
+    --card-border: #2a2a2a;
+    --called-bg: #2a2305;
+    --called-border: #e3bf3d;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+    font-family: 'Fira Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--fg);
+    min-height: 100vh;
+    overflow: hidden;
+}
+
+/* ---------- Header ---------- */
+.header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px 40px;
+    background: #000;
+    border-bottom: 3px solid var(--accent);
+}
+
+.header-left {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+}
+
+.mark {
+    font-weight: 700;
+    font-size: 28px;
+    letter-spacing: 6px;
+    color: var(--accent);
+    border: 2px solid var(--accent);
+    padding: 4px 14px;
+    border-radius: 4px;
+}
+
+.restaurant-name {
+    font-size: 24px;
+    font-weight: 600;
+    color: #fff;
+    letter-spacing: 0.3px;
+}
+
+.header-right {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+}
+
+.summary {
+    font-size: 20px;
+    color: var(--muted);
+}
+
+.summary strong {
+    color: var(--accent);
+    font-size: 28px;
+    font-weight: 700;
+}
+
+.clock {
+    font-size: 20px;
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
+}
+
+/* ---------- Board Grid ---------- */
+.board {
+    padding: 30px 40px;
+    height: calc(100vh - 80px);
+    display: flex;
+    flex-direction: column;
+}
+
+.queue-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px 24px;
+    flex: 1;
+    align-content: start;
+}
+
+/* ---------- Queue Entry Row ---------- */
+.entry {
+    display: grid;
+    grid-template-columns: 80px 1fr 160px;
+    align-items: center;
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 10px;
+    padding: 14px 20px;
+    transition: background 0.3s, border-color 0.3s;
+}
+
+.entry.called {
+    background: var(--called-bg);
+    border-color: var(--called-border);
+}
+
+.entry.newly-called {
+    animation: pulse-called 2s ease-in-out 3;
+}
+
+@keyframes pulse-called {
+    0%, 100% { border-color: var(--called-border); }
+    50% { border-color: #fff; box-shadow: 0 0 16px rgba(227, 191, 61, 0.3); }
+}
+
+.entry-pos {
+    font-size: 32px;
+    font-weight: 700;
+    color: var(--muted);
+}
+
+.entry.called .entry-pos {
+    color: var(--accent);
+}
+
+.entry-code {
+    font-family: ui-monospace, Menlo, Consolas, monospace;
+    font-size: 36px;
+    font-weight: 700;
+    color: var(--fg);
+    letter-spacing: 3px;
+}
+
+.entry.called .entry-code {
+    color: var(--accent);
+}
+
+.entry-status {
+    text-align: right;
+    font-size: 20px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.entry-status.waiting {
+    color: var(--muted);
+}
+
+.entry-status.called {
+    color: var(--accent);
+}
+
+/* ---------- Empty State ---------- */
+.empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    flex: 1;
+    gap: 16px;
+    color: var(--muted);
+}
+
+.empty-state .icon {
+    font-size: 64px;
+    opacity: 0.4;
+}
+
+.empty-state .message {
+    font-size: 36px;
+    font-weight: 600;
+    color: var(--fg);
+}
+
+.empty-state .sub {
+    font-size: 22px;
+    color: var(--muted);
+}
+
+/* ---------- Responsive fallback for non-TV ---------- */
+@media (max-width: 960px) {
+    .queue-grid {
+        grid-template-columns: 1fr;
+    }
+    .header {
+        flex-direction: column;
+        gap: 12px;
+        text-align: center;
+    }
+    .entry-code {
+        font-size: 28px;
+    }
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+    <div class="header-left">
+        <div class="mark">SKB</div>
+        <div class="restaurant-name">Shri Krishna Bhavan</div>
+    </div>
+    <div class="header-right">
+        <div class="summary"><strong id="total-count">0</strong> parties waiting</div>
+        <div class="clock" id="clock"></div>
+    </div>
+</div>
+
+<div class="board">
+    <!-- Normal state: queue has entries -->
+    <div id="queue-view">
+        <div class="queue-grid" id="queue-grid"></div>
+    </div>
+
+    <!-- Empty state: no parties in queue -->
+    <div id="empty-view" class="empty-state">
+        <div class="icon">&#9734;</div>
+        <div class="message">No parties waiting</div>
+        <div class="sub">Walk right in!</div>
+    </div>
+</div>
+
+<script src="board.js"></script>
+</body>
+</html>

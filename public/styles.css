@@ -252,5 +252,92 @@ button.remove {
     min-height: 44px; margin-left: 6px;
 }
 button.remove:hover { background: var(--danger); color: #fff; }
+/* ---------- Stats card ---------- */
+.stats-card {
+    margin: 16px 24px 0;
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+}
+.stats-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    padding: 14px 20px;
+    min-height: 48px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--fg);
+    letter-spacing: 0.3px;
+}
+.stats-toggle:hover { background: var(--surface-alt); }
+.stats-toggle-arrow {
+    font-size: 12px;
+    color: var(--muted);
+    transition: transform 0.2s;
+}
+.stats-card.collapsed .stats-toggle-arrow { transform: rotate(-90deg); }
+.stats-body {
+    padding: 0 20px 18px;
+    transition: max-height 0.25s ease, padding 0.25s ease;
+    max-height: 300px;
+    overflow: hidden;
+}
+.stats-card.collapsed .stats-body {
+    max-height: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+}
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+}
+.stat-item {
+    text-align: center;
+    padding: 10px 6px;
+    background: var(--surface-alt);
+    border-radius: 8px;
+}
+.stat-item-wide {
+    grid-column: 1 / -1;
+}
+.stat-value {
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--fg);
+    line-height: 1.2;
+}
+.stat-vs {
+    font-size: 14px;
+    font-weight: 400;
+    color: var(--muted);
+}
+.stat-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: var(--muted);
+    margin-top: 4px;
+}
+.stats-empty {
+    text-align: center;
+    color: var(--muted);
+    font-size: 14px;
+    padding: 12px 0;
+    margin: 0;
+}
+@media (max-width: 600px) {
+    .stats-card { margin: 12px 12px 0; }
+    .stats-grid { grid-template-columns: repeat(2, 1fr); }
+    .stat-value { font-size: 22px; }
+}
+
 .empty { text-align: center; color: var(--muted); padding: 40px; }
 .login-card { max-width: 360px; margin: 80px auto; }

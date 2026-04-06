@@ -1,6 +1,6 @@
 # Feature Specification: Wait-time Widget for Google Maps / Search
 Issue: #8
-PR: (to be linked after creation)
+PR: [#20](https://github.com/mathursrus/SKB/pull/20)
 
 ## Summary
 - **Issue**: #8 - Wait-time widget for Google Maps / Search

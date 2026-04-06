@@ -1,0 +1,370 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=1024,initial-scale=1" />
+<title>SKB — Host Stand (Dining Lifecycle)</title>
+<style>
+    :root {
+        --bg: #f5f5f4;
+        --fg: #1c1917;
+        --muted: #78716c;
+        --accent: #b45309;
+        --accent-fg: #fff;
+        --danger: #b91c1c;
+        --success: #15803d;
+        --info: #1d4ed8;
+        --border: #e7e5e4;
+        --row-hover: #fafaf9;
+        --seated-bg: #fef3c7;
+        --ordered-bg: #dbeafe;
+        --served-bg: #d1fae5;
+        --checkout-bg: #fce7f3;
+    }
+    * { box-sizing: border-box; }
+    body {
+        margin: 0;
+        font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        background: var(--bg);
+        color: var(--fg);
+    }
+    .topbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 14px 24px;
+        background: #fff;
+        border-bottom: 1px solid var(--border);
+        flex-wrap: wrap;
+        gap: 12px;
+    }
+    .topbar .brand { font-weight: 700; letter-spacing: 0.5px; }
+    .topbar .counts {
+        display: flex;
+        gap: 24px;
+        font-size: 14px;
+        color: var(--muted);
+    }
+    .topbar .counts strong { color: var(--fg); font-size: 18px; }
+    .topbar .turn {
+        display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted);
+    }
+    .topbar .turn input {
+        width: 60px; padding: 6px 8px; font-size: 15px;
+        border: 1px solid var(--border); border-radius: 6px;
+    }
+    main { padding: 20px 24px; }
+    h2.section-title {
+        font-size: 14px;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        color: var(--muted);
+        margin: 28px 0 12px 0;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    h2.section-title:first-child { margin-top: 0; }
+    h2.section-title .count-badge {
+        background: var(--accent);
+        color: #fff;
+        font-size: 12px;
+        padding: 2px 8px;
+        border-radius: 10px;
+        font-weight: 700;
+    }
+    table {
+        width: 100%; background: #fff;
+        border-collapse: separate; border-spacing: 0;
+        border: 1px solid var(--border); border-radius: 10px; overflow: hidden;
+    }
+    th, td {
+        padding: 12px 14px;
+        text-align: left;
+        border-bottom: 1px solid var(--border);
+    }
+    th { background: #fafaf9; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--muted); }
+    tr:last-child td { border-bottom: none; }
+    tr:hover { background: var(--row-hover); }
+    td.num { font-weight: 700; color: var(--accent); font-size: 18px; width: 56px; }
+    td.size { text-align: center; width: 60px; }
+    td.phone { font-family: ui-monospace, Menlo, Consolas, monospace; color: var(--muted); width: 80px; }
+    td.eta { width: 90px; font-weight: 600; }
+    td.wait { width: 90px; color: var(--muted); }
+    td.actions { text-align: right; white-space: nowrap; }
+    td.actions button {
+        padding: 8px 12px;
+        border-radius: 8px;
+        font-size: 13px;
+        font-weight: 600;
+        cursor: pointer;
+        min-height: 44px;
+        margin-left: 6px;
+        border: 1px solid;
+    }
+    button.call-btn {
+        background: #fff; color: var(--accent);
+        border-color: var(--accent);
+    }
+    button.call-btn:hover { background: var(--accent); color: #fff; }
+    button.seat-btn {
+        background: #fff; color: var(--success);
+        border-color: var(--success);
+    }
+    button.seat-btn:hover { background: var(--success); color: #fff; }
+    button.noshow-btn {
+        background: #fff; color: var(--danger);
+        border-color: var(--danger);
+    }
+    button.noshow-btn:hover { background: var(--danger); color: #fff; }
+    button.advance-btn {
+        background: #fff; color: var(--info);
+        border-color: var(--info);
+    }
+    button.advance-btn:hover { background: var(--info); color: #fff; }
+    button.depart-btn {
+        background: #fff; color: var(--success);
+        border-color: var(--success);
+    }
+    button.depart-btn:hover { background: var(--success); color: #fff; }
+
+    .state-badge {
+        display: inline-block;
+        padding: 2px 10px;
+        border-radius: 10px;
+        font-size: 12px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    .state-seated { background: var(--seated-bg); color: #92400e; }
+    .state-ordered { background: var(--ordered-bg); color: #1e40af; }
+    .state-served { background: var(--served-bg); color: #166534; }
+    .state-checkout { background: var(--checkout-bg); color: #9d174d; }
+
+    .badge-called {
+        display: inline-block;
+        background: #fef3c7;
+        color: #92400e;
+        font-size: 11px;
+        font-weight: 600;
+        padding: 1px 7px;
+        border-radius: 8px;
+        margin-left: 6px;
+    }
+
+    .elapsed {
+        font-size: 12px;
+        color: var(--muted);
+    }
+    .elapsed strong {
+        color: var(--fg);
+    }
+
+    /* Stats card - same as production */
+    .stats-card {
+        margin: 16px 24px 0;
+        background: #fff;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        overflow: hidden;
+    }
+    .stats-toggle {
+        width: 100%;
+        background: none;
+        border: none;
+        padding: 12px 16px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        cursor: pointer;
+        font-size: 14px;
+        font-weight: 600;
+        color: var(--fg);
+    }
+    .stats-body { padding: 0 16px 16px; }
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+        gap: 12px;
+    }
+    .stat-item { text-align: center; }
+    .stat-value { font-size: 24px; font-weight: 700; color: var(--accent); }
+    .stat-label { font-size: 11px; text-transform: uppercase; color: var(--muted); letter-spacing: 0.5px; }
+    .stat-item-wide { grid-column: span 2; }
+    .stat-vs { font-size: 14px; font-weight: 400; color: var(--muted); }
+
+    .empty { text-align: center; color: var(--muted); padding: 40px; }
+</style>
+</head>
+<body>
+<div class="topbar">
+    <div class="brand">SKB &middot; Host Stand</div>
+    <div class="counts">
+        <div><strong>3</strong> waiting</div>
+        <div><strong>4</strong> dining</div>
+        <div>oldest: <strong>18m</strong></div>
+    </div>
+    <div class="turn">
+        Avg turn time (min):
+        <input type="number" min="1" max="60" value="8" />
+    </div>
+</div>
+
+<!-- Stats card -->
+<div class="stats-card">
+    <button class="stats-toggle">
+        <span>Today's Stats</span>
+        <span>&#9660;</span>
+    </button>
+    <div class="stats-body">
+        <div class="stats-grid">
+            <div class="stat-item">
+                <div class="stat-value">12</div>
+                <div class="stat-label">Seated</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value">2</div>
+                <div class="stat-label">No-Shows</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value">14m</div>
+                <div class="stat-label">Avg Wait</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value">12 PM</div>
+                <div class="stat-label">Peak Hour</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value">8m <span class="stat-vs">vs</span> 11m</div>
+                <div class="stat-label">Turn Time: Set vs Actual</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value">4m</div>
+                <div class="stat-label">Avg Order Time</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value">18m</div>
+                <div class="stat-label">Avg Serve Time</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value">6m</div>
+                <div class="stat-label">Avg Checkout</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value">39m</div>
+                <div class="stat-label">Avg Table Occ.</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<main>
+<!-- WAITLIST SECTION -->
+<h2 class="section-title">Waitlist <span class="count-badge">3</span></h2>
+<table>
+    <thead>
+        <tr>
+            <th>#</th><th>Name</th><th>Size</th><th>Phone</th><th>Promised</th><th>Waiting</th><th></th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td class="num">1</td>
+            <td>Asha <span class="badge-called">Call 1: 3m ago</span></td>
+            <td class="size">3</td>
+            <td class="phone">**1234</td>
+            <td class="eta">7:18 PM</td>
+            <td class="wait">18m</td>
+            <td class="actions">
+                <button class="call-btn">Recall</button>
+                <button class="seat-btn">Seated</button>
+                <button class="noshow-btn">No-show</button>
+            </td>
+        </tr>
+        <tr>
+            <td class="num">2</td>
+            <td>Ravi</td>
+            <td class="size">2</td>
+            <td class="phone">**5678</td>
+            <td class="eta">7:26 PM</td>
+            <td class="wait">12m</td>
+            <td class="actions">
+                <button class="call-btn">Call</button>
+                <button class="seat-btn">Seated</button>
+                <button class="noshow-btn">No-show</button>
+            </td>
+        </tr>
+        <tr>
+            <td class="num">3</td>
+            <td>Hegde</td>
+            <td class="size">4</td>
+            <td class="phone">&mdash;</td>
+            <td class="eta">7:34 PM</td>
+            <td class="wait">5m</td>
+            <td class="actions">
+                <button class="call-btn">Call</button>
+                <button class="seat-btn">Seated</button>
+                <button class="noshow-btn">No-show</button>
+            </td>
+        </tr>
+    </tbody>
+</table>
+
+<!-- DINING SECTION -->
+<h2 class="section-title">Dining <span class="count-badge">4</span></h2>
+<table>
+    <thead>
+        <tr>
+            <th>Name</th><th>Size</th><th>State</th><th>Time in State</th><th>Total at Table</th><th></th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td>Priya</td>
+            <td class="size">5</td>
+            <td><span class="state-badge state-seated">Seated</span></td>
+            <td class="elapsed"><strong>3m</strong> since seated</td>
+            <td class="elapsed"><strong>3m</strong></td>
+            <td class="actions">
+                <button class="advance-btn">Ordered</button>
+                <button class="depart-btn">Departed</button>
+            </td>
+        </tr>
+        <tr>
+            <td>Kumar</td>
+            <td class="size">2</td>
+            <td><span class="state-badge state-ordered">Ordered</span></td>
+            <td class="elapsed"><strong>12m</strong> since ordered</td>
+            <td class="elapsed"><strong>17m</strong></td>
+            <td class="actions">
+                <button class="advance-btn">Served</button>
+                <button class="depart-btn">Departed</button>
+            </td>
+        </tr>
+        <tr>
+            <td>Lakshmi</td>
+            <td class="size">3</td>
+            <td><span class="state-badge state-served">Served</span></td>
+            <td class="elapsed"><strong>20m</strong> since served</td>
+            <td class="elapsed"><strong>38m</strong></td>
+            <td class="actions">
+                <button class="advance-btn">Checkout</button>
+                <button class="depart-btn">Departed</button>
+            </td>
+        </tr>
+        <tr>
+            <td>Gupta</td>
+            <td class="size">6</td>
+            <td><span class="state-badge state-checkout">Checkout</span></td>
+            <td class="elapsed"><strong>4m</strong> since checkout</td>
+            <td class="elapsed"><strong>45m</strong></td>
+            <td class="actions">
+                <button class="depart-btn">Departed</button>
+            </td>
+        </tr>
+    </tbody>
+</table>
+</main>
+</body>
+</html>

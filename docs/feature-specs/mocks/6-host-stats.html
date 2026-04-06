@@ -1,0 +1,351 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>SKB — Host Stand with Stats</title>
+<style>
+    :root {
+        --bg: #f5f5f4;
+        --fg: #1c1917;
+        --muted: #78716c;
+        --accent: #e3bf3d;
+        --accent-dark: #b89624;
+        --accent-fg: #111;
+        --danger: #b91c1c;
+        --ok: #15803d;
+        --border: #e7e5e4;
+        --card: #ffffff;
+        --row-hover: #fafaf9;
+        --divider: #f3f3f3;
+    }
+    * { box-sizing: border-box; }
+    body {
+        margin: 0;
+        font-family: 'Fira Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        font-size: 16px;
+        line-height: 1.5;
+        background: var(--bg);
+        color: var(--fg);
+    }
+
+    /* ---------- Top bar ---------- */
+    .topbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 14px 24px;
+        background: #fff;
+        border-bottom: 1px solid var(--border);
+        flex-wrap: wrap;
+        gap: 12px;
+    }
+    .topbar .brand { font-weight: 700; letter-spacing: 0.5px; }
+    .topbar .counts {
+        display: flex; gap: 24px; font-size: 14px; color: var(--muted);
+    }
+    .topbar .counts strong { color: var(--fg); font-size: 18px; }
+    .topbar .turn {
+        display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted);
+    }
+    .topbar .turn input {
+        width: 72px; min-height: 44px; padding: 8px 10px; font-size: 15px;
+        border: 1px solid var(--border); border-radius: 6px;
+    }
+    .logout {
+        background: none; border: 1px solid var(--border); border-radius: 6px;
+        padding: 10px 14px; min-height: 44px; cursor: pointer;
+        color: var(--muted); font-size: 13px; font-family: inherit;
+    }
+
+    /* ---------- Stats card ---------- */
+    main { padding: 20px 24px; }
+
+    .stats-card {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        margin-bottom: 20px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+        overflow: hidden;
+    }
+    .stats-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 16px 22px;
+        cursor: pointer;
+        user-select: none;
+        min-height: 52px;
+    }
+    .stats-header:hover { background: var(--divider); }
+    .stats-header h3 {
+        margin: 0;
+        font-size: 14px;
+        font-weight: 700;
+        letter-spacing: 0.5px;
+        text-transform: uppercase;
+        color: var(--muted);
+    }
+    .stats-header .toggle {
+        font-size: 12px;
+        color: var(--muted);
+        transition: transform 0.2s;
+    }
+    .stats-header .toggle.open { transform: rotate(180deg); }
+
+    .stats-body {
+        padding: 0 22px 22px;
+        display: none;
+    }
+    .stats-body.open { display: block; }
+
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+        gap: 16px;
+    }
+    .stat-tile {
+        background: var(--bg);
+        border-radius: 10px;
+        padding: 16px;
+        text-align: center;
+    }
+    .stat-value {
+        font-size: 32px;
+        font-weight: 700;
+        line-height: 1.1;
+        color: var(--fg);
+    }
+    .stat-value.ok { color: var(--ok); }
+    .stat-value.danger { color: var(--danger); }
+    .stat-value.accent { color: var(--accent-dark); }
+    .stat-label {
+        font-size: 11px;
+        font-weight: 600;
+        letter-spacing: 1px;
+        text-transform: uppercase;
+        color: var(--muted);
+        margin-top: 6px;
+    }
+
+    /* Turn-time comparison */
+    .turn-compare {
+        margin-top: 16px;
+        padding: 14px 18px;
+        background: var(--bg);
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 32px;
+        flex-wrap: wrap;
+    }
+    .turn-col {
+        text-align: center;
+    }
+    .turn-col .val {
+        font-size: 28px;
+        font-weight: 700;
+        line-height: 1.1;
+    }
+    .turn-col .lbl {
+        font-size: 11px;
+        font-weight: 600;
+        letter-spacing: 1px;
+        text-transform: uppercase;
+        color: var(--muted);
+        margin-top: 4px;
+    }
+    .turn-vs {
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--muted);
+    }
+    .turn-delta {
+        text-align: center;
+        margin-top: 8px;
+        font-size: 13px;
+        color: var(--danger);
+        font-weight: 600;
+    }
+    .turn-delta.on-track { color: var(--ok); }
+
+    /* ---------- Queue table ---------- */
+    table {
+        width: 100%; background: #fff;
+        border-collapse: separate; border-spacing: 0;
+        border: 1px solid var(--border); border-radius: 10px; overflow: hidden;
+    }
+    th, td { padding: 12px 14px; text-align: left; border-bottom: 1px solid var(--border); }
+    th { background: #fafaf9; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--muted); }
+    tr:last-child td { border-bottom: none; }
+    tr:hover { background: var(--row-hover); }
+    td.num { font-weight: 700; color: var(--fg); font-size: 18px; width: 56px; }
+    td.size { text-align: center; width: 60px; }
+    td.phone { font-family: ui-monospace, Menlo, Consolas, monospace; color: var(--muted); width: 80px; }
+    td.eta { width: 100px; font-weight: 600; }
+    td.wait { width: 90px; color: var(--muted); }
+    td.actions { width: 260px; text-align: right; white-space: nowrap; }
+    tr.row-called td { background: #fff8e1; }
+    .badge-called {
+        display: inline-block; background: var(--accent); color: #111;
+        font-size: 10px; font-weight: 700; letter-spacing: 0.5px;
+        padding: 3px 7px; border-radius: 4px; margin-left: 6px; vertical-align: middle;
+    }
+    button.call-btn {
+        background: #111; color: #fff; border: 1px solid #111;
+        padding: 10px 14px; border-radius: 8px;
+        font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer;
+        min-height: 44px; margin-right: 6px;
+    }
+    button.call-btn:hover { background: #333; }
+    button.remove {
+        background: #fff; color: var(--danger); border: 1px solid var(--danger);
+        padding: 10px 14px; border-radius: 8px;
+        font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer;
+        min-height: 44px; margin-left: 6px;
+    }
+    button.remove:hover { background: var(--danger); color: #fff; }
+    .empty { text-align: center; color: var(--muted); padding: 40px; }
+
+    /* ---------- Mobile responsive ---------- */
+    @media (max-width: 600px) {
+        .topbar { padding: 12px 16px; }
+        main { padding: 16px; }
+        .stats-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+        .stat-value { font-size: 26px; }
+        .turn-compare { gap: 16px; }
+        .turn-col .val { font-size: 22px; }
+        td.actions { width: auto; }
+        table { font-size: 14px; }
+    }
+</style>
+</head>
+<body>
+
+<!-- ===== Top bar (same as current host.html) ===== -->
+<div class="topbar">
+    <div class="brand">SKB &middot; Host Stand</div>
+    <div class="counts">
+        <div><strong>3</strong> waiting</div>
+        <div>oldest: <strong>18m</strong></div>
+    </div>
+    <div class="turn">
+        Avg turn time (min):
+        <input type="number" min="1" max="60" value="8" />
+    </div>
+    <button class="logout">Log out</button>
+</div>
+
+<main>
+
+<!-- ===== NEW: Today's Stats card (collapsed by default) ===== -->
+<div class="stats-card">
+    <div class="stats-header" onclick="toggleStats()">
+        <h3>Today's Stats</h3>
+        <span class="toggle" id="toggle-arrow">&#9660;</span>
+    </div>
+    <div class="stats-body" id="stats-body">
+        <div class="stats-grid">
+            <div class="stat-tile">
+                <div class="stat-value ok">14</div>
+                <div class="stat-label">Parties Served</div>
+            </div>
+            <div class="stat-tile">
+                <div class="stat-value danger">2</div>
+                <div class="stat-label">No-Shows</div>
+            </div>
+            <div class="stat-tile">
+                <div class="stat-value">11m</div>
+                <div class="stat-label">Avg Actual Wait</div>
+            </div>
+            <div class="stat-tile">
+                <div class="stat-value accent">12 PM</div>
+                <div class="stat-label">Peak Hour</div>
+            </div>
+        </div>
+
+        <!-- Turn-time comparison -->
+        <div class="turn-compare">
+            <div class="turn-col">
+                <div class="val">8m</div>
+                <div class="lbl">Set Turn Time</div>
+            </div>
+            <div class="turn-vs">vs</div>
+            <div class="turn-col">
+                <div class="val" style="color: var(--danger)">11m</div>
+                <div class="lbl">Actual Avg</div>
+            </div>
+        </div>
+        <div class="turn-delta">Actual is 3 min slower than configured &mdash; consider increasing turn time</div>
+    </div>
+</div>
+
+<!-- ===== Queue table (existing) ===== -->
+<table>
+    <thead>
+        <tr>
+            <th>#</th><th>Name</th><th>Size</th><th>Phone</th><th>Promised</th><th>Waiting</th><th></th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td class="num">1</td>
+            <td>Asha <span class="badge-called">Call 1: 3m ago</span></td>
+            <td class="size">3</td>
+            <td class="phone">**1234</td>
+            <td class="eta">7:18 PM</td>
+            <td class="wait">18m</td>
+            <td class="actions">
+                <button class="call-btn">Recall</button>
+                <button class="remove">Seated</button>
+                <button class="remove">No-show</button>
+            </td>
+        </tr>
+        <tr>
+            <td class="num">2</td>
+            <td>Ravi</td>
+            <td class="size">2</td>
+            <td class="phone">**5678</td>
+            <td class="eta">7:26 PM</td>
+            <td class="wait">12m</td>
+            <td class="actions">
+                <button class="call-btn">Call</button>
+                <button class="remove">Seated</button>
+                <button class="remove">No-show</button>
+            </td>
+        </tr>
+        <tr>
+            <td class="num">3</td>
+            <td>Priya</td>
+            <td class="size">5</td>
+            <td class="phone">&mdash;</td>
+            <td class="eta">7:34 PM</td>
+            <td class="wait">4m</td>
+            <td class="actions">
+                <button class="call-btn">Call</button>
+                <button class="remove">Seated</button>
+                <button class="remove">No-show</button>
+            </td>
+        </tr>
+    </tbody>
+</table>
+</main>
+
+<script>
+function toggleStats() {
+    var body = document.getElementById('stats-body');
+    var arrow = document.getElementById('toggle-arrow');
+    var isOpen = body.classList.contains('open');
+    if (isOpen) {
+        body.classList.remove('open');
+        arrow.classList.remove('open');
+    } else {
+        body.classList.add('open');
+        arrow.classList.add('open');
+    }
+}
+</script>
+</body>
+</html>

@@ -74,6 +74,18 @@ export interface HostQueueDTO {
     avgTurnTimeMinutes: number;
 }
 
+export interface HostStatsDTO {
+    partiesSeated: number;
+    noShows: number;
+    avgActualWaitMinutes: number | null;
+    peakHour: number | null;          // 0-23, PT
+    peakHourLabel: string | null;     // e.g., "12 PM"
+    configuredTurnTime: number;       // current avgTurnTimeMinutes setting
+    actualTurnTime: number | null;    // computed from today's seated data
+    totalJoined: number;              // total entries for today (all states)
+    stillWaiting: number;             // entries still in waiting/called state
+}
+
 export interface ErrorDTO {
     error: string;
     field?: string;

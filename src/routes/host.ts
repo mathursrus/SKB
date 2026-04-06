@@ -6,6 +6,7 @@ import { Router, type Request, type Response } from 'express';
 
 import { callParty, listHostQueue, removeFromQueue } from '../services/queue.js';
 import { getAvgTurnTime, setAvgTurnTime } from '../services/settings.js';
+import { getHostStats } from '../services/stats.js';
 import {
     loginHandler,
     logoutHandler,
@@ -83,6 +84,15 @@ export function hostRouter(): Router {
                 res.status(400).json({ error: 'invalid id' });
                 return;
             }
+            dbError(res, err);
+        }
+    });
+
+    r.get('/host/stats', requireHost, async (_req: Request, res: Response) => {
+        try {
+            const stats = await getHostStats();
+            res.json(stats);
+        } catch (err) {
             dbError(res, err);
         }
     });

@@ -2,7 +2,7 @@
 // SKB - Time / service-day utilities (America/Los_Angeles)
 // ============================================================================
 
-const TZ = 'America/Los_Angeles';
+export const TZ = 'America/Los_Angeles';
 
 /**
  * Return the "service day" for a given instant, as a YYYY-MM-DD string in PT.

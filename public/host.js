@@ -10,6 +10,17 @@
     const countOldest = $('count-oldest');
     const turnInput = $('turn');
     const logoutBtn = $('logout-btn');
+    const statsCard = $('stats-card');
+    const statsToggle = $('stats-toggle');
+    const statsBody = $('stats-body');
+    const statsGrid = $('stats-grid');
+    const statsEmpty = $('stats-empty');
+    const statSeated = $('stat-seated');
+    const statNoshows = $('stat-noshows');
+    const statAvgWait = $('stat-avg-wait');
+    const statPeak = $('stat-peak');
+    const statTurnSet = $('stat-turn-set');
+    const statTurnActual = $('stat-turn-actual');
 
     let pollTimer = null;
 
@@ -62,6 +73,33 @@
             }).join('');
         } catch (e) {
             console.error('refresh error', e);
+        }
+    }
+
+    // Stats card toggle
+    statsToggle.addEventListener('click', () => {
+        const expanded = statsCard.classList.toggle('collapsed');
+        statsToggle.setAttribute('aria-expanded', String(!statsCard.classList.contains('collapsed')));
+    });
+
+    async function refreshStats() {
+        try {
+            const r = await fetch('/api/host/stats');
+            if (r.status === 401) return; // handled by main refresh
+            if (!r.ok) return;
+            const s = await r.json();
+            const hasData = s.totalJoined > 0;
+            statsGrid.style.display = hasData ? '' : 'none';
+            statsEmpty.style.display = hasData ? 'none' : '';
+            if (!hasData) return;
+            statSeated.textContent = String(s.partiesSeated);
+            statNoshows.textContent = String(s.noShows);
+            statAvgWait.textContent = s.avgActualWaitMinutes != null ? s.avgActualWaitMinutes + 'm' : '\u2014';
+            statPeak.textContent = s.peakHourLabel ?? '\u2014';
+            statTurnSet.textContent = s.configuredTurnTime + 'm';
+            statTurnActual.textContent = s.actualTurnTime != null ? s.actualTurnTime + 'm' : '\u2014';
+        } catch (e) {
+            console.error('stats refresh error', e);
         }
     }
 
@@ -145,8 +183,9 @@
         loginView.style.display = 'none';
         queueView.style.display = '';
         refresh();
+        refreshStats();
         if (pollTimer) clearInterval(pollTimer);
-        pollTimer = setInterval(refresh, 5000);
+        pollTimer = setInterval(() => { refresh(); refreshStats(); }, 5000);
     }
 
     (async function boot() {

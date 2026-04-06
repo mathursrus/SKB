@@ -33,9 +33,16 @@ jobs:
       - name: Unit tests
         run: npm test
 
+      - name: Prepare deploy package
+        run: |
+          mkdir -p deploy-package
+          cp -r src public scripts package.json package-lock.json tsconfig.json deploy-package/
+          cd deploy-package && npm ci --omit=dev
+          echo "Deploy package size: $(du -sh . | cut -f1)"
+
       - name: Deploy to Azure Web App
         uses: azure/webapps-deploy@v3
         with:
           app-name: ${{ env.AZURE_WEBAPP_NAME }}
           publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE }}
-          package: .
+          package: deploy-package

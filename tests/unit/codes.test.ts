@@ -1,10 +1,10 @@
 // Unit tests for src/services/codes.ts
-import { runTests } from './test-utils.js';
+import { runTests } from '../test-utils.js';
 import {
     CODE_ALPHABET,
     generateCode,
     isValidCodeFormat,
-} from '../src/services/codes.js';
+} from '../../src/services/codes.js';
 
 interface T { name: string; description?: string; tags?: string[]; testFn?: () => Promise<boolean>; }
 

@@ -1,6 +1,6 @@
 // Unit tests for src/core/utils/time.ts — PT service-day rollover
-import { runTests } from './test-utils.js';
-import { serviceDay, minutesBetween, addMinutes } from '../src/core/utils/time.js';
+import { runTests } from '../test-utils.js';
+import { serviceDay, minutesBetween, addMinutes } from '../../src/core/utils/time.js';
 
 interface T { name: string; description?: string; tags?: string[]; testFn?: () => Promise<boolean>; }
 

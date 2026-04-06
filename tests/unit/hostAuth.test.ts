@@ -1,6 +1,6 @@
 // Unit tests for HMAC-signed host cookie verification
-import { runTests } from './test-utils.js';
-import { verifyCookie, __test__ } from '../src/middleware/hostAuth.js';
+import { runTests } from '../test-utils.js';
+import { verifyCookie, __test__ } from '../../src/middleware/hostAuth.js';
 
 interface T { name: string; description?: string; tags?: string[]; testFn?: () => Promise<boolean>; }
 

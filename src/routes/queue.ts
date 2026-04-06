@@ -4,7 +4,7 @@
 
 import { Router, type Request, type Response } from 'express';
 
-import { getQueueState, joinQueue, getStatusByCode } from '../services/queue.js';
+import { getBoardEntries, getQueueState, joinQueue, getStatusByCode } from '../services/queue.js';
 import { rateLimit } from '../middleware/rateLimit.js';
 import type { ErrorDTO } from '../types/queue.js';
 
@@ -13,6 +13,15 @@ const JOIN_MAX = 5;
 
 export function queueRouter(): Router {
     const r = Router();
+
+    r.get('/queue/board', async (_req: Request, res: Response) => {
+        try {
+            const entries = await getBoardEntries();
+            res.json(entries);
+        } catch (err) {
+            handleDbError(res, err);
+        }
+    });
 
     r.get('/queue/state', async (_req: Request, res: Response) => {
         try {

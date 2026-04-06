@@ -1,6 +1,6 @@
 # Feature Specification: Queue Display Board for Restaurant TV
 Issue: [#4](https://github.com/mathursrus/SKB/issues/4)
-PR: (linked upon creation)
+PR: [#18](https://github.com/mathursrus/SKB/pull/18)
 
 ## Summary
 - **Issue**: #4 - Queue display board for restaurant TV
@@ -41,9 +41,9 @@ PR: (linked upon creation)
 - 5 open questions for owner review
 
 ## Completeness Evidence
-- Issue tagged with label `phase:spec`: Pending
-- Issue tagged with label `status:needs-review`: Pending
-- All specification documents committed/synced to branch: Pending
+- Issue tagged with label `phase:spec`: Yes
+- Issue tagged with label `status:needs-review`: Yes
+- All specification documents committed/synced to branch: Yes
 
 | Customer Research Area | Sources of Information |
 |---|---|

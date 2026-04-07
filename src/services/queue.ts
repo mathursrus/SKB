@@ -18,6 +18,7 @@ import type {
     HostQueueDTO,
     JoinRequestDTO,
     JoinResponseDTO,
+    PartyState,
     QueueEntry,
     QueueStateDTO,
     RemovalReason,
@@ -27,8 +28,9 @@ import type {
 const MAX_CODE_RETRIES = 5;
 
 // Parties counted toward line length / position. "called" parties are still in
-// line — the host just told them to head over, they haven't been seated yet.
+// line -- the host just told them to head over, they haven't been seated yet.
 const ACTIVE_STATES: QueueEntry['state'][] = ['waiting', 'called'];
+
 
 // -- Pure helpers -------------------------------------------------------------
 
@@ -138,7 +140,9 @@ export async function getStatusByCode(
     if (!entry) {
         return { code, position: 0, etaAt: null, etaMinutes: null, state: 'not_found', callsMinutesAgo: [] };
     }
-    if (entry.state === 'seated' || entry.state === 'no_show') {
+    // Post-seated, no-show, or departed: no longer in the queue.
+    const postQueueStates: PartyState[] = ['seated', 'ordered', 'served', 'checkout', 'departed', 'no_show'];
+    if (postQueueStates.includes(entry.state)) {
         return { code, position: 0, etaAt: null, etaMinutes: null, state: entry.state, callsMinutesAgo: [] };
     }
     const today = serviceDay(now);
@@ -208,11 +212,28 @@ export async function removeFromQueue(
     } catch {
         throw new Error('invalid id');
     }
+
+    if (reason === 'seated') {
+        // R12: "seated" transitions the party into the dining lifecycle.
+        // seatedAt is set; removedAt/removedReason are NOT set (party is still active).
+        const res = await queueEntries(db).updateOne(
+            { _id, state: { $in: ACTIVE_STATES } },
+            {
+                $set: {
+                    state: 'seated' as PartyState,
+                    seatedAt: now,
+                },
+            },
+        );
+        return { ok: res.matchedCount === 1 };
+    }
+
+    // no_show: terminal state, set removedAt/removedReason as before.
     const res = await queueEntries(db).updateOne(
         { _id, state: { $in: ACTIVE_STATES } },
         {
             $set: {
-                state: reason,
+                state: reason as PartyState,
                 removedAt: now,
                 removedReason: reason,
             },

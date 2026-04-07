@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=1024,initial-scale=1" />
+<title>SKB Host — 3-Tab Lifecycle Mock</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Fira+Sans:wght@400;600;700&display=swap" rel="stylesheet" />
+<style>
+:root { --bg:#f5f5f4; --fg:#111; --muted:#78716c; --accent:#e3bf3d; --border:#e7e5e4; --card:#fff; }
+* { box-sizing:border-box; }
+body { margin:0; font:15px/1.5 'Fira Sans',sans-serif; background:var(--bg); color:var(--fg); }
+.topbar { display:flex; align-items:center; justify-content:space-between; padding:14px 24px; background:#fff; border-bottom:1px solid var(--border); }
+.brand { font-weight:700; }
+.counts { display:flex; gap:20px; font-size:14px; color:var(--muted); }
+.counts strong { color:var(--fg); font-size:18px; }
+
+/* Tabs */
+.tabs { display:flex; gap:0; padding:0 24px; background:#fff; border-bottom:1px solid var(--border); }
+.tab { padding:12px 20px; font-size:14px; font-weight:600; color:var(--muted); border-bottom:3px solid transparent; cursor:pointer; }
+.tab.active { color:var(--fg); border-bottom-color:var(--accent); }
+.tab .badge { display:inline-block; background:var(--bg); color:var(--muted); font-size:12px; font-weight:700; padding:1px 7px; border-radius:10px; margin-left:6px; }
+.tab.active .badge { background:var(--accent); color:#111; }
+
+main { padding:20px 24px; }
+.tab-content { display:none; }
+.tab-content.active { display:block; }
+
+table { width:100%; background:#fff; border-collapse:separate; border-spacing:0; border:1px solid var(--border); border-radius:10px; overflow:hidden; }
+th,td { padding:12px 14px; text-align:left; border-bottom:1px solid var(--border); }
+th { background:#fafaf9; font-size:12px; text-transform:uppercase; letter-spacing:.5px; color:var(--muted); }
+tr:last-child td { border-bottom:none; }
+tr:hover { background:#fafaf9; }
+tr.expandable { cursor:pointer; }
+
+.state { display:inline-block; padding:3px 10px; border-radius:4px; font-size:11px; font-weight:700; letter-spacing:.5px; text-transform:uppercase; }
+.state-seated { background:#dbeafe; color:#1e40af; }
+.state-ordered { background:#fef3c7; color:#854d0e; }
+.state-served { background:#d1fae5; color:#065f46; }
+.state-checkout { background:#ede9fe; color:#5b21b6; }
+.state-departed { background:#f3f4f6; color:#6b7280; }
+.state-no_show { background:#fee2e2; color:#b91c1c; }
+.state-called { background:var(--accent); color:#111; }
+.state-waiting { background:#e7e5e4; color:#57534e; }
+
+button { font-family:inherit; font-size:13px; font-weight:600; padding:8px 14px; border-radius:8px; min-height:44px; cursor:pointer; }
+.btn-primary { background:#111; color:#fff; border:1px solid #111; }
+.btn-secondary { background:#fff; color:var(--muted); border:1px solid var(--border); }
+.btn-danger { background:#fff; color:#b91c1c; border:1px solid #b91c1c; }
+
+/* Timeline detail (expanded row) */
+.timeline-row { display:none; }
+.timeline-row.open { display:table-row; }
+.timeline-row td { background:#fafaf9; padding:16px 24px; }
+.timeline { display:flex; flex-direction:column; gap:0; }
+.tl-step { display:flex; align-items:flex-start; gap:12px; position:relative; padding-left:20px; }
+.tl-step::before { content:''; position:absolute; left:7px; top:20px; width:2px; height:calc(100% + 0px); background:var(--border); }
+.tl-step:last-child::before { display:none; }
+.tl-dot { width:16px; height:16px; border-radius:50%; background:var(--accent); flex-shrink:0; margin-top:3px; position:relative; z-index:1; }
+.tl-dot.future { background:var(--border); }
+.tl-label { font-weight:600; font-size:13px; }
+.tl-time { color:var(--muted); font-size:12px; }
+.tl-duration { color:var(--muted); font-size:11px; font-style:italic; }
+
+.summary-bar { display:flex; gap:24px; padding:14px 0; font-size:14px; color:var(--muted); margin-bottom:12px; }
+.summary-bar strong { color:var(--fg); }
+</style>
+</head>
+<body>
+<div class="topbar">
+    <div class="brand">SKB - Host Stand</div>
+    <div class="counts">
+        <div><strong>3</strong> waiting</div>
+        <div><strong>5</strong> dining</div>
+        <div>oldest: <strong>42m</strong></div>
+    </div>
+</div>
+
+<div class="tabs">
+    <div class="tab active" onclick="showTab('waiting')">Waiting <span class="badge">3</span></div>
+    <div class="tab" onclick="showTab('seated')">Seated <span class="badge">5</span></div>
+    <div class="tab" onclick="showTab('complete')">Complete <span class="badge">12</span></div>
+</div>
+
+<!-- TAB 1: Waiting (same as today) -->
+<main>
+<div id="tab-waiting" class="tab-content active">
+<table>
+    <thead><tr><th>#</th><th>Name</th><th>Size</th><th>Phone</th><th>Promised</th><th>Waiting</th><th></th></tr></thead>
+    <tbody>
+        <tr><td><strong>1</strong></td><td>Ravi <span class="state state-called">CALLED</span></td><td>4</td><td>--1234</td><td>6:10 PM</td><td>12m</td><td><button class="btn-primary">Seated</button> <button class="btn-danger">No-show</button></td></tr>
+        <tr><td><strong>2</strong></td><td>Meena</td><td>2</td><td>--</td><td>6:18 PM</td><td>4m</td><td><button class="btn-primary" style="background:#111">Call</button> <button class="btn-secondary">Seated</button> <button class="btn-danger">No-show</button></td></tr>
+        <tr><td><strong>3</strong></td><td>Vijay</td><td>6</td><td>--5678</td><td>6:26 PM</td><td>1m</td><td><button class="btn-primary" style="background:#111">Call</button> <button class="btn-secondary">Seated</button> <button class="btn-danger">No-show</button></td></tr>
+    </tbody>
+</table>
+</div>
+
+<!-- TAB 2: Seated (lifecycle tracking) -->
+<div id="tab-seated" class="tab-content">
+<table>
+    <thead><tr><th>Name</th><th>Size</th><th>State</th><th>In State</th><th>Total</th><th></th></tr></thead>
+    <tbody>
+        <tr class="expandable" onclick="toggleTimeline('tl-1')"><td>Asha</td><td>3</td><td><span class="state state-seated">Seated</span></td><td>5m</td><td>25m</td><td><button class="btn-primary">Ordered</button> <button class="btn-secondary">Departed</button></td></tr>
+        <tr class="timeline-row" id="tl-1"><td colspan="6">
+            <div class="timeline">
+                <div class="tl-step"><div class="tl-dot"></div><div><div class="tl-label">Joined</div><div class="tl-time">5:30 PM</div></div></div>
+                <div class="tl-step"><div class="tl-dot"></div><div><div class="tl-label">Called</div><div class="tl-time">5:38 PM</div><div class="tl-duration">8m wait</div></div></div>
+                <div class="tl-step"><div class="tl-dot"></div><div><div class="tl-label">Seated</div><div class="tl-time">5:40 PM</div><div class="tl-duration">2m to seat</div></div></div>
+                <div class="tl-step"><div class="tl-dot future"></div><div><div class="tl-label" style="color:var(--muted)">Ordered</div><div class="tl-time" style="color:var(--border)">--</div></div></div>
+            </div>
+        </td></tr>
+
+        <tr class="expandable" onclick="toggleTimeline('tl-2')"><td>Kumar</td><td>2</td><td><span class="state state-ordered">Ordered</span></td><td>12m</td><td>32m</td><td><button class="btn-primary">Served</button> <button class="btn-secondary">Departed</button></td></tr>
+        <tr class="timeline-row" id="tl-2"><td colspan="6">
+            <div class="timeline">
+                <div class="tl-step"><div class="tl-dot"></div><div><div class="tl-label">Joined</div><div class="tl-time">5:18 PM</div></div></div>
+                <div class="tl-step"><div class="tl-dot"></div><div><div class="tl-label">Seated</div><div class="tl-time">5:28 PM</div><div class="tl-duration">10m wait</div></div></div>
+                <div class="tl-step"><div class="tl-dot"></div><div><div class="tl-label">Ordered</div><div class="tl-time">5:38 PM</div><div class="tl-duration">10m to order</div></div></div>
+                <div class="tl-step"><div class="tl-dot future"></div><div><div class="tl-label" style="color:var(--muted)">Served</div></div></div>
+            </div>
+        </td></tr>
+
+        <tr class="expandable" onclick="toggleTimeline('tl-3')"><td>Priya</td><td>5</td><td><span class="state state-served">Served</span></td><td>8m</td><td>45m</td><td><button class="btn-primary">Checkout</button> <button class="btn-secondary">Departed</button></td></tr>
+        <tr class="timeline-row" id="tl-3"><td colspan="6">
+            <div class="timeline">
+                <div class="tl-step"><div class="tl-dot"></div><div><div class="tl-label">Joined</div><div class="tl-time">5:05 PM</div></div></div>
+                <div class="tl-step"><div class="tl-dot"></div><div><div class="tl-label">Seated</div><div class="tl-time">5:15 PM</div><div class="tl-duration">10m wait</div></div></div>
+                <div class="tl-step"><div class="tl-dot"></div><div><div class="tl-label">Ordered</div><div class="tl-time">5:22 PM</div><div class="tl-duration">7m to order</div></div></div>
+                <div class="tl-step"><div class="tl-dot"></div><div><div class="tl-label">Served</div><div class="tl-time">5:42 PM</div><div class="tl-duration">20m kitchen</div></div></div>
+                <div class="tl-step"><div class="tl-dot future"></div><div><div class="tl-label" style="color:var(--muted)">Checkout</div></div></div>
+            </div>
+        </td></tr>
+
+        <tr class="expandable"><td>Hegde</td><td>4</td><td><span class="state state-checkout">Checkout</span></td><td>3m</td><td>52m</td><td><button class="btn-primary">Departed</button></td></tr>
+        <tr class="expandable"><td>Deepa</td><td>2</td><td><span class="state state-seated">Seated</span></td><td>1m</td><td>15m</td><td><button class="btn-primary">Ordered</button> <button class="btn-secondary">Departed</button></td></tr>
+    </tbody>
+</table>
+</div>
+
+<!-- TAB 3: Complete -->
+<div id="tab-complete" class="tab-content">
+<div class="summary-bar">
+    <div>Served: <strong>10</strong></div>
+    <div>No-shows: <strong>2</strong></div>
+    <div>Avg wait: <strong>11m</strong></div>
+    <div>Avg table occupancy: <strong>38m</strong></div>
+</div>
+<table>
+    <thead><tr><th>Name</th><th>Size</th><th>Status</th><th>Wait Time</th><th>Table Time</th><th>Total</th></tr></thead>
+    <tbody>
+        <tr class="expandable" onclick="toggleTimeline('tl-c1')"><td>Anand</td><td>4</td><td><span class="state state-departed">Departed</span></td><td>8m</td><td>42m</td><td>50m</td></tr>
+        <tr class="timeline-row" id="tl-c1"><td colspan="6">
+            <div class="timeline">
+                <div class="tl-step"><div class="tl-dot"></div><div><div class="tl-label">Joined</div><div class="tl-time">4:30 PM</div></div></div>
+                <div class="tl-step"><div class="tl-dot"></div><div><div class="tl-label">Called</div><div class="tl-time">4:36 PM</div><div class="tl-duration">6m</div></div></div>
+                <div class="tl-step"><div class="tl-dot"></div><div><div class="tl-label">Seated</div><div class="tl-time">4:38 PM</div><div class="tl-duration">2m</div></div></div>
+                <div class="tl-step"><div class="tl-dot"></div><div><div class="tl-label">Ordered</div><div class="tl-time">4:45 PM</div><div class="tl-duration">7m</div></div></div>
+                <div class="tl-step"><div class="tl-dot"></div><div><div class="tl-label">Served</div><div class="tl-time">5:00 PM</div><div class="tl-duration">15m kitchen</div></div></div>
+                <div class="tl-step"><div class="tl-dot"></div><div><div class="tl-label">Checkout</div><div class="tl-time">5:12 PM</div><div class="tl-duration">12m eating</div></div></div>
+                <div class="tl-step"><div class="tl-dot"></div><div><div class="tl-label">Departed</div><div class="tl-time">5:20 PM</div><div class="tl-duration">8m checkout</div></div></div>
+            </div>
+        </td></tr>
+        <tr><td>Lakshmi</td><td>2</td><td><span class="state state-no_show">No-show</span></td><td>15m</td><td>--</td><td>15m</td></tr>
+        <tr><td>Bhavya</td><td>3</td><td><span class="state state-departed">Departed</span></td><td>12m</td><td>35m</td><td>47m</td></tr>
+    </tbody>
+</table>
+</div>
+</main>
+
+<script>
+function showTab(name) {
+    document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.getElementById('tab-' + name).classList.add('active');
+    document.querySelectorAll('.tab')[['waiting','seated','complete'].indexOf(name)].classList.add('active');
+}
+function toggleTimeline(id) {
+    const row = document.getElementById(id);
+    if (row) row.classList.toggle('open');
+}
+</script>
+</body>
+</html>

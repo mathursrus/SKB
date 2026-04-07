@@ -2,8 +2,8 @@
 // SKB - Queue types (domain + API DTOs)
 // ============================================================================
 
-export type PartyState = 'waiting' | 'called' | 'seated' | 'no_show';
-export type RemovalReason = 'seated' | 'no_show';
+export type PartyState = 'waiting' | 'called' | 'seated' | 'ordered' | 'served' | 'checkout' | 'departed' | 'no_show';
+export type RemovalReason = 'seated' | 'no_show' | 'departed';
 
 export interface QueueEntry {
     code: string; // e.g., "SKB-7Q3"
@@ -16,6 +16,11 @@ export interface QueueEntry {
     calls?: Date[]; // timestamps of every Call/Recall click (oldest → newest)
     removedAt?: Date;
     removedReason?: RemovalReason;
+    seatedAt?: Date;
+    orderedAt?: Date;
+    servedAt?: Date;
+    checkoutAt?: Date;
+    departedAt?: Date;
     serviceDay: string; // YYYY-MM-DD in PT
 }
 
@@ -90,6 +95,66 @@ export interface HostStatsDTO {
     actualTurnTime: number | null;    // computed from today's seated data
     totalJoined: number;              // total entries for today (all states)
     stillWaiting: number;             // entries still in waiting/called state
+    // Lifecycle metrics (null if no departed parties with required timestamps)
+    avgOrderTimeMinutes: number | null;    // avg seated → ordered
+    avgServeTimeMinutes: number | null;    // avg ordered → served
+    avgCheckoutTimeMinutes: number | null; // avg checkout → departed
+    avgTableOccupancyMinutes: number | null; // avg seated → departed
+}
+
+export interface HostDiningPartyDTO {
+    id: string;
+    name: string;
+    partySize: number;
+    phoneLast4: string | null;
+    state: 'seated' | 'ordered' | 'served' | 'checkout';
+    seatedAt: string;        // ISO
+    timeInStateMinutes: number;
+    totalTableMinutes: number;
+}
+
+export interface HostDiningDTO {
+    parties: HostDiningPartyDTO[];
+    diningCount: number;
+}
+
+export interface HostCompletedPartyDTO {
+    id: string;
+    name: string;
+    partySize: number;
+    state: PartyState;
+    joinedAt: string;        // ISO
+    waitTimeMinutes: number; // join to seated (or join to removal for no-show)
+    tableTimeMinutes: number | null; // seated to departed (null for no-show)
+    totalTimeMinutes: number; // join to departure/removal
+}
+
+export interface HostCompletedDTO {
+    parties: HostCompletedPartyDTO[];
+    totalServed: number;
+    totalNoShows: number;
+    avgWaitMinutes: number | null;
+    avgTableOccupancyMinutes: number | null;
+}
+
+export interface PartyTimelineDTO {
+    id: string;
+    name: string;
+    partySize: number;
+    state: PartyState;
+    timestamps: {
+        joinedAt: string | null;
+        calledAt: string | null;  // first call timestamp
+        seatedAt: string | null;
+        orderedAt: string | null;
+        servedAt: string | null;
+        checkoutAt: string | null;
+        departedAt: string | null;
+    };
+}
+
+export interface AdvanceRequestDTO {
+    state: 'ordered' | 'served' | 'checkout' | 'departed';
 }
 
 export interface ErrorDTO {

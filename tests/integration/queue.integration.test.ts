@@ -15,6 +15,12 @@ import {
     removeFromQueue,
     callParty,
 } from '../../src/services/queue.js';
+import {
+    advanceParty,
+    getPartyTimeline,
+    listCompletedParties,
+    listDiningParties,
+} from '../../src/services/dining.js';
 
 async function resetDb(): Promise<void> {
     const db = await getDb();
@@ -168,6 +174,199 @@ const cases: BaseTestCase[] = [
             const a = list1.parties.find(p => p.name === 'A')!;
             return a.state === 'called' && a.callsMinutesAgo.length === 2 &&
                 a.callsMinutesAgo[0] === 3 && a.callsMinutesAgo[1] === 0;
+        },
+    },
+    // -- Dining lifecycle (issue #24) ------------------------------------------
+    {
+        name: 'seated: party moves to dining, seatedAt set, removedAt NOT set (R12)',
+        tags: ['integration', 'queue', 'lifecycle', 'waitlist-path'],
+        testFn: async () => {
+            await resetDb();
+            const t0 = new Date('2026-04-05T20:00:00Z');
+            const j = await joinQueue({ name: 'Diner', partySize: 2 }, t0);
+            const list = await listHostQueue(t0);
+            const id = list.parties[0].id;
+            const t5 = new Date(t0.getTime() + 5 * 60_000);
+            await removeFromQueue(id, 'seated', t5);
+            // Check dining list
+            const dining = await listDiningParties(t5);
+            if (dining.parties.length !== 1) return false;
+            if (dining.parties[0].state !== 'seated') return false;
+            // Check status: should be 'seated'
+            const status = await getStatusByCode(j.code, t5);
+            if (status.state !== 'seated') return false;
+            // Check that party is NOT in the queue anymore
+            const queue = await listHostQueue(t5);
+            return queue.parties.length === 0;
+        },
+    },
+    {
+        name: 'advance: seated→ordered→served→checkout→departed full lifecycle (AC-R1/R2)',
+        tags: ['integration', 'queue', 'lifecycle', 'waitlist-path'],
+        testFn: async () => {
+            await resetDb();
+            const t0 = new Date('2026-04-05T20:00:00Z');
+            await joinQueue({ name: 'Full', partySize: 3 }, t0);
+            const list = await listHostQueue(t0);
+            const id = list.parties[0].id;
+            // Seat
+            const t5 = new Date(t0.getTime() + 5 * 60_000);
+            await removeFromQueue(id, 'seated', t5);
+            // Ordered
+            const t15 = new Date(t0.getTime() + 15 * 60_000);
+            const r1 = await advanceParty(id, 'ordered', t15);
+            if (!r1.ok) return false;
+            // Served
+            const t30 = new Date(t0.getTime() + 30 * 60_000);
+            const r2 = await advanceParty(id, 'served', t30);
+            if (!r2.ok) return false;
+            // Checkout
+            const t45 = new Date(t0.getTime() + 45 * 60_000);
+            const r3 = await advanceParty(id, 'checkout', t45);
+            if (!r3.ok) return false;
+            // Departed
+            const t50 = new Date(t0.getTime() + 50 * 60_000);
+            const r4 = await advanceParty(id, 'departed', t50);
+            if (!r4.ok) return false;
+            // Should be in completed list
+            const completed = await listCompletedParties(t50);
+            if (completed.parties.length !== 1) return false;
+            if (completed.parties[0].state !== 'departed') return false;
+            // Dining should be empty
+            const dining = await listDiningParties(t50);
+            return dining.parties.length === 0;
+        },
+    },
+    {
+        name: 'advance: skip states — seated directly to departed (AC-R5)',
+        tags: ['integration', 'queue', 'lifecycle'],
+        testFn: async () => {
+            await resetDb();
+            const t0 = new Date('2026-04-05T20:00:00Z');
+            await joinQueue({ name: 'Skip', partySize: 2 }, t0);
+            const list = await listHostQueue(t0);
+            const id = list.parties[0].id;
+            const t5 = new Date(t0.getTime() + 5 * 60_000);
+            await removeFromQueue(id, 'seated', t5);
+            const t10 = new Date(t0.getTime() + 10 * 60_000);
+            const r = await advanceParty(id, 'departed', t10);
+            if (!r.ok) return false;
+            // Timeline: only joinedAt, seatedAt, departedAt should be set
+            const timeline = await getPartyTimeline(id);
+            if (!timeline) return false;
+            return (
+                timeline.timestamps.seatedAt !== null &&
+                timeline.timestamps.departedAt !== null &&
+                timeline.timestamps.orderedAt === null &&
+                timeline.timestamps.servedAt === null &&
+                timeline.timestamps.checkoutAt === null
+            );
+        },
+    },
+    {
+        name: 'advance: backward transition rejected (400 equivalent)',
+        tags: ['integration', 'queue', 'lifecycle'],
+        testFn: async () => {
+            await resetDb();
+            const t0 = new Date('2026-04-05T20:00:00Z');
+            await joinQueue({ name: 'Back', partySize: 2 }, t0);
+            const list = await listHostQueue(t0);
+            const id = list.parties[0].id;
+            const t5 = new Date(t0.getTime() + 5 * 60_000);
+            await removeFromQueue(id, 'seated', t5);
+            const t10 = new Date(t0.getTime() + 10 * 60_000);
+            await advanceParty(id, 'served', t10); // skip ordered
+            try {
+                await advanceParty(id, 'ordered'); // backward — should throw
+                return false; // should not reach here
+            } catch (err) {
+                return err instanceof Error && err.message.includes('cannot advance backward');
+            }
+        },
+    },
+    {
+        name: 'advance: invalid target state rejected',
+        tags: ['integration', 'queue', 'lifecycle'],
+        testFn: async () => {
+            await resetDb();
+            try {
+                await advanceParty('000000000000000000000000', 'flying');
+                return false;
+            } catch (err) {
+                return err instanceof Error && err.message.includes('invalid target state');
+            }
+        },
+    },
+    {
+        name: 'listDiningParties: shows parties in seated/ordered/served/checkout',
+        tags: ['integration', 'queue', 'lifecycle'],
+        testFn: async () => {
+            await resetDb();
+            const t0 = new Date('2026-04-05T20:00:00Z');
+            // Create 3 parties in different dining states
+            await joinQueue({ name: 'A', partySize: 2 }, new Date(t0.getTime()));
+            await joinQueue({ name: 'B', partySize: 3 }, new Date(t0.getTime() + 1000));
+            await joinQueue({ name: 'C', partySize: 4 }, new Date(t0.getTime() + 2000));
+            const list = await listHostQueue(t0);
+            const aId = list.parties[0].id;
+            const bId = list.parties[1].id;
+            const cId = list.parties[2].id;
+            const t5 = new Date(t0.getTime() + 5 * 60_000);
+            await removeFromQueue(aId, 'seated', t5);
+            await removeFromQueue(bId, 'seated', t5);
+            await removeFromQueue(cId, 'seated', t5);
+            const t10 = new Date(t0.getTime() + 10 * 60_000);
+            await advanceParty(bId, 'ordered', t10);
+            await advanceParty(cId, 'served', t10);
+            const dining = await listDiningParties(t10);
+            if (dining.diningCount !== 3) return false;
+            const states = dining.parties.map(p => p.state).sort();
+            return states[0] === 'ordered' && states[1] === 'seated' && states[2] === 'served';
+        },
+    },
+    {
+        name: 'getPartyTimeline: returns full timeline (AC-R10)',
+        tags: ['integration', 'queue', 'lifecycle'],
+        testFn: async () => {
+            await resetDb();
+            const t0 = new Date('2026-04-05T20:00:00Z');
+            const j = await joinQueue({ name: 'Timeline', partySize: 2 }, t0);
+            const list = await listHostQueue(t0);
+            const id = list.parties[0].id;
+            const t3 = new Date(t0.getTime() + 3 * 60_000);
+            await callParty(id, t3);
+            const t5 = new Date(t0.getTime() + 5 * 60_000);
+            await removeFromQueue(id, 'seated', t5);
+            const t15 = new Date(t0.getTime() + 15 * 60_000);
+            await advanceParty(id, 'ordered', t15);
+            const timeline = await getPartyTimeline(id);
+            if (!timeline) return false;
+            return (
+                timeline.name === 'Timeline' &&
+                timeline.state === 'ordered' &&
+                timeline.timestamps.joinedAt !== null &&
+                timeline.timestamps.calledAt !== null &&
+                timeline.timestamps.seatedAt !== null &&
+                timeline.timestamps.orderedAt !== null &&
+                timeline.timestamps.servedAt === null
+            );
+        },
+    },
+    {
+        name: 'no-show still works unchanged (R12 backward compat)',
+        tags: ['integration', 'queue', 'lifecycle', 'waitlist-path'],
+        testFn: async () => {
+            await resetDb();
+            const t0 = new Date('2026-04-05T20:00:00Z');
+            const j = await joinQueue({ name: 'NoShow', partySize: 2 }, t0);
+            const list = await listHostQueue(t0);
+            const id = list.parties[0].id;
+            const t10 = new Date(t0.getTime() + 10 * 60_000);
+            await removeFromQueue(id, 'no_show', t10);
+            const status = await getStatusByCode(j.code, t10);
+            if (status.state !== 'no_show') return false;
+            const completed = await listCompletedParties(t10);
+            return completed.totalNoShows === 1 && completed.totalServed === 0;
         },
     },
     {

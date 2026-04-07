@@ -2,13 +2,14 @@
 import { runTests } from '../test-utils.js';
 import {
     computeAvgWait,
+    computeAvgPhaseTime,
     computePeakHour,
     buildStats,
     formatHourLabel,
 } from '../../src/services/stats.js';
 import type { QueueEntry } from '../../src/types/queue.js';
 
-type Entry = Pick<QueueEntry, 'state' | 'joinedAt' | 'removedAt' | 'removedReason'>;
+type Entry = Pick<QueueEntry, 'state' | 'joinedAt' | 'removedAt' | 'removedReason' | 'seatedAt' | 'orderedAt' | 'servedAt' | 'checkoutAt' | 'departedAt'>;
 
 interface T {
     name: string;
@@ -37,6 +38,11 @@ function makeEntry(
         joinedAt,
         removedAt,
         removedReason: overrides.removedReason ?? 'seated',
+        seatedAt: overrides.seatedAt,
+        orderedAt: overrides.orderedAt,
+        servedAt: overrides.servedAt,
+        checkoutAt: overrides.checkoutAt,
+        departedAt: overrides.departedAt,
     };
 }
 
@@ -231,6 +237,150 @@ const cases: T[] = [
             ];
             const stats = buildStats(entries, 8);
             return stats.peakHour === 14 && stats.peakHourLabel === '2 PM';
+        },
+    },
+
+    // --- Lifecycle phase metrics (issue #24) ---
+    {
+        name: 'computeAvgPhaseTime: seated→ordered for 2 parties (10m, 14m) => 12',
+        tags: ['unit', 'stats', 'lifecycle'],
+        testFn: async () => {
+            const entries = [
+                { seatedAt: ptDate(12, 0), orderedAt: ptDate(12, 10), servedAt: undefined, checkoutAt: undefined, departedAt: undefined },
+                { seatedAt: ptDate(12, 5), orderedAt: ptDate(12, 19), servedAt: undefined, checkoutAt: undefined, departedAt: undefined },
+            ];
+            return computeAvgPhaseTime(entries, 'seatedAt', 'orderedAt') === 12;
+        },
+    },
+    {
+        name: 'computeAvgPhaseTime: skips entries missing toField',
+        tags: ['unit', 'stats', 'lifecycle'],
+        testFn: async () => {
+            const entries = [
+                { seatedAt: ptDate(12, 0), orderedAt: ptDate(12, 10), servedAt: undefined, checkoutAt: undefined, departedAt: undefined },
+                { seatedAt: ptDate(12, 5), orderedAt: undefined, servedAt: undefined, checkoutAt: undefined, departedAt: undefined },
+            ];
+            return computeAvgPhaseTime(entries, 'seatedAt', 'orderedAt') === 10;
+        },
+    },
+    {
+        name: 'computeAvgPhaseTime: no entries with both fields => null',
+        tags: ['unit', 'stats', 'lifecycle'],
+        testFn: async () => {
+            const entries = [
+                { seatedAt: ptDate(12, 0), orderedAt: undefined, servedAt: undefined, checkoutAt: undefined, departedAt: undefined },
+            ];
+            return computeAvgPhaseTime(entries, 'seatedAt', 'orderedAt') === null;
+        },
+    },
+    {
+        name: 'computeAvgPhaseTime: seated→departed (table occupancy) with skip',
+        tags: ['unit', 'stats', 'lifecycle'],
+        testFn: async () => {
+            const entries = [
+                { seatedAt: ptDate(12, 0), orderedAt: undefined, servedAt: undefined, checkoutAt: undefined, departedAt: ptDate(12, 30) },
+                { seatedAt: ptDate(13, 0), orderedAt: ptDate(13, 5), servedAt: ptDate(13, 20), checkoutAt: ptDate(13, 35), departedAt: ptDate(13, 40) },
+            ];
+            // First: 30m, Second: 40m => avg 35m
+            return computeAvgPhaseTime(entries, 'seatedAt', 'departedAt') === 35;
+        },
+    },
+    {
+        name: 'computeAvgWait: uses seatedAt when available (new lifecycle model)',
+        tags: ['unit', 'stats', 'lifecycle'],
+        testFn: async () => {
+            const entries = [
+                makeEntry({
+                    state: 'departed',
+                    joinedAt: ptDate(12, 0),
+                    seatedAt: ptDate(12, 8),
+                    removedAt: ptDate(12, 40),
+                    removedReason: 'departed',
+                }),
+            ];
+            // Should use seatedAt (8m) not removedAt (40m)
+            return computeAvgWait(entries) === 8;
+        },
+    },
+    {
+        name: 'buildStats: lifecycle metrics for full lifecycle entries (AC-R9)',
+        tags: ['unit', 'stats', 'lifecycle'],
+        testFn: async () => {
+            const entries: Entry[] = [
+                makeEntry({
+                    state: 'departed',
+                    joinedAt: ptDate(12, 0),
+                    seatedAt: ptDate(12, 8),
+                    orderedAt: ptDate(12, 18),  // 10m order time
+                    servedAt: ptDate(12, 33),   // 15m serve time
+                    checkoutAt: ptDate(12, 48), // 15m eating
+                    departedAt: ptDate(12, 53), // 5m checkout
+                    removedAt: ptDate(12, 53),
+                    removedReason: 'departed',
+                }),
+                makeEntry({
+                    state: 'departed',
+                    joinedAt: ptDate(13, 0),
+                    seatedAt: ptDate(13, 10),
+                    orderedAt: ptDate(13, 20),  // 10m order time
+                    servedAt: ptDate(13, 40),   // 20m serve time
+                    checkoutAt: ptDate(13, 55), // 15m eating
+                    departedAt: ptDate(14, 0),  // 5m checkout
+                    removedAt: ptDate(14, 0),
+                    removedReason: 'departed',
+                }),
+            ];
+            const stats = buildStats(entries, 8);
+            return (
+                stats.avgOrderTimeMinutes === 10 &&   // (10+10)/2
+                stats.avgServeTimeMinutes === 18 &&    // (15+20)/2 = 17.5, Math.round = 18
+                stats.avgCheckoutTimeMinutes === 5 &&  // (5+5)/2
+                stats.avgTableOccupancyMinutes === 48  // ((53-8=45) + (60-10=50))/2 = 47.5 rounded to 48
+            );
+        },
+    },
+    {
+        name: 'buildStats: departed parties counted as seated (backward compat)',
+        tags: ['unit', 'stats', 'lifecycle'],
+        testFn: async () => {
+            const entries: Entry[] = [
+                makeEntry({
+                    state: 'departed',
+                    joinedAt: ptDate(12, 0),
+                    seatedAt: ptDate(12, 8),
+                    departedAt: ptDate(12, 40),
+                    removedAt: ptDate(12, 40),
+                    removedReason: 'departed',
+                }),
+                makeEntry({
+                    state: 'ordered',
+                    joinedAt: ptDate(13, 0),
+                    seatedAt: ptDate(13, 10),
+                    orderedAt: ptDate(13, 20),
+                }),
+            ];
+            const stats = buildStats(entries, 8);
+            return stats.partiesSeated === 2 && stats.noShows === 0 && stats.stillWaiting === 0;
+        },
+    },
+    {
+        name: 'buildStats: lifecycle metrics null when no departed parties',
+        tags: ['unit', 'stats', 'lifecycle'],
+        testFn: async () => {
+            const entries: Entry[] = [
+                makeEntry({
+                    state: 'seated',
+                    joinedAt: ptDate(12, 0),
+                    seatedAt: ptDate(12, 8),
+                }),
+            ];
+            const stats = buildStats(entries, 8);
+            return (
+                stats.avgOrderTimeMinutes === null &&
+                stats.avgServeTimeMinutes === null &&
+                stats.avgCheckoutTimeMinutes === null &&
+                stats.avgTableOccupancyMinutes === null
+            );
         },
     },
 ];

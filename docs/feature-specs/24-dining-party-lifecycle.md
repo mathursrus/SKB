@@ -5,15 +5,11 @@ Owner: Claude (agent)
 
 ## Customer
 
-Two customers:
-
-1. **Host operator** -- the person at the front desk who currently loses visibility into a party once they are seated. They need to track dining progress to manage table turnover and improve ETA accuracy.
-2. **Walk-in diner** -- wants to understand their dining progress and feel informed throughout their visit, not just during the wait.
+The **host operator** -- the person at the front desk who currently loses visibility into a party once they are seated. They need to track dining progress to manage table turnover, improve ETA accuracy, and identify operational bottlenecks through historical data analysis.
 
 ## Customer's Desired Outcome
 
-- **Operator**: "After I seat a party, I can still see where they are in their meal -- ordering, eating, paying -- so I know when the table will free up and I can give accurate wait times to the next group."
-- **Diner**: "I can see my dining progress on the same page I used to track my wait, so my whole experience feels connected."
+- **Operator**: "After I seat a party, I can still see where they are in their meal -- ordering, eating, paying -- so I know when the table will free up and I can give accurate wait times to the next group. And I can look at historical patterns to improve operations."
 
 ## Customer Problem being solved
 
@@ -45,30 +41,53 @@ waiting --> called --> seated --> ordered --> served --> checkout --> departed
 
 Each transition records a server-side timestamp. States can be skipped (e.g., mark "Departed" directly from "Seated" if the party leaves immediately).
 
-### Host flow (host-stand device)
+### Host flow — 3-tab layout (host-stand device)
 
-1. The waitlist section works exactly as today: ordered list with Call, Seated, and No-show buttons.
-2. When the host taps **Seated**, the party moves out of the waitlist and into a new **Dining** section below the waitlist table.
-3. The Dining section shows a table of all currently-dining parties with columns: Name, Size, State (color-coded badge), Time in Current State, Total Time at Table, and action buttons.
-4. Each row shows the **next logical action** as the primary button:
-   - Seated party: **Ordered** button (+ Departed shortcut)
-   - Ordered party: **Served** button (+ Departed shortcut)
-   - Served party: **Checkout** button (+ Departed shortcut)
-   - Checkout party: **Departed** button only
-5. The top bar gains a new counter: **N dining** alongside the existing "N waiting" count.
-6. The stats card gains four new metrics: **Avg Order Time** (seated-to-ordered), **Avg Serve Time** (ordered-to-served), **Avg Checkout Time** (served-to-departed), and **Avg Table Occupancy** (seated-to-departed).
+The host page (`/host.html`) gains a tabbed interface with 3 tabs:
 
-### Diner flow (mobile status page)
+**Tab 1: Waiting** (default, matches today's view)
+- Ordered list of parties in `waiting` or `called` state with Call/Recall, Seated, No-show buttons.
+- Same as the current queue table.
 
-1. When a diner checks their status after being seated, the page shows a friendly message ("You're seated! Enjoy your meal!") instead of the current bare "seated" state.
-2. A timeline visualization shows completed and upcoming lifecycle steps (Joined > Called > Seated > Ordered > Served), giving the diner a sense of progression.
-3. The timeline updates as the host advances the party's state.
-4. Once the party departs, the page shows "Thanks for visiting!" and the timeline is fully complete.
+**Tab 2: Seated** (new)
+- Table of all currently-dining parties (states: `seated`, `ordered`, `served`, `checkout`).
+- Columns: Name, Size, State (color-coded badge), Time in Current State, Total at Table.
+- Each row shows the **next logical action** as the primary button:
+  - Seated: **Ordered** button (+ Departed shortcut)
+  - Ordered: **Served** button (+ Departed shortcut)
+  - Served: **Checkout** button (+ Departed shortcut)
+  - Checkout: **Departed** button only
+- **Click on any row** → expands to show a **timeline detail view**: vertical timeline of all state transitions with timestamps (Joined 5:30 PM → Called 5:38 PM → Seated 5:40 PM → Ordered 5:52 PM → ...). Host can see exactly where time was spent.
+
+**Tab 3: Complete** (new)
+- Table of departed + no-show parties for today.
+- Columns: Name, Size, Final State, Total Time (join to depart), Wait Time, Table Time.
+- **Click on any row** → same timeline detail view showing the full journey.
+- Summary row at top: total served, total no-shows, avg wait, avg table occupancy.
+
+**Tab badge counts**: Each tab label shows a count: "Waiting (3)", "Seated (5)", "Complete (12)".
+
+**Top bar**: unchanged + "N dining" counter alongside "N waiting".
+
+### Diner flow — NO CHANGES
+
+The diner status page (`/queue.html`) is **not modified**. Lifecycle tracking is host-only. The diner continues to see position, promised time, and the "called" callout as today. Once seated, the diner page shows "seated" as it does now.
+
+### Analytics page (new)
+
+New host page `/host/analytics.html` (PIN-gated) showing historical distributions:
+
+1. **Wait-time distribution** — histogram of join-to-seated times for all parties, bucketed by 5-min intervals
+2. **Table-occupancy distribution** — histogram of seated-to-departed times
+3. **Per-phase breakdown** — avg + distribution for each phase (seated→ordered, ordered→served, served→checkout, checkout→departed)
+4. **By party size** — all the above metrics sliced by party-size buckets (1-2, 3-4, 5+)
+5. **Date range filter** — default "today", with ability to select past 7 / 30 days or custom range
+6. **Powered by existing data** — all queries run against `queue_entries` collection using the lifecycle timestamps
 
 ### UI mocks
 
-- [`docs/feature-specs/mocks/24-host-dining.html`](./mocks/24-host-dining.html) -- host-stand view with waitlist and dining sections, stats with new lifecycle metrics
-- [`docs/feature-specs/mocks/24-diner-status.html`](./mocks/24-diner-status.html) -- diner status page showing timeline for seated and served states
+- [`docs/feature-specs/mocks/24-host-dining.html`](./mocks/24-host-dining.html) -- host-stand with 3-tab layout (Waiting/Seated/Complete), click-to-expand timeline detail
+- [`docs/feature-specs/mocks/24-analytics.html`](./mocks/24-analytics.html) -- historical analytics page with distributions by phase and party size
 
 ### Design Standards Applied
 
@@ -87,7 +106,10 @@ Used the **generic UI baseline** (no project-specific design system configured i
 | R7 | Each dining row SHALL show the party name, size, current state as a color-coded badge, time elapsed in current state, total time at table, and contextual action buttons. |
 | R8 | Host UI top bar SHALL display a "N dining" counter alongside the existing "N waiting" counter. |
 | R9 | Stats dashboard SHALL compute and display: avg time from seated-to-ordered (Avg Order Time), avg time from ordered-to-served (Avg Serve Time), avg time from checkout-to-departed (Avg Checkout), and avg time from seated-to-departed (Avg Table Occupancy). |
-| R10 | Diner status page SHALL show a friendly message and timeline visualization for post-seated states instead of the current bare state label. |
+| R10 | Host UI SHALL organize parties into 3 tabs: Waiting (waiting/called), Seated (seated/ordered/served/checkout), Complete (departed/no_show). Each tab label SHALL show a count badge. |
+| R10a | Clicking a party row in the Seated or Complete tab SHALL expand a timeline detail view showing all state transitions with timestamps. |
+| R10b | A new analytics page (`/host/analytics.html`, PIN-gated) SHALL show historical distributions: wait-time, table-occupancy, per-phase breakdown, all sliceable by party-size bucket (1-2, 3-4, 5+) and date range. |
+| R10c | The diner status page SHALL NOT change. Lifecycle tracking is host-only. |
 | R11 | The existing waitlist removal flow (Seated / No-show buttons) SHALL continue to work unchanged. Clicking "Seated" transitions the party to `seated` state, sets `seatedAt`, and moves it to the Dining section. |
 | R12 | The `removeFromQueue` function SHALL be refactored: "seated" removal sets `state: 'seated'` and `seatedAt` (no longer sets `removedAt` or `removedReason`); "no_show" continues to set `removedAt` and `removedReason`. |
 | R13 | `departed` parties SHALL set `removedAt` and `removedReason: 'departed'` for backward compatibility with stats queries. |
@@ -99,7 +121,8 @@ Used the **generic UI baseline** (no project-specific design system configured i
 - **AC-R5**: *Given* a party in `seated` state, *when* the host calls advance with `{ state: "departed" }`, *then* the party state becomes `departed`, `departedAt` is set, and `orderedAt`/`servedAt`/`checkoutAt` remain null.
 - **AC-R6/R7**: *Given* two parties dining (one `seated`, one `served`), *when* the host loads the queue page, *then* the Dining section shows both parties with correct state badges and elapsed times.
 - **AC-R9**: *Given* 5 parties that have completed the full lifecycle today, *when* the host views stats, *then* Avg Order Time equals the mean of (orderedAt - seatedAt) across all 5, and Avg Table Occupancy equals the mean of (departedAt - seatedAt).
-- **AC-R10**: *Given* a diner whose party is in `served` state, *when* they load their status page, *then* they see a "Your food is here!" message and a timeline showing Joined, Called, Seated, Ordered as complete and Served as the current step.
+- **AC-R10**: *Given* the host is on the Seated tab with 2 dining parties, *when* they click a party row, *then* a timeline detail expands showing timestamps for each visited state (e.g., "Joined 5:30 PM → Called 5:38 PM → Seated 5:40 PM → Ordered 5:52 PM").
+- **AC-R10b**: *Given* 20 departed parties over the past week, *when* the host opens `/host/analytics.html` with range "7 days", *then* they see a wait-time histogram, a table-occupancy histogram, and per-phase avg/distribution, all filterable by party-size bucket.
 - **AC-R11**: *Given* a party in `called` state in the waitlist, *when* the host clicks "Seated", *then* the party disappears from the waitlist table and appears in the Dining section with state `seated`.
 - **AC-R12**: *Given* a party in `called` state, *when* the host clicks "No-show", *then* the party is removed with `removedAt` and `removedReason: 'no_show'` (unchanged behavior).
 
@@ -160,7 +183,7 @@ No competitors configured in `fraim/config.json`. Section deferred pending `busi
 - **Key Advantage 1**: Zero-cost, zero-integration lifecycle tracking. No POS hardware required -- the host simply taps a button as each phase completes. Closest competitor (Eat App) charges $129/mo for comparable features; SevenRooms requires enterprise pricing.
 - **Key Advantage 2**: Same simple interface the host already knows. The dining section is a natural extension of the existing waitlist, not a separate system requiring onboarding. Toast's course tracking requires KDS hardware and POS integration.
 - **Key Advantage 3**: Walk-in-first design. Competitors (OpenTable, SevenRooms) optimize for reservations. SKB is built ground-up for walk-in-heavy restaurants where table turnover visibility matters most.
-- **Key Advantage 4**: Diner-facing timeline. No competitor provides the diner with visibility into their dining progress. SKB's timeline builds trust and engagement while the diner waits for food.
+- **Key Advantage 4**: Historical distribution analytics by party size. Competitors show aggregate averages; SKB shows full distributions so the host can see variance, not just means.
 
 #### Competitive Response Strategy
 - **If Toast adds a free tier with table management**: Emphasize zero-hardware, zero-vendor-lock-in. SKB runs on any device with a browser, no proprietary hardware needed.
@@ -199,4 +222,4 @@ No competitors configured in `fraim/config.json`. Section deferred pending `busi
 - Should departed parties remain visible in the Dining section for a configurable period (e.g., 5 minutes) to allow the host to confirm the table is cleared, or disappear immediately?
 - Should the system warn the host when a party has been in a single state for an unusually long time (e.g., "Ordered 25m ago -- kitchen delay?")?
 - Should ETA auto-tuning based on actual `avgTableOccupancy` replace the manual `avgTurnTimeMinutes` setting, or supplement it? (Deferred to follow-up issue.)
-- Should the diner timeline be opt-in (diner must refresh to see it) or push-based (auto-refresh via polling or SSE)?
+- Analytics: should the page support CSV export for external analysis?

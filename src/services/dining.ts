@@ -104,7 +104,7 @@ export async function listDiningParties(now: Date = new Date()): Promise<HostDin
     const today = serviceDay(now);
     const docs = await queueEntries(db)
         .find({ serviceDay: today, state: { $in: DINING_STATES } })
-        .sort({ seatedAt: 1 })
+        .sort({ joinedAt: 1 })
         .toArray();
 
     const parties: HostDiningPartyDTO[] = docs.map((d) => {
@@ -135,7 +135,7 @@ export async function listCompletedParties(now: Date = new Date()): Promise<Host
     const today = serviceDay(now);
     const docs = await queueEntries(db)
         .find({ serviceDay: today, state: { $in: COMPLETED_STATES } })
-        .sort({ removedAt: -1 })
+        .sort({ joinedAt: -1 })
         .toArray();
 
     let totalWaitSum = 0;

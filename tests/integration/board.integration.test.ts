@@ -27,7 +27,7 @@ const cases: BaseTestCase[] = [
         tags: ['integration', 'board', 'empty-state'],
         testFn: async () => {
             await resetDb();
-            const entries = await getBoardEntries(new Date('2026-04-05T20:00:00Z'));
+            const entries = await getBoardEntries('test', new Date('2026-04-05T20:00:00Z'));
             return Array.isArray(entries) && entries.length === 0;
         },
     },
@@ -37,9 +37,9 @@ const cases: BaseTestCase[] = [
         testFn: async () => {
             await resetDb();
             const now = new Date('2026-04-05T20:00:00Z');
-            await joinQueue({ name: 'Alice', partySize: 3, phoneLast4: '1234' }, now);
-            await joinQueue({ name: 'Bob', partySize: 2 }, new Date(now.getTime() + 1000));
-            const entries = await getBoardEntries(now);
+            await joinQueue('test', { name: 'Alice', partySize: 3, phoneLast4: '1234' }, now);
+            await joinQueue('test', { name: 'Bob', partySize: 2 }, new Date(now.getTime() + 1000));
+            const entries = await getBoardEntries('test', now);
             if (entries.length !== 2) return false;
             for (const e of entries) {
                 const keys = Object.keys(e).sort();
@@ -53,8 +53,8 @@ const cases: BaseTestCase[] = [
         tags: ['integration', 'board', 'privacy'],
         testFn: async () => {
             await resetDb();
-            await joinQueue({ name: 'Charlie', partySize: 4, phoneLast4: '5678' }, new Date('2026-04-05T20:00:00Z'));
-            const entries = await getBoardEntries(new Date('2026-04-05T20:00:00Z'));
+            await joinQueue('test', { name: 'Charlie', partySize: 4, phoneLast4: '5678' }, new Date('2026-04-05T20:00:00Z'));
+            const entries = await getBoardEntries('test', new Date('2026-04-05T20:00:00Z'));
             const forbidden = ['name', 'phoneLast4', 'partySize', 'joinedAt', 'etaAt', 'promisedEtaAt', 'calls', 'removedAt', 'removedReason', 'serviceDay'];
             const entry = entries[0] as unknown as Record<string, unknown>;
             return forbidden.every(f => entry[f] === undefined);
@@ -65,9 +65,9 @@ const cases: BaseTestCase[] = [
         tags: ['integration', 'board', 'service-day'],
         testFn: async () => {
             await resetDb();
-            await joinQueue({ name: 'Yesterday', partySize: 1 }, new Date('2026-04-05T20:00:00Z'));
-            await joinQueue({ name: 'Today', partySize: 1 }, new Date('2026-04-06T20:00:00Z'));
-            const entries = await getBoardEntries(new Date('2026-04-06T20:00:00Z'));
+            await joinQueue('test', { name: 'Yesterday', partySize: 1 }, new Date('2026-04-05T20:00:00Z'));
+            await joinQueue('test', { name: 'Today', partySize: 1 }, new Date('2026-04-06T20:00:00Z'));
+            const entries = await getBoardEntries('test', new Date('2026-04-06T20:00:00Z'));
             return entries.length === 1 && entries[0].position === 1;
         },
     },
@@ -77,12 +77,12 @@ const cases: BaseTestCase[] = [
         testFn: async () => {
             await resetDb();
             const base = new Date('2026-04-05T20:00:00Z').getTime();
-            const j1 = await joinQueue({ name: 'A', partySize: 1 }, new Date(base));
-            const j2 = await joinQueue({ name: 'B', partySize: 1 }, new Date(base + 1000));
-            const j3 = await joinQueue({ name: 'C', partySize: 1 }, new Date(base + 2000));
-            const list = await listHostQueue(new Date(base));
+            const j1 = await joinQueue('test', { name: 'A', partySize: 1 }, new Date(base));
+            const j2 = await joinQueue('test', { name: 'B', partySize: 1 }, new Date(base + 1000));
+            const j3 = await joinQueue('test', { name: 'C', partySize: 1 }, new Date(base + 2000));
+            const list = await listHostQueue('test', new Date(base));
             await callParty(list.parties[0].id, new Date(base + 3000));
-            const entries = await getBoardEntries(new Date(base + 3000));
+            const entries = await getBoardEntries('test', new Date(base + 3000));
             return entries.length === 3 &&
                 entries[0].code === j1.code && entries[0].state === 'called' &&
                 entries[1].code === j2.code && entries[1].state === 'waiting' &&
@@ -95,13 +95,13 @@ const cases: BaseTestCase[] = [
         testFn: async () => {
             await resetDb();
             const base = new Date('2026-04-05T20:00:00Z').getTime();
-            await joinQueue({ name: 'A', partySize: 1 }, new Date(base));
-            await joinQueue({ name: 'B', partySize: 1 }, new Date(base + 1000));
-            const j3 = await joinQueue({ name: 'C', partySize: 1 }, new Date(base + 2000));
-            const list = await listHostQueue(new Date(base));
+            await joinQueue('test', { name: 'A', partySize: 1 }, new Date(base));
+            await joinQueue('test', { name: 'B', partySize: 1 }, new Date(base + 1000));
+            const j3 = await joinQueue('test', { name: 'C', partySize: 1 }, new Date(base + 2000));
+            const list = await listHostQueue('test', new Date(base));
             await removeFromQueue(list.parties[0].id, 'seated', new Date(base + 5000));
             await removeFromQueue(list.parties[1].id, 'no_show', new Date(base + 5000));
-            const entries = await getBoardEntries(new Date(base + 5000));
+            const entries = await getBoardEntries('test', new Date(base + 5000));
             return entries.length === 1 && entries[0].code === j3.code && entries[0].position === 1;
         },
     },
@@ -111,10 +111,10 @@ const cases: BaseTestCase[] = [
         testFn: async () => {
             await resetDb();
             const now = new Date('2026-04-05T20:00:00Z');
-            await joinQueue({ name: 'X', partySize: 2 }, now);
-            const list = await listHostQueue(now);
+            await joinQueue('test', { name: 'X', partySize: 2 }, now);
+            const list = await listHostQueue('test', now);
             await callParty(list.parties[0].id, new Date(now.getTime() + 1000));
-            const entries = await getBoardEntries(new Date(now.getTime() + 1000));
+            const entries = await getBoardEntries('test', new Date(now.getTime() + 1000));
             return entries.length === 1 && entries[0].state === 'called';
         },
     },

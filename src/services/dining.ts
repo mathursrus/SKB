@@ -99,11 +99,11 @@ export async function advanceParty(
 /**
  * List all currently-dining parties for the Seated tab (R6, R7).
  */
-export async function listDiningParties(now: Date = new Date()): Promise<HostDiningDTO> {
+export async function listDiningParties(locationId: string, now: Date = new Date()): Promise<HostDiningDTO> {
     const db = await getDb();
     const today = serviceDay(now);
     const docs = await queueEntries(db)
-        .find({ serviceDay: today, state: { $in: DINING_STATES } })
+        .find({ locationId, serviceDay: today, state: { $in: DINING_STATES } })
         .sort({ joinedAt: 1 })
         .toArray();
 
@@ -130,11 +130,11 @@ export async function listDiningParties(now: Date = new Date()): Promise<HostDin
 /**
  * List completed parties for the Complete tab (departed + no_show).
  */
-export async function listCompletedParties(now: Date = new Date()): Promise<HostCompletedDTO> {
+export async function listCompletedParties(locationId: string, now: Date = new Date()): Promise<HostCompletedDTO> {
     const db = await getDb();
     const today = serviceDay(now);
     const docs = await queueEntries(db)
-        .find({ serviceDay: today, state: { $in: COMPLETED_STATES } })
+        .find({ locationId, serviceDay: today, state: { $in: COMPLETED_STATES } })
         .sort({ joinedAt: -1 })
         .toArray();
 

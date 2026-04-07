@@ -1,5 +1,5 @@
 // ============================================================================
-// SKB - Host-stand routes (PIN-gated via requireHost middleware)
+// SKB - Host-stand routes (PIN-gated) — multi-tenant
 // ============================================================================
 
 import { Router, type Request, type Response } from 'express';
@@ -14,27 +14,89 @@ import {
 import { getAvgTurnTime, setAvgTurnTime } from '../services/settings.js';
 import { getHostStats } from '../services/stats.js';
 import { getAnalytics } from '../services/analytics.js';
-import {
-    loginHandler,
-    logoutHandler,
-    requireHost,
-} from '../middleware/hostAuth.js';
+import { getLocation } from '../services/locations.js';
+import { verifyCookie, __test__ } from '../middleware/hostAuth.js';
+import { createHmac, timingSafeEqual } from 'node:crypto';
+
+function loc(req: Request): string {
+    return String(req.params.loc ?? 'skb');
+}
+
+function cookieSecret(): string | null {
+    return process.env.SKB_COOKIE_SECRET ?? null;
+}
+
+const COOKIE_NAME = 'skb_host';
+const COOKIE_MAX_AGE_SECONDS = 12 * 60 * 60;
+
+/** Middleware: 401 unless a valid host cookie is present. */
+function requireHost(req: Request, res: Response, next: () => void): void {
+    const key = cookieSecret();
+    if (!key) { res.status(503).json({ error: 'host auth not configured' }); return; }
+    const raw = readCookie(req.headers.cookie);
+    if (!raw || !verifyCookie(raw, key)) { res.status(401).json({ error: 'unauthorized' }); return; }
+    next();
+}
+
+function readCookie(header: string | undefined): string | null {
+    if (!header) return null;
+    for (const part of header.split(';')) {
+        const eq = part.indexOf('=');
+        if (eq < 0) continue;
+        if (part.slice(0, eq).trim() === COOKIE_NAME) return part.slice(eq + 1).trim();
+    }
+    return null;
+}
+
+function sign(payload: string, key: string): string {
+    return createHmac('sha256', key).update(payload).digest('hex');
+}
+
+function mintCookie(now: Date, key: string): string {
+    const exp = Math.floor(now.getTime() / 1000) + COOKIE_MAX_AGE_SECONDS;
+    return `${exp}.${sign(String(exp), key)}`;
+}
 
 export function hostRouter(): Router {
-    const r = Router();
+    const r = Router({ mergeParams: true });
 
-    // Public: login / logout
-    r.post('/host/login', loginHandler);
-    r.post('/host/logout', logoutHandler);
+    // Login — uses per-location PIN from locations collection, falls back to env var.
+    r.post('/host/login', async (req: Request, res: Response) => {
+        const key = cookieSecret();
+        if (!key) { res.status(503).json({ error: 'host auth not configured' }); return; }
 
-    // Gated routes below
-    r.get('/host/queue', requireHost, async (_req: Request, res: Response) => {
-        try {
-            const list = await listHostQueue();
-            res.json(list);
-        } catch (err) {
-            dbError(res, err);
+        const location = await getLocation(loc(req));
+        const expectedPin = location?.pin ?? process.env.SKB_HOST_PIN ?? null;
+        if (!expectedPin) { res.status(503).json({ error: 'host auth not configured' }); return; }
+
+        const provided = String(req.body?.pin ?? '');
+        if (!provided) { res.status(400).json({ error: 'pin required', field: 'pin' }); return; }
+
+        const a = Buffer.from(provided);
+        const b = Buffer.from(expectedPin);
+        let ok = false;
+        if (a.length === b.length) { try { ok = timingSafeEqual(a, b); } catch { ok = false; } }
+
+        if (!ok) {
+            console.log(JSON.stringify({ t: new Date().toISOString(), level: 'warn', msg: 'host.auth.fail', loc: loc(req), ip: req.ip }));
+            res.status(401).json({ error: 'invalid pin' });
+            return;
         }
+
+        const cookie = mintCookie(new Date(), key);
+        res.setHeader('Set-Cookie', `${COOKIE_NAME}=${cookie}; Path=/; HttpOnly; SameSite=Strict; Max-Age=${COOKIE_MAX_AGE_SECONDS}`);
+        res.json({ ok: true });
+    });
+
+    r.post('/host/logout', (_req: Request, res: Response) => {
+        res.setHeader('Set-Cookie', `${COOKIE_NAME}=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0`);
+        res.json({ ok: true });
+    });
+
+    // All routes below require host auth
+    r.get('/host/queue', requireHost, async (req: Request, res: Response) => {
+        try { res.json(await listHostQueue(loc(req))); }
+        catch (err) { dbError(res, err); }
     });
 
     r.post('/host/queue/:id/remove', requireHost, async (req: Request, res: Response) => {
@@ -46,25 +108,11 @@ export function hostRouter(): Router {
         }
         try {
             const result = await removeFromQueue(id, reason);
-            if (!result.ok) {
-                res.status(404).json({ error: 'not found or already removed' });
-                return;
-            }
-            console.log(
-                JSON.stringify({
-                    t: new Date().toISOString(),
-                    level: 'info',
-                    msg: 'queue.remove',
-                    id,
-                    reason,
-                }),
-            );
+            if (!result.ok) { res.status(404).json({ error: 'not found or already removed' }); return; }
+            console.log(JSON.stringify({ t: new Date().toISOString(), level: 'info', msg: 'queue.remove', loc: loc(req), id, reason }));
             res.json({ ok: true });
         } catch (err) {
-            if (err instanceof Error && err.message === 'invalid id') {
-                res.status(400).json({ error: 'invalid id' });
-                return;
-            }
+            if (err instanceof Error && err.message === 'invalid id') { res.status(400).json({ error: 'invalid id' }); return; }
             dbError(res, err);
         }
     });
@@ -73,61 +121,32 @@ export function hostRouter(): Router {
         const id = String(req.params.id);
         try {
             const result = await callParty(id);
-            if (!result.ok) {
-                res.status(404).json({ error: 'not found or not waiting' });
-                return;
-            }
-            console.log(
-                JSON.stringify({
-                    t: new Date().toISOString(),
-                    level: 'info',
-                    msg: 'queue.call',
-                    id,
-                }),
-            );
+            if (!result.ok) { res.status(404).json({ error: 'not found or not waiting' }); return; }
             res.json({ ok: true });
         } catch (err) {
-            if (err instanceof Error && err.message === 'invalid id') {
-                res.status(400).json({ error: 'invalid id' });
-                return;
-            }
+            if (err instanceof Error && err.message === 'invalid id') { res.status(400).json({ error: 'invalid id' }); return; }
             dbError(res, err);
         }
     });
 
-    // Dining lifecycle routes
-    r.get('/host/dining', requireHost, async (_req: Request, res: Response) => {
-        try {
-            const list = await listDiningParties();
-            res.json(list);
-        } catch (err) {
-            dbError(res, err);
-        }
+    r.get('/host/dining', requireHost, async (req: Request, res: Response) => {
+        try { res.json(await listDiningParties(loc(req))); }
+        catch (err) { dbError(res, err); }
     });
 
-    r.get('/host/completed', requireHost, async (_req: Request, res: Response) => {
-        try {
-            const list = await listCompletedParties();
-            res.json(list);
-        } catch (err) {
-            dbError(res, err);
-        }
+    r.get('/host/completed', requireHost, async (req: Request, res: Response) => {
+        try { res.json(await listCompletedParties(loc(req))); }
+        catch (err) { dbError(res, err); }
     });
 
     r.get('/host/queue/:id/timeline', requireHost, async (req: Request, res: Response) => {
         const id = String(req.params.id);
         try {
             const timeline = await getPartyTimeline(id);
-            if (!timeline) {
-                res.status(404).json({ error: 'not found' });
-                return;
-            }
+            if (!timeline) { res.status(404).json({ error: 'not found' }); return; }
             res.json(timeline);
         } catch (err) {
-            if (err instanceof Error && err.message === 'invalid id') {
-                res.status(400).json({ error: 'invalid id' });
-                return;
-            }
+            if (err instanceof Error && err.message === 'invalid id') { res.status(400).json({ error: 'invalid id' }); return; }
             dbError(res, err);
         }
     });
@@ -142,30 +161,10 @@ export function hostRouter(): Router {
         }
         try {
             const result = await advanceParty(id, targetState);
-            if (!result.ok) {
-                res.status(404).json({ error: 'not found' });
-                return;
-            }
-            console.log(
-                JSON.stringify({
-                    t: new Date().toISOString(),
-                    level: 'info',
-                    msg: 'queue.advance',
-                    id,
-                    state: targetState,
-                }),
-            );
+            if (!result.ok) { res.status(404).json({ error: 'not found' }); return; }
             res.json({ ok: true });
         } catch (err) {
-            if (err instanceof Error && err.message === 'invalid id') {
-                res.status(400).json({ error: 'invalid id' });
-                return;
-            }
-            if (err instanceof Error && err.message.startsWith('cannot advance')) {
-                res.status(400).json({ error: err.message });
-                return;
-            }
-            if (err instanceof Error && err.message.startsWith('invalid target state')) {
+            if (err instanceof Error && err.message.startsWith('cannot advance') || (err instanceof Error && err.message.startsWith('invalid'))) {
                 res.status(400).json({ error: err.message });
                 return;
             }
@@ -176,36 +175,24 @@ export function hostRouter(): Router {
     r.get('/host/analytics', requireHost, async (req: Request, res: Response) => {
         const range = String(req.query.range ?? '7');
         const partySize = String(req.query.partySize ?? 'all');
-        try {
-            const data = await getAnalytics(range, partySize);
-            res.json(data);
-        } catch (err) {
-            dbError(res, err);
-        }
+        try { res.json(await getAnalytics(loc(req), range, partySize)); }
+        catch (err) { dbError(res, err); }
     });
 
-    r.get('/host/stats', requireHost, async (_req: Request, res: Response) => {
-        try {
-            const stats = await getHostStats();
-            res.json(stats);
-        } catch (err) {
-            dbError(res, err);
-        }
+    r.get('/host/stats', requireHost, async (req: Request, res: Response) => {
+        try { res.json(await getHostStats(loc(req))); }
+        catch (err) { dbError(res, err); }
     });
 
-    r.get('/host/settings', requireHost, async (_req: Request, res: Response) => {
-        try {
-            const avg = await getAvgTurnTime();
-            res.json({ avgTurnTimeMinutes: avg });
-        } catch (err) {
-            dbError(res, err);
-        }
+    r.get('/host/settings', requireHost, async (req: Request, res: Response) => {
+        try { res.json({ avgTurnTimeMinutes: await getAvgTurnTime(loc(req)) }); }
+        catch (err) { dbError(res, err); }
     });
 
     r.post('/host/settings', requireHost, async (req: Request, res: Response) => {
         const n = Number(req.body?.avgTurnTimeMinutes);
         try {
-            const saved = await setAvgTurnTime(n);
+            const saved = await setAvgTurnTime(loc(req), n);
             res.json({ avgTurnTimeMinutes: saved });
         } catch (err) {
             if (err instanceof Error && err.message.startsWith('avgTurnTimeMinutes')) {
@@ -220,13 +207,6 @@ export function hostRouter(): Router {
 }
 
 function dbError(res: Response, err: unknown): void {
-    console.log(
-        JSON.stringify({
-            t: new Date().toISOString(),
-            level: 'error',
-            msg: 'db.error',
-            detail: err instanceof Error ? err.message : String(err),
-        }),
-    );
+    console.log(JSON.stringify({ t: new Date().toISOString(), level: 'error', msg: 'db.error', detail: err instanceof Error ? err.message : String(err) }));
     res.status(503).json({ error: 'temporarily unavailable' });
 }

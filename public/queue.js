@@ -24,7 +24,7 @@
 
     async function loadState() {
         try {
-            const res = await fetch('/api/queue/state');
+            const res = await fetch('api/queue/state');
             if (!res.ok) throw new Error('state failed');
             const s = await res.json();
             lineLen.textContent = String(s.partiesWaiting);
@@ -47,7 +47,7 @@
 
     async function loadStatus(code) {
         try {
-            const res = await fetch('/api/queue/status?code=' + encodeURIComponent(code));
+            const res = await fetch('api/queue/status?code=' + encodeURIComponent(code));
             if (!res.ok) throw new Error('status failed');
             const s = await res.json();
             if (s.state === 'not_found' || s.state === 'seated' || s.state === 'no_show') {
@@ -92,7 +92,7 @@
         const partySize = Number($('size').value);
         const phoneLast4 = $('phone').value.trim();
         try {
-            const res = await fetch('/api/queue/join', {
+            const res = await fetch('api/queue/join', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({

@@ -60,14 +60,14 @@
     });
 
     async function checkAuth() {
-        const r = await fetch('/api/host/queue');
+        const r = await fetch('api/host/queue');
         return r.status !== 401;
     }
 
     // -- Waiting tab --
     async function refreshWaiting() {
         try {
-            const r = await fetch('/api/host/queue');
+            const r = await fetch('api/host/queue');
             if (r.status === 401) { showLogin(); return; }
             if (!r.ok) throw new Error('queue fetch failed');
             const data = await r.json();
@@ -115,7 +115,7 @@
 
     async function refreshDining() {
         try {
-            const r = await fetch('/api/host/dining');
+            const r = await fetch('api/host/dining');
             if (r.status === 401) return;
             if (!r.ok) return;
             const data = await r.json();
@@ -158,7 +158,7 @@
     // -- Complete tab --
     async function refreshCompleted() {
         try {
-            const r = await fetch('/api/host/completed');
+            const r = await fetch('api/host/completed');
             if (r.status === 401) return;
             if (!r.ok) return;
             const data = await r.json();
@@ -201,7 +201,7 @@
         const el = $('timeline-' + id);
         if (!el) return;
         try {
-            const r = await fetch('/api/host/queue/' + encodeURIComponent(id) + '/timeline');
+            const r = await fetch('api/host/queue/' + encodeURIComponent(id) + '/timeline');
             if (!r.ok) { el.textContent = 'Could not load timeline.'; return; }
             const tl = r.json ? await r.json() : {};
             const ts = tl.timestamps || {};
@@ -248,7 +248,7 @@
 
     async function refreshStats() {
         try {
-            const r = await fetch('/api/host/stats');
+            const r = await fetch('api/host/stats');
             if (r.status === 401) return;
             if (!r.ok) return;
             const s = await r.json();
@@ -273,7 +273,7 @@
 
     // -- Event handlers --
     async function onRemove(id, reason) {
-        const r = await fetch('/api/host/queue/' + encodeURIComponent(id) + '/remove', {
+        const r = await fetch('api/host/queue/' + encodeURIComponent(id) + '/remove', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ reason }),
@@ -283,7 +283,7 @@
     }
 
     async function onCall(id) {
-        const r = await fetch('/api/host/queue/' + encodeURIComponent(id) + '/call', {
+        const r = await fetch('api/host/queue/' + encodeURIComponent(id) + '/call', {
             method: 'POST',
         });
         if (r.status === 401) { showLogin(); return; }
@@ -291,7 +291,7 @@
     }
 
     async function onAdvance(id, state) {
-        const r = await fetch('/api/host/queue/' + encodeURIComponent(id) + '/advance', {
+        const r = await fetch('api/host/queue/' + encodeURIComponent(id) + '/advance', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ state }),
@@ -302,7 +302,7 @@
 
     async function onTurnChange() {
         const n = Number(turnInput.value);
-        await fetch('/api/host/settings', {
+        await fetch('api/host/settings', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ avgTurnTimeMinutes: n }),
@@ -355,7 +355,7 @@
 
     turnInput.addEventListener('change', onTurnChange);
     logoutBtn.addEventListener('click', async () => {
-        await fetch('/api/host/logout', { method: 'POST' });
+        await fetch('api/host/logout', { method: 'POST' });
         showLogin();
     });
 
@@ -363,7 +363,7 @@
         e.preventDefault();
         loginError.style.display = 'none';
         const pin = $('pin').value;
-        const r = await fetch('/api/host/login', {
+        const r = await fetch('api/host/login', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ pin }),

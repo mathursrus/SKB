@@ -75,6 +75,7 @@ export function buildHistogram(values: number[]): HistogramBucket[] {
 }
 
 export async function getAnalytics(
+    locationId: string,
     rangeDays: string = '7',
     partySizeFilter: string = 'all',
 ): Promise<AnalyticsDTO> {
@@ -91,6 +92,7 @@ export async function getAnalytics(
 
     // Query all entries for the date range that have been seated (have lifecycle data)
     const filter: Record<string, unknown> = {
+        locationId,
         serviceDay: { $in: serviceDays },
         seatedAt: { $exists: true, $ne: null },
     };

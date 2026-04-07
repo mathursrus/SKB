@@ -1,11 +1,14 @@
 // ============================================================================
-// SKB - MCP Server + REST API + static UI
+// SKB - MCP Server + REST API + static UI (multi-tenant)
 // ============================================================================
-// - /health, /health/db            (health routes)
-// - /api/queue/*                   (diner-facing)
-// - /api/host/*                    (host-stand, PIN-gated)
-// - /mcp                           (JSON-RPC 2.0 MCP endpoint, tools)
-// - static /*                      (public/ served as-is)
+// URL structure:
+//   /r/:loc/queue.html          — diner page for location :loc
+//   /r/:loc/host.html           — host-stand for location :loc
+//   /r/:loc/api/queue/*         — diner API
+//   /r/:loc/api/host/*          — host API (PIN-gated per location)
+//   /health, /health/db         — global health
+//   /mcp                        — MCP JSON-RPC
+//   /                           — landing page (lists locations)
 // ============================================================================
 
 import path from 'node:path';
@@ -19,9 +22,10 @@ import { queueRouter } from './routes/queue.js';
 import { hostRouter } from './routes/host.js';
 import { healthRouter } from './routes/health.js';
 import { renderQueuePage } from './services/queue-template.js';
+import { listLocations, ensureLocation } from './services/locations.js';
 
 const SERVER_NAME = 'skb-mcp';
-const SERVER_VERSION = '0.1.0';
+const SERVER_VERSION = '0.2.0';
 const PROTOCOL_VERSION = '2024-11-05';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -30,15 +34,28 @@ const publicDir = path.resolve(__dirname, '..', 'public');
 const app = express();
 app.use(express.json({ limit: '10mb' }));
 
-// Health + REST
+// Global health
 app.use(healthRouter(SERVER_NAME));
-app.use('/api', queueRouter());
-app.use('/api', hostRouter());
 
-// Server-side rendered queue page (JSON-LD + OG meta injected from live queue state)
-app.get(['/queue.html', '/queue'], async (_req: Request, res: Response) => {
+// Landing page — list locations
+app.get('/', async (_req: Request, res: Response) => {
     try {
-        const html = await renderQueuePage();
+        const locs = await listLocations();
+        const links = locs.map(l => `<li><a href="/r/${l._id}/queue.html">${l.name}</a> — <a href="/r/${l._id}/host.html">Host</a> · <a href="/r/${l._id}/analytics.html">Analytics</a></li>`).join('\n');
+        res.type('html').send(`<!doctype html><html><head><title>SKB — Locations</title><link href="https://fonts.googleapis.com/css2?family=Fira+Sans:wght@400;600;700&display=swap" rel="stylesheet"><style>body{font-family:'Fira Sans',sans-serif;max-width:600px;margin:40px auto;padding:0 20px}h1{font-size:24px}li{margin:8px 0;font-size:16px}a{color:#b45309}</style></head><body><h1>SKB Waitlist</h1><ul>${links || '<li>No locations configured.</li>'}</ul></body></html>`);
+    } catch {
+        res.status(503).send('Service unavailable');
+    }
+});
+
+// Per-location routes: /r/:loc/...
+app.use('/r/:loc/api', queueRouter());
+app.use('/r/:loc/api', hostRouter());
+
+// Server-side rendered queue page per location
+app.get('/r/:loc/queue.html', async (req: Request, res: Response) => {
+    try {
+        const html = await renderQueuePage(String(req.params.loc));
         res.type('html').send(html);
     } catch (err) {
         console.error('[MCP Server] queue template error:', err);
@@ -46,7 +63,28 @@ app.get(['/queue.html', '/queue'], async (_req: Request, res: Response) => {
     }
 });
 
-// Static assets (queue.js, styles.css, host.html, host.js, board.html, board.js, qr.svg, etc.)
+// Static assets — served under /r/:loc/ so JS fetch() calls use relative paths
+app.use('/r/:loc', express.static(publicDir));
+
+// Backward-compat: /api/* routes default to location "skb"
+app.use('/api', (req: Request, _res: Response, next: () => void) => {
+    req.params.loc = 'skb';
+    next();
+}, queueRouter());
+app.use('/api', (req: Request, _res: Response, next: () => void) => {
+    req.params.loc = 'skb';
+    next();
+}, hostRouter());
+
+// Backward-compat: old /queue.html defaults to skb
+app.get(['/queue.html', '/queue'], async (_req: Request, res: Response) => {
+    try {
+        const html = await renderQueuePage('skb');
+        res.type('html').send(html);
+    } catch (err) {
+        res.status(500).send('Internal server error');
+    }
+});
 app.use(express.static(publicDir));
 
 // ----------------------------------------------------------------------------
@@ -147,13 +185,22 @@ app.post('/mcp', async (req: Request, res: Response) => {
 });
 
 // ----------------------------------------------------------------------------
-// Start
+// Bootstrap default locations + start
 // ----------------------------------------------------------------------------
 const port = getPort();
-app.listen(port, () => {
-    console.log(`[MCP Server] ${SERVER_NAME}@${SERVER_VERSION} running on port ${port}`);
-    console.log(`[MCP Server] Health: http://localhost:${port}/health`);
-    console.log(`[MCP Server] Diner:  http://localhost:${port}/queue.html`);
-    console.log(`[MCP Server] Host:   http://localhost:${port}/host.html`);
-    console.log(`[MCP Server] Board:  http://localhost:${port}/board.html`);
+
+async function bootstrap(): Promise<void> {
+    // Ensure the default SKB location exists
+    await ensureLocation('skb', 'Shri Krishna Bhavan', process.env.SKB_HOST_PIN ?? '1234');
+}
+
+bootstrap().then(() => {
+    app.listen(port, () => {
+        console.log(`[MCP Server] ${SERVER_NAME}@${SERVER_VERSION} running on port ${port}`);
+        console.log(`[MCP Server] Landing: http://localhost:${port}/`);
+        console.log(`[MCP Server] SKB:     http://localhost:${port}/r/skb/queue.html`);
+    });
+}).catch((err) => {
+    console.error('[MCP Server] bootstrap failed:', err);
+    process.exit(1);
 });

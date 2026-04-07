@@ -74,12 +74,12 @@ function escapeAttr(s: string): string {
  * If `getQueueState()` fails, serves the page with fallback meta tags
  * and no JSON-LD block. Never throws.
  */
-export async function renderQueuePage(now?: Date): Promise<string> {
+export async function renderQueuePage(locationId: string, now?: Date): Promise<string> {
     const template = loadTemplate();
     let injection: string;
 
     try {
-        const state = await getQueueState(now);
+        const state = await getQueueState(locationId, now);
         injection = buildHeadInjection(state);
     } catch {
         injection = buildFallbackHeadInjection();

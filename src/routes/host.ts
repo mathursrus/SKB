@@ -5,6 +5,12 @@
 import { Router, type Request, type Response } from 'express';
 
 import { callParty, listHostQueue, removeFromQueue } from '../services/queue.js';
+import {
+    advanceParty,
+    listCompletedParties,
+    listDiningParties,
+    getPartyTimeline,
+} from '../services/dining.js';
 import { getAvgTurnTime, setAvgTurnTime } from '../services/settings.js';
 import { getHostStats } from '../services/stats.js';
 import {
@@ -82,6 +88,84 @@ export function hostRouter(): Router {
         } catch (err) {
             if (err instanceof Error && err.message === 'invalid id') {
                 res.status(400).json({ error: 'invalid id' });
+                return;
+            }
+            dbError(res, err);
+        }
+    });
+
+    // Dining lifecycle routes
+    r.get('/host/dining', requireHost, async (_req: Request, res: Response) => {
+        try {
+            const list = await listDiningParties();
+            res.json(list);
+        } catch (err) {
+            dbError(res, err);
+        }
+    });
+
+    r.get('/host/completed', requireHost, async (_req: Request, res: Response) => {
+        try {
+            const list = await listCompletedParties();
+            res.json(list);
+        } catch (err) {
+            dbError(res, err);
+        }
+    });
+
+    r.get('/host/queue/:id/timeline', requireHost, async (req: Request, res: Response) => {
+        const id = String(req.params.id);
+        try {
+            const timeline = await getPartyTimeline(id);
+            if (!timeline) {
+                res.status(404).json({ error: 'not found' });
+                return;
+            }
+            res.json(timeline);
+        } catch (err) {
+            if (err instanceof Error && err.message === 'invalid id') {
+                res.status(400).json({ error: 'invalid id' });
+                return;
+            }
+            dbError(res, err);
+        }
+    });
+
+    r.post('/host/queue/:id/advance', requireHost, async (req: Request, res: Response) => {
+        const id = String(req.params.id);
+        const targetState = String(req.body?.state ?? '');
+        const validStates = ['ordered', 'served', 'checkout', 'departed'];
+        if (!validStates.includes(targetState)) {
+            res.status(400).json({ error: 'state must be ordered|served|checkout|departed', field: 'state' });
+            return;
+        }
+        try {
+            const result = await advanceParty(id, targetState);
+            if (!result.ok) {
+                res.status(404).json({ error: 'not found' });
+                return;
+            }
+            console.log(
+                JSON.stringify({
+                    t: new Date().toISOString(),
+                    level: 'info',
+                    msg: 'queue.advance',
+                    id,
+                    state: targetState,
+                }),
+            );
+            res.json({ ok: true });
+        } catch (err) {
+            if (err instanceof Error && err.message === 'invalid id') {
+                res.status(400).json({ error: 'invalid id' });
+                return;
+            }
+            if (err instanceof Error && err.message.startsWith('cannot advance')) {
+                res.status(400).json({ error: err.message });
+                return;
+            }
+            if (err instanceof Error && err.message.startsWith('invalid target state')) {
+                res.status(400).json({ error: err.message });
                 return;
             }
             dbError(res, err);

@@ -28,6 +28,7 @@
         <div class="brand">SKB · Host Stand</div>
         <div class="counts">
             <div><strong id="count-waiting">0</strong> waiting</div>
+            <div><strong id="count-dining">0</strong> dining</div>
             <div>oldest: <strong id="count-oldest">0m</strong></div>
         </div>
         <div class="turn">
@@ -63,19 +64,63 @@
                     <div class="stat-value"><span id="stat-turn-set">&mdash;</span> <span class="stat-vs">vs</span> <span id="stat-turn-actual">&mdash;</span></div>
                     <div class="stat-label">Turn Time: Set vs Actual</div>
                 </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="stat-avg-order">&mdash;</div>
+                    <div class="stat-label">Avg Order</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="stat-avg-serve">&mdash;</div>
+                    <div class="stat-label">Avg Serve</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="stat-avg-checkout">&mdash;</div>
+                    <div class="stat-label">Avg Checkout</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="stat-avg-table">&mdash;</div>
+                    <div class="stat-label">Avg Table</div>
+                </div>
             </div>
             <p id="stats-empty" class="stats-empty" style="display:none">No data yet</p>
         </div>
     </section>
+    <div class="tabs">
+        <button class="tab active" data-tab="waiting">Waiting <span class="tab-badge" id="tab-badge-waiting">0</span></button>
+        <button class="tab" data-tab="seated">Seated <span class="tab-badge" id="tab-badge-seated">0</span></button>
+        <button class="tab" data-tab="complete">Complete <span class="tab-badge" id="tab-badge-complete">0</span></button>
+    </div>
     <main>
-        <table>
-            <thead>
-                <tr>
-                    <th>#</th><th>Name</th><th>Size</th><th>Phone</th><th>Promised</th><th>Waiting</th><th></th>
-                </tr>
-            </thead>
-            <tbody id="rows"><tr><td colspan="7" class="empty">Loading…</td></tr></tbody>
-        </table>
+        <div class="tab-content active" id="tab-waiting">
+            <table>
+                <thead>
+                    <tr>
+                        <th>#</th><th>Name</th><th>Size</th><th>Phone</th><th>Promised</th><th>Waiting</th><th></th>
+                    </tr>
+                </thead>
+                <tbody id="rows"><tr><td colspan="7" class="empty">Loading...</td></tr></tbody>
+            </table>
+        </div>
+        <div class="tab-content" id="tab-seated">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Name</th><th>Size</th><th>State</th><th>In State</th><th>At Table</th><th></th>
+                    </tr>
+                </thead>
+                <tbody id="dining-rows"><tr><td colspan="6" class="empty">No dining parties.</td></tr></tbody>
+            </table>
+        </div>
+        <div class="tab-content" id="tab-complete">
+            <div class="complete-summary" id="complete-summary"></div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Name</th><th>Size</th><th>Status</th><th>Wait</th><th>Table</th><th>Total</th>
+                    </tr>
+                </thead>
+                <tbody id="completed-rows"><tr><td colspan="6" class="empty">No completed parties.</td></tr></tbody>
+            </table>
+        </div>
     </main>
 </div>
 <script src="/host.js"></script>

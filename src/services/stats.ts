@@ -10,7 +10,7 @@
 import { getDb, queueEntries } from '../core/db/mongo.js';
 import { getAvgTurnTime } from './settings.js';
 import { serviceDay, minutesBetween, TZ } from '../core/utils/time.js';
-import type { QueueEntry, HostStatsDTO } from '../types/queue.js';
+import type { QueueEntry, HostStatsDTO, PartyState } from '../types/queue.js';
 
 // -- Pure helpers (exported for testing) -------------------------------------
 
@@ -23,21 +23,42 @@ export function formatHourLabel(hour: number): string {
 }
 
 /**
- * Compute average wait in minutes for seated entries that have both
- * joinedAt and removedAt. Returns null if no valid entries.
+ * Compute average wait in minutes for parties that were seated.
+ * Uses seatedAt if available (new lifecycle model), falls back to
+ * removedAt for legacy entries where removedReason='seated'.
  */
 export function computeAvgWait(
-    entries: Pick<QueueEntry, 'joinedAt' | 'removedAt' | 'removedReason'>[],
+    entries: Pick<QueueEntry, 'joinedAt' | 'removedAt' | 'removedReason' | 'seatedAt'>[],
 ): number | null {
-    const seated = entries.filter(
-        (e) => e.removedReason === 'seated' && e.removedAt != null,
-    );
+    const seated = entries.filter((e) => {
+        // New model: has seatedAt
+        if (e.seatedAt != null) return true;
+        // Legacy model: removedReason='seated' with removedAt
+        return e.removedReason === 'seated' && e.removedAt != null;
+    });
     if (seated.length === 0) return null;
-    const totalMinutes = seated.reduce(
-        (sum, e) => sum + minutesBetween(e.joinedAt, e.removedAt as Date),
-        0,
-    );
+    const totalMinutes = seated.reduce((sum, e) => {
+        const seatedTime = e.seatedAt ?? e.removedAt as Date;
+        return sum + minutesBetween(e.joinedAt, seatedTime);
+    }, 0);
     return Math.round(totalMinutes / seated.length);
+}
+
+/**
+ * Compute average minutes between two lifecycle timestamps across entries.
+ * Only counts entries where both timestamps are present.
+ */
+export function computeAvgPhaseTime(
+    entries: Pick<QueueEntry, 'seatedAt' | 'orderedAt' | 'servedAt' | 'checkoutAt' | 'departedAt'>[],
+    fromField: 'seatedAt' | 'orderedAt' | 'servedAt' | 'checkoutAt',
+    toField: 'orderedAt' | 'servedAt' | 'checkoutAt' | 'departedAt',
+): number | null {
+    const valid = entries.filter((e) => e[fromField] != null && e[toField] != null);
+    if (valid.length === 0) return null;
+    const total = valid.reduce((sum, e) => {
+        return sum + minutesBetween(e[fromField] as Date, e[toField] as Date);
+    }, 0);
+    return Math.round(total / valid.length);
 }
 
 /**
@@ -71,19 +92,32 @@ export function computePeakHour(joinedAts: Date[]): number | null {
     return peakHour === -1 ? null : peakHour;
 }
 
+type StatsEntry = Pick<QueueEntry, 'state' | 'joinedAt' | 'removedAt' | 'removedReason' | 'seatedAt' | 'orderedAt' | 'servedAt' | 'checkoutAt' | 'departedAt'>;
+
 /** Build a complete stats DTO from raw entries and the configured turn time. */
 export function buildStats(
-    entries: Pick<QueueEntry, 'state' | 'joinedAt' | 'removedAt' | 'removedReason'>[],
+    entries: StatsEntry[],
     configuredTurnTime: number,
 ): HostStatsDTO {
-    const partiesSeated = entries.filter((e) => e.removedReason === 'seated').length;
-    const noShows = entries.filter((e) => e.removedReason === 'no_show').length;
+    // "Seated" count: parties that went through seating (any post-seated state or departed).
+    // Includes: seated, ordered, served, checkout, departed (but not no_show).
+    const seatedStates: PartyState[] = ['seated', 'ordered', 'served', 'checkout', 'departed'];
+    const partiesSeated = entries.filter((e) =>
+        seatedStates.includes(e.state as PartyState) || e.removedReason === 'seated',
+    ).length;
+    const noShows = entries.filter((e) => e.removedReason === 'no_show' || e.state === 'no_show').length;
     const stillWaiting = entries.filter((e) =>
         (e.state === 'waiting' || e.state === 'called'),
     ).length;
 
     const avgActualWaitMinutes = computeAvgWait(entries);
     const peakHour = computePeakHour(entries.map((e) => e.joinedAt));
+
+    // Lifecycle phase metrics
+    const avgOrderTimeMinutes = computeAvgPhaseTime(entries, 'seatedAt', 'orderedAt');
+    const avgServeTimeMinutes = computeAvgPhaseTime(entries, 'orderedAt', 'servedAt');
+    const avgCheckoutTimeMinutes = computeAvgPhaseTime(entries, 'checkoutAt', 'departedAt');
+    const avgTableOccupancyMinutes = computeAvgPhaseTime(entries, 'seatedAt', 'departedAt');
 
     return {
         partiesSeated,
@@ -95,6 +129,10 @@ export function buildStats(
         actualTurnTime: avgActualWaitMinutes, // same metric: avg wait for seated
         totalJoined: entries.length,
         stillWaiting,
+        avgOrderTimeMinutes,
+        avgServeTimeMinutes,
+        avgCheckoutTimeMinutes,
+        avgTableOccupancyMinutes,
     };
 }
 
@@ -107,11 +145,16 @@ export async function getHostStats(now: Date = new Date()): Promise<HostStatsDTO
 
     const entries = await queueEntries(db)
         .find({ serviceDay: today })
-        .project<Pick<QueueEntry, 'state' | 'joinedAt' | 'removedAt' | 'removedReason'>>({
+        .project<StatsEntry>({
             state: 1,
             joinedAt: 1,
             removedAt: 1,
             removedReason: 1,
+            seatedAt: 1,
+            orderedAt: 1,
+            servedAt: 1,
+            checkoutAt: 1,
+            departedAt: 1,
         })
         .toArray();
 

@@ -339,5 +339,118 @@ button.remove:hover { background: var(--danger); color: #fff; }
     .stat-value { font-size: 22px; }
 }
 
+/* ---------- Tabs ---------- */
+.tabs {
+    display: flex;
+    gap: 0;
+    padding: 0 24px;
+    background: #fff;
+    border-bottom: 1px solid var(--border);
+}
+.tab {
+    padding: 12px 20px;
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--muted);
+    background: none;
+    border: none;
+    border-bottom: 3px solid transparent;
+    cursor: pointer;
+    min-height: 44px;
+}
+.tab:hover { color: var(--fg); }
+.tab.active { color: var(--fg); border-bottom-color: var(--accent); }
+.tab-badge {
+    display: inline-block;
+    background: var(--surface-alt);
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 700;
+    padding: 1px 7px;
+    border-radius: 10px;
+    margin-left: 4px;
+}
+.tab.active .tab-badge { background: var(--accent); color: #111; }
+.tab-content { display: none; }
+.tab-content.active { display: block; }
+
+/* ---------- State badges ---------- */
+.state-badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+}
+.state-seated { background: #dbeafe; color: #1e40af; }
+.state-ordered { background: #fef3c7; color: #854d0e; }
+.state-served { background: #d1fae5; color: #065f46; }
+.state-checkout { background: #ede9fe; color: #5b21b6; }
+.state-departed { background: #f3f4f6; color: #6b7280; }
+.state-no_show { background: #fee2e2; color: #b91c1c; }
+
+/* ---------- Dining action buttons ---------- */
+button.advance-btn {
+    background: #111; color: #fff;
+    border: 1px solid #111;
+    padding: 8px 14px; border-radius: 8px;
+    font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer;
+    min-height: 44px; margin-right: 6px;
+}
+button.advance-btn:hover { background: #333; }
+button.depart-btn {
+    background: #fff; color: var(--muted);
+    border: 1px solid var(--border);
+    padding: 8px 14px; border-radius: 8px;
+    font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer;
+    min-height: 44px; margin-left: 4px;
+}
+button.depart-btn:hover { background: var(--surface-alt); }
+
+/* ---------- Timeline detail ---------- */
+.timeline-detail {
+    padding: 12px 24px;
+    background: var(--surface-alt);
+    border-top: 1px solid var(--border);
+}
+.timeline-detail .timeline-step {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 0;
+    font-size: 13px;
+    color: var(--muted);
+}
+.timeline-detail .timeline-step .timeline-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--accent);
+    flex-shrink: 0;
+}
+.timeline-detail .timeline-step .timeline-label {
+    font-weight: 600;
+    color: var(--fg);
+    min-width: 80px;
+}
+.timeline-detail .timeline-step .timeline-time {
+    color: var(--muted);
+}
+tr.expandable { cursor: pointer; }
+tr.expandable:hover { background: var(--surface-alt); }
+
+/* ---------- Complete tab summary ---------- */
+.complete-summary {
+    display: flex;
+    gap: 20px;
+    padding: 12px 0;
+    font-size: 14px;
+    color: var(--muted);
+}
+.complete-summary strong { color: var(--fg); }
+
 .empty { text-align: center; color: var(--muted); padding: 40px; }
 .login-card { max-width: 360px; margin: 80px auto; }

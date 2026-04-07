@@ -1,4 +1,4 @@
-// SKB host-stand UI
+// SKB host-stand UI — 3-tab layout (Waiting / Seated / Complete)
 (function () {
     const $ = (id) => document.getElementById(id);
     const loginView = $('login-view');
@@ -6,13 +6,15 @@
     const loginForm = $('login-form');
     const loginError = $('login-error');
     const rows = $('rows');
+    const diningRows = $('dining-rows');
+    const completedRows = $('completed-rows');
     const countWaiting = $('count-waiting');
+    const countDining = $('count-dining');
     const countOldest = $('count-oldest');
     const turnInput = $('turn');
     const logoutBtn = $('logout-btn');
     const statsCard = $('stats-card');
     const statsToggle = $('stats-toggle');
-    const statsBody = $('stats-body');
     const statsGrid = $('stats-grid');
     const statsEmpty = $('stats-empty');
     const statSeated = $('stat-seated');
@@ -21,21 +23,49 @@
     const statPeak = $('stat-peak');
     const statTurnSet = $('stat-turn-set');
     const statTurnActual = $('stat-turn-actual');
+    const statAvgOrder = $('stat-avg-order');
+    const statAvgServe = $('stat-avg-serve');
+    const statAvgCheckout = $('stat-avg-checkout');
+    const statAvgTable = $('stat-avg-table');
+    const tabBadgeWaiting = $('tab-badge-waiting');
+    const tabBadgeSeated = $('tab-badge-seated');
+    const tabBadgeComplete = $('tab-badge-complete');
+    const completeSummary = $('complete-summary');
 
     let pollTimer = null;
+    let expandedTimelineId = null;
 
     function fmtTime(iso) {
         try {
             return new Date(iso).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
-        } catch { return '—'; }
+        } catch { return '\u2014'; }
     }
+
+    function escapeHtml(s) {
+        return String(s).replace(/[&<>"']/g, c => ({
+            '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+        }[c]));
+    }
+
+    // -- Tab switching --
+    document.querySelectorAll('.tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            tab.classList.add('active');
+            const target = tab.dataset.tab;
+            const content = $('tab-' + target);
+            if (content) content.classList.add('active');
+        });
+    });
 
     async function checkAuth() {
         const r = await fetch('/api/host/queue');
         return r.status !== 401;
     }
 
-    async function refresh() {
+    // -- Waiting tab --
+    async function refreshWaiting() {
         try {
             const r = await fetch('/api/host/queue');
             if (r.status === 401) { showLogin(); return; }
@@ -44,6 +74,7 @@
             countWaiting.textContent = String(data.parties.length);
             countOldest.textContent = data.oldestWaitMinutes + 'm';
             turnInput.value = String(data.avgTurnTimeMinutes);
+            tabBadgeWaiting.textContent = String(data.parties.length);
             if (data.parties.length === 0) {
                 rows.innerHTML = '<tr><td colspan="7" class="empty">Nobody waiting.</td></tr>';
                 return;
@@ -52,40 +83,173 @@
                 const callsList = Array.isArray(p.callsMinutesAgo) ? p.callsMinutesAgo : [];
                 const calledBadge = p.state === 'called'
                     ? (callsList.length > 0
-                        ? ' ' + callsList.map((m, i) => `<span class="badge-called">Call ${i + 1}: ${m}m ago</span>`).join(' ')
+                        ? ' ' + callsList.map((m, i) => '<span class="badge-called">Call ' + (i + 1) + ': ' + m + 'm ago</span>').join(' ')
                         : ' <span class="badge-called">CALLED</span>')
                     : '';
                 const callLabel = p.state === 'called' ? 'Recall' : 'Call';
-                return `
-                <tr data-id="${p.id}" class="${p.state === 'called' ? 'row-called' : ''}">
-                    <td class="num">${p.position}</td>
-                    <td>${escapeHtml(p.name)}${calledBadge}</td>
-                    <td class="size">${p.partySize}</td>
-                    <td class="phone">${p.phoneLast4 ? '••' + p.phoneLast4 : '—'}</td>
-                    <td class="eta">${fmtTime(p.etaAt)}</td>
-                    <td class="wait">${p.waitingMinutes}m</td>
-                    <td class="actions">
-                        <button class="call-btn" data-action="call">${callLabel}</button>
-                        <button class="remove" data-reason="seated">Seated</button>
-                        <button class="remove" data-reason="no_show">No-show</button>
-                    </td>
-                </tr>`;
+                return '<tr data-id="' + p.id + '" class="' + (p.state === 'called' ? 'row-called' : '') + '">' +
+                    '<td class="num">' + p.position + '</td>' +
+                    '<td>' + escapeHtml(p.name) + calledBadge + '</td>' +
+                    '<td class="size">' + p.partySize + '</td>' +
+                    '<td class="phone">' + (p.phoneLast4 ? '\u2022\u2022' + p.phoneLast4 : '\u2014') + '</td>' +
+                    '<td class="eta">' + fmtTime(p.etaAt) + '</td>' +
+                    '<td class="wait">' + p.waitingMinutes + 'm</td>' +
+                    '<td class="actions">' +
+                        '<button class="call-btn" data-action="call">' + callLabel + '</button>' +
+                        '<button class="remove" data-reason="seated">Seated</button>' +
+                        '<button class="remove" data-reason="no_show">No-show</button>' +
+                    '</td></tr>';
             }).join('');
         } catch (e) {
             console.error('refresh error', e);
         }
     }
 
-    // Stats card toggle
+    // -- Seated (Dining) tab --
+    const NEXT_ACTION = {
+        seated: { label: 'Ordered', state: 'ordered' },
+        ordered: { label: 'Served', state: 'served' },
+        served: { label: 'Checkout', state: 'checkout' },
+        checkout: { label: 'Departed', state: 'departed' },
+    };
+
+    async function refreshDining() {
+        try {
+            const r = await fetch('/api/host/dining');
+            if (r.status === 401) return;
+            if (!r.ok) return;
+            const data = await r.json();
+            countDining.textContent = String(data.diningCount);
+            tabBadgeSeated.textContent = String(data.diningCount);
+            if (data.parties.length === 0) {
+                diningRows.innerHTML = '<tr><td colspan="6" class="empty">No dining parties.</td></tr>';
+                return;
+            }
+            let html = '';
+            for (const p of data.parties) {
+                const next = NEXT_ACTION[p.state];
+                const actions = next
+                    ? '<button class="advance-btn" data-id="' + p.id + '" data-state="' + next.state + '">' + next.label + '</button>' +
+                      (p.state !== 'checkout' ? '<button class="depart-btn" data-id="' + p.id + '" data-state="departed">Departed</button>' : '')
+                    : '';
+                html += '<tr class="expandable" data-dining-id="' + p.id + '">' +
+                    '<td>' + escapeHtml(p.name) + '</td>' +
+                    '<td class="size">' + p.partySize + '</td>' +
+                    '<td><span class="state-badge state-' + p.state + '">' + p.state + '</span></td>' +
+                    '<td>' + p.timeInStateMinutes + 'm</td>' +
+                    '<td>' + p.totalTableMinutes + 'm</td>' +
+                    '<td class="actions">' + actions + '</td>' +
+                    '</tr>';
+                // Timeline expansion row
+                if (expandedTimelineId === p.id) {
+                    html += '<tr class="timeline-row" data-timeline-for="' + p.id + '"><td colspan="6"><div class="timeline-detail" id="timeline-' + p.id + '">Loading...</div></td></tr>';
+                }
+            }
+            diningRows.innerHTML = html;
+            // Load timeline if expanded
+            if (expandedTimelineId) {
+                loadTimeline(expandedTimelineId);
+            }
+        } catch (e) {
+            console.error('dining refresh error', e);
+        }
+    }
+
+    // -- Complete tab --
+    async function refreshCompleted() {
+        try {
+            const r = await fetch('/api/host/completed');
+            if (r.status === 401) return;
+            if (!r.ok) return;
+            const data = await r.json();
+            tabBadgeComplete.textContent = String(data.parties.length);
+            // Summary
+            completeSummary.innerHTML =
+                '<span>Served: <strong>' + data.totalServed + '</strong></span>' +
+                '<span>No-shows: <strong>' + data.totalNoShows + '</strong></span>' +
+                '<span>Avg Wait: <strong>' + (data.avgWaitMinutes != null ? data.avgWaitMinutes + 'm' : '\u2014') + '</strong></span>' +
+                '<span>Avg Table: <strong>' + (data.avgTableOccupancyMinutes != null ? data.avgTableOccupancyMinutes + 'm' : '\u2014') + '</strong></span>';
+            if (data.parties.length === 0) {
+                completedRows.innerHTML = '<tr><td colspan="6" class="empty">No completed parties.</td></tr>';
+                return;
+            }
+            let html = '';
+            for (const p of data.parties) {
+                html += '<tr class="expandable" data-completed-id="' + p.id + '">' +
+                    '<td>' + escapeHtml(p.name) + '</td>' +
+                    '<td class="size">' + p.partySize + '</td>' +
+                    '<td><span class="state-badge state-' + p.state + '">' + p.state.replace('_', '-') + '</span></td>' +
+                    '<td>' + p.waitTimeMinutes + 'm</td>' +
+                    '<td>' + (p.tableTimeMinutes != null ? p.tableTimeMinutes + 'm' : '\u2014') + '</td>' +
+                    '<td>' + p.totalTimeMinutes + 'm</td>' +
+                    '</tr>';
+                if (expandedTimelineId === p.id) {
+                    html += '<tr class="timeline-row" data-timeline-for="' + p.id + '"><td colspan="6"><div class="timeline-detail" id="timeline-' + p.id + '">Loading...</div></td></tr>';
+                }
+            }
+            completedRows.innerHTML = html;
+            if (expandedTimelineId) {
+                loadTimeline(expandedTimelineId);
+            }
+        } catch (e) {
+            console.error('completed refresh error', e);
+        }
+    }
+
+    // -- Timeline --
+    async function loadTimeline(id) {
+        const el = $('timeline-' + id);
+        if (!el) return;
+        try {
+            const r = await fetch('/api/host/queue/' + encodeURIComponent(id) + '/timeline');
+            if (!r.ok) { el.textContent = 'Could not load timeline.'; return; }
+            const tl = r.json ? await r.json() : {};
+            const ts = tl.timestamps || {};
+            const steps = [
+                { label: 'Joined', time: ts.joinedAt },
+                { label: 'Called', time: ts.calledAt },
+                { label: 'Seated', time: ts.seatedAt },
+                { label: 'Ordered', time: ts.orderedAt },
+                { label: 'Served', time: ts.servedAt },
+                { label: 'Checkout', time: ts.checkoutAt },
+                { label: 'Departed', time: ts.departedAt },
+            ].filter(s => s.time != null);
+            if (steps.length === 0) {
+                el.textContent = 'No timeline data.';
+                return;
+            }
+            el.innerHTML = steps.map(s =>
+                '<div class="timeline-step">' +
+                    '<span class="timeline-dot"></span>' +
+                    '<span class="timeline-label">' + s.label + '</span>' +
+                    '<span class="timeline-time">' + fmtTime(s.time) + '</span>' +
+                '</div>'
+            ).join('');
+        } catch (e) {
+            if (el) el.textContent = 'Error loading timeline.';
+        }
+    }
+
+    function toggleTimeline(id) {
+        if (expandedTimelineId === id) {
+            expandedTimelineId = null;
+        } else {
+            expandedTimelineId = id;
+        }
+        refreshDining();
+        refreshCompleted();
+    }
+
+    // -- Stats --
     statsToggle.addEventListener('click', () => {
-        const expanded = statsCard.classList.toggle('collapsed');
+        statsCard.classList.toggle('collapsed');
         statsToggle.setAttribute('aria-expanded', String(!statsCard.classList.contains('collapsed')));
     });
 
     async function refreshStats() {
         try {
             const r = await fetch('/api/host/stats');
-            if (r.status === 401) return; // handled by main refresh
+            if (r.status === 401) return;
             if (!r.ok) return;
             const s = await r.json();
             const hasData = s.totalJoined > 0;
@@ -98,17 +262,16 @@
             statPeak.textContent = s.peakHourLabel ?? '\u2014';
             statTurnSet.textContent = s.configuredTurnTime + 'm';
             statTurnActual.textContent = s.actualTurnTime != null ? s.actualTurnTime + 'm' : '\u2014';
+            statAvgOrder.textContent = s.avgOrderTimeMinutes != null ? s.avgOrderTimeMinutes + 'm' : '\u2014';
+            statAvgServe.textContent = s.avgServeTimeMinutes != null ? s.avgServeTimeMinutes + 'm' : '\u2014';
+            statAvgCheckout.textContent = s.avgCheckoutTimeMinutes != null ? s.avgCheckoutTimeMinutes + 'm' : '\u2014';
+            statAvgTable.textContent = s.avgTableOccupancyMinutes != null ? s.avgTableOccupancyMinutes + 'm' : '\u2014';
         } catch (e) {
             console.error('stats refresh error', e);
         }
     }
 
-    function escapeHtml(s) {
-        return String(s).replace(/[&<>"']/g, c => ({
-            '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
-        }[c]));
-    }
-
+    // -- Event handlers --
     async function onRemove(id, reason) {
         const r = await fetch('/api/host/queue/' + encodeURIComponent(id) + '/remove', {
             method: 'POST',
@@ -116,7 +279,7 @@
             body: JSON.stringify({ reason }),
         });
         if (r.status === 401) { showLogin(); return; }
-        await refresh();
+        refreshAll();
     }
 
     async function onCall(id) {
@@ -124,7 +287,17 @@
             method: 'POST',
         });
         if (r.status === 401) { showLogin(); return; }
-        await refresh();
+        refreshAll();
+    }
+
+    async function onAdvance(id, state) {
+        const r = await fetch('/api/host/queue/' + encodeURIComponent(id) + '/advance', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ state }),
+        });
+        if (r.status === 401) { showLogin(); return; }
+        refreshAll();
     }
 
     async function onTurnChange() {
@@ -134,9 +307,10 @@
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ avgTurnTimeMinutes: n }),
         });
-        await refresh();
+        refreshAll();
     }
 
+    // Waiting tab: delegate clicks
     rows.addEventListener('click', (e) => {
         const target = e.target;
         const callBtn = target.closest('button.call-btn');
@@ -152,6 +326,33 @@
             if (id && reason) onRemove(id, reason);
         }
     });
+
+    // Dining tab: delegate clicks
+    diningRows.addEventListener('click', (e) => {
+        const target = e.target;
+        const advBtn = target.closest('button.advance-btn') || target.closest('button.depart-btn');
+        if (advBtn) {
+            e.stopPropagation();
+            const id = advBtn.dataset.id;
+            const state = advBtn.dataset.state;
+            if (id && state) onAdvance(id, state);
+            return;
+        }
+        // Click on row to toggle timeline
+        const row = target.closest('tr[data-dining-id]');
+        if (row) {
+            toggleTimeline(row.dataset.diningId);
+        }
+    });
+
+    // Completed tab: delegate clicks
+    completedRows.addEventListener('click', (e) => {
+        const row = e.target.closest('tr[data-completed-id]');
+        if (row) {
+            toggleTimeline(row.dataset.completedId);
+        }
+    });
+
     turnInput.addEventListener('change', onTurnChange);
     logoutBtn.addEventListener('click', async () => {
         await fetch('/api/host/logout', { method: 'POST' });
@@ -173,6 +374,13 @@
         loginError.style.display = '';
     });
 
+    function refreshAll() {
+        refreshWaiting();
+        refreshDining();
+        refreshCompleted();
+        refreshStats();
+    }
+
     function showLogin() {
         if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
         loginView.style.display = '';
@@ -182,10 +390,9 @@
     function showQueue() {
         loginView.style.display = 'none';
         queueView.style.display = '';
-        refresh();
-        refreshStats();
+        refreshAll();
         if (pollTimer) clearInterval(pollTimer);
-        pollTimer = setInterval(() => { refresh(); refreshStats(); }, 5000);
+        pollTimer = setInterval(refreshAll, 5000);
     }
 
     (async function boot() {

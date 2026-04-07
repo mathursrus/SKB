@@ -1,4 +1,4 @@
-// SKB Analytics page — histogram rendering
+// SKB Analytics page — vertical histogram rendering (time on x-axis)
 (function () {
     const rangeSelect = document.getElementById('range');
     const sizePills = document.getElementById('size-pills');
@@ -22,7 +22,7 @@
             const range = rangeSelect.value;
             const res = await fetch(`api/host/analytics?range=${range}&partySize=${encodeURIComponent(currentSize)}`);
             if (res.status === 401) {
-                container.innerHTML = '<div class="hist-empty">Session expired. <a href="/host.html">Log in</a></div>';
+                container.innerHTML = '<div class="hist-empty">Session expired. <a href="host.html">Log in</a></div>';
                 return;
             }
             if (!res.ok) throw new Error('fetch failed');
@@ -52,25 +52,37 @@
             return card;
         }
 
-        const maxCount = Math.max(...hist.buckets.map(b => b.count), 1);
+        // Trim trailing zero buckets
+        let buckets = hist.buckets.slice();
+        while (buckets.length > 1 && buckets[buckets.length - 1].count === 0) buckets.pop();
+
+        const maxCount = Math.max(...buckets.map(b => b.count), 1);
+        const CHART_HEIGHT = 180; // px
 
         let barsHtml = '';
-        for (const b of hist.buckets) {
-            if (b.count === 0 && hist.buckets.indexOf(b) > 0 && hist.buckets.slice(hist.buckets.indexOf(b)).every(x => x.count === 0)) break;
-            const pct = Math.max((b.count / maxCount) * 100, b.count > 0 ? 2 : 0);
+        for (const b of buckets) {
+            const pct = Math.max((b.count / maxCount) * 100, b.count > 0 ? 3 : 0);
             const probPct = (b.probability * 100).toFixed(1);
+            const barH = Math.round(CHART_HEIGHT * pct / 100);
+            const xLabel = b.label.replace('m', '').replace('-', '-');
             barsHtml += `
-                <div class="hist-bar-row">
-                    <div class="hist-label">${esc(b.label)}</div>
-                    <div class="hist-bar-bg"><div class="hist-bar" style="width:${pct}%"></div></div>
-                    <div class="hist-value">${b.count} (${probPct}%)</div>
+                <div class="vbar-col">
+                    <div class="vbar-value">${probPct}%</div>
+                    <div class="vbar-track" style="height:${CHART_HEIGHT}px">
+                        <div class="vbar-fill" style="height:${barH}px" title="${b.count} parties (${probPct}%)"></div>
+                    </div>
+                    <div class="vbar-label">${esc(xLabel)}</div>
                 </div>`;
         }
 
         card.innerHTML = `
             <h3>${esc(hist.label)}</h3>
             <div class="hist-meta">${hist.total} parties · avg ${hist.avg ?? '—'}m</div>
-            <div class="hist-chart">${barsHtml}</div>`;
+            <div class="vbar-chart">
+                <div class="vbar-y-label">probability</div>
+                <div class="vbar-bars">${barsHtml}</div>
+            </div>
+            <div class="vbar-x-label">time (minutes)</div>`;
         return card;
     }
 

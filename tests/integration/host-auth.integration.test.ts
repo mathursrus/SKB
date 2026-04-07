@@ -1,5 +1,13 @@
 // Integration tests for host auth — PIN login, cookie, protected routes.
-// Requires the server running; tests via HTTP against real Express + Mongo.
+// Spawns a real server; sets test env defaults so npm run test:all works.
+
+// Test defaults — won't override if already set
+process.env.SKB_HOST_PIN ??= '1234';
+process.env.SKB_COOKIE_SECRET ??= 'test-secret-for-ci';
+process.env.MONGODB_DB_NAME ??= 'skb_host_auth_test';
+process.env.PORT ??= '15398';
+process.env.FRAIM_TEST_SERVER_PORT ??= '15398';
+process.env.FRAIM_BRANCH ??= '';
 
 import { runTests, type BaseTestCase } from '../test-utils.js';
 import {

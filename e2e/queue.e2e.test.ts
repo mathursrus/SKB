@@ -4,8 +4,16 @@
 // Full-stack test: spins real server + hits REST endpoints.
 // Covers: join 3 → call 1 → remove 1 → verify diner status reflects shift.
 //
-// Run with: npx tsx e2e/queue.e2e.test.ts
+// Run with: npm run test:e2e
 // ============================================================================
+
+// Test defaults — won't override if already set
+process.env.SKB_HOST_PIN ??= '1234';
+process.env.SKB_COOKIE_SECRET ??= 'test-secret-for-ci';
+process.env.MONGODB_DB_NAME ??= 'skb_e2e_test';
+process.env.PORT ??= '15399';
+process.env.FRAIM_TEST_SERVER_PORT ??= '15399';
+process.env.FRAIM_BRANCH ??= '';
 
 import {
     startTestServer,

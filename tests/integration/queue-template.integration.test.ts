@@ -22,7 +22,7 @@ const cases: BaseTestCase[] = [
         tags: ['integration', 'jsonld', 'template'],
         testFn: async () => {
             await resetDb();
-            const html = await renderQueuePage();
+            const html = await renderQueuePage('test');
             return html.includes('application/ld+json') && html.includes('"@type":"Restaurant"');
         },
     },
@@ -32,9 +32,9 @@ const cases: BaseTestCase[] = [
         testFn: async () => {
             await resetDb();
             const now = new Date('2026-04-05T20:00:00Z');
-            await joinQueue({ name: 'A', partySize: 2 }, now);
-            await joinQueue({ name: 'B', partySize: 2 }, new Date(now.getTime() + 1));
-            const html = await renderQueuePage();
+            await joinQueue('test', { name: 'A', partySize: 2 }, now);
+            await joinQueue('test', { name: 'B', partySize: 2 }, new Date(now.getTime() + 1));
+            const html = await renderQueuePage('test');
             return html.includes('meta name="description"');
         },
     },
@@ -43,7 +43,7 @@ const cases: BaseTestCase[] = [
         tags: ['integration', 'jsonld', 'template'],
         testFn: async () => {
             await resetDb();
-            const html = await renderQueuePage();
+            const html = await renderQueuePage('test');
             return html.includes('og:description') && html.includes('og:title');
         },
     },
@@ -52,7 +52,7 @@ const cases: BaseTestCase[] = [
         tags: ['integration', 'jsonld', 'template', 'empty-state'],
         testFn: async () => {
             await resetDb();
-            const html = await renderQueuePage();
+            const html = await renderQueuePage('test');
             return html.includes('No wait');
         },
     },
@@ -61,7 +61,7 @@ const cases: BaseTestCase[] = [
         tags: ['integration', 'jsonld', 'template'],
         testFn: async () => {
             await resetDb();
-            const html = await renderQueuePage();
+            const html = await renderQueuePage('test');
             return html.includes('SKB') && html.includes('</html>') && html.includes('queue.js');
         },
     },
@@ -70,8 +70,8 @@ const cases: BaseTestCase[] = [
         tags: ['integration', 'jsonld', 'template', 'privacy'],
         testFn: async () => {
             await resetDb();
-            await joinQueue({ name: 'SecretPerson', partySize: 2, phoneLast4: '9876' }, new Date());
-            const html = await renderQueuePage();
+            await joinQueue('test', { name: 'SecretPerson', partySize: 2, phoneLast4: '9876' }, new Date());
+            const html = await renderQueuePage('test');
             return !html.includes('SecretPerson') && !html.includes('9876');
         },
     },

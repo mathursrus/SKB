@@ -5,7 +5,7 @@
 import { MongoClient, type Db, type Collection } from 'mongodb';
 
 import { determineDatabaseName } from '../utils/git-utils.js';
-import type { QueueEntry, Settings } from '../../types/queue.js';
+import type { Location, QueueEntry, Settings } from '../../types/queue.js';
 
 let client: MongoClient | null = null;
 let db: Db | null = null;
@@ -39,10 +39,14 @@ export function settings(db: Db): Collection<Settings> {
     return db.collection<Settings>('settings');
 }
 
+export function locations(db: Db): Collection<Location> {
+    return db.collection<Location>('locations');
+}
+
 async function bootstrapIndexes(db: Db): Promise<void> {
     await queueEntries(db).createIndex(
-        { serviceDay: 1, state: 1, joinedAt: 1 },
-        { name: 'serviceDay_state_joinedAt' },
+        { locationId: 1, serviceDay: 1, state: 1, joinedAt: 1 },
+        { name: 'loc_serviceDay_state_joinedAt' },
     );
     await queueEntries(db).createIndex(
         { code: 1 },

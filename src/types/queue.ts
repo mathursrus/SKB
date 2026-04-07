@@ -2,10 +2,19 @@
 // SKB - Queue types (domain + API DTOs)
 // ============================================================================
 
+// Multi-tenant: each restaurant is a "location" identified by a slug.
+export interface Location {
+    _id: string;         // slug, e.g., "skb", "skb-demo"
+    name: string;        // display name, e.g., "Shri Krishna Bhavan"
+    pin: string;         // host-stand PIN for this location
+    createdAt: Date;
+}
+
 export type PartyState = 'waiting' | 'called' | 'seated' | 'ordered' | 'served' | 'checkout' | 'departed' | 'no_show';
 export type RemovalReason = 'seated' | 'no_show' | 'departed';
 
 export interface QueueEntry {
+    locationId: string; // tenant slug, e.g., "skb"
     code: string; // e.g., "SKB-7Q3"
     name: string;
     partySize: number; // 1..10
@@ -25,7 +34,7 @@ export interface QueueEntry {
 }
 
 export interface Settings {
-    _id: 'global';
+    _id: string; // locationId, e.g., "skb"
     avgTurnTimeMinutes: number;
     updatedAt: Date;
 }

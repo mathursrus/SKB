@@ -1,5 +1,5 @@
 // ============================================================================
-// SKB - Diner-facing queue routes
+// SKB - Diner-facing queue routes — multi-tenant
 // ============================================================================
 
 import { Router, type Request, type Response } from 'express';
@@ -11,21 +11,26 @@ import type { ErrorDTO } from '../types/queue.js';
 const JOIN_WINDOW_MS = 10 * 60 * 1000; // 10 min
 const JOIN_MAX = 5;
 
-export function queueRouter(): Router {
-    const r = Router();
+/** Extract locationId from req.params.loc (set by parent router mount). */
+function loc(req: Request): string {
+    return String(req.params.loc ?? 'skb');
+}
 
-    r.get('/queue/board', async (_req: Request, res: Response) => {
+export function queueRouter(): Router {
+    const r = Router({ mergeParams: true });
+
+    r.get('/queue/board', async (req: Request, res: Response) => {
         try {
-            const entries = await getBoardEntries();
+            const entries = await getBoardEntries(loc(req));
             res.json(entries);
         } catch (err) {
             handleDbError(res, err);
         }
     });
 
-    r.get('/queue/state', async (_req: Request, res: Response) => {
+    r.get('/queue/state', async (req: Request, res: Response) => {
         try {
-            const state = await getQueueState();
+            const state = await getQueueState(loc(req));
             res.json(state);
         } catch (err) {
             handleDbError(res, err);
@@ -47,7 +52,7 @@ export function queueRouter(): Router {
                 return;
             }
             try {
-                const result = await joinQueue({
+                const result = await joinQueue(loc(req), {
                     name: String(body.name).trim(),
                     partySize: Number(body.partySize),
                     phoneLast4:
@@ -60,6 +65,7 @@ export function queueRouter(): Router {
                         t: new Date().toISOString(),
                         level: 'info',
                         msg: 'queue.join',
+                        loc: loc(req),
                         code: result.code,
                         partySize: Number(body.partySize),
                         position: result.position,

@@ -1,9 +1,5 @@
 // ============================================================================
-// SKB - Queue service (join, list, remove, status)
-// ============================================================================
-//
-// All ETA math is done at read time: etaMinutes = position × avgTurnTimeMinutes.
-// No stored ETA → no staleness on removal.
+// SKB - Queue service (join, list, remove, status) — multi-tenant
 // ============================================================================
 
 import { ObjectId } from 'mongodb';
@@ -27,14 +23,10 @@ import type {
 
 const MAX_CODE_RETRIES = 5;
 
-// Parties counted toward line length / position. "called" parties are still in
-// line -- the host just told them to head over, they haven't been seated yet.
 const ACTIVE_STATES: QueueEntry['state'][] = ['waiting', 'called'];
-
 
 // -- Pure helpers -------------------------------------------------------------
 
-/** position is 1-based; return minutes from now until party is seated. */
 export function computeEtaMinutes(
     position: number,
     avgTurnTimeMinutes: number,
@@ -43,10 +35,6 @@ export function computeEtaMinutes(
     return position * avgTurnTimeMinutes;
 }
 
-/**
- * Return the 1-based position of `entry` in an already-ordered waiting list.
- * Returns 0 if entry is not in the list.
- */
 export function positionInList(
     waiting: Pick<QueueEntry, 'code'>[],
     code: string,
@@ -57,16 +45,17 @@ export function positionInList(
     return 0;
 }
 
-// -- Persistence --------------------------------------------------------------
+// -- Persistence (all queries scoped to locationId) ---------------------------
 
-export async function getQueueState(now: Date = new Date()): Promise<QueueStateDTO> {
+export async function getQueueState(locationId: string, now: Date = new Date()): Promise<QueueStateDTO> {
     const db = await getDb();
     const today = serviceDay(now);
     const partiesWaiting = await queueEntries(db).countDocuments({
+        locationId,
         serviceDay: today,
         state: { $in: ACTIVE_STATES },
     });
-    const avg = await getAvgTurnTime();
+    const avg = await getAvgTurnTime(locationId);
     return {
         partiesWaiting,
         etaForNewPartyMinutes: (partiesWaiting + 1) * avg,
@@ -75,16 +64,16 @@ export async function getQueueState(now: Date = new Date()): Promise<QueueStateD
 }
 
 export async function joinQueue(
+    locationId: string,
     req: JoinRequestDTO,
     now: Date = new Date(),
 ): Promise<JoinResponseDTO> {
     const db = await getDb();
     const today = serviceDay(now);
-    const avg = await getAvgTurnTime();
+    const avg = await getAvgTurnTime(locationId);
 
-    // Compute the initial promise: count parties ahead right now, add party-size
-    // slots × avg turn time. This is the fixed commitment we show to the diner.
     const aheadAtJoin = await queueEntries(db).countDocuments({
+        locationId,
         serviceDay: today,
         state: { $in: ACTIVE_STATES },
     });
@@ -92,11 +81,11 @@ export async function joinQueue(
     const promisedMinutes = computeEtaMinutes(positionAtJoin, avg);
     const promisedEtaAt = addMinutes(now, promisedMinutes);
 
-    // Retry code generation on the unique-index collision path.
     let lastErr: unknown;
     for (let attempt = 0; attempt < MAX_CODE_RETRIES; attempt++) {
         const code = generateCode();
         const entry: QueueEntry = {
+            locationId,
             code,
             name: req.name,
             partySize: req.partySize,
@@ -115,7 +104,6 @@ export async function joinQueue(
                 etaMinutes: promisedMinutes,
             };
         } catch (err: unknown) {
-            // Only retry on duplicate-code error; otherwise bubble up.
             if (
                 err &&
                 typeof err === 'object' &&
@@ -140,40 +128,39 @@ export async function getStatusByCode(
     if (!entry) {
         return { code, position: 0, etaAt: null, etaMinutes: null, state: 'not_found', callsMinutesAgo: [] };
     }
-    // Post-seated, no-show, or departed: no longer in the queue.
     const postQueueStates: PartyState[] = ['seated', 'ordered', 'served', 'checkout', 'departed', 'no_show'];
     if (postQueueStates.includes(entry.state)) {
         return { code, position: 0, etaAt: null, etaMinutes: null, state: entry.state, callsMinutesAgo: [] };
     }
     const today = serviceDay(now);
-    // Entries from a prior day still active (orphaned) → treat as not_found.
     if (entry.serviceDay !== today) {
         return { code, position: 0, etaAt: null, etaMinutes: null, state: 'not_found', callsMinutesAgo: [] };
     }
     const ahead = await queueEntries(db).countDocuments({
+        locationId: entry.locationId,
         serviceDay: today,
         state: { $in: ACTIVE_STATES },
         joinedAt: { $lt: entry.joinedAt },
     });
     const position = ahead + 1;
-    const avg = await getAvgTurnTime();
+    const avg = await getAvgTurnTime(entry.locationId);
     const etaMinutes = computeEtaMinutes(position, avg);
     return {
         code,
         position,
-        etaAt: (entry.promisedEtaAt ?? entry.joinedAt).toISOString(), // fixed commitment
-        etaMinutes, // live re-estimate, minutes from now
-        state: entry.state, // 'waiting' or 'called'
+        etaAt: (entry.promisedEtaAt ?? entry.joinedAt).toISOString(),
+        etaMinutes,
+        state: entry.state,
         callsMinutesAgo: (entry.calls ?? []).map((c) => minutesBetween(c, now)),
     };
 }
 
-export async function listHostQueue(now: Date = new Date()): Promise<HostQueueDTO> {
+export async function listHostQueue(locationId: string, now: Date = new Date()): Promise<HostQueueDTO> {
     const db = await getDb();
     const today = serviceDay(now);
-    const avg = await getAvgTurnTime();
+    const avg = await getAvgTurnTime(locationId);
     const docs = await queueEntries(db)
-        .find({ serviceDay: today, state: { $in: ACTIVE_STATES } })
+        .find({ locationId, serviceDay: today, state: { $in: ACTIVE_STATES } })
         .sort({ joinedAt: 1 })
         .toArray();
 
@@ -186,9 +173,9 @@ export async function listHostQueue(now: Date = new Date()): Promise<HostQueueDT
             partySize: d.partySize,
             phoneLast4: d.phoneLast4 ?? null,
             joinedAt: d.joinedAt.toISOString(),
-            etaAt: (d.promisedEtaAt ?? d.joinedAt).toISOString(), // fixed commitment
+            etaAt: (d.promisedEtaAt ?? d.joinedAt).toISOString(),
             waitingMinutes: minutesBetween(d.joinedAt, now),
-            state: d.state as 'waiting' | 'called', // query filters to ACTIVE_STATES
+            state: d.state as 'waiting' | 'called',
             callsMinutesAgo: (d.calls ?? []).map((c) => minutesBetween(c, now)),
         };
     });
@@ -214,39 +201,20 @@ export async function removeFromQueue(
     }
 
     if (reason === 'seated') {
-        // R12: "seated" transitions the party into the dining lifecycle.
-        // seatedAt is set; removedAt/removedReason are NOT set (party is still active).
         const res = await queueEntries(db).updateOne(
             { _id, state: { $in: ACTIVE_STATES } },
-            {
-                $set: {
-                    state: 'seated' as PartyState,
-                    seatedAt: now,
-                },
-            },
+            { $set: { state: 'seated' as PartyState, seatedAt: now } },
         );
         return { ok: res.matchedCount === 1 };
     }
 
-    // no_show: terminal state, set removedAt/removedReason as before.
     const res = await queueEntries(db).updateOne(
         { _id, state: { $in: ACTIVE_STATES } },
-        {
-            $set: {
-                state: reason as PartyState,
-                removedAt: now,
-                removedReason: reason,
-            },
-        },
+        { $set: { state: reason as PartyState, removedAt: now, removedReason: reason } },
     );
     return { ok: res.matchedCount === 1 };
 }
 
-/**
- * Mark a party as "called" — the host has flagged them to come to the front.
- * Can be called repeatedly; each call updates calledAt so the host knows
- * when they last pinged. The party stays in the queue until Seated or No-show.
- */
 export async function callParty(
     id: string,
     now: Date = new Date(),
@@ -260,19 +228,16 @@ export async function callParty(
     }
     const res = await queueEntries(db).updateOne(
         { _id, state: { $in: ACTIVE_STATES } },
-        {
-            $set: { state: 'called' },
-            $push: { calls: now },
-        },
+        { $set: { state: 'called' }, $push: { calls: now } },
     );
     return { ok: res.matchedCount === 1 };
 }
 
-export async function getBoardEntries(now: Date = new Date()): Promise<BoardEntryDTO[]> {
+export async function getBoardEntries(locationId: string, now: Date = new Date()): Promise<BoardEntryDTO[]> {
     const db = await getDb();
     const today = serviceDay(now);
     const docs = await queueEntries(db)
-        .find({ serviceDay: today, state: { $in: ACTIVE_STATES } })
+        .find({ locationId, serviceDay: today, state: { $in: ACTIVE_STATES } })
         .sort({ joinedAt: 1 })
         .toArray();
 

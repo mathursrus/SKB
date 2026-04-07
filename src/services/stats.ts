@@ -138,13 +138,13 @@ export function buildStats(
 
 // -- Persistence (DB-backed) -------------------------------------------------
 
-export async function getHostStats(now: Date = new Date()): Promise<HostStatsDTO> {
+export async function getHostStats(locationId: string, now: Date = new Date()): Promise<HostStatsDTO> {
     const db = await getDb();
     const today = serviceDay(now);
-    const configuredTurnTime = await getAvgTurnTime();
+    const configuredTurnTime = await getAvgTurnTime(locationId);
 
     const entries = await queueEntries(db)
-        .find({ serviceDay: today })
+        .find({ locationId, serviceDay: today })
         .project<StatsEntry>({
             state: 1,
             joinedAt: 1,

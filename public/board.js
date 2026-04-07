@@ -88,7 +88,7 @@
         try {
             var controller = new AbortController();
             var timeout = setTimeout(function () { controller.abort(); }, 4000);
-            var res = await fetch('/api/queue/board', { signal: controller.signal });
+            var res = await fetch('api/queue/board', { signal: controller.signal });
             clearTimeout(timeout);
             if (res.ok) {
                 var entries = await res.json();

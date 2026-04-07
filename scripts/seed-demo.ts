@@ -139,9 +139,28 @@ async function main() {
     const locColl = db.collection('locations');
     const settingsColl = db.collection('settings');
 
-    // Clean existing demo data
-    const deleted = await coll.deleteMany({ locationId: LOCATION_ID });
-    console.log(`Deleted ${deleted.deletedCount} existing skb-demo entries`);
+    // Clean existing demo data — loop until all gone (Cosmos RU throttling)
+    let totalDeleted = 0;
+    while (true) {
+        try {
+            const remaining = await coll.countDocuments({ locationId: LOCATION_ID });
+            if (remaining === 0) break;
+            const batch = await coll.find({ locationId: LOCATION_ID }).limit(50).project({ _id: 1 }).toArray();
+            if (batch.length === 0) break;
+            const ids = batch.map(d => d._id);
+            const res = await coll.deleteMany({ _id: { $in: ids } });
+            totalDeleted += res.deletedCount;
+            process.stdout.write(`  deleted ${totalDeleted} so far (${remaining} remaining)\r`);
+        } catch (err: unknown) {
+            if (err && typeof err === 'object' && 'code' in err && (err as { code: number }).code === 16500) {
+                await new Promise(r => setTimeout(r, 2000));
+                continue;
+            }
+            throw err;
+        }
+        await new Promise(r => setTimeout(r, 300)); // pace to stay under RU limit
+    }
+    console.log(`\nDeleted ${totalDeleted} existing skb-demo entries`);
 
     // Ensure location
     await locColl.updateOne(
@@ -237,10 +256,38 @@ async function main() {
         }
     }
 
-    // Batch insert
-    if (entries.length > 0) {
-        await coll.insertMany(entries);
+    // Batch insert with throttling for Cosmos DB RU limits
+    const BATCH_SIZE = 20;
+    let inserted = 0;
+    for (let i = 0; i < entries.length; i += BATCH_SIZE) {
+        const batch = entries.slice(i, i + BATCH_SIZE);
+        let retries = 0;
+        while (retries < 5) {
+            try {
+                const res = await coll.insertMany(batch, { ordered: false });
+                inserted += res.insertedCount;
+                break;
+            } catch (err: unknown) {
+                const errCode = err && typeof err === 'object' && 'code' in err ? (err as { code: number }).code : 0;
+                if (errCode === 16500) {
+                    retries++;
+                    const wait = Math.pow(2, retries) * 500;
+                    process.stdout.write(`  RU throttled, waiting ${wait}ms (retry ${retries})...\r`);
+                    await new Promise(r => setTimeout(r, wait));
+                    continue;
+                }
+                if (errCode === 11000) {
+                    // Duplicate code — some entries already exist, skip and count what was inserted
+                    const result = err && typeof err === 'object' && 'result' in err ? (err as { result: { insertedCount: number } }).result : null;
+                    inserted += result?.insertedCount ?? 0;
+                    break;
+                }
+                throw err;
+            }
+        }
+        if (inserted % 200 === 0) process.stdout.write(`  ${inserted}/${entries.length} inserted\r`);
     }
+    console.log();
 
     console.log(`Inserted ${entries.length} entries across 60 days`);
 

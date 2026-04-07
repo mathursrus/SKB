@@ -13,6 +13,7 @@ import {
 } from '../services/dining.js';
 import { getAvgTurnTime, setAvgTurnTime } from '../services/settings.js';
 import { getHostStats } from '../services/stats.js';
+import { getAnalytics } from '../services/analytics.js';
 import {
     loginHandler,
     logoutHandler,
@@ -168,6 +169,17 @@ export function hostRouter(): Router {
                 res.status(400).json({ error: err.message });
                 return;
             }
+            dbError(res, err);
+        }
+    });
+
+    r.get('/host/analytics', requireHost, async (req: Request, res: Response) => {
+        const range = String(req.query.range ?? '7');
+        const partySize = String(req.query.partySize ?? 'all');
+        try {
+            const data = await getAnalytics(range, partySize);
+            res.json(data);
+        } catch (err) {
             dbError(res, err);
         }
     });

@@ -157,6 +157,31 @@ export interface AdvanceRequestDTO {
     state: 'ordered' | 'served' | 'checkout' | 'departed';
 }
 
+// Analytics DTOs ---------------------------------------------------------------
+
+export interface HistogramBucket {
+    minMinutes: number;
+    maxMinutes: number;
+    label: string;        // e.g., "10-15m"
+    count: number;
+    probability: number;  // 0..1
+}
+
+export interface PhaseHistogram {
+    phase: string;        // e.g., "wait", "order", "kitchen", "eating", "checkout", "table"
+    label: string;        // human-readable, e.g., "Wait Time (join → seated)"
+    buckets: HistogramBucket[];
+    avg: number | null;
+    total: number;        // sample count
+}
+
+export interface AnalyticsDTO {
+    histograms: PhaseHistogram[];
+    dateRange: { from: string; to: string };
+    partySizeFilter: string; // "all" | "1-2" | "3-4" | "5+"
+    totalParties: number;
+}
+
 export interface ErrorDTO {
     error: string;
     field?: string;

@@ -20,7 +20,7 @@
         container.innerHTML = '<div class="hist-empty">Loading...</div>';
         try {
             const range = rangeSelect.value;
-            const res = await fetch(`/api/host/analytics?range=${range}&partySize=${encodeURIComponent(currentSize)}`);
+            const res = await fetch(`api/host/analytics?range=${range}&partySize=${encodeURIComponent(currentSize)}`);
             if (res.status === 401) {
                 container.innerHTML = '<div class="hist-empty">Session expired. <a href="/host.html">Log in</a></div>';
                 return;

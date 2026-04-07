@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=1024,initial-scale=1" />
+<title>SKB — Analytics</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fira+Sans:wght@400;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="/styles.css" />
+<style>
+.analytics-topbar { display:flex; align-items:center; justify-content:space-between; padding:14px 24px; background:#fff; border-bottom:1px solid #e7e5e4; }
+.analytics-topbar .brand { font-weight:700; }
+.analytics-topbar .back { color:#78716c; text-decoration:none; font-size:13px; }
+.filters { display:flex; gap:16px; padding:16px 24px; align-items:center; background:#fff; border-bottom:1px solid #e7e5e4; flex-wrap:wrap; }
+.filters label { font-size:13px; color:#78716c; font-weight:600; }
+.filters select { padding:8px 12px; border:1px solid #e7e5e4; border-radius:6px; font-family:inherit; font-size:14px; min-height:40px; }
+.size-pills { display:flex; gap:0; }
+.size-pill { padding:8px 16px; font-size:13px; font-weight:600; color:#78716c; border:1px solid #e7e5e4; cursor:pointer; background:#fff; min-height:40px; display:flex; align-items:center; }
+.size-pill:first-child { border-radius:6px 0 0 6px; }
+.size-pill:last-child { border-radius:0 6px 6px 0; }
+.size-pill.active { background:#e3bf3d; color:#111; border-color:#e3bf3d; }
+.histograms { padding:24px; display:grid; grid-template-columns:1fr 1fr; gap:20px; max-width:1400px; margin:0 auto; }
+@media (max-width:900px) { .histograms { grid-template-columns:1fr; } }
+.hist-card { background:#fff; border:1px solid #e7e5e4; border-radius:12px; padding:20px; }
+.hist-card h3 { margin:0 0 4px; font-size:14px; font-weight:700; }
+.hist-meta { font-size:12px; color:#78716c; margin-bottom:14px; }
+.hist-chart { display:flex; flex-direction:column; gap:4px; }
+.hist-bar-row { display:flex; align-items:center; gap:8px; }
+.hist-label { width:55px; font-size:11px; color:#78716c; text-align:right; flex-shrink:0; }
+.hist-bar-bg { flex:1; height:28px; background:#f5f5f4; border-radius:4px; position:relative; overflow:hidden; }
+.hist-bar { height:100%; background:#e3bf3d; border-radius:4px; transition:width 0.3s; }
+.hist-value { width:70px; font-size:11px; color:#78716c; flex-shrink:0; }
+.hist-empty { text-align:center; color:#78716c; padding:24px 0; font-size:14px; }
+</style>
+</head>
+<body style="background:#f5f5f4">
+<div class="analytics-topbar">
+    <div class="brand">SKB — Analytics</div>
+    <a href="/host.html" class="back">&larr; Back to Host Stand</a>
+</div>
+<div class="filters">
+    <label>Date range:</label>
+    <select id="range">
+        <option value="1">Today</option>
+        <option value="7" selected>Past 7 days</option>
+        <option value="30">Past 30 days</option>
+    </select>
+    <label>Party size:</label>
+    <div class="size-pills" id="size-pills">
+        <div class="size-pill active" data-size="all">All</div>
+        <div class="size-pill" data-size="1-2">1-2</div>
+        <div class="size-pill" data-size="3-4">3-4</div>
+        <div class="size-pill" data-size="5+">5+</div>
+    </div>
+</div>
+<div class="histograms" id="histograms">
+    <div class="hist-empty">Loading...</div>
+</div>
+<script src="/analytics.js"></script>
+</body>
+</html>

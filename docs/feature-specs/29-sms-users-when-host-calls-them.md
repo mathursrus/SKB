@@ -25,28 +25,36 @@ Today, when a host clicks "Call" on the dashboard, there is **no external notifi
 ### Diner Flow (Join Waitlist)
 
 1. Diner navigates to the SKB "Place in Line" page.
-2. Diner fills in **Name**, **Party size**, and **Phone number** (full number, optional).
+2. Diner fills in **Name**, **Party size**, and **Phone number** (full number, **required**).
 3. A helper text below the phone field reads: *"We'll text you when your table is ready."*
 4. Diner taps **"Join the line"**.
-5. System validates the phone number (10-digit US format or empty).
-6. Diner sees confirmation card with position, code, and ETA.
+5. System validates the phone number (10-digit US format, required).
+6. System sends a **confirmation SMS** with a link to the diner's status page: `"SKB: You're on the list! Track your place in line here: {STATUS_URL}. Code: {CODE}"`
+7. Diner sees confirmation card with position, code, and ETA.
 
 ### Diner Flow (Receive SMS)
 
 1. Host clicks "Call" on the host dashboard.
 2. System updates party state to `called`, pushes timestamp to `calls[]`.
-3. If the party has a phone number on file, system sends an SMS.
-4. **First call message**: `"SKB: Your table is ready! Please head to the front. Show code {CODE} to the host."`
-5. **Repeat call message**: `"SKB: You've been called {N} times for your table. Please come to the front now. Code: {CODE}"`
+3. System sends an SMS to the diner's phone number.
+4. **First call message**: `"SKB: Your table is ready! Please head to the front whenever you're ready. Show code {CODE} to the host."`
+5. **Repeat call message**: `"SKB: Just a friendly reminder — we've called your name {N} times. Your table is waiting for you! Code: {CODE}"`
 6. Diner receives SMS on their phone.
 7. On the status page, the existing "called" callout continues to display as before.
+
+### Diner Flow (Confirmation SMS on Join)
+
+1. Diner successfully joins the waitlist with a phone number.
+2. System immediately sends a confirmation SMS: `"SKB: You're on the list! Track your place in line here: {STATUS_URL}. Code: {CODE}"`
+3. The `{STATUS_URL}` links to the diner's status page (e.g., `https://skb.example.com/r/skb/queue?code=SKB-7Q3`).
+4. Diner can tap the link at any time to check their position and ETA.
 
 ### Host Flow
 
 1. Host views the waiting queue on the dashboard.
 2. Phone numbers are displayed masked: `******1234`.
 3. Host clicks "Call" — party is called and SMS is sent automatically.
-4. If SMS fails, the call still succeeds. A small indicator (e.g., a warning icon) shows next to the party if SMS delivery failed.
+4. After the call, a **checkmark icon** (&#10003;) appears next to the "Call" label if the SMS was delivered successfully. An **X icon** (&#10007;) appears if SMS delivery failed.
 5. Host can see the call count in the existing call history.
 
 ### UI Mocks
@@ -65,22 +73,25 @@ Mocks use the **generic UI baseline**, inheriting the existing SKB design langua
 
 | Tag | Requirement | Acceptance Criteria |
 |-----|------------|---------------------|
-| R1 | The system SHALL collect an optional full US phone number (10 digits) during waitlist join, replacing the current last-4-digits field. | Given a diner on the join page, When they enter a 10-digit phone number, Then the system stores the full number. When they leave it blank, the join still succeeds. |
-| R2 | The system SHALL validate the phone number as exactly 10 digits (US format) when provided. | Given a diner entering "abc" or "123", When they submit, Then a validation error is shown: "Please enter a valid 10-digit phone number." |
-| R3 | The system SHALL send an SMS to the diner's phone number each time the host clicks "Call". | Given a diner with a phone number in `waiting` or `called` state, When the host clicks Call, Then an SMS is delivered to that number within 10 seconds. |
-| R4 | The SMS message SHALL include the call count for this slot. | Given a diner called for the 2nd time, When the SMS is sent, Then the message body contains the count (e.g., "called 2 times"). |
-| R5 | The system SHALL NOT attempt SMS if no phone number is on file. | Given a diner without a phone number, When the host calls them, Then no SMS is sent and the call proceeds normally with no error. |
-| R6 | The host dashboard SHALL mask phone numbers as `******NNNN`. | Given a host viewing the queue, When a diner has a phone number, Then it is displayed as `******1234`. |
-| R7 | SMS delivery failures SHALL NOT block or delay the call state update. | Given a Twilio API failure, When the host calls a party, Then the party state updates to `called` immediately and the SMS failure is logged. |
-| R8 | The diner join form SHALL display helper text: "We'll text you when your table is ready." | Given the join form, When viewing the phone field, Then helper text is visible below the input. |
+| R1 | The system SHALL collect a **required** full US phone number (10 digits) during waitlist join, replacing the current last-4-digits field. | Given a diner on the join page, When they enter a 10-digit phone number, Then the system stores the full number. When they leave it blank, the form SHALL NOT submit and SHALL display a validation error. |
+| R2 | The system SHALL validate the phone number as exactly 10 digits (US format). | Given a diner entering "abc" or "123", When they submit, Then a validation error is shown: "Please enter a valid 10-digit phone number." |
+| R3 | The system SHALL send a **confirmation SMS** with a status page link immediately after the diner joins the waitlist. | Given a diner who successfully joins the waitlist, When the join completes, Then an SMS is sent: "SKB: You're on the list! Track your place in line here: {STATUS_URL}. Code: {CODE}" |
+| R4 | The system SHALL send an SMS to the diner's phone number each time the host clicks "Call". | Given a diner in `waiting` or `called` state, When the host clicks Call, Then an SMS is delivered to that number within 10 seconds. |
+| R5 | The SMS message SHALL include the call count for this slot. | Given a diner called for the 2nd time, When the SMS is sent, Then the message body contains the count (e.g., "called 2 times"). |
+| R6 | The repeat call SMS message SHALL use a polite, friendly tone. | Given a diner called multiple times, When the SMS is sent, Then the message reads: "Just a friendly reminder — we've called your name {N} times. Your table is waiting for you!" |
+| R7 | The host dashboard SHALL mask phone numbers as `******NNNN`. | Given a host viewing the queue, When a diner has a phone number, Then it is displayed as `******1234`. |
+| R8 | SMS delivery failures SHALL NOT block or delay the call state update. | Given a Twilio API failure, When the host calls a party, Then the party state updates to `called` immediately and the SMS failure is logged. |
+| R9 | The diner join form SHALL display helper text: "We'll text you when your table is ready." | Given the join form, When viewing the phone field, Then helper text is visible below the input. |
+| R10 | The host dashboard SHALL display an SMS delivery status indicator next to each call — a checkmark (&#10003;) for success, an X (&#10007;) for failure. | Given a host who has called a party, When viewing the queue, Then a &#10003; or &#10007; icon is visible next to the call label indicating SMS delivery status. |
 
 ### Edge Cases
 
-- **Invalid phone number**: Reject non-digit or wrong-length input with inline validation error.
-- **Empty phone field**: Allow join without phone; skip SMS on call.
-- **SMS provider outage**: Log error, proceed with call. Host sees a warning indicator.
+- **Invalid phone number**: Reject non-digit or wrong-length input with inline validation error. Form does not submit.
+- **Empty phone field**: Form does not submit — phone is required. Validation error: "Phone number is required."
+- **SMS provider outage**: Log error, proceed with call. Host sees X icon next to call label.
 - **Rapid repeat calls**: Each call triggers an SMS. No debounce — the call count in the message provides context.
 - **Party already seated/removed**: SMS is only sent for parties in active states (`waiting`, `called`).
+- **Confirmation SMS failure on join**: Join still succeeds. Diner can still see their status on-screen. Failure is logged.
 
 ## Compliance Requirements
 

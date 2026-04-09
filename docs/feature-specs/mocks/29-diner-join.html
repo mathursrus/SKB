@@ -171,8 +171,8 @@
       <input type="number" id="size" min="1" max="10" value="3" required />
 
       <div class="change-highlight">
-        <label for="phone">Phone number (optional)</label>
-        <input type="tel" id="phone" inputmode="numeric" maxlength="10" placeholder="2065551234" />
+        <label for="phone">Phone number <span style="color:var(--danger);font-weight:400">*</span></label>
+        <input type="tel" id="phone" inputmode="numeric" maxlength="10" placeholder="2065551234" required />
         <div class="phone-helper">We'll text you when your table is ready.</div>
         <div class="error-msg" id="phone-error">Please enter a valid 10-digit phone number.</div>
       </div>
@@ -188,7 +188,13 @@ function validateForm(e) {
   e.preventDefault();
   const phone = document.getElementById('phone').value.trim();
   const err = document.getElementById('phone-error');
-  if (phone && !/^\d{10}$/.test(phone)) {
+  if (!phone) {
+    err.textContent = 'Phone number is required.';
+    err.classList.add('visible');
+    return false;
+  }
+  if (!/^\d{10}$/.test(phone)) {
+    err.textContent = 'Please enter a valid 10-digit phone number.';
     err.classList.add('visible');
     return false;
   }

@@ -1,6 +1,6 @@
 # Feature Specification: Phone System Integration of Wait List
 Issue: #31
-PR: TBD (will be updated after PR creation)
+PR: https://github.com/mathursrus/SKB/pull/34
 
 ## Summary
 - **Issue**: #31 — Phone system integration of wait list

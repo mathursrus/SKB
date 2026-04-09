@@ -31,12 +31,13 @@ The existing `jsonld.ts` and `queue-template.ts` infrastructure does 80% of the 
 | File | Change | Rationale |
 |------|--------|-----------|
 | `src/types/queue.ts` | Add `publicUrl?` and `googlePlaceId?` to `Location` interface | R5: Store location-specific URL and Maps reference |
-| `src/services/jsonld.ts` | Accept `Location` param instead of hardcoded `RESTAURANT` const; add `buildCanonicalUrl()` and `buildOgType()` | R1, R3, R4: Multi-tenant JSON-LD and new tag builders |
+| `src/services/jsonld.ts` | Accept `Location` param instead of hardcoded `RESTAURANT` const; add `buildCanonicalUrl()` and `buildOgType()`; resolve public URL via `resolvePublicUrl()` | R1, R3, R4: Multi-tenant JSON-LD and new tag builders |
 | `src/services/queue-template.ts` | Fetch `Location` data and pass to builders; inject `og:type`, `og:url`, `<link rel="canonical">` | R1, R4, R6: Complete head injection |
 | `src/services/locations.ts` | No changes needed — `getLocation()` already returns full `Location` doc | — |
-| `tests/unit/jsonld.test.ts` | Update tests for new `Location`-aware signatures; add tests for canonical URL, og:type | Test coverage |
+| `.env.example` | Add `PUBLIC_URL` env var | Local override for dev/test |
+| `tests/unit/jsonld.test.ts` | Update tests for new `Location`-aware signatures; add tests for canonical URL, og:type, env var override | Test coverage |
 | `tests/integration/queue-template.integration.test.ts` | Add tests for canonical URL, og:type, og:url in rendered HTML | Test coverage |
-| `docs/guides/google-maps-setup.md` | New file: step-by-step setup guide for restaurant owners | R7: Documentation |
+| `README.md` | New file: project README with Google Maps waitlist integration setup instructions | R7: Documentation for restaurant owners |
 
 ### Data Model Changes
 
@@ -54,25 +55,49 @@ export interface Location {
 
 No MongoDB migration needed — fields are optional and existing documents remain valid.
 
+### Public URL Resolution Strategy
+
+The public URL (used in canonical links, og:url, and JSON-LD action targets) is resolved with the following priority:
+
+1. **`Location.publicUrl`** (per-location DB field) — highest priority, allows per-tenant override
+2. **`PUBLIC_URL` env var** — site-wide default, set in `.env` or deployment config
+3. **Hardcoded fallback** — the existing `https://www.krishnabhavan.com` for backward compat
+
+```typescript
+// New helper in jsonld.ts
+function resolvePublicUrl(location: Location | null): string | null {
+    // 1. Per-location override (DB)
+    if (location?.publicUrl) return location.publicUrl;
+    // 2. Environment variable (deployment/test override)
+    if (process.env.PUBLIC_URL) return process.env.PUBLIC_URL;
+    // 3. Hardcoded default for "skb" location
+    return RESTAURANT.url;
+}
+```
+
+**Local dev/test**: Set `PUBLIC_URL=http://localhost:3000` in `.env` to get valid canonical URLs in development without needing to set `publicUrl` on every location document.
+
+**Production**: Set `PUBLIC_URL` to the production domain (e.g., `https://skb.azurewebsites.net`) in the deployment environment. Individual locations can override with `Location.publicUrl` if they have custom domains.
+
 ### `jsonld.ts` Changes
 
 **Current**: Hardcoded `RESTAURANT` const with name, address, phone, URL for Shri Krishna Bhavan.
 
-**New**: Accept a `Location` parameter. When `publicUrl` is set, use it for absolute URLs. When not set, fall back to the existing hardcoded values (backward compatible).
+**New**: Accept a `Location` parameter. Resolve public URL via `resolvePublicUrl()` with env var fallback for dev/test.
 
 ```typescript
 // New signature (breaking change to internal function, not public API)
-export function buildJsonLd(state: QueueStateDTO, location: Location): Record<string, unknown>;
-export function buildMetaDescription(state: QueueStateDTO, location: Location): string;
-export function buildOgDescription(state: QueueStateDTO, location: Location): string;
-export function buildOgTitle(location: Location): string;
+export function buildJsonLd(state: QueueStateDTO, location: Location | null): Record<string, unknown>;
+export function buildMetaDescription(state: QueueStateDTO, location: Location | null): string;
+export function buildOgDescription(state: QueueStateDTO, location: Location | null): string;
+export function buildOgTitle(location: Location | null): string;
 
 // New functions
-export function buildCanonicalUrl(location: Location): string | null;
+export function buildCanonicalUrl(location: Location | null): string | null;
 export function buildOgType(): string;  // returns 'website'
 ```
 
-**Fallback strategy**: The hardcoded `RESTAURANT` const remains as the default for the "skb" location (backward compat). For other locations, `location.name` is used in meta tags and `location.publicUrl` (if set) in URLs. If `publicUrl` is not set, canonical/og:url tags are omitted (graceful degradation).
+**Fallback strategy**: The hardcoded `RESTAURANT` const remains as the default for the "skb" location (backward compat). `resolvePublicUrl()` checks `Location.publicUrl` → `process.env.PUBLIC_URL` → hardcoded default. For other locations, `location.name` is used in meta tags. If no URL can be resolved, canonical/og:url tags are omitted (graceful degradation).
 
 ### `queue-template.ts` Changes
 

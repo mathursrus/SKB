@@ -61,7 +61,18 @@ export async function startTestServer(): Promise<void> {
 
 export async function stopTestServer(): Promise<void> {
     if (serverProcess) {
-        serverProcess.kill('SIGTERM');
+        if (process.platform === 'win32' && serverProcess.pid) {
+            // On Windows, SIGTERM doesn't propagate to child trees.
+            // Use taskkill /T to kill the process tree so MongoDB connections close.
+            try {
+                const { execSync } = await import('node:child_process');
+                execSync(`taskkill /pid ${serverProcess.pid} /T /F`, { stdio: 'ignore' });
+            } catch {
+                serverProcess.kill();
+            }
+        } else {
+            serverProcess.kill('SIGTERM');
+        }
         serverProcess = null;
         console.log('[E2E] Server stopped');
     }

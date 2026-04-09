@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Mock — Diner Join Form (Issue #29)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fira+Sans:wght@400;600;700&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg: #ffffff;
+    --fg: #111111;
+    --muted: #4d4c4c;
+    --accent: #e3bf3d;
+    --accent-dark: #b89624;
+    --accent-fg: #111111;
+    --card: #ffffff;
+    --border: #eaeaea;
+    --surface-alt: #fafafa;
+    --danger: #b91c1c;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: 'Fira Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font-size: 16px;
+    line-height: 1.5;
+    background: var(--surface-alt);
+    color: var(--fg);
+  }
+  header {
+    background: #000;
+    color: #fff;
+    padding: 24px 16px 20px;
+    text-align: center;
+    border-bottom: 4px solid var(--accent);
+  }
+  header .mark {
+    display: inline-block;
+    font-weight: 700;
+    font-size: 26px;
+    letter-spacing: 6px;
+    color: var(--accent);
+    border: 2px solid var(--accent);
+    padding: 4px 14px;
+    border-radius: 4px;
+    margin-bottom: 10px;
+  }
+  header h1 {
+    margin: 0;
+    font-size: 20px;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+  }
+  header .sub {
+    font-size: 13px;
+    color: #aaa;
+    margin-top: 4px;
+  }
+  main {
+    max-width: 420px;
+    margin: 0 auto;
+    padding: 20px 16px;
+  }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px 20px;
+    margin-bottom: 16px;
+  }
+  label {
+    display: block;
+    font-weight: 600;
+    font-size: 14px;
+    margin-bottom: 4px;
+    margin-top: 16px;
+  }
+  label:first-child { margin-top: 0; }
+  input[type="text"],
+  input[type="number"],
+  input[type="tel"] {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 16px;
+    font-family: inherit;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  input:focus {
+    border-color: var(--accent);
+  }
+  .phone-helper {
+    font-size: 13px;
+    color: var(--muted);
+    margin-top: 4px;
+  }
+  .error-msg {
+    font-size: 13px;
+    color: var(--danger);
+    margin-top: 4px;
+    display: none;
+  }
+  .error-msg.visible { display: block; }
+  .primary {
+    display: block;
+    width: 100%;
+    padding: 14px;
+    margin-top: 24px;
+    background: var(--accent);
+    color: var(--accent-fg);
+    border: none;
+    border-radius: 8px;
+    font-size: 16px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .primary:hover { background: var(--accent-dark); }
+  footer {
+    text-align: center;
+    font-size: 12px;
+    color: var(--muted);
+    padding: 24px 16px;
+  }
+  /* Mock annotation */
+  .mock-banner {
+    background: #2563eb;
+    color: #fff;
+    text-align: center;
+    padding: 8px;
+    font-size: 13px;
+    font-weight: 600;
+  }
+  .mock-banner em { font-style: normal; color: #bfdbfe; }
+  .change-highlight {
+    position: relative;
+  }
+  .change-highlight::before {
+    content: "CHANGED";
+    position: absolute;
+    right: -8px;
+    top: -8px;
+    background: #2563eb;
+    color: #fff;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 6px;
+    border-radius: 4px;
+    letter-spacing: 0.5px;
+  }
+</style>
+</head>
+<body>
+<div class="mock-banner">MOCK — Issue #29: Updated Diner Join Form <em>(phone field changed)</em></div>
+<header>
+  <div class="mark">SKB</div>
+  <h1>Shri Krishna Bhavan</h1>
+  <div class="sub">Bellevue &middot; Place in Line</div>
+</header>
+<main>
+  <div class="card">
+    <form id="join-form" onsubmit="return validateForm(event)">
+      <label for="name">Your name</label>
+      <input type="text" id="name" required maxlength="60" autocomplete="off" value="Priya" />
+
+      <label for="size">Party size</label>
+      <input type="number" id="size" min="1" max="10" value="3" required />
+
+      <div class="change-highlight">
+        <label for="phone">Phone number (optional)</label>
+        <input type="tel" id="phone" inputmode="numeric" maxlength="10" placeholder="2065551234" />
+        <div class="phone-helper">We'll text you when your table is ready.</div>
+        <div class="error-msg" id="phone-error">Please enter a valid 10-digit phone number.</div>
+      </div>
+
+      <button type="submit" class="primary">Join the line</button>
+    </form>
+  </div>
+</main>
+<footer>No app needed &middot; No account &middot; Your data stays with SKB</footer>
+
+<script>
+function validateForm(e) {
+  e.preventDefault();
+  const phone = document.getElementById('phone').value.trim();
+  const err = document.getElementById('phone-error');
+  if (phone && !/^\d{10}$/.test(phone)) {
+    err.classList.add('visible');
+    return false;
+  }
+  err.classList.remove('visible');
+  alert('Join submitted! (mock)');
+  return false;
+}
+</script>
+</body>
+</html>

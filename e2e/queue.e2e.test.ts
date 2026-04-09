@@ -71,9 +71,9 @@ async function main(): Promise<void> {
         console.log(`[E2E] empty state: ${JSON.stringify(state0.data)}`);
 
         // 2. Join 3 parties
-        const j1 = await post('/api/queue/join', { name: 'Anand', partySize: 4, phoneLast4: '1111' });
-        const j2 = await post('/api/queue/join', { name: 'Bhavya', partySize: 2 });
-        const j3 = await post('/api/queue/join', { name: 'Chandra', partySize: 3, phoneLast4: '3333' });
+        const j1 = await post('/api/queue/join', { name: 'Anand', partySize: 4, phone: '2025551111' });
+        const j2 = await post('/api/queue/join', { name: 'Bhavya', partySize: 2, phone: '2025552222' });
+        const j3 = await post('/api/queue/join', { name: 'Chandra', partySize: 3, phone: '2025553333' });
         assert(j1.status === 200, `join1 status=${j1.status}`);
         assert(j2.status === 200, `join2 status=${j2.status}`);
         assert(j3.status === 200, `join3 status=${j3.status}`);
@@ -144,7 +144,7 @@ async function main(): Promise<void> {
         const boardEntries = board.data as unknown as Array<Record<string, unknown>>;
         for (const entry of boardEntries) {
             assert(!('name' in entry), 'board leaks name');
-            assert(!('phoneLast4' in entry), 'board leaks phone');
+            assert(!('phone' in entry), 'board leaks phone');
         }
         console.log(`[E2E] PASS: board endpoint returns no PII`);
 

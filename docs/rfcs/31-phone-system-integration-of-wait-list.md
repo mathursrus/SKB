@@ -429,9 +429,31 @@ Remaining 20% uncertainty:
 
 ## Spike Findings
 
-No spike was needed. All technologies used are either already integrated (Twilio SDK, Express) or have Low uncertainty (TwiML generation is string templating, `<Gather>` is well-documented).
+A spike was conducted with real phone calls via ngrok tunnel to validate Twilio Voice TwiML webhooks.
 
-The Issue #29 spike (Twilio SDK for SMS) validated the core Twilio integration — account setup, credential management, and SDK behavior. Voice TwiML uses the same account and a different API surface (webhook-based, not SDK-based).
+### What Was Spiked
+Twilio Voice TwiML webhook round-trip, `<Gather input="speech">` for name capture, `<Gather input="dtmf" finishOnKey="#">` for multi-digit party size, state passing via URL query params, `express.urlencoded()` compatibility, and full `joinQueue()` + SMS integration via phone.
+
+### Findings
+1. **`voice="Polly.Joanna"` fails on post-speech responses**: Works in the initial greeting TwiML but causes "application error" when used in TwiML returned after a speech `<Gather>` callback. Use the default Twilio voice for all post-speech responses.
+2. **`speechModel` and `enhanced` attributes rejected**: Adding `speechModel="phone_call"`, `speechModel="experimental_conversations"`, or `enhanced="true"` to `<Gather>` causes TwiML parsing failures. Bare `input="speech"` with only `timeout` and `speechTimeout` works reliably.
+3. **`<Pause>` is NOT valid inside `<Gather>`**: Only `<Say>` and `<Play>` can be nested. Including `<Pause>` causes "application error".
+4. **Multiple `<Gather>` elements in one `<Response>` not supported**: Only the first executes. Retry logic must use `<Redirect>` to a separate endpoint.
+5. **`speechTimeout="auto"` too aggressive**: Cuts off speech prematurely. `speechTimeout="2"` (2 seconds of silence) works better.
+6. **`input="speech dtmf"` with `finishOnKey="#"` gives best UX**: User speaks their name then presses `#` to signal they're done, eliminating the end-of-speech detection problem.
+7. **`actionOnEmptyResult="true"` enables retry logic**: Without it, empty speech results don't trigger the callback, making automatic retry impossible.
+8. **`express.urlencoded()` coexists with `express.json()` fine**: Existing JSON endpoints continue to work correctly.
+9. **Caller ID phone normalization needed**: Twilio sends `From` as `+15127753555`. Must strip `+1` prefix to get 10-digit format for `joinQueue()`.
+10. **Speech recognition accuracy low for names**: Confidence scores ranged 0.17–0.87. Names like "Sid Mathur" were recognized as "Said mother", "CID CID", "Sid." across attempts. Retry mechanism with confidence threshold (0.3) mitigates this.
+11. **XSS/TwiML injection risk**: Speech results containing `<` or `>` characters can break TwiML XML. All user-supplied values must be XML-escaped before insertion into `<Say>` tags.
+
+### Design Impact
+- **Removed `voice="Polly.Joanna"` from all post-speech TwiML** — default voice only after speech callbacks
+- **Stripped all `speechModel`/`enhanced` attributes** — bare minimum `<Gather>` attributes only
+- **Changed retry mechanism** from multiple `<Gather>` to `<Redirect>` loop with attempt counter
+- **Added `escXml()` helper** for sanitizing user input in TwiML
+- **Changed speech UX**: prompt says "then press pound" instead of "after the beep" (there is no beep)
+- **Confidence 80→90**: Core uncertainties resolved. Remaining: speech accuracy for unusual names (mitigated by retry + code-is-the-identifier design)
 
 ## Architecture Analysis
 

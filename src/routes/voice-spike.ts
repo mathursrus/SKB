@@ -27,6 +27,11 @@ function spellOut(str: string): string {
     return str.split('').map(ch => ch === '-' ? 'dash' : ch).join(', ');
 }
 
+/** Escape XML special characters to prevent TwiML injection */
+function escXml(str: string): string {
+    return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;');
+}
+
 function action(req: Request, path: string, params: Record<string, string> = {}): string {
     const qs = Object.entries(params)
         .map(([k, v]) => `${k}=${encodeURIComponent(v)}`)
@@ -128,7 +133,7 @@ export function voiceSpikeRouter(): Router {
 
         res.type('text/xml').send(twiml(`
 <Gather input="dtmf" finishOnKey="#" timeout="10" action="${action(req, 'spike-got-size', { from, name })}">
-  <Say>Thanks, ${name}. How many guests in your party? Enter the number on your keypad, then press pound.</Say>
+  <Say>Thanks, ${escXml(name)}. How many guests in your party? Enter the number on your keypad, then press pound.</Say>
 </Gather>
 <Say>No input received. Goodbye.</Say>
 <Hangup/>`));

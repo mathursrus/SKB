@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Issue #31 — IVR Call Flow Mock</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Fira Sans', sans-serif;
+            background: #000;
+            color: #fff;
+            padding: 24px;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        h1 {
+            font-size: 1.5rem;
+            color: #e3bf3d;
+            margin-bottom: 8px;
+        }
+        .subtitle {
+            font-size: 0.9rem;
+            color: #999;
+            margin-bottom: 32px;
+        }
+        .flow-step {
+            background: #111;
+            border: 1px solid #333;
+            border-radius: 8px;
+            padding: 16px 20px;
+            margin-bottom: 12px;
+            position: relative;
+        }
+        .flow-step.active {
+            border-color: #e3bf3d;
+            background: #1a1a00;
+        }
+        .flow-step.error {
+            border-color: #c44;
+            background: #1a0000;
+        }
+        .flow-step.success {
+            border-color: #4a4;
+            background: #001a00;
+        }
+        .step-label {
+            font-size: 0.75rem;
+            color: #e3bf3d;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 6px;
+        }
+        .step-script {
+            font-style: italic;
+            color: #ccc;
+            line-height: 1.5;
+            margin-bottom: 8px;
+        }
+        .step-action {
+            font-size: 0.85rem;
+            color: #888;
+        }
+        .step-action code {
+            background: #222;
+            padding: 2px 6px;
+            border-radius: 3px;
+            color: #e3bf3d;
+            font-size: 0.8rem;
+        }
+        .connector {
+            text-align: center;
+            color: #555;
+            font-size: 1.2rem;
+            margin: 4px 0;
+        }
+        .branch {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+        .branch > div {
+            flex: 1;
+        }
+        .branch-label {
+            text-align: center;
+            font-size: 0.8rem;
+            color: #e3bf3d;
+            margin-bottom: 8px;
+            padding: 4px 8px;
+            background: #1a1a00;
+            border-radius: 4px;
+        }
+        .twiml-box {
+            background: #0a0a0a;
+            border: 1px solid #333;
+            border-radius: 6px;
+            padding: 12px 16px;
+            margin-top: 24px;
+            font-family: 'Fira Code', 'Courier New', monospace;
+            font-size: 0.8rem;
+            color: #aaa;
+            overflow-x: auto;
+            white-space: pre;
+            line-height: 1.6;
+        }
+        .twiml-box .tag { color: #e3bf3d; }
+        .twiml-box .attr { color: #88c; }
+        .twiml-box .val { color: #8c8; }
+        .twiml-box .text { color: #ccc; }
+        .section-title {
+            font-size: 1.1rem;
+            color: #e3bf3d;
+            margin: 32px 0 16px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #333;
+        }
+        .phone-sim {
+            background: #0a0a0a;
+            border: 2px solid #333;
+            border-radius: 24px;
+            max-width: 360px;
+            margin: 0 auto 32px;
+            padding: 40px 20px 32px;
+        }
+        .phone-screen {
+            background: #111;
+            border-radius: 8px;
+            padding: 20px;
+            text-align: center;
+        }
+        .phone-icon {
+            font-size: 2.5rem;
+            margin-bottom: 12px;
+        }
+        .phone-number {
+            font-size: 1.1rem;
+            color: #e3bf3d;
+            margin-bottom: 4px;
+        }
+        .phone-status {
+            font-size: 0.85rem;
+            color: #4a4;
+            margin-bottom: 16px;
+        }
+        .keypad {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+            margin-top: 16px;
+        }
+        .key {
+            background: #222;
+            border: 1px solid #444;
+            border-radius: 50%;
+            width: 48px;
+            height: 48px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto;
+            font-size: 1.2rem;
+            color: #fff;
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+        .key:hover {
+            background: #e3bf3d;
+            color: #000;
+        }
+        .key.highlight {
+            background: #e3bf3d;
+            color: #000;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <h1>Issue #31 — IVR Call Flow</h1>
+    <p class="subtitle">Phone System Integration of Wait List — Voice interaction mock</p>
+
+    <!-- Phone simulator -->
+    <div class="phone-sim">
+        <div class="phone-screen">
+            <div class="phone-icon">&#128222;</div>
+            <div class="phone-number">Shri Krishna Bhavan</div>
+            <div class="phone-status">Connected 0:12</div>
+            <div style="font-size: 0.8rem; color: #888; margin-bottom: 12px;">
+                "There are currently 5 parties ahead of you,<br>
+                with an estimated wait of about 48 minutes."
+            </div>
+            <div class="keypad">
+                <div class="key highlight">1</div>
+                <div class="key">2</div>
+                <div class="key">3</div>
+                <div class="key">4</div>
+                <div class="key">5</div>
+                <div class="key">6</div>
+                <div class="key">7</div>
+                <div class="key">8</div>
+                <div class="key">9</div>
+                <div class="key">*</div>
+                <div class="key">0</div>
+                <div class="key">#</div>
+            </div>
+            <div style="font-size: 0.75rem; color: #e3bf3d; margin-top: 12px;">Press 1 to join &bull; Press 2 to repeat</div>
+        </div>
+    </div>
+
+    <!-- Step-by-step flow -->
+    <h2 class="section-title">Call Flow Steps</h2>
+
+    <div class="flow-step active">
+        <div class="step-label">Step 1 — Greeting + Status</div>
+        <div class="step-script">"Hello, and thank you for calling Shri Krishna Bhavan! There are currently 5 parties ahead of you, with an estimated wait of about 48 minutes."</div>
+        <div class="step-action">Webhook: <code>POST /r/skb/api/voice/incoming</code> &rarr; calls <code>getQueueState("skb")</code></div>
+    </div>
+
+    <div class="connector">&darr;</div>
+
+    <div class="flow-step">
+        <div class="step-label">Step 2 — Menu</div>
+        <div class="step-script">"To add your name to the waitlist, press 1. To hear the wait time again, press 2. Or hang up at any time."</div>
+        <div class="step-action">TwiML: <code>&lt;Gather input="dtmf" numDigits="1" timeout="10"&gt;</code></div>
+    </div>
+
+    <div class="connector">&darr;</div>
+
+    <div class="branch">
+        <div>
+            <div class="branch-label">Press 1 &rarr; Join</div>
+            <div class="flow-step active">
+                <div class="step-label">Step 3a — Name Prompt</div>
+                <div class="step-script">"Please say your name after the beep."</div>
+                <div class="step-action">TwiML: <code>&lt;Gather input="speech" timeout="5"&gt;</code></div>
+            </div>
+        </div>
+        <div>
+            <div class="branch-label">Press 2 &rarr; Repeat</div>
+            <div class="flow-step">
+                <div class="step-label">Step 3b — Repeat Status</div>
+                <div class="step-script">(Loops back to Step 1 with fresh queue data)</div>
+                <div class="step-action">Webhook: re-calls <code>getQueueState()</code></div>
+            </div>
+        </div>
+        <div>
+            <div class="branch-label">Timeout &rarr; Goodbye</div>
+            <div class="flow-step error">
+                <div class="step-label">Step 3c — Goodbye</div>
+                <div class="step-script">"Thank you for calling Shri Krishna Bhavan. Goodbye!"</div>
+                <div class="step-action">TwiML: <code>&lt;Say&gt; + &lt;Hangup&gt;</code></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="connector">&darr; (from Press 1)</div>
+
+    <div class="flow-step">
+        <div class="step-label">Step 4 — Party Size</div>
+        <div class="step-script">"How many guests in your party? Enter the number on your keypad, then press pound."</div>
+        <div class="step-action">TwiML: <code>&lt;Gather input="dtmf" finishOnKey="#"&gt;</code> &mdash; supports 1-2 digit entry (1-20)</div>
+    </div>
+
+    <div class="connector">&darr;</div>
+
+    <div class="branch">
+        <div>
+            <div class="branch-label">Size 1-10 &rarr; Continue</div>
+            <div class="flow-step active">
+                <div class="step-label">Step 5a — Confirm Phone</div>
+                <div class="step-script">"We'll send a text confirmation to 2-0-6, 5-5-5, 1-2-3-4. Is that correct? Press 1 for yes, or press 2 to enter a different number."</div>
+                <div class="step-action">Reads back Caller ID from <code>req.body.From</code> &mdash; <code>&lt;Gather input="dtmf" numDigits="1"&gt;</code></div>
+            </div>
+        </div>
+        <div>
+            <div class="branch-label">Size 11-20 &rarr; Transfer</div>
+            <div class="flow-step error">
+                <div class="step-label">Step 5b — Front Desk Transfer</div>
+                <div class="step-script">"For parties larger than 10, let me connect you with our host. Please hold."</div>
+                <div class="step-action">TwiML: <code>&lt;Dial&gt;</code> to location's front desk number</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="connector">&darr; (from Size 1-10, Press 1 or after entering phone)</div>
+
+    <div class="flow-step success">
+        <div class="step-label">Step 6 — Join Queue + Confirm</div>
+        <div class="step-script">"You're all set! You are number 6 in line. Your estimated wait is about 48 minutes. Your pickup code is S-K-B dash 7-Q-3. We'll send you a text message with your code and a link to track your place in line. Thank you for calling!"</div>
+        <div class="step-action">Calls <code>joinQueue("skb", { name, partySize, phone })</code> &rarr; sends SMS via <code>joinConfirmationMessage()</code></div>
+    </div>
+
+    <!-- TwiML examples -->
+    <h2 class="section-title">TwiML Webhook Responses</h2>
+
+    <p style="color: #888; font-size: 0.85rem; margin-bottom: 16px;">Example TwiML returned by each webhook endpoint:</p>
+
+    <div style="color: #e3bf3d; font-size: 0.85rem; margin-bottom: 4px;">POST /r/skb/api/voice/incoming</div>
+    <div class="twiml-box"><span class="tag">&lt;Response&gt;</span>
+  <span class="tag">&lt;Gather</span> <span class="attr">input</span>=<span class="val">"dtmf"</span> <span class="attr">numDigits</span>=<span class="val">"1"</span> <span class="attr">timeout</span>=<span class="val">"10"</span>
+          <span class="attr">action</span>=<span class="val">"/r/skb/api/voice/menu-choice"</span><span class="tag">&gt;</span>
+    <span class="tag">&lt;Say</span> <span class="attr">voice</span>=<span class="val">"Polly.Joanna"</span><span class="tag">&gt;</span>
+      <span class="text">Hello, and thank you for calling Shri Krishna Bhavan!</span>
+      <span class="text">There are currently 5 parties ahead of you,</span>
+      <span class="text">with an estimated wait of about 48 minutes.</span>
+      <span class="text">To add your name to the waitlist, press 1.</span>
+      <span class="text">To hear the wait time again, press 2.</span>
+      <span class="text">Or hang up at any time.</span>
+    <span class="tag">&lt;/Say&gt;</span>
+  <span class="tag">&lt;/Gather&gt;</span>
+  <span class="tag">&lt;Say&gt;</span><span class="text">Thank you for calling Shri Krishna Bhavan. Goodbye!</span><span class="tag">&lt;/Say&gt;</span>
+  <span class="tag">&lt;Hangup/&gt;</span>
+<span class="tag">&lt;/Response&gt;</span></div>
+
+    <div style="color: #e3bf3d; font-size: 0.85rem; margin: 16px 0 4px;">POST /r/skb/api/voice/join-name</div>
+    <div class="twiml-box"><span class="tag">&lt;Response&gt;</span>
+  <span class="tag">&lt;Gather</span> <span class="attr">input</span>=<span class="val">"speech"</span> <span class="attr">timeout</span>=<span class="val">"5"</span>
+          <span class="attr">action</span>=<span class="val">"/r/skb/api/voice/join-size"</span><span class="tag">&gt;</span>
+    <span class="tag">&lt;Say&gt;</span><span class="text">Please say your name after the beep.</span><span class="tag">&lt;/Say&gt;</span>
+  <span class="tag">&lt;/Gather&gt;</span>
+<span class="tag">&lt;/Response&gt;</span></div>
+
+    <div style="color: #e3bf3d; font-size: 0.85rem; margin: 16px 0 4px;">POST /r/skb/api/voice/join-size (after name captured)</div>
+    <div class="twiml-box"><span class="tag">&lt;Response&gt;</span>
+  <span class="tag">&lt;Gather</span> <span class="attr">input</span>=<span class="val">"dtmf"</span> <span class="attr">finishOnKey</span>=<span class="val">"#"</span>
+          <span class="attr">action</span>=<span class="val">"/r/skb/api/voice/join-phone"</span><span class="tag">&gt;</span>
+    <span class="tag">&lt;Say&gt;</span><span class="text">How many guests in your party? Enter the number, then press pound.</span><span class="tag">&lt;/Say&gt;</span>
+  <span class="tag">&lt;/Gather&gt;</span>
+<span class="tag">&lt;/Response&gt;</span></div>
+
+    <div style="color: #e3bf3d; font-size: 0.85rem; margin: 16px 0 4px;">POST /r/skb/api/voice/join-phone (confirm phone number)</div>
+    <div class="twiml-box"><span class="tag">&lt;Response&gt;</span>
+  <span class="tag">&lt;Gather</span> <span class="attr">input</span>=<span class="val">"dtmf"</span> <span class="attr">numDigits</span>=<span class="val">"1"</span>
+          <span class="attr">action</span>=<span class="val">"/r/skb/api/voice/join-confirm"</span><span class="tag">&gt;</span>
+    <span class="tag">&lt;Say&gt;</span><span class="text">We'll send a text confirmation to 2, 0, 6, 5, 5, 5, 1, 2, 3, 4.</span>
+      <span class="text">Is that correct? Press 1 for yes, or press 2 to enter a different number.</span><span class="tag">&lt;/Say&gt;</span>
+  <span class="tag">&lt;/Gather&gt;</span>
+<span class="tag">&lt;/Response&gt;</span></div>
+
+    <div style="color: #e3bf3d; font-size: 0.85rem; margin: 16px 0 4px;">POST /r/skb/api/voice/join-confirm (after phone confirmed, join + confirm)</div>
+    <div class="twiml-box"><span class="tag">&lt;Response&gt;</span>
+  <span class="tag">&lt;Say</span> <span class="attr">voice</span>=<span class="val">"Polly.Joanna"</span><span class="tag">&gt;</span>
+    <span class="text">You're all set! You are number 6 in line.</span>
+    <span class="text">Your estimated wait is about 48 minutes.</span>
+    <span class="text">Your pickup code is S, K, B, dash, 7, Q, 3.</span>
+    <span class="text">We'll send you a text message with your code</span>
+    <span class="text">and a link to track your place in line.</span>
+    <span class="text">Thank you for calling!</span>
+  <span class="tag">&lt;/Say&gt;</span>
+  <span class="tag">&lt;Hangup/&gt;</span>
+<span class="tag">&lt;/Response&gt;</span></div>
+
+</body>
+</html>

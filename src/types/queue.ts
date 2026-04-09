@@ -7,6 +7,7 @@ export interface Location {
     _id: string;         // slug, e.g., "skb", "skb-demo"
     name: string;        // display name, e.g., "Shri Krishna Bhavan"
     pin: string;         // host-stand PIN for this location
+    frontDeskPhone?: string; // 10-digit phone for IVR transfer (large parties)
     createdAt: Date;
 }
 

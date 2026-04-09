@@ -21,8 +21,15 @@
   },
   "customizations": {},
   "competitors": {
-    "yelp-waitlist": "https://www.yelpforbusiness.com/guest-manager",
+    "yelp-guest-manager": "https://business.yelp.com/restaurants/products/guest-manager-product-news/",
+    "yelp-host": "https://business.yelp.com/restaurants/products/yelp-host/",
     "waitly": "https://waitly.com",
-    "nextme": "https://www.nextmeapp.com"
+    "nextme": "https://www.nextmeapp.com",
+    "tablesready": "https://www.tablesready.com",
+    "waitlist-me": "https://www.waitlist.me",
+    "waitwhile": "https://waitwhile.com",
+    "slang-ai": "https://www.slang.ai",
+    "goodcall": "https://www.goodcall.com",
+    "popmenu": "https://get.popmenu.com/ai-answering"
   }
 }

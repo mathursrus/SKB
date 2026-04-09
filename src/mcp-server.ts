@@ -21,6 +21,7 @@ import { fileIssue } from './issues.js';
 import { queueRouter } from './routes/queue.js';
 import { hostRouter } from './routes/host.js';
 import { healthRouter } from './routes/health.js';
+import { voiceRouter } from './routes/voice.js';
 import { renderQueuePage } from './services/queue-template.js';
 import { listLocations, ensureLocation } from './services/locations.js';
 
@@ -33,6 +34,7 @@ const publicDir = path.resolve(__dirname, '..', 'public');
 
 const app = express();
 app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: false }));  // Twilio sends form-encoded webhooks
 
 // Global health
 app.use(healthRouter(SERVER_NAME));
@@ -51,6 +53,11 @@ app.get('/', async (_req: Request, res: Response) => {
 // Per-location routes: /r/:loc/...
 app.use('/r/:loc/api', queueRouter());
 app.use('/r/:loc/api', hostRouter());
+// Voice IVR routes (conditionally enabled)
+if (process.env.TWILIO_VOICE_ENABLED === 'true') {
+    app.use('/r/:loc/api', voiceRouter());
+    console.log('[MCP Server] Voice IVR enabled');
+}
 
 // Server-side rendered queue page per location
 app.get('/r/:loc/queue.html', async (req: Request, res: Response) => {

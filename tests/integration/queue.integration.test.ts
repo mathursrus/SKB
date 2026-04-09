@@ -34,7 +34,7 @@ const cases: BaseTestCase[] = [
         tags: ['integration', 'queue', 'join', 'waitlist-path'],
         testFn: async () => {
             await resetDb();
-            const r = await joinQueue('test', { name: 'Alice', partySize: 2 }, new Date('2026-04-05T20:00:00Z'));
+            const r = await joinQueue('test', { name: 'Alice', partySize: 2, phone: '2065551234' }, new Date('2026-04-05T20:00:00Z'));
             return r.position === 1 && r.etaMinutes === 8 && r.etaAt === '2026-04-05T20:08:00.000Z' && /^SKB-[A-Z2-9]{3}$/.test(r.code);
         },
     },
@@ -44,9 +44,9 @@ const cases: BaseTestCase[] = [
         testFn: async () => {
             await resetDb();
             const base = new Date('2026-04-05T20:00:00Z').getTime();
-            const r1 = await joinQueue('test', { name: 'A', partySize: 2 }, new Date(base));
-            const r2 = await joinQueue('test', { name: 'B', partySize: 3 }, new Date(base + 1000));
-            const r3 = await joinQueue('test', { name: 'C', partySize: 4 }, new Date(base + 2000));
+            const r1 = await joinQueue('test', { name: 'A', partySize: 2, phone: '2065551234' }, new Date(base));
+            const r2 = await joinQueue('test', { name: 'B', partySize: 3, phone: '2065551235' }, new Date(base + 1000));
+            const r3 = await joinQueue('test', { name: 'C', partySize: 4, phone: '2065551236' }, new Date(base + 2000));
             return r1.position === 1 && r2.position === 2 && r3.position === 3 &&
                 r1.etaMinutes === 8 && r2.etaMinutes === 16 && r3.etaMinutes === 24;
         },
@@ -57,7 +57,7 @@ const cases: BaseTestCase[] = [
         testFn: async () => {
             await resetDb();
             const t0 = new Date('2026-04-05T20:00:00Z');
-            const join = await joinQueue('test', { name: 'Diner', partySize: 2 }, t0);
+            const join = await joinQueue('test', { name: 'Diner', partySize: 2, phone: '2065551234' }, t0);
             const t5 = new Date(t0.getTime() + 5 * 60_000);
             const s5 = await getStatusByCode(join.code, t5);
             const t20 = new Date(t0.getTime() + 20 * 60_000);
@@ -71,9 +71,9 @@ const cases: BaseTestCase[] = [
         testFn: async () => {
             await resetDb();
             const t0 = new Date('2026-04-05T20:00:00Z');
-            const j1 = await joinQueue('test', { name: 'A', partySize: 2 }, new Date(t0.getTime()));
-            await joinQueue('test', { name: 'B', partySize: 2 }, new Date(t0.getTime() + 1000));
-            const j3 = await joinQueue('test', { name: 'C', partySize: 2 }, new Date(t0.getTime() + 2000));
+            const j1 = await joinQueue('test', { name: 'A', partySize: 2, phone: '2065551234' }, new Date(t0.getTime()));
+            await joinQueue('test', { name: 'B', partySize: 2, phone: '2065551235' }, new Date(t0.getTime() + 1000));
+            const j3 = await joinQueue('test', { name: 'C', partySize: 2, phone: '2065551236' }, new Date(t0.getTime() + 2000));
             const list = await listHostQueue('test', t0);
             const bId = list.parties.find(p => p.name === 'B')!.id;
             const t5 = new Date(t0.getTime() + 5 * 60_000);
@@ -90,7 +90,7 @@ const cases: BaseTestCase[] = [
         testFn: async () => {
             await resetDb();
             const t0 = new Date('2026-04-05T20:00:00Z');
-            const j = await joinQueue('test', { name: 'X', partySize: 2 }, t0);
+            const j = await joinQueue('test', { name: 'X', partySize: 2, phone: '2065551234' }, t0);
             const list = await listHostQueue('test', t0);
             const id = list.parties[0].id;
             const t5 = new Date(t0.getTime() + 5 * 60_000);
@@ -112,8 +112,8 @@ const cases: BaseTestCase[] = [
         testFn: async () => {
             await resetDb();
             const t0 = new Date('2026-04-05T20:00:00Z');
-            await joinQueue('test', { name: 'A', partySize: 2 }, new Date(t0.getTime()));
-            const j2 = await joinQueue('test', { name: 'B', partySize: 2 }, new Date(t0.getTime() + 1000));
+            await joinQueue('test', { name: 'A', partySize: 2, phone: '2065551234' }, new Date(t0.getTime()));
+            const j2 = await joinQueue('test', { name: 'B', partySize: 2, phone: '2065551235' }, new Date(t0.getTime() + 1000));
             const list = await listHostQueue('test', t0);
             await callParty(list.parties[0].id, t0);
             const bStatus = await getStatusByCode(j2.code, t0);
@@ -127,7 +127,7 @@ const cases: BaseTestCase[] = [
         testFn: async () => {
             await resetDb();
             const t0 = new Date('2026-04-05T20:00:00Z');
-            const j = await joinQueue('test', { name: 'A', partySize: 2 }, t0);
+            const j = await joinQueue('test', { name: 'A', partySize: 2, phone: '2065551234' }, t0);
             const list = await listHostQueue('test', t0);
             await callParty(list.parties[0].id, t0);
             const result = await removeFromQueue(list.parties[0].id, 'seated', new Date(t0.getTime() + 1000));
@@ -150,8 +150,8 @@ const cases: BaseTestCase[] = [
         testFn: async () => {
             await resetDb();
             const t0 = new Date('2026-04-05T20:00:00Z');
-            await joinQueue('test', { name: 'A', partySize: 2 }, t0);
-            await joinQueue('test', { name: 'B', partySize: 2 }, new Date(t0.getTime() + 1));
+            await joinQueue('test', { name: 'A', partySize: 2, phone: '2065551234' }, t0);
+            await joinQueue('test', { name: 'B', partySize: 2, phone: '2065551235' }, new Date(t0.getTime() + 1));
             const s = await getQueueState('test', t0);
             return s.partiesWaiting === 2 && s.etaForNewPartyMinutes === 24;
         },
@@ -162,18 +162,18 @@ const cases: BaseTestCase[] = [
         testFn: async () => {
             await resetDb();
             const t0 = new Date('2026-04-05T20:00:00Z');
-            await joinQueue('test', { name: 'A', partySize: 2 }, t0);
-            await joinQueue('test', { name: 'B', partySize: 2 }, new Date(t0.getTime() + 1));
+            await joinQueue('test', { name: 'A', partySize: 2, phone: '2065551234' }, t0);
+            await joinQueue('test', { name: 'B', partySize: 2, phone: '2065551235' }, new Date(t0.getTime() + 1));
             const list0 = await listHostQueue('test', t0);
-            if (list0.parties[0].state !== 'waiting' || list0.parties[0].callsMinutesAgo.length !== 0) return false;
+            if (list0.parties[0].state !== 'waiting' || list0.parties[0].calls.length !== 0) return false;
             const aId = list0.parties[0].id;
             await callParty(aId, t0);
             const t3 = new Date(t0.getTime() + 3 * 60_000);
             await callParty(aId, t3);
             const list1 = await listHostQueue('test', t3);
             const a = list1.parties.find(p => p.name === 'A')!;
-            return a.state === 'called' && a.callsMinutesAgo.length === 2 &&
-                a.callsMinutesAgo[0] === 3 && a.callsMinutesAgo[1] === 0;
+            return a.state === 'called' && a.calls.length === 2 &&
+                a.calls[0].minutesAgo === 3 && a.calls[1].minutesAgo === 0;
         },
     },
     // -- Dining lifecycle (issue #24) ------------------------------------------
@@ -183,7 +183,7 @@ const cases: BaseTestCase[] = [
         testFn: async () => {
             await resetDb();
             const t0 = new Date('2026-04-05T20:00:00Z');
-            const j = await joinQueue('test', { name: 'Diner', partySize: 2 }, t0);
+            const j = await joinQueue('test', { name: 'Diner', partySize: 2, phone: '2065551234' }, t0);
             const list = await listHostQueue('test', t0);
             const id = list.parties[0].id;
             const t5 = new Date(t0.getTime() + 5 * 60_000);
@@ -206,7 +206,7 @@ const cases: BaseTestCase[] = [
         testFn: async () => {
             await resetDb();
             const t0 = new Date('2026-04-05T20:00:00Z');
-            await joinQueue('test', { name: 'Full', partySize: 3 }, t0);
+            await joinQueue('test', { name: 'Full', partySize: 3, phone: '2065551234' }, t0);
             const list = await listHostQueue('test', t0);
             const id = list.parties[0].id;
             // Seat
@@ -243,7 +243,7 @@ const cases: BaseTestCase[] = [
         testFn: async () => {
             await resetDb();
             const t0 = new Date('2026-04-05T20:00:00Z');
-            await joinQueue('test', { name: 'Skip', partySize: 2 }, t0);
+            await joinQueue('test', { name: 'Skip', partySize: 2, phone: '2065551234' }, t0);
             const list = await listHostQueue('test', t0);
             const id = list.parties[0].id;
             const t5 = new Date(t0.getTime() + 5 * 60_000);
@@ -269,7 +269,7 @@ const cases: BaseTestCase[] = [
         testFn: async () => {
             await resetDb();
             const t0 = new Date('2026-04-05T20:00:00Z');
-            await joinQueue('test', { name: 'Back', partySize: 2 }, t0);
+            await joinQueue('test', { name: 'Back', partySize: 2, phone: '2065551234' }, t0);
             const list = await listHostQueue('test', t0);
             const id = list.parties[0].id;
             const t5 = new Date(t0.getTime() + 5 * 60_000);
@@ -304,9 +304,9 @@ const cases: BaseTestCase[] = [
             await resetDb();
             const t0 = new Date('2026-04-05T20:00:00Z');
             // Create 3 parties in different dining states
-            await joinQueue('test', { name: 'A', partySize: 2 }, new Date(t0.getTime()));
-            await joinQueue('test', { name: 'B', partySize: 3 }, new Date(t0.getTime() + 1000));
-            await joinQueue('test', { name: 'C', partySize: 4 }, new Date(t0.getTime() + 2000));
+            await joinQueue('test', { name: 'A', partySize: 2, phone: '2065551234' }, new Date(t0.getTime()));
+            await joinQueue('test', { name: 'B', partySize: 3, phone: '2065551235' }, new Date(t0.getTime() + 1000));
+            await joinQueue('test', { name: 'C', partySize: 4, phone: '2065551236' }, new Date(t0.getTime() + 2000));
             const list = await listHostQueue('test', t0);
             const aId = list.parties[0].id;
             const bId = list.parties[1].id;
@@ -330,7 +330,7 @@ const cases: BaseTestCase[] = [
         testFn: async () => {
             await resetDb();
             const t0 = new Date('2026-04-05T20:00:00Z');
-            const j = await joinQueue('test', { name: 'Timeline', partySize: 2 }, t0);
+            const j = await joinQueue('test', { name: 'Timeline', partySize: 2, phone: '2065551234' }, t0);
             const list = await listHostQueue('test', t0);
             const id = list.parties[0].id;
             const t3 = new Date(t0.getTime() + 3 * 60_000);
@@ -358,7 +358,7 @@ const cases: BaseTestCase[] = [
         testFn: async () => {
             await resetDb();
             const t0 = new Date('2026-04-05T20:00:00Z');
-            const j = await joinQueue('test', { name: 'NoShow', partySize: 2 }, t0);
+            const j = await joinQueue('test', { name: 'NoShow', partySize: 2, phone: '2065551234' }, t0);
             const list = await listHostQueue('test', t0);
             const id = list.parties[0].id;
             const t10 = new Date(t0.getTime() + 10 * 60_000);

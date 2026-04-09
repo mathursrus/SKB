@@ -116,7 +116,7 @@ export async function listDiningParties(locationId: string, now: Date = new Date
             id: String(d._id ?? ''),
             name: d.name,
             partySize: d.partySize,
-            phoneLast4: d.phoneLast4 ?? null,
+            phoneMasked: '******' + (d.phone ?? '').slice(-4),
             state: d.state as 'seated' | 'ordered' | 'served' | 'checkout',
             seatedAt: (d.seatedAt ?? d.joinedAt).toISOString(),
             timeInStateMinutes,
@@ -216,7 +216,7 @@ export async function getPartyTimeline(
         state: entry.state,
         timestamps: {
             joinedAt: entry.joinedAt?.toISOString() ?? null,
-            calledAt: entry.calls && entry.calls.length > 0 ? entry.calls[0].toISOString() : null,
+            calledAt: entry.calls && entry.calls.length > 0 ? entry.calls[0].at.toISOString() : null,
             seatedAt: entry.seatedAt?.toISOString() ?? null,
             orderedAt: entry.orderedAt?.toISOString() ?? null,
             servedAt: entry.servedAt?.toISOString() ?? null,

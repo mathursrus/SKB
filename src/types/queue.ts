@@ -13,16 +13,22 @@ export interface Location {
 export type PartyState = 'waiting' | 'called' | 'seated' | 'ordered' | 'served' | 'checkout' | 'departed' | 'no_show';
 export type RemovalReason = 'seated' | 'no_show' | 'departed';
 
+export interface CallRecord {
+    at: Date;
+    smsStatus: 'sent' | 'failed' | 'not_configured';
+    smsMessageId?: string;
+}
+
 export interface QueueEntry {
     locationId: string; // tenant slug, e.g., "skb"
     code: string; // e.g., "SKB-7Q3"
     name: string;
     partySize: number; // 1..10
-    phoneLast4?: string; // "1234"
+    phone: string; // full 10-digit US phone, e.g., "2065551234"
     state: PartyState;
     joinedAt: Date;
     promisedEtaAt: Date; // fixed at join time; never changes — the original commitment
-    calls?: Date[]; // timestamps of every Call/Recall click (oldest → newest)
+    calls?: CallRecord[]; // structured call records with SMS status (oldest → newest)
     removedAt?: Date;
     removedReason?: RemovalReason;
     seatedAt?: Date;
@@ -50,7 +56,7 @@ export interface QueueStateDTO {
 export interface JoinRequestDTO {
     name: string;
     partySize: number;
-    phoneLast4?: string;
+    phone: string; // required, 10 digits
 }
 
 export interface JoinResponseDTO {
@@ -74,12 +80,12 @@ export interface HostPartyDTO {
     position: number;
     name: string;
     partySize: number;
-    phoneLast4: string | null;
+    phoneMasked: string; // "******1234" — never expose full phone
     joinedAt: string; // ISO
     etaAt: string; // ISO
     waitingMinutes: number;
     state: 'waiting' | 'called';
-    callsMinutesAgo: number[]; // one entry per Call click, oldest → newest
+    calls: { minutesAgo: number; smsStatus: string }[];
 }
 
 export interface HostQueueDTO {
@@ -115,7 +121,7 @@ export interface HostDiningPartyDTO {
     id: string;
     name: string;
     partySize: number;
-    phoneLast4: string | null;
+    phoneMasked: string;
     state: 'seated' | 'ordered' | 'served' | 'checkout';
     seatedAt: string;        // ISO
     timeInStateMinutes: number;

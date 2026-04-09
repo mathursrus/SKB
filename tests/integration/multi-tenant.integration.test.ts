@@ -69,9 +69,9 @@ const cases: BaseTestCase[] = [
         testFn: async () => {
             await resetDb();
             const t = new Date('2026-04-07T20:00:00Z');
-            await joinQueue('loc-a', { name: 'Alice', partySize: 2 }, t);
-            await joinQueue('loc-a', { name: 'Bob', partySize: 3 }, new Date(t.getTime() + 1000));
-            await joinQueue('loc-b', { name: 'Charlie', partySize: 4 }, new Date(t.getTime() + 2000));
+            await joinQueue('loc-a', { name: 'Alice', partySize: 2, phone: '2065551234' }, t);
+            await joinQueue('loc-a', { name: 'Bob', partySize: 3, phone: '2065551235' }, new Date(t.getTime() + 1000));
+            await joinQueue('loc-b', { name: 'Charlie', partySize: 4, phone: '2065551236' }, new Date(t.getTime() + 2000));
 
             const stateA = await getQueueState('loc-a', t);
             const stateB = await getQueueState('loc-b', t);
@@ -89,8 +89,8 @@ const cases: BaseTestCase[] = [
         testFn: async () => {
             await resetDb();
             const t = new Date('2026-04-07T20:00:00Z');
-            await joinQueue('loc-a', { name: 'Alice', partySize: 2 }, t);
-            await joinQueue('loc-b', { name: 'Bob', partySize: 3 }, new Date(t.getTime() + 1000));
+            await joinQueue('loc-a', { name: 'Alice', partySize: 2, phone: '2065551234' }, t);
+            await joinQueue('loc-b', { name: 'Bob', partySize: 3, phone: '2065551235' }, new Date(t.getTime() + 1000));
 
             const boardA = await getBoardEntries('loc-a', t);
             const boardB = await getBoardEntries('loc-b', t);
@@ -128,9 +128,9 @@ const cases: BaseTestCase[] = [
         testFn: async () => {
             await resetDb();
             const t = new Date('2026-04-07T20:00:00Z');
-            await joinQueue('loc-a', { name: 'A1', partySize: 2 }, t);
-            await joinQueue('loc-a', { name: 'A2', partySize: 2 }, new Date(t.getTime() + 1));
-            await joinQueue('loc-b', { name: 'B1', partySize: 2 }, new Date(t.getTime() + 2));
+            await joinQueue('loc-a', { name: 'A1', partySize: 2, phone: '2065551234' }, t);
+            await joinQueue('loc-a', { name: 'A2', partySize: 2, phone: '2065551235' }, new Date(t.getTime() + 1));
+            await joinQueue('loc-b', { name: 'B1', partySize: 2, phone: '2065551236' }, new Date(t.getTime() + 2));
 
             const statsA = await getHostStats('loc-a', t);
             const statsB = await getHostStats('loc-b', t);
@@ -145,8 +145,8 @@ const cases: BaseTestCase[] = [
         testFn: async () => {
             await resetDb();
             const t = new Date('2026-04-07T20:00:00Z');
-            const jA = await joinQueue('loc-a', { name: 'Alice', partySize: 2 }, t);
-            const jB = await joinQueue('loc-b', { name: 'Bob', partySize: 3 }, new Date(t.getTime() + 1));
+            const jA = await joinQueue('loc-a', { name: 'Alice', partySize: 2, phone: '2065551234' }, t);
+            const jB = await joinQueue('loc-b', { name: 'Bob', partySize: 3, phone: '2065551235' }, new Date(t.getTime() + 1));
 
             // Seat both
             const listA = await listHostQueue('loc-a', t);
@@ -170,14 +170,14 @@ const cases: BaseTestCase[] = [
             await resetDb();
             const t = new Date('2026-04-07T20:00:00Z');
             // Create full-lifecycle entry for loc-a
-            const jA = await joinQueue('loc-a', { name: 'Alice', partySize: 2 }, t);
+            const jA = await joinQueue('loc-a', { name: 'Alice', partySize: 2, phone: '2065551234' }, t);
             const listA = await listHostQueue('loc-a', t);
             const { removeFromQueue } = await import('../../src/services/queue.js');
             await removeFromQueue(listA.parties[0].id, 'seated', new Date(t.getTime() + 600_000));
             await advanceParty(listA.parties[0].id, 'departed', new Date(t.getTime() + 1200_000));
 
             // Create entry for loc-b (just joined, not seated)
-            await joinQueue('loc-b', { name: 'Bob', partySize: 3 }, t);
+            await joinQueue('loc-b', { name: 'Bob', partySize: 3, phone: '2065551235' }, t);
 
             const analyticsA = await getAnalytics('loc-a', '7');
             const analyticsB = await getAnalytics('loc-b', '7');
@@ -192,13 +192,13 @@ const cases: BaseTestCase[] = [
         testFn: async () => {
             await resetDb();
             const t = new Date('2026-04-07T20:00:00Z');
-            await joinQueue('loc-a', { name: 'Alice', partySize: 2 }, t);
+            await joinQueue('loc-a', { name: 'Alice', partySize: 2, phone: '2065551234' }, t);
             const listA = await listHostQueue('loc-a', t);
             const { removeFromQueue } = await import('../../src/services/queue.js');
             await removeFromQueue(listA.parties[0].id, 'seated', t);
             await advanceParty(listA.parties[0].id, 'departed', t);
 
-            await joinQueue('loc-b', { name: 'Bob', partySize: 3 }, new Date(t.getTime() + 1));
+            await joinQueue('loc-b', { name: 'Bob', partySize: 3, phone: '2065551235' }, new Date(t.getTime() + 1));
             const listB = await listHostQueue('loc-b', new Date(t.getTime() + 1));
             await removeFromQueue(listB.parties[0].id, 'no_show', new Date(t.getTime() + 2));
 

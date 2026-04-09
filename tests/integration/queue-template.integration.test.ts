@@ -32,8 +32,8 @@ const cases: BaseTestCase[] = [
         testFn: async () => {
             await resetDb();
             const now = new Date('2026-04-05T20:00:00Z');
-            await joinQueue('test', { name: 'A', partySize: 2 }, now);
-            await joinQueue('test', { name: 'B', partySize: 2 }, new Date(now.getTime() + 1));
+            await joinQueue('test', { name: 'A', partySize: 2, phone: '2065551234' }, now);
+            await joinQueue('test', { name: 'B', partySize: 2, phone: '2065551235' }, new Date(now.getTime() + 1));
             const html = await renderQueuePage('test');
             return html.includes('meta name="description"');
         },
@@ -70,7 +70,7 @@ const cases: BaseTestCase[] = [
         tags: ['integration', 'jsonld', 'template', 'privacy'],
         testFn: async () => {
             await resetDb();
-            await joinQueue('test', { name: 'SecretPerson', partySize: 2, phoneLast4: '9876' }, new Date());
+            await joinQueue('test', { name: 'SecretPerson', partySize: 2, phone: '2065559876' }, new Date());
             const html = await renderQueuePage('test');
             return !html.includes('SecretPerson') && !html.includes('9876');
         },

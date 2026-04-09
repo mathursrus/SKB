@@ -33,12 +33,19 @@ Today, joining the waitlist requires navigating to the SKB web page on a smartph
 4. **If caller presses 1** (Join):
    a. System prompts for name:
       > *"Please say your name after the beep."*
-   b. System captures name via Twilio speech recognition (or recording with transcription fallback).
+   b. System captures name via Twilio streaming speech recognition (no call recording).
    c. System prompts for party size:
-      > *"How many guests in your party? Press a number on your keypad from 1 to 9."*
-   d. System captures party size via DTMF keypress.
-   e. System uses the caller's phone number from Caller ID — no manual phone entry needed.
-   f. System calls the existing `joinQueue()` service function with `{ name, partySize, phone }`.
+      > *"How many guests in your party? Enter the number on your keypad, then press pound."*
+   d. System captures party size via DTMF keypress (1 or 2 digits, terminated by `#`). Supports 1-20.
+   e. **If party size > 10**:
+      > *"For parties larger than 10, let me connect you with our host. Please hold."*
+      - System transfers the call to the front desk number configured for the location.
+   f. System reads back the caller's phone number from Caller ID and asks for confirmation:
+      > *"We'll send a text confirmation to 2-0-6, 5-5-5, 1-2-3-4. Is that correct? Press 1 for yes, or press 2 to enter a different number."*
+   g. **If caller presses 2** (enter different number):
+      > *"Please enter your 10-digit phone number on the keypad, then press pound."*
+      - System captures phone via DTMF.
+   h. System calls the existing `joinQueue()` service function with `{ name, partySize, phone }`.
    g. System reads back the confirmation:
       > *"You're all set! You are number 6 in line. Your estimated wait is about 48 minutes. Your pickup code is S-K-B dash 7-Q-3. We'll send you a text message with your code and a link to track your place in line. Thank you for calling!"*
    h. System sends the standard SMS join confirmation (reusing `joinConfirmationMessage` template).
@@ -62,8 +69,12 @@ Today, joining the waitlist requires navigating to the SKB web page on a smartph
    > *"We're having trouble hearing you. Please try joining our waitlist online instead. Goodbye!"*
 
 2. **Invalid party size (0, or non-digit)**:
-   > *"Please press a number between 1 and 9 on your keypad."*
+   > *"Please enter the number of guests on your keypad, then press pound."*
    - After 2 failed attempts, same online fallback message.
+
+4. **Party size exceeds 10**:
+   > *"For parties larger than 10, let me connect you with our host. Please hold."*
+   - System transfers call to the front desk number for the location.
 
 3. **Join service error** (database down, code collision exhausted):
    > *"We're sorry, we're experiencing a technical issue. Please try joining our waitlist online or call back in a few minutes. Goodbye!"*
@@ -82,12 +93,17 @@ graph TD
     C -->|Press 2| B
     C -->|Timeout / No Input| G[Goodbye Message]
     C -->|Hang Up| END[Call Ends]
-    D --> E[Prompt: Party Size 1-9]
-    E --> F[Join Queue via API]
+    D --> E[Prompt: Party Size]
+    E -->|Size > 10| T[Transfer to Front Desk]
+    E -->|Size 1-10| P[Confirm Phone Number]
+    P -->|Press 1: Correct| F[Join Queue via API]
+    P -->|Press 2: Different| N[Enter Phone via Keypad]
+    N --> F
     F -->|Success| H[Read Back Confirmation]
     F -->|Failure| I[Error: Try Online]
     H --> J[Send SMS Confirmation]
     J --> END
+    T --> END
     I --> END
     G --> END
 ```
@@ -114,24 +130,27 @@ Voice tone guidelines:
 | R1 | The system SHALL expose a Twilio Voice webhook endpoint at `POST /r/:loc/api/voice/incoming` that returns TwiML to handle incoming calls. | Given an incoming call to the Twilio number configured for location "skb", When Twilio hits the webhook, Then a valid TwiML response is returned within 2 seconds. |
 | R2 | The IVR greeting SHALL announce the current number of parties waiting and the estimated wait time for a new party. | Given 5 parties waiting with avgTurnTime=8min, When the caller hears the greeting, Then the message says "There are currently 5 parties ahead of you, with an estimated wait of about 48 minutes." |
 | R3 | The IVR SHALL offer callers the option to join the waitlist by pressing 1. | Given the caller hears the greeting, When they press 1 on their keypad, Then the system proceeds to collect their name. |
-| R4 | The IVR SHALL collect the caller's name via Twilio speech recognition (`<Gather input="speech">`). | Given the caller presses 1, When prompted "Please say your name after the beep", Then the system captures their spoken name via speech-to-text. |
-| R5 | The IVR SHALL collect the party size via DTMF keypress (`<Gather input="dtmf" numDigits="1">`). | Given the caller has provided their name, When prompted for party size, Then they press a digit 1-9 and the system captures it. |
-| R6 | The system SHALL use the caller's phone number (Caller ID / `req.body.From`) as the contact phone number. | Given an incoming call from +12065551234, When the caller joins the waitlist, Then the phone field is set to "2065551234" (stripped of +1 prefix). |
+| R4 | The IVR SHALL collect the caller's name via Twilio streaming speech recognition (`<Gather input="speech">`) with no call recording. | Given the caller presses 1, When prompted "Please say your name after the beep", Then the system captures their spoken name via streaming speech-to-text. No audio recording is stored. |
+| R5 | The IVR SHALL collect the party size via DTMF keypress (`<Gather input="dtmf" finishOnKey="#">`), supporting 1-2 digit entries (1-20). | Given the caller has provided their name, When prompted for party size, Then they enter a number and press `#`. The system accepts values 1-10 for self-service join and transfers to the front desk for values 11-20. |
+| R5a | The IVR SHALL transfer the call to the front desk phone number when party size exceeds 10. | Given the caller enters party size 11 or greater, When the system processes the input, Then it says "For parties larger than 10, let me connect you with our host. Please hold." and transfers the call via `<Dial>` to the configured front desk number. |
+| R6 | The system SHALL read back the caller's phone number (from Caller ID) and ask for confirmation before using it. | Given an incoming call from +12065551234, When the system reaches the phone confirmation step, Then it says "We'll send a text confirmation to 2-0-6, 5-5-5, 1-2-3-4. Is that correct? Press 1 for yes, or press 2 to enter a different number." |
+| R6a | The IVR SHALL allow callers to manually enter a different 10-digit phone number via DTMF if they decline the Caller ID number. | Given the caller presses 2 at the phone confirmation step, When prompted, Then they can enter a 10-digit phone number on the keypad followed by `#`. The system validates the number is exactly 10 digits. |
 | R7 | The system SHALL call the existing `joinQueue()` function to add the caller to the waitlist. | Given valid name, partySize, and phone, When the join is processed, Then the same queue entry is created as a web join — same code, position, ETA, and state. |
 | R8 | The IVR SHALL read back the position, estimated wait time, and pickup code (spelled out) after a successful join. | Given a successful join at position 6 with ETA 48 min and code SKB-7Q3, When the confirmation plays, Then the caller hears "You are number 6 in line. Your estimated wait is about 48 minutes. Your pickup code is S-K-B dash 7-Q-3." |
 | R9 | The system SHALL send the standard SMS join confirmation after a successful phone join. | Given a successful phone join, When the confirmation is sent, Then the diner receives the same SMS as web joiners: "SKB: You're on the list! Track your place in line here: {STATUS_URL}. Code: {CODE}" |
 | R10 | The IVR SHALL allow callers to press 2 to hear the waitlist status again. | Given the caller is at the main menu, When they press 2, Then the current wait status is repeated and the menu is offered again. |
 | R11 | The IVR SHALL handle timeout (no input) gracefully with a goodbye message. | Given the caller doesn't press anything for 10 seconds, When the timeout fires, Then the system says "Thank you for calling... Goodbye!" and hangs up. |
 | R12 | The IVR SHALL retry name capture up to 2 times on speech recognition failure before falling back to an online suggestion. | Given the speech recognizer returns empty/no result, When the first attempt fails, Then the system asks again. After 2 failures, it says "Please try joining online." |
-| R13 | The IVR SHALL validate party size is between 1 and 9. | Given the caller presses 0 or a non-digit, When the input is invalid, Then the system re-prompts: "Please press a number between 1 and 9." |
+| R13 | The IVR SHALL validate party size is between 1 and 20. | Given the caller enters 0 or a value > 20, When the input is invalid, Then the system re-prompts: "Please enter the number of guests, then press pound." Values 1-10 proceed to self-service join. Values 11-20 transfer to front desk. |
 | R14 | The voice webhook endpoint SHALL support multi-tenant routing via the `:loc` URL parameter. | Given Twilio is configured to hit `/r/skb/api/voice/incoming`, When a call arrives, Then the "skb" location queue is used. Given `/r/skb-demo/api/voice/incoming`, Then the "skb-demo" queue is used. |
 | R15 | Voice/IVR failures SHALL NOT affect the existing web-based waitlist or SMS functionality. | Given the voice webhook throws an error, When a web user joins via the website, Then the web flow works normally with no degradation. |
 | R16 | The system SHALL add a `TWILIO_VOICE_ENABLED` environment variable (default: false) to enable/disable the voice feature. | Given `TWILIO_VOICE_ENABLED` is not set or false, When the server starts, Then the voice webhook route is not registered. |
 
 ### Edge Cases
 
-- **Blocked Caller ID**: If the caller's number is anonymous/restricted (`From` is empty or "Anonymous"), the system SHALL inform the caller: *"We need your phone number to send you a text confirmation. Unfortunately, your number appears blocked. Please try joining online instead."* and end the call.
-- **Party size > 9**: The DTMF gather is limited to 1 digit (1-9). Parties of 10 are not supported via phone (web max is 10). System can suggest calling the restaurant directly for large parties.
+- **Blocked Caller ID**: If the caller's number is anonymous/restricted (`From` is empty or "Anonymous"), the system SHALL prompt for manual entry: *"We weren't able to detect your phone number. Please enter your 10-digit phone number on the keypad, then press pound."* The system captures the number via DTMF and proceeds normally.
+- **Party size 11-20**: The system transfers the call to the front desk: *"For parties larger than 10, let me connect you with our host. Please hold."* Uses `<Dial>` to the location's configured front desk number.
+- **Party size > 20 or invalid**: The system re-prompts: *"Please enter a number between 1 and 20, then press pound."* After 2 failures, suggests joining online.
 - **Concurrent callers**: Each call is an independent Twilio webhook request. The existing `joinQueue()` handles concurrent writes safely (unique code retry loop).
 - **Caller hangs up mid-flow**: Twilio handles this natively. No cleanup needed — no queue entry is created until the join step completes.
 - **Database unavailable during status check**: If `getQueueState()` fails, the IVR SHALL say: *"We're sorry, we can't retrieve the current wait time. Please try again in a moment."* and end the call.
@@ -146,22 +165,22 @@ Voice tone guidelines:
 - **Inbound calls**: The TCPA primarily regulates outbound calls/texts. Since the diner initiates the call, there are no robocall restrictions.
 - **SMS consent**: By pressing 1 to join and providing their phone number (via Caller ID), the diner provides prior express consent for the transactional SMS confirmation. This is consistent with the existing web join consent model (Issue #29).
 - **No marketing**: The IVR and SMS content are strictly transactional (waitlist status, join confirmation). No promotional content.
-- **Call recording disclosure**: If speech recognition uses call recording, a disclosure is required in some states (e.g., California two-party consent). The greeting should include: *"This call may be recorded for quality purposes."* Alternatively, use streaming speech recognition that does not record.
+- **No call recording**: The system uses Twilio's streaming speech recognition only. No audio is recorded or stored. This eliminates the need for recording disclosure under state two-party consent laws (e.g., California).
 
 ### Data Privacy (PII Handling)
 
 - **Phone number**: Captured from Caller ID, stored in `queue_entries` collection with the same lifecycle as web-submitted phones — scoped to `serviceDay`, masked on host dashboard, not exposed in public APIs.
 - **Name (voice)**: Captured via speech recognition, stored identically to web-submitted names.
 - **No additional PII**: The IVR does not collect any data beyond what the web form collects (name, party size, phone).
-- **Twilio logs**: Twilio retains call logs and recordings by default. Configure Twilio to auto-delete recordings after transcription if speech recognition is used.
+- **Twilio logs**: Twilio retains call metadata (duration, from/to numbers) in call logs. No audio recordings are created since the system uses streaming speech recognition only. Call metadata follows the same service-day lifecycle as queue entries.
 
 ### Compliance Validation
 
-1. Verify IVR greeting includes recording disclosure (if applicable).
+1. Verify IVR does not record any audio — streaming speech recognition only.
 2. Verify SMS content sent after phone join is identical to web join — transactional only.
 3. Verify phone numbers from Caller ID follow the same PII handling as web-submitted phones.
 4. Verify voice webhook endpoints are scoped to location (multi-tenant isolation).
-5. Verify no call recordings are retained beyond the transcription step.
+5. Verify no audio recordings are created — streaming speech recognition only, no stored recordings.
 
 ## Validation Plan
 

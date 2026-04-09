@@ -257,14 +257,35 @@
 
     <div class="flow-step">
         <div class="step-label">Step 4 — Party Size</div>
-        <div class="step-script">"How many guests in your party? Press a number on your keypad from 1 to 9."</div>
-        <div class="step-action">TwiML: <code>&lt;Gather input="dtmf" numDigits="1"&gt;</code> &mdash; Caller ID captured from <code>req.body.From</code></div>
+        <div class="step-script">"How many guests in your party? Enter the number on your keypad, then press pound."</div>
+        <div class="step-action">TwiML: <code>&lt;Gather input="dtmf" finishOnKey="#"&gt;</code> &mdash; supports 1-2 digit entry (1-20)</div>
     </div>
 
     <div class="connector">&darr;</div>
 
+    <div class="branch">
+        <div>
+            <div class="branch-label">Size 1-10 &rarr; Continue</div>
+            <div class="flow-step active">
+                <div class="step-label">Step 5a — Confirm Phone</div>
+                <div class="step-script">"We'll send a text confirmation to 2-0-6, 5-5-5, 1-2-3-4. Is that correct? Press 1 for yes, or press 2 to enter a different number."</div>
+                <div class="step-action">Reads back Caller ID from <code>req.body.From</code> &mdash; <code>&lt;Gather input="dtmf" numDigits="1"&gt;</code></div>
+            </div>
+        </div>
+        <div>
+            <div class="branch-label">Size 11-20 &rarr; Transfer</div>
+            <div class="flow-step error">
+                <div class="step-label">Step 5b — Front Desk Transfer</div>
+                <div class="step-script">"For parties larger than 10, let me connect you with our host. Please hold."</div>
+                <div class="step-action">TwiML: <code>&lt;Dial&gt;</code> to location's front desk number</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="connector">&darr; (from Size 1-10, Press 1 or after entering phone)</div>
+
     <div class="flow-step success">
-        <div class="step-label">Step 5 — Join Queue + Confirm</div>
+        <div class="step-label">Step 6 — Join Queue + Confirm</div>
         <div class="step-script">"You're all set! You are number 6 in line. Your estimated wait is about 48 minutes. Your pickup code is S-K-B dash 7-Q-3. We'll send you a text message with your code and a link to track your place in line. Thank you for calling!"</div>
         <div class="step-action">Calls <code>joinQueue("skb", { name, partySize, phone })</code> &rarr; sends SMS via <code>joinConfirmationMessage()</code></div>
     </div>
@@ -301,13 +322,22 @@
 
     <div style="color: #e3bf3d; font-size: 0.85rem; margin: 16px 0 4px;">POST /r/skb/api/voice/join-size (after name captured)</div>
     <div class="twiml-box"><span class="tag">&lt;Response&gt;</span>
-  <span class="tag">&lt;Gather</span> <span class="attr">input</span>=<span class="val">"dtmf"</span> <span class="attr">numDigits</span>=<span class="val">"1"</span>
-          <span class="attr">action</span>=<span class="val">"/r/skb/api/voice/join-confirm"</span><span class="tag">&gt;</span>
-    <span class="tag">&lt;Say&gt;</span><span class="text">How many guests in your party? Press a number from 1 to 9.</span><span class="tag">&lt;/Say&gt;</span>
+  <span class="tag">&lt;Gather</span> <span class="attr">input</span>=<span class="val">"dtmf"</span> <span class="attr">finishOnKey</span>=<span class="val">"#"</span>
+          <span class="attr">action</span>=<span class="val">"/r/skb/api/voice/join-phone"</span><span class="tag">&gt;</span>
+    <span class="tag">&lt;Say&gt;</span><span class="text">How many guests in your party? Enter the number, then press pound.</span><span class="tag">&lt;/Say&gt;</span>
   <span class="tag">&lt;/Gather&gt;</span>
 <span class="tag">&lt;/Response&gt;</span></div>
 
-    <div style="color: #e3bf3d; font-size: 0.85rem; margin: 16px 0 4px;">POST /r/skb/api/voice/join-confirm (after party size captured)</div>
+    <div style="color: #e3bf3d; font-size: 0.85rem; margin: 16px 0 4px;">POST /r/skb/api/voice/join-phone (confirm phone number)</div>
+    <div class="twiml-box"><span class="tag">&lt;Response&gt;</span>
+  <span class="tag">&lt;Gather</span> <span class="attr">input</span>=<span class="val">"dtmf"</span> <span class="attr">numDigits</span>=<span class="val">"1"</span>
+          <span class="attr">action</span>=<span class="val">"/r/skb/api/voice/join-confirm"</span><span class="tag">&gt;</span>
+    <span class="tag">&lt;Say&gt;</span><span class="text">We'll send a text confirmation to 2, 0, 6, 5, 5, 5, 1, 2, 3, 4.</span>
+      <span class="text">Is that correct? Press 1 for yes, or press 2 to enter a different number.</span><span class="tag">&lt;/Say&gt;</span>
+  <span class="tag">&lt;/Gather&gt;</span>
+<span class="tag">&lt;/Response&gt;</span></div>
+
+    <div style="color: #e3bf3d; font-size: 0.85rem; margin: 16px 0 4px;">POST /r/skb/api/voice/join-confirm (after phone confirmed, join + confirm)</div>
     <div class="twiml-box"><span class="tag">&lt;Response&gt;</span>
   <span class="tag">&lt;Say</span> <span class="attr">voice</span>=<span class="val">"Polly.Joanna"</span><span class="tag">&gt;</span>
     <span class="text">You're all set! You are number 6 in line.</span>

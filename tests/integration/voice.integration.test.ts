@@ -40,7 +40,7 @@ const server = app.listen(0, async () => {
     await queueEntries(db).deleteMany({});
     await ensureLocation('test', 'Test Restaurant', '1234');
 
-    const CALL = { From: '+15127753555', To: '+18449172762', CallSid: 'CAdebug' };
+    const CALL = { From: '+12025550199', To: '+18449172762', CallSid: 'CAdebug' };
     let pass = 0, fail = 0;
 
     function check(name: string, ok: boolean, detail?: string) {
@@ -91,7 +91,7 @@ const server = app.listen(0, async () => {
     const entry = await queueEntries(db).findOne({ name: 'Sid Mathur' });
     check('DB has entry', entry !== null);
     check('DB partySize=3', entry?.partySize === 3);
-    check('DB phone correct', entry?.phone === '5127753555');
+    check('DB phone correct', entry?.phone === '2025550199');
 
     // XSS
     const rx = await post(port, a3, { ...CALL, SpeechResult: '<script>alert(1)</script>', Confidence: '0.9' });

@@ -10,6 +10,7 @@ import { getAvgTurnTime } from './settings.js';
 import { addMinutes, minutesBetween, serviceDay } from '../core/utils/time.js';
 import type {
     BoardEntryDTO,
+    CallRecord,
     HostPartyDTO,
     HostQueueDTO,
     JoinRequestDTO,
@@ -20,6 +21,9 @@ import type {
     RemovalReason,
     StatusResponseDTO,
 } from '../types/queue.js';
+import { sendSms } from './sms.js';
+import { firstCallMessage, repeatCallMessage } from './smsTemplates.js';
+import { maskPhone } from './sms.js';
 
 const MAX_CODE_RETRIES = 5;
 
@@ -89,7 +93,7 @@ export async function joinQueue(
             code,
             name: req.name,
             partySize: req.partySize,
-            phoneLast4: req.phoneLast4,
+            phone: req.phone,
             state: 'waiting',
             joinedAt: now,
             promisedEtaAt,
@@ -151,7 +155,7 @@ export async function getStatusByCode(
         etaAt: (entry.promisedEtaAt ?? entry.joinedAt).toISOString(),
         etaMinutes,
         state: entry.state,
-        callsMinutesAgo: (entry.calls ?? []).map((c) => minutesBetween(c, now)),
+        callsMinutesAgo: (entry.calls ?? []).map((c) => minutesBetween(c.at, now)),
     };
 }
 
@@ -171,12 +175,15 @@ export async function listHostQueue(locationId: string, now: Date = new Date()):
             position,
             name: d.name,
             partySize: d.partySize,
-            phoneLast4: d.phoneLast4 ?? null,
+            phoneMasked: maskPhone(d.phone ?? ''),
             joinedAt: d.joinedAt.toISOString(),
             etaAt: (d.promisedEtaAt ?? d.joinedAt).toISOString(),
             waitingMinutes: minutesBetween(d.joinedAt, now),
             state: d.state as 'waiting' | 'called',
-            callsMinutesAgo: (d.calls ?? []).map((c) => minutesBetween(c, now)),
+            calls: (d.calls ?? []).map((c) => ({
+                minutesAgo: minutesBetween(c.at, now),
+                smsStatus: c.smsStatus ?? 'not_configured',
+            })),
         };
     });
 
@@ -218,7 +225,7 @@ export async function removeFromQueue(
 export async function callParty(
     id: string,
     now: Date = new Date(),
-): Promise<{ ok: boolean }> {
+): Promise<{ ok: boolean; smsStatus: 'sent' | 'failed' | 'not_configured' }> {
     const db = await getDb();
     let _id: ObjectId;
     try {
@@ -226,11 +233,29 @@ export async function callParty(
     } catch {
         throw new Error('invalid id');
     }
+
+    // 1. Read entry to get phone + code + call count
+    const entry = await queueEntries(db).findOne({ _id, state: { $in: ACTIVE_STATES } });
+    if (!entry) return { ok: false, smsStatus: 'not_configured' };
+
+    // 2. Send SMS
+    const callCount = (entry.calls?.length ?? 0) + 1;
+    const message = callCount === 1
+        ? firstCallMessage(entry.code)
+        : repeatCallMessage(entry.code, callCount);
+    const smsResult = await sendSms(entry.phone, message);
+
+    // 3. Update state + push CallRecord (SMS failure does NOT block this)
+    const callRecord: CallRecord = {
+        at: now,
+        smsStatus: smsResult.successful ? 'sent' : (smsResult.status === 'not_configured' ? 'not_configured' : 'failed'),
+        smsMessageId: smsResult.messageId || undefined,
+    };
     const res = await queueEntries(db).updateOne(
         { _id, state: { $in: ACTIVE_STATES } },
-        { $set: { state: 'called' }, $push: { calls: now } },
+        { $set: { state: 'called' }, $push: { calls: callRecord } },
     );
-    return { ok: res.matchedCount === 1 };
+    return { ok: res.matchedCount === 1, smsStatus: callRecord.smsStatus };
 }
 
 export async function getBoardEntries(locationId: string, now: Date = new Date()): Promise<BoardEntryDTO[]> {

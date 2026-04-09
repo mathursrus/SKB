@@ -90,16 +90,18 @@
         submitBtn.disabled = true;
         const name = $('name').value.trim();
         const partySize = Number($('size').value);
-        const phoneLast4 = $('phone').value.trim();
+        const phone = $('phone').value.trim();
+        if (!/^\d{10}$/.test(phone)) {
+            joinError.textContent = 'Please enter a valid 10-digit phone number.';
+            joinError.style.display = '';
+            submitBtn.disabled = false;
+            return;
+        }
         try {
             const res = await fetch('api/queue/join', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    name,
-                    partySize,
-                    phoneLast4: phoneLast4 || undefined,
-                }),
+                body: JSON.stringify({ name, partySize, phone }),
             });
             if (!res.ok) {
                 const body = await res.json().catch(() => ({}));

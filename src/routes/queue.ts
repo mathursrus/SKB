@@ -6,6 +6,8 @@ import { Router, type Request, type Response } from 'express';
 
 import { getBoardEntries, getQueueState, joinQueue, getStatusByCode } from '../services/queue.js';
 import { rateLimit } from '../middleware/rateLimit.js';
+import { sendSms } from '../services/sms.js';
+import { joinConfirmationMessage } from '../services/smsTemplates.js';
 import type { ErrorDTO } from '../types/queue.js';
 
 const JOIN_WINDOW_MS = 10 * 60 * 1000; // 10 min
@@ -44,7 +46,7 @@ export function queueRouter(): Router {
             const body = req.body as {
                 name?: unknown;
                 partySize?: unknown;
-                phoneLast4?: unknown;
+                phone?: unknown;
             };
             const err = validateJoin(body);
             if (err) {
@@ -52,13 +54,11 @@ export function queueRouter(): Router {
                 return;
             }
             try {
+                const phone = String(body.phone).trim();
                 const result = await joinQueue(loc(req), {
                     name: String(body.name).trim(),
                     partySize: Number(body.partySize),
-                    phoneLast4:
-                        typeof body.phoneLast4 === 'string' && body.phoneLast4 !== ''
-                            ? body.phoneLast4
-                            : undefined,
+                    phone,
                 });
                 console.log(
                     JSON.stringify({
@@ -71,6 +71,12 @@ export function queueRouter(): Router {
                         position: result.position,
                     }),
                 );
+                // Fire-and-forget confirmation SMS
+                const proto = req.headers['x-forwarded-proto'] ?? req.protocol ?? 'https';
+                const host = req.headers['x-forwarded-host'] ?? req.headers.host ?? '';
+                const statusUrl = `${proto}://${host}/r/${loc(req)}/queue?code=${result.code}`;
+                sendSms(phone, joinConfirmationMessage(result.code, statusUrl))
+                    .catch(e => console.log(JSON.stringify({ t: new Date().toISOString(), level: 'error', msg: 'sms.join_confirm_failed', error: e instanceof Error ? e.message : String(e) })));
                 res.json(result);
             } catch (e) {
                 handleDbError(res, e);
@@ -98,7 +104,7 @@ export function queueRouter(): Router {
 function validateJoin(body: {
     name?: unknown;
     partySize?: unknown;
-    phoneLast4?: unknown;
+    phone?: unknown;
 }): ErrorDTO | null {
     const name = typeof body.name === 'string' ? body.name.trim() : '';
     if (name.length < 1 || name.length > 60) {
@@ -108,11 +114,9 @@ function validateJoin(body: {
     if (!Number.isInteger(size) || size < 1 || size > 10) {
         return { error: 'partySize must be 1..10', field: 'partySize' };
     }
-    if (body.phoneLast4 !== undefined && body.phoneLast4 !== '') {
-        const p = String(body.phoneLast4);
-        if (!/^\d{4}$/.test(p)) {
-            return { error: 'phoneLast4 must be 4 digits', field: 'phoneLast4' };
-        }
+    const phone = typeof body.phone === 'string' ? body.phone.trim() : '';
+    if (!/^\d{10}$/.test(phone)) {
+        return { error: 'phone must be exactly 10 digits', field: 'phone' };
     }
     return null;
 }

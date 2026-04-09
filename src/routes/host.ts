@@ -122,7 +122,7 @@ export function hostRouter(): Router {
         try {
             const result = await callParty(id);
             if (!result.ok) { res.status(404).json({ error: 'not found or not waiting' }); return; }
-            res.json({ ok: true });
+            res.json({ ok: true, smsStatus: result.smsStatus });
         } catch (err) {
             if (err instanceof Error && err.message === 'invalid id') { res.status(400).json({ error: 'invalid id' }); return; }
             dbError(res, err);

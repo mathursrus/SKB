@@ -28,8 +28,9 @@
             <input type="text" id="name" required maxlength="60" autocomplete="off" />
             <label for="size">Party size</label>
             <input type="number" id="size" min="1" max="10" value="2" required />
-            <label for="phone">Phone (last 4, optional)</label>
-            <input type="tel" id="phone" inputmode="numeric" maxlength="4" placeholder="1234" />
+            <label for="phone">Phone number</label>
+            <input type="tel" id="phone" inputmode="numeric" maxlength="10" placeholder="2065551234" required />
+            <div class="hint" style="font-size:13px;color:#4d4c4c;margin-top:2px">We'll text you when your table is ready.</div>
             <div class="error" id="join-error" style="display:none"></div>
             <button type="submit" class="primary" id="submit-btn">Join the line</button>
         </form>

@@ -80,10 +80,13 @@
                 return;
             }
             rows.innerHTML = data.parties.map(p => {
-                const callsList = Array.isArray(p.callsMinutesAgo) ? p.callsMinutesAgo : [];
+                const callsList = Array.isArray(p.calls) ? p.calls : [];
                 const calledBadge = p.state === 'called'
                     ? (callsList.length > 0
-                        ? ' ' + callsList.map((m, i) => '<span class="badge-called">Call ' + (i + 1) + ': ' + m + 'm ago</span>').join(' ')
+                        ? ' ' + callsList.map((c, i) => {
+                            const icon = c.smsStatus === 'sent' ? '\u2713' : (c.smsStatus === 'failed' ? '\u2717' : '');
+                            return '<span class="badge-called">Call ' + (i + 1) + ': ' + c.minutesAgo + 'm ago' + (icon ? ' ' + icon : '') + '</span>';
+                        }).join(' ')
                         : ' <span class="badge-called">CALLED</span>')
                     : '';
                 const callLabel = p.state === 'called' ? 'Recall' : 'Call';
@@ -91,7 +94,7 @@
                     '<td class="num">' + p.position + '</td>' +
                     '<td>' + escapeHtml(p.name) + calledBadge + '</td>' +
                     '<td class="size">' + p.partySize + '</td>' +
-                    '<td class="phone">' + (p.phoneLast4 ? '\u2022\u2022' + p.phoneLast4 : '\u2014') + '</td>' +
+                    '<td class="phone">' + (p.phoneMasked || '\u2014') + '</td>' +
                     '<td class="eta">' + fmtTime(p.etaAt) + '</td>' +
                     '<td class="wait">' + p.waitingMinutes + 'm</td>' +
                     '<td class="actions">' +
@@ -287,7 +290,21 @@
             method: 'POST',
         });
         if (r.status === 401) { showLogin(); return; }
-        refreshAll();
+        // Brief flash of SMS status on the row
+        if (r.ok) {
+            const body = await r.json().catch(() => ({}));
+            const row = document.querySelector('tr[data-id="' + id + '"]');
+            if (row && body.smsStatus) {
+                const icon = body.smsStatus === 'sent' ? '\u2713 SMS sent' : (body.smsStatus === 'failed' ? '\u2717 SMS failed' : '');
+                if (icon) {
+                    const badge = document.createElement('span');
+                    badge.className = 'badge-called';
+                    badge.textContent = icon;
+                    row.querySelector('td:nth-child(2)')?.appendChild(badge);
+                }
+            }
+        }
+        setTimeout(refreshAll, 800);
     }
 
     async function onAdvance(id, state) {

@@ -1,0 +1,322 @@
+<!doctype html>
+<html lang="en">
+<head>
+<!-- ============================================================
+     MOCK: SKB Queue Page with Google Maps Integration
+     Issue #30 — Shows enhanced <head> with OG tags, structured
+     data, and canonical URL for Google Maps discoverability.
+     ============================================================ -->
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+
+<!-- Primary Meta Tags -->
+<title>Shri Krishna Bhavan — Join the Waitlist</title>
+<meta name="description" content="Check the current wait time and join the line at Shri Krishna Bhavan. No app, no account needed." />
+
+<!-- Canonical URL -->
+<link rel="canonical" href="https://skb.example.com/r/skb/queue.html" />
+
+<!-- Open Graph / Facebook -->
+<meta property="og:type" content="website" />
+<meta property="og:url" content="https://skb.example.com/r/skb/queue.html" />
+<meta property="og:title" content="Shri Krishna Bhavan — Join the Waitlist" />
+<meta property="og:description" content="Check the current wait time and join the line. No app, no account needed." />
+
+<!-- Twitter -->
+<meta name="twitter:card" content="summary" />
+<meta name="twitter:title" content="Shri Krishna Bhavan — Join the Waitlist" />
+<meta name="twitter:description" content="Check the current wait time and join the line. No app, no account needed." />
+
+<!-- JSON-LD Structured Data -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Restaurant",
+  "name": "Shri Krishna Bhavan",
+  "address": {
+    "@type": "PostalAddress",
+    "addressLocality": "Bellevue",
+    "addressRegion": "WA"
+  },
+  "url": "https://skb.example.com/r/skb/queue.html",
+  "potentialAction": {
+    "@type": "ReserveAction",
+    "target": {
+      "@type": "EntryPoint",
+      "urlTemplate": "https://skb.example.com/r/skb/queue.html",
+      "actionPlatform": [
+        "http://schema.org/DesktopWebPlatform",
+        "http://schema.org/MobileWebPlatform"
+      ]
+    },
+    "result": {
+      "@type": "Reservation",
+      "name": "Join Waitlist"
+    }
+  }
+}
+</script>
+
+<!-- Fonts & Styles (same as production queue page) -->
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fira+Sans:wght@400;600;700&display=swap" rel="stylesheet" />
+
+<style>
+/* === SKB Diner Styles (from styles.css) === */
+:root {
+    --bg: #ffffff;
+    --fg: #111111;
+    --muted: #4d4c4c;
+    --accent: #e3bf3d;
+    --accent-dark: #b89624;
+    --card: #ffffff;
+    --border: #eaeaea;
+    --divider: #f3f3f3;
+    --surface-alt: #fafafa;
+    --ok: #15803d;
+    --danger: #b91c1c;
+}
+* { box-sizing: border-box; }
+body {
+    margin: 0;
+    font-family: 'Fira Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font-size: 16px;
+    line-height: 1.5;
+    background: var(--surface-alt);
+    color: var(--fg);
+}
+header {
+    background: #000;
+    color: #fff;
+    padding: 24px 16px 20px;
+    text-align: center;
+    border-bottom: 4px solid var(--accent);
+}
+header .mark {
+    display: inline-block;
+    font-weight: 700;
+    font-size: 26px;
+    letter-spacing: 6px;
+    color: var(--accent);
+    border: 2px solid var(--accent);
+    padding: 4px 14px;
+    border-radius: 4px;
+    margin-bottom: 10px;
+}
+header h1 {
+    margin: 0;
+    font-size: 20px;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+}
+header .sub {
+    color: #cfcbba;
+    font-size: 13px;
+    margin-top: 4px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+}
+main { padding: 20px 16px; max-width: 480px; margin: 0 auto; }
+.card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 22px;
+    margin-bottom: 14px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+}
+.status { text-align: center; }
+.status .line-len {
+    font-size: 56px;
+    font-weight: 700;
+    color: #111;
+    line-height: 1;
+}
+.status .line-label {
+    color: var(--muted);
+    font-size: 13px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    margin-top: 4px;
+}
+.status .eta {
+    margin-top: 14px;
+    padding-top: 14px;
+    border-top: 1px solid var(--divider);
+    color: var(--muted);
+    font-size: 14px;
+}
+label {
+    display: block;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin: 14px 0 6px;
+}
+label:first-child { margin-top: 0; }
+input[type=text], input[type=tel], input[type=number] {
+    width: 100%;
+    padding: 12px 14px;
+    font-family: inherit;
+    font-size: 16px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: #fff;
+    color: var(--fg);
+}
+input:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(227,191,61,0.25);
+}
+button.primary {
+    display: block;
+    width: 100%;
+    margin-top: 20px;
+    min-height: 48px;
+    background: #000;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-family: inherit;
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+button.primary:hover { background: #333; }
+footer {
+    text-align: center;
+    color: var(--muted);
+    font-size: 11px;
+    padding: 20px 16px;
+    letter-spacing: 0.3px;
+}
+
+/* === Mock annotation styles === */
+.mock-annotation {
+    background: #fffbe6;
+    border: 2px dashed var(--accent);
+    border-radius: 8px;
+    padding: 14px 18px;
+    margin-bottom: 14px;
+    font-size: 13px;
+    color: #6b5a00;
+    line-height: 1.6;
+}
+.mock-annotation strong {
+    color: #3d3200;
+}
+.mock-annotation code {
+    background: #fff;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 12px;
+    border: 1px solid #e8dda0;
+}
+.mock-head-preview {
+    background: #1e1e1e;
+    color: #d4d4d4;
+    border-radius: 8px;
+    padding: 16px 18px;
+    margin-bottom: 14px;
+    font-family: ui-monospace, Menlo, Consolas, monospace;
+    font-size: 11px;
+    line-height: 1.7;
+    overflow-x: auto;
+    white-space: pre;
+}
+.mock-head-preview .tag { color: #569cd6; }
+.mock-head-preview .attr { color: #9cdcfe; }
+.mock-head-preview .val { color: #ce9178; }
+.mock-head-preview .comment { color: #6a9955; }
+</style>
+</head>
+<body>
+
+<!-- ============================================================
+     MOCK ANNOTATION: Shows what's new in the <head> section
+     ============================================================ -->
+<div style="max-width:480px; margin:0 auto; padding:16px 16px 0;">
+    <div class="mock-annotation">
+        <strong>MOCK — Issue #30: Google Maps Integration</strong><br>
+        This mock shows the queue page as accessed from a Google Maps listing.
+        The page is visually identical to the current queue page. The key changes
+        are in the <code>&lt;head&gt;</code> section (meta tags, structured data)
+        which make the page discoverable and previewable on Google Maps and social platforms.
+    </div>
+
+    <div class="mock-annotation">
+        <strong>New &lt;head&gt; elements added:</strong><br>
+        1. <code>&lt;meta name="description"&gt;</code> — SEO description<br>
+        2. <code>&lt;link rel="canonical"&gt;</code> — canonical URL<br>
+        3. <code>&lt;meta property="og:*"&gt;</code> — Open Graph tags (4 tags)<br>
+        4. <code>&lt;meta name="twitter:*"&gt;</code> — Twitter Card tags<br>
+        5. <code>&lt;script type="application/ld+json"&gt;</code> — Restaurant schema with ReserveAction
+    </div>
+
+    <div class="mock-head-preview"><span class="comment">&lt;!-- Primary Meta Tags --&gt;</span>
+<span class="tag">&lt;title&gt;</span>Shri Krishna Bhavan — Join the Waitlist<span class="tag">&lt;/title&gt;</span>
+<span class="tag">&lt;meta</span> <span class="attr">name</span>=<span class="val">"description"</span> <span class="attr">content</span>=<span class="val">"Check the current wait time and join the line at Shri Krishna Bhavan. No app, no account needed."</span> <span class="tag">/&gt;</span>
+
+<span class="comment">&lt;!-- Canonical URL --&gt;</span>
+<span class="tag">&lt;link</span> <span class="attr">rel</span>=<span class="val">"canonical"</span> <span class="attr">href</span>=<span class="val">"https://skb.example.com/r/skb/queue.html"</span> <span class="tag">/&gt;</span>
+
+<span class="comment">&lt;!-- Open Graph --&gt;</span>
+<span class="tag">&lt;meta</span> <span class="attr">property</span>=<span class="val">"og:type"</span> <span class="attr">content</span>=<span class="val">"website"</span> <span class="tag">/&gt;</span>
+<span class="tag">&lt;meta</span> <span class="attr">property</span>=<span class="val">"og:url"</span> <span class="attr">content</span>=<span class="val">"https://skb.example.com/r/skb/queue.html"</span> <span class="tag">/&gt;</span>
+<span class="tag">&lt;meta</span> <span class="attr">property</span>=<span class="val">"og:title"</span> <span class="attr">content</span>=<span class="val">"Shri Krishna Bhavan — Join the Waitlist"</span> <span class="tag">/&gt;</span>
+<span class="tag">&lt;meta</span> <span class="attr">property</span>=<span class="val">"og:description"</span> <span class="attr">content</span>=<span class="val">"Check the current wait time and join the line. No app, no account needed."</span> <span class="tag">/&gt;</span>
+
+<span class="comment">&lt;!-- JSON-LD Structured Data --&gt;</span>
+<span class="tag">&lt;script</span> <span class="attr">type</span>=<span class="val">"application/ld+json"</span><span class="tag">&gt;</span>
+{
+  "@context": "https://schema.org",
+  "@type": "Restaurant",
+  "name": "Shri Krishna Bhavan",
+  "potentialAction": {
+    "@type": "ReserveAction",
+    "target": {
+      "@type": "EntryPoint",
+      "urlTemplate": "https://skb.example.com/r/skb/queue.html"
+    }
+  }
+}
+<span class="tag">&lt;/script&gt;</span></div>
+</div>
+
+<!-- ============================================================
+     ACTUAL QUEUE PAGE (identical to current production)
+     ============================================================ -->
+<header>
+    <div class="mark">SKB</div>
+    <h1>Shri Krishna Bhavan</h1>
+    <div class="sub">Bellevue &middot; Place in Line</div>
+</header>
+<main>
+    <div class="card status" id="status-card">
+        <div class="line-len">3</div>
+        <div class="line-label">parties waiting</div>
+        <div class="eta">New party wait &asymp; 18 min</div>
+    </div>
+
+    <div class="card" id="join-card">
+        <form id="join-form" onsubmit="return false;">
+            <label for="name">Your name</label>
+            <input type="text" id="name" required maxlength="60" autocomplete="off" placeholder="e.g. Priya" />
+            <label for="size">Party size</label>
+            <input type="number" id="size" min="1" max="10" value="2" required />
+            <label for="phone">Phone (last 4, optional)</label>
+            <input type="tel" id="phone" inputmode="numeric" maxlength="4" placeholder="1234" />
+            <button type="submit" class="primary">Join the line</button>
+        </form>
+    </div>
+</main>
+<footer>No app needed &middot; No account &middot; Your data stays with SKB</footer>
+
+</body>
+</html>

@@ -26,7 +26,6 @@ npm start                    # http://localhost:3000
 | `PORT` | No | Server port (auto-assigned if not set) |
 | `SKB_HOST_PIN` | No | Host-stand PIN (default: `1234`) |
 | `SKB_COOKIE_SECRET` | No | Cookie signing secret for host sessions |
-| `PUBLIC_URL` | No | Public base URL for canonical links and OG tags (e.g., `https://skb.azurewebsites.net`). For local dev, use `http://localhost:3000`. |
 | `TZ` | No | Timezone for service-day partitioning (default: `America/Los_Angeles`) |
 
 ## Google Maps Waitlist Integration
@@ -73,16 +72,19 @@ Changes to your Google Business Profile can take **24-72 hours** to appear on Go
 - Tapping it opens your queue page in their mobile browser
 - They can see the current wait time and join the line immediately
 
-### Step 5 (Optional): Set the Public URL in SKB
+### Step 5 (Optional): Set the Public URL in Your Location
 
-For the best search engine and social media experience, set the `PUBLIC_URL` environment variable to your production domain:
+For the best search engine and social media experience, set the `publicUrl` field on your location document in MongoDB. This enables canonical URLs, Open Graph tags, and JSON-LD structured data to use the correct absolute URL.
 
-```bash
-# In your .env or deployment config
-PUBLIC_URL=https://skb.azurewebsites.net
+```javascript
+// In MongoDB shell:
+db.locations.updateOne(
+  { _id: "skb" },
+  { $set: { publicUrl: "https://skb.azurewebsites.net" } }
+)
 ```
 
-This ensures that canonical URLs, Open Graph tags, and JSON-LD structured data use the correct absolute URL. Without this, the queue page will still work but may not show rich previews when shared.
+Without `publicUrl` set, the queue page still works but may not show rich link previews when shared on social media.
 
 ### Verifying the Integration
 

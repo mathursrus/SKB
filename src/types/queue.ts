@@ -8,6 +8,8 @@ export interface Location {
     name: string;        // display name, e.g., "Shri Krishna Bhavan"
     pin: string;         // host-stand PIN for this location
     createdAt: Date;
+    publicUrl?: string;       // public HTTPS base URL, e.g., "https://skb.azurewebsites.net"
+    googlePlaceId?: string;   // Google Maps Place ID, e.g., "ChIJ..."
 }
 
 export type PartyState = 'waiting' | 'called' | 'seated' | 'ordered' | 'served' | 'checkout' | 'departed' | 'no_show';

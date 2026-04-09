@@ -1,12 +1,13 @@
 // ============================================================================
-// SKB - Server-side template rendering for queue.html (Issue #8)
+// SKB - Server-side template rendering for queue.html
 // ============================================================================
 //
 // Reads the static queue.html template and injects JSON-LD structured data
-// and meta tags with live wait-time information from getQueueState().
+// and meta tags with live wait-time information from getQueueState() and
+// location data from getLocation().
 //
-// Fallback: if getQueueState() throws (e.g., DB down), the page is served
-// with a generic meta description and no JSON-LD. Page load is never blocked.
+// Fallback: if getQueueState() or getLocation() throws (e.g., DB down),
+// the page is served with generic meta tags and no JSON-LD. Never blocked.
 // ============================================================================
 
 import fs from 'node:fs';
@@ -14,8 +15,9 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { getQueueState } from './queue.js';
-import { buildJsonLd, buildMetaDescription, buildOgDescription, buildOgTitle } from './jsonld.js';
-import type { QueueStateDTO } from '../types/queue.js';
+import { getLocation } from './locations.js';
+import { buildJsonLd, buildMetaDescription, buildOgDescription, buildOgTitle, buildOgType, buildCanonicalUrl } from './jsonld.js';
+import type { Location, QueueStateDTO } from '../types/queue.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const TEMPLATE_PATH = path.resolve(__dirname, '..', '..', 'public', 'queue.html');
@@ -31,18 +33,28 @@ function loadTemplate(): string {
 /**
  * Build the HTML string to inject into <head> before the closing </head> tag.
  */
-function buildHeadInjection(state: QueueStateDTO): string {
-    const jsonLd = JSON.stringify(buildJsonLd(state));
-    const metaDesc = escapeAttr(buildMetaDescription(state));
-    const ogDesc = escapeAttr(buildOgDescription(state));
-    const ogTitle = escapeAttr(buildOgTitle());
+function buildHeadInjection(state: QueueStateDTO, location: Location | null): string {
+    const jsonLd = JSON.stringify(buildJsonLd(state, location));
+    const metaDesc = escapeAttr(buildMetaDescription(state, location));
+    const ogDesc = escapeAttr(buildOgDescription(state, location));
+    const ogTitle = escapeAttr(buildOgTitle(location));
+    const ogType = escapeAttr(buildOgType());
+    const canonicalUrl = buildCanonicalUrl(location);
 
-    return [
+    const tags: string[] = [
         `<script type="application/ld+json">${jsonLd}</script>`,
         `<meta name="description" content="${metaDesc}" />`,
         `<meta property="og:title" content="${ogTitle}" />`,
         `<meta property="og:description" content="${ogDesc}" />`,
-    ].join('\n');
+        `<meta property="og:type" content="${ogType}" />`,
+    ];
+
+    if (canonicalUrl) {
+        tags.push(`<meta property="og:url" content="${escapeAttr(canonicalUrl)}" />`);
+        tags.push(`<link rel="canonical" href="${escapeAttr(canonicalUrl)}" />`);
+    }
+
+    return tags.join('\n');
 }
 
 /**
@@ -51,11 +63,13 @@ function buildHeadInjection(state: QueueStateDTO): string {
 function buildFallbackHeadInjection(): string {
     const metaDesc = escapeAttr('Shri Krishna Bhavan, Bellevue -- Check the live wait time and join the line online.');
     const ogTitle = escapeAttr(buildOgTitle());
+    const ogType = escapeAttr(buildOgType());
 
     return [
         `<meta name="description" content="${metaDesc}" />`,
         `<meta property="og:title" content="${ogTitle}" />`,
         `<meta property="og:description" content="${metaDesc}" />`,
+        `<meta property="og:type" content="${ogType}" />`,
     ].join('\n');
 }
 
@@ -71,16 +85,19 @@ function escapeAttr(s: string): string {
 /**
  * Render queue.html with injected JSON-LD and meta tags.
  *
- * If `getQueueState()` fails, serves the page with fallback meta tags
- * and no JSON-LD block. Never throws.
+ * Fetches both queue state and location data in parallel. If either fails,
+ * serves the page with fallback meta tags and no JSON-LD. Never throws.
  */
 export async function renderQueuePage(locationId: string, now?: Date): Promise<string> {
     const template = loadTemplate();
     let injection: string;
 
     try {
-        const state = await getQueueState(locationId, now);
-        injection = buildHeadInjection(state);
+        const [state, location] = await Promise.all([
+            getQueueState(locationId, now),
+            getLocation(locationId),
+        ]);
+        injection = buildHeadInjection(state, location);
     } catch {
         injection = buildFallbackHeadInjection();
     }

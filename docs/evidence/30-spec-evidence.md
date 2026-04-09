@@ -1,6 +1,6 @@
 # Feature Specification: Google Maps Integration of Queue Page
 Issue: [#30](https://github.com/mathursrus/SKB/issues/30)
-PR: *To be linked after PR creation*
+PR: [#35](https://github.com/mathursrus/SKB/pull/35)
 
 ## Summary
 - **Issue**: #30 — Google Maps integration of queue page

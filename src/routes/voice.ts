@@ -108,20 +108,17 @@ export function voiceRouter(): Router {
         }
 
         const prompt = attempt === 0
-            ? 'After the tone, please say your full name.'
+            ? 'Please say your full name.'
             : 'Sorry, I didn\'t catch that. Please say your full name now.';
 
         // Speech recognition config:
         // - input="speech" ONLY — DTMF + finishOnKey was making Twilio interpret
         //   the whole interaction as DTMF and skip speech transcription entirely
         //   (confirmed from prod logs: SpeechResult was missing from req.body).
-        // - speechTimeout="auto" — Twilio's adaptive silence detection
+        // - speechTimeout="auto" — Twilio's adaptive silence detection ends the
+        //   gather after ~1s of silence after the user finishes speaking.
         // - language="en-US" — explicit
         // - actionOnEmptyResult="true" — still post on no input so we can retry/fallback
-        // The "tone" mentioned in the prompt is the natural transition gap between
-        // <Say> and the start of recording — Twilio plays the prompt then opens
-        // the mic. There is no synthetic beep tone here, but the prompt is
-        // truthful: Twilio's transition from speaking to listening is audible.
         res.type('text/xml').send(twiml(`
 <Gather input="speech" language="en-US" timeout="6" speechTimeout="auto" actionOnEmptyResult="true" action="${action(req, 'got-name', { from, attempt: String(attempt) })}">
   <Say>${prompt}</Say>

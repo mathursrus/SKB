@@ -67,7 +67,10 @@ const server = app.listen(0, async () => {
     check('AskName uses auto speech timeout', r3.body.includes('speechTimeout="auto"'));
     check('AskName explicit en-US language', r3.body.includes('language="en-US"'));
     check('AskName has no finishOnKey on speech step', !/<Gather[^>]*finishOnKey[^>]*input="speech"/.test(r3.body));
-    check('AskName prompt does not lie about beep', !r3.body.includes('beep'));
+    // Prompt must not promise audio cues that don't actually play
+    check('AskName prompt does not promise a beep', !/beep/i.test(r3.body));
+    check('AskName prompt does not promise a tone', !/after the tone/i.test(r3.body));
+    check('AskName prompt does not promise a # press', !/press pound/i.test(r3.body));
 
     // 4. Speech result
     const a3 = extractAction(r3.body);

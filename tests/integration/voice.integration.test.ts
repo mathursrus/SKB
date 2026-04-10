@@ -59,13 +59,15 @@ const server = app.listen(0, async () => {
     const r2 = await post(port, a1, { ...CALL, Digits: '1' });
     check('Press1 redirects to ask-name', r2.body.includes('ask-name'));
 
-    // 3. Ask name
+    // 3. Ask name — speech-only Gather (DTMF/finishOnKey caused Twilio to skip
+    //    speech transcription entirely; see commit history & coaching moment)
     const a2 = extractAction(r2.body);
     const r3 = await post(port, a2, CALL);
-    check('AskName has speech input', r3.body.includes('input="speech"'));
+    check('AskName has speech-only input', r3.body.includes('input="speech"') && !r3.body.includes('input="speech dtmf"'));
     check('AskName uses auto speech timeout', r3.body.includes('speechTimeout="auto"'));
     check('AskName explicit en-US language', r3.body.includes('language="en-US"'));
-    check('AskName prompts to say name after beep', r3.body.includes('after the beep'));
+    check('AskName has no finishOnKey on speech step', !/<Gather[^>]*finishOnKey[^>]*input="speech"/.test(r3.body));
+    check('AskName prompt does not lie about beep', !r3.body.includes('beep'));
 
     // 4. Speech result
     const a3 = extractAction(r3.body);
@@ -103,6 +105,19 @@ const server = app.listen(0, async () => {
     // Empty speech retry
     const re = await post(port, a3, { ...CALL, SpeechResult: '', Confidence: '0' });
     check('Empty speech retries', re.body.includes('Redirect') && extractAction(re.body).includes('attempt=1'));
+
+    // Fallback flow: 2 failed attempts → use "Caller XXXX" placeholder name
+    // Simulate the second failed attempt by hitting ask-name with attempt=2
+    const askNameUrl = a2.replace(/attempt=\d+/, 'attempt=2');
+    const rFallback = await post(port, askNameUrl, CALL);
+    check('Fallback announces Caller placeholder', rFallback.body.includes('Caller 0199'));
+    check('Fallback redirects to size prompt', rFallback.body.includes('got-size-prompt'));
+    check('Fallback passes Caller name in query', rFallback.body.includes('Caller'));
+
+    // Hit got-size-prompt directly to ensure it asks for party size
+    const sizePromptUrl = extractAction(rFallback.body);
+    const rSizePrompt = await post(port, sizePromptUrl, CALL);
+    check('SizePrompt asks for guests', rSizePrompt.body.includes('How many guests'));
 
     console.log(`\n${pass} passed, ${fail} failed`);
     server.close();

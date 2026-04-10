@@ -86,35 +86,47 @@ export function voiceRouter(): Router {
         }
     });
 
-    // ── Step 3: Ask for name (with retry logic) ─────────────────────────
+    // ── Step 3: Ask for name (with retry + fallback) ─────────────────────
+    // The voice IVR depends on Twilio speech recognition, which is unreliable
+    // on Trial accounts and on accounts that don't have premium speech enabled.
+    // After 2 failed attempts, we fall back to using the caller's phone number
+    // as a temporary name (e.g. "Caller 3555") so the call still completes.
     r.post('/voice/ask-name', async (req: Request, res: Response) => {
         const from = String(req.query.from || '');
         const attempt = parseInt(String(req.query.attempt || '0'), 10);
 
-        if (attempt >= 3) {
-            console.log(JSON.stringify({ t: new Date().toISOString(), level: 'warn', msg: 'voice.speech_exhausted', loc: loc(req) }));
-            res.type('text/xml').send(twiml(
-                `<Say>We're having trouble hearing you. Please try joining our waitlist online instead. Goodbye.</Say><Hangup/>`
-            ));
+        if (attempt >= 2) {
+            // Fallback: use last 4 of phone as a placeholder name. The host can
+            // rename the party at the door if needed.
+            const last4 = from ? from.slice(-4) : 'unknown';
+            const fallbackName = `Caller ${last4}`;
+            console.log(JSON.stringify({ t: new Date().toISOString(), level: 'warn', msg: 'voice.speech_fallback', loc: loc(req), fallbackName }));
+            res.type('text/xml').send(twiml(`
+<Say>I'm having trouble hearing you. I'll add you to the waitlist as "Caller ${last4}". You can update your name when you arrive.</Say>
+<Redirect>${action(req, 'got-size-prompt', { from, name: fallbackName })}</Redirect>`));
             return;
         }
 
         const prompt = attempt === 0
-            ? 'Please say your name after the beep.'
-            : 'Sorry, I didn\'t catch that. Please say your name clearly after the beep.';
+            ? 'After the tone, please say your full name.'
+            : 'Sorry, I didn\'t catch that. Please say your full name now.';
 
-        // Speech recognition tuning (works on all paid Twilio accounts):
-        // - speechTimeout="auto" — Twilio's adaptive silence detection (more reliable than a fixed 2s)
-        // - language="en-US" — explicit, ensures correct model
-        // - No finishOnKey — let auto silence detection end recording naturally
-        // - actionOnEmptyResult="true" — still post on no input so we can retry
-        // - input="speech" only — DTMF on this step caused confusion with the prompt
+        // Speech recognition config:
+        // - input="speech" ONLY — DTMF + finishOnKey was making Twilio interpret
+        //   the whole interaction as DTMF and skip speech transcription entirely
+        //   (confirmed from prod logs: SpeechResult was missing from req.body).
+        // - speechTimeout="auto" — Twilio's adaptive silence detection
+        // - language="en-US" — explicit
+        // - actionOnEmptyResult="true" — still post on no input so we can retry/fallback
+        // The "tone" mentioned in the prompt is the natural transition gap between
+        // <Say> and the start of recording — Twilio plays the prompt then opens
+        // the mic. There is no synthetic beep tone here, but the prompt is
+        // truthful: Twilio's transition from speaking to listening is audible.
         res.type('text/xml').send(twiml(`
-<Gather input="speech" language="en-US" timeout="8" speechTimeout="auto" actionOnEmptyResult="true" action="${action(req, 'got-name', { from, attempt: String(attempt) })}">
+<Gather input="speech" language="en-US" timeout="6" speechTimeout="auto" actionOnEmptyResult="true" action="${action(req, 'got-name', { from, attempt: String(attempt) })}">
   <Say>${prompt}</Say>
 </Gather>
-<Say>Something went wrong. Goodbye.</Say>
-<Hangup/>`));
+<Redirect>${action(req, 'ask-name', { from, attempt: String(attempt + 1) })}</Redirect>`));
     });
 
     // ── Step 4: Process speech result ────────────────────────────────────
@@ -124,7 +136,8 @@ export function voiceRouter(): Router {
         const from = String(req.query.from || '');
         const attempt = parseInt(String(req.query.attempt || '0'), 10);
 
-        // Verbose logging for production debugging — log all Twilio fields when result is empty
+        // Verbose logging for production debugging — log full body (values too)
+        // when SpeechResult is empty so we can see exactly what Twilio sent.
         if (!speechResult) {
             console.log(JSON.stringify({
                 t: new Date().toISOString(),
@@ -132,16 +145,19 @@ export function voiceRouter(): Router {
                 msg: 'voice.speech_empty',
                 loc: loc(req),
                 attempt,
-                bodyKeys: Object.keys(req.body),
-                callStatus: req.body.CallStatus,
-                from: req.body.From ? `******${String(req.body.From).slice(-4)}` : null,
                 hasSpeechResult: 'SpeechResult' in req.body,
+                speechResultRaw: req.body.SpeechResult ?? null,
+                confidence: req.body.Confidence ?? null,
+                callStatus: req.body.CallStatus,
+                digits: req.body.Digits,
+                finishedOnKey: req.body.FinishedOnKey,
+                bodyKeys: Object.keys(req.body),
             }));
         } else {
             console.log(JSON.stringify({ t: new Date().toISOString(), level: 'info', msg: 'voice.speech_result', loc: loc(req), speech: speechResult, confidence, attempt }));
         }
 
-        // Accept any non-empty result; Twilio confidence can be unreliable for names
+        // Empty result → retry (or fall back to "Caller XXXX" after 2 attempts)
         if (!speechResult) {
             console.log(JSON.stringify({ t: new Date().toISOString(), level: 'warn', msg: 'voice.speech_retry', loc: loc(req), reason: 'empty', attempt }));
             res.type('text/xml').send(twiml(
@@ -155,6 +171,21 @@ export function voiceRouter(): Router {
         res.type('text/xml').send(twiml(`
 <Gather input="dtmf" finishOnKey="#" timeout="10" action="${action(req, 'got-size', { from, name })}">
   <Say>Thanks, ${escXml(name)}. How many guests in your party? Enter the number on your keypad, then press pound.</Say>
+</Gather>
+<Say>No input received. Goodbye.</Say>
+<Hangup/>`));
+    });
+
+    // ── Step 4b: Prompt for size after fallback name ─────────────────────
+    // Used by the speech-fallback path when speech recognition fails twice
+    // and we assigned a "Caller XXXX" placeholder name. Same prompt as the
+    // success path in got-name.
+    r.post('/voice/got-size-prompt', async (req: Request, res: Response) => {
+        const from = String(req.query.from || '');
+        const name = String(req.query.name || '');
+        res.type('text/xml').send(twiml(`
+<Gather input="dtmf" finishOnKey="#" timeout="10" action="${action(req, 'got-size', { from, name })}">
+  <Say>How many guests in your party? Enter the number on your keypad, then press pound.</Say>
 </Gather>
 <Say>No input received. Goodbye.</Say>
 <Hangup/>`));

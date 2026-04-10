@@ -31,6 +31,7 @@ const VOICE_ROUTES = [
     'menu-choice',
     'ask-name',
     'got-name',
+    'got-size-prompt',
     'got-size',
     'confirm-phone',
     'join',

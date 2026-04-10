@@ -88,10 +88,14 @@ const server = app.listen(0, async () => {
     const r6 = await post(port, a5, { ...CALL, Digits: '1' });
     const a6 = extractAction(r6.body);
 
-    // 7. Join
+    // 7. Join — personalized goodbye with wall-clock ETA
     const r7 = await post(port, a6, CALL);
-    check('Join says all set', r7.body.includes('all set'));
+    check('Join thanks user by name', r7.body.includes('Thanks Sid Mathur'));
+    check('Join says see you soon', r7.body.includes('See you soon'));
     check('Join has position', r7.body.includes('number 1'));
+    check('Join has minutes ETA', /Your estimated wait is/.test(r7.body));
+    check('Join has wall-clock ETA (h:mm AM/PM)', /\d{1,2}:\d{2} (AM|PM)/.test(r7.body));
+    check('Join has around', r7.body.includes('around'));
     check('Join has hangup', r7.body.includes('Hangup'));
 
     // Verify DB
@@ -121,6 +125,38 @@ const server = app.listen(0, async () => {
     const sizePromptUrl = extractAction(rFallback.body);
     const rSizePrompt = await post(port, sizePromptUrl, CALL);
     check('SizePrompt asks for guests', rSizePrompt.body.includes('How many guests'));
+
+    // ── Different-number flow: confirm-phone press 2 → enter number → readback → press 1 → join
+    // First, get back into confirm-phone by re-doing steps 1-5 (queue is now non-empty)
+    const r1b = await post(port, '/r/test/api/voice/incoming', CALL);
+    const r2b = await post(port, extractAction(r1b.body), { ...CALL, Digits: '1' });
+    const r3b = await post(port, extractAction(r2b.body), CALL);
+    const r4b = await post(port, extractAction(r3b.body), { ...CALL, SpeechResult: 'Jane Doe', Confidence: '0.9' });
+    const r5b = await post(port, extractAction(r4b.body), { ...CALL, Digits: '2' });
+    // Now press 2 ("different number") on confirm-phone
+    const r6b = await post(port, extractAction(r5b.body), { ...CALL, Digits: '2' });
+    check('ConfirmPhone press 2 prompts for new number', r6b.body.includes('enter your 10 digit phone'));
+    check('ConfirmPhone press 2 routes to confirm-new-phone', r6b.body.includes('confirm-new-phone'));
+
+    // Enter a new number
+    const newPhoneEntryUrl = extractAction(r6b.body);
+    const rNewEntry = await post(port, newPhoneEntryUrl, { ...CALL, Digits: '4255550123' });
+    check('NewPhone reads back the number digit-by-digit',
+        rNewEntry.body.includes('I heard 4, 2, 5, 5, 5, 5, 0, 1, 2, 3'));
+    check('NewPhone asks Press 1 to confirm or 2 to re-enter', rNewEntry.body.includes('Press 1 to confirm'));
+
+    // Press 2 → re-prompt for entry
+    const readbackUrl = extractAction(rNewEntry.body);
+    const rReenter = await post(port, readbackUrl, { ...CALL, Digits: '2' });
+    check('NewPhone press 2 re-prompts for entry', rReenter.body.includes('enter your 10 digit'));
+
+    // Press 1 → join with the new phone
+    const rConfirmYes = await post(port, readbackUrl, { ...CALL, Digits: '1' });
+    check('NewPhone press 1 redirects to join', rConfirmYes.body.includes('join'));
+
+    // Bad input — non-10-digit → re-prompt
+    const rBad = await post(port, newPhoneEntryUrl, { ...CALL, Digits: '12345' });
+    check('NewPhone bad input re-prompts', rBad.body.includes('valid 10 digit'));
 
     console.log(`\n${pass} passed, ${fail} failed`);
     server.close();

@@ -4,6 +4,7 @@ import {
     spellOutCode,
     spellOutPhone,
     formatEtaForSpeech,
+    formatEtaWallClock,
     normalizeCallerPhone,
     escXml,
 } from '../../src/services/voiceTemplates.js';
@@ -65,6 +66,54 @@ const cases: T[] = [
         name: 'formatEtaForSpeech: 48 → about 48 minutes',
         tags: ['unit', 'voice'],
         testFn: async () => formatEtaForSpeech(48) === 'about 48 minutes',
+    },
+
+    // formatEtaWallClock
+    {
+        name: 'formatEtaWallClock returns h:mm AM/PM in PT for a fixed UTC time',
+        tags: ['unit', 'voice'],
+        testFn: async () => {
+            // 2026-04-10T19:42:00Z is 12:42 PM in PT (PDT, UTC-7) on April 10
+            const prev = process.env.TZ;
+            process.env.TZ = 'America/Los_Angeles';
+            try {
+                const out = formatEtaWallClock('2026-04-10T19:42:00Z');
+                return out === '12:42 PM';
+            } finally {
+                if (prev === undefined) delete process.env.TZ;
+                else process.env.TZ = prev;
+            }
+        },
+    },
+    {
+        name: 'formatEtaWallClock formats midnight UTC as 5 PM PT (PDT)',
+        tags: ['unit', 'voice'],
+        testFn: async () => {
+            const prev = process.env.TZ;
+            process.env.TZ = 'America/Los_Angeles';
+            try {
+                const out = formatEtaWallClock('2026-04-11T00:00:00Z');
+                return out === '5:00 PM';
+            } finally {
+                if (prev === undefined) delete process.env.TZ;
+                else process.env.TZ = prev;
+            }
+        },
+    },
+    {
+        name: 'formatEtaWallClock accepts a Date instance',
+        tags: ['unit', 'voice'],
+        testFn: async () => {
+            const prev = process.env.TZ;
+            process.env.TZ = 'America/Los_Angeles';
+            try {
+                const out = formatEtaWallClock(new Date('2026-04-10T19:42:00Z'));
+                return /^\d{1,2}:\d{2} (AM|PM)$/.test(out);
+            } finally {
+                if (prev === undefined) delete process.env.TZ;
+                else process.env.TZ = prev;
+            }
+        },
     },
 
     // normalizeCallerPhone

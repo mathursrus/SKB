@@ -21,6 +21,23 @@ export function formatEtaForSpeech(minutes: number): string {
     return `about ${minutes} minutes`;
 }
 
+/**
+ * Format an absolute ETA timestamp as wall-clock time in the project timezone.
+ * Example: new Date('2026-04-10T02:42:00Z') → "7:42 PM" (in America/Los_Angeles).
+ *
+ * Uses TZ env var if set, otherwise defaults to America/Los_Angeles to match
+ * the project's serviceDay convention.
+ */
+export function formatEtaWallClock(etaAt: string | Date): string {
+    const d = typeof etaAt === 'string' ? new Date(etaAt) : etaAt;
+    return new Intl.DateTimeFormat('en-US', {
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true,
+        timeZone: process.env.TZ || 'America/Los_Angeles',
+    }).format(d);
+}
+
 /** Strip +1 country code from Twilio From: "+12065551234" → "2065551234" */
 export function normalizeCallerPhone(from: string | undefined): string {
     if (!from) return '';

@@ -14,6 +14,7 @@ import { joinConfirmationMessage } from '../services/smsTemplates.js';
 import {
     escXml,
     formatEtaForSpeech,
+    formatEtaWallClock,
     normalizeCallerPhone,
     spellOutCode,
     spellOutPhone,
@@ -239,7 +240,7 @@ export function voiceRouter(): Router {
         }
     });
 
-    // ── Step 6: Confirm or enter new phone ──────────────────────────────
+    // ── Step 6: Confirm caller-ID phone or start "different number" flow ─
     r.post('/voice/confirm-phone', async (req: Request, res: Response) => {
         const digit = req.body.Digits;
         const from = String(req.query.from || '');
@@ -251,13 +252,64 @@ export function voiceRouter(): Router {
                 `<Redirect>${action(req, 'join', { phone: from, name, size })}</Redirect>`
             ));
         } else {
+            // User wants a different phone — gather digits, then read back
+            // and confirm via /voice/confirm-new-phone before joining.
             res.type('text/xml').send(twiml(`
-<Gather input="dtmf" finishOnKey="#" timeout="15" action="${action(req, 'join', { name, size })}">
+<Gather input="dtmf" finishOnKey="#" timeout="15" action="${action(req, 'confirm-new-phone', { name, size })}">
   <Say>Please enter your 10 digit phone number on the keypad, then press pound.</Say>
 </Gather>
 <Say>No input received. Goodbye.</Say>
 <Hangup/>`));
         }
+    });
+
+    // ── Step 6b: Read back the entered phone and ask for confirmation ────
+    r.post('/voice/confirm-new-phone', async (req: Request, res: Response) => {
+        const name = String(req.query.name || '');
+        const size = String(req.query.size || '');
+        // First arrival: req.body.Digits is the just-entered phone, no Confirm query
+        // Second arrival: req.query.phone is the phone, req.body.Digits is 1 or 2
+        const confirmDigit = req.body.Digits;
+        const phoneFromQuery = String(req.query.phone || '');
+
+        if (phoneFromQuery) {
+            // We are confirming a previously-read-back number
+            if (confirmDigit === '1') {
+                res.type('text/xml').send(twiml(
+                    `<Redirect>${action(req, 'join', { phone: phoneFromQuery, name, size })}</Redirect>`
+                ));
+                return;
+            }
+            // Press 2 (or anything else) → re-enter
+            res.type('text/xml').send(twiml(`
+<Gather input="dtmf" finishOnKey="#" timeout="15" action="${action(req, 'confirm-new-phone', { name, size })}">
+  <Say>Okay, please enter your 10 digit phone number again, then press pound.</Say>
+</Gather>
+<Say>No input received. Goodbye.</Say>
+<Hangup/>`));
+            return;
+        }
+
+        // First arrival: validate the gathered phone, then read back
+        const enteredPhone = (req.body.Digits || '').replace(/\D/g, '');
+        if (!/^\d{10}$/.test(enteredPhone)) {
+            // Re-prompt on bad input
+            res.type('text/xml').send(twiml(`
+<Gather input="dtmf" finishOnKey="#" timeout="15" action="${action(req, 'confirm-new-phone', { name, size })}">
+  <Say>Sorry, that wasn't a valid 10 digit number. Please enter your 10 digit phone number, then press pound.</Say>
+</Gather>
+<Say>No input received. Goodbye.</Say>
+<Hangup/>`));
+            return;
+        }
+
+        const readback = spellOutPhone(enteredPhone);
+        res.type('text/xml').send(twiml(`
+<Gather input="dtmf" numDigits="1" timeout="10" action="${action(req, 'confirm-new-phone', { name, size, phone: enteredPhone })}">
+  <Say>I heard ${readback}. Press 1 to confirm, or press 2 to enter a different number.</Say>
+</Gather>
+<Say>No input received. Goodbye.</Say>
+<Hangup/>`));
     });
 
     // ── Step 7: Join the waitlist ────────────────────────────────────────
@@ -283,8 +335,14 @@ export function voiceRouter(): Router {
                 .catch(e => console.log(JSON.stringify({ t: new Date().toISOString(), level: 'error', msg: 'voice.sms_confirm_failed', error: e instanceof Error ? e.message : String(e) })));
 
             const codeReadback = spellOutCode(result.code);
+            const wallClock = formatEtaWallClock(result.etaAt);
+            const etaSpeech = formatEtaForSpeech(result.etaMinutes);
+            // Friendly, personalized goodbye. The "name" can be the spoken
+            // name from speech recognition or a "Caller XXXX" fallback —
+            // either way, addressing the caller by their identifier feels
+            // more personal than a generic "you".
             res.type('text/xml').send(twiml(
-                `<Say>You're all set! You are number ${result.position} in line. Your estimated wait is about ${result.etaMinutes} minutes. Your pickup code is ${codeReadback}. We'll send you a text message with your code and a link to track your place in line. Thank you for calling!</Say><Hangup/>`
+                `<Say>Thanks ${escXml(name)}! You're number ${result.position} in line. Your estimated wait is ${etaSpeech} — that's around ${wallClock}. Your pickup code is ${codeReadback}. We'll text you with your code and a link to track your place. See you soon!</Say><Hangup/>`
             ));
         } catch (err) {
             console.log(JSON.stringify({ t: new Date().toISOString(), level: 'error', msg: 'voice.join.error', loc: loc(req), error: err instanceof Error ? err.message : String(err) }));

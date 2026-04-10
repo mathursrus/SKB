@@ -34,6 +34,7 @@ const VOICE_ROUTES = [
     'got-size-prompt',
     'got-size',
     'confirm-phone',
+    'confirm-new-phone',
     'join',
 ];
 

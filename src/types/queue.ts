@@ -9,6 +9,8 @@ export interface Location {
     pin: string;         // host-stand PIN for this location
     frontDeskPhone?: string; // 10-digit phone for IVR transfer (large parties)
     createdAt: Date;
+    publicUrl?: string;       // public HTTPS base URL, e.g., "https://skb.azurewebsites.net"
+    googlePlaceId?: string;   // Google Maps Place ID, e.g., "ChIJ..."
 }
 
 export type PartyState = 'waiting' | 'called' | 'seated' | 'ordered' | 'served' | 'checkout' | 'departed' | 'no_show';

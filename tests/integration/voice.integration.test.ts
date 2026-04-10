@@ -62,8 +62,10 @@ const server = app.listen(0, async () => {
     // 3. Ask name
     const a2 = extractAction(r2.body);
     const r3 = await post(port, a2, CALL);
-    check('AskName has speech dtmf', r3.body.includes('speech dtmf'));
-    check('AskName has pound', r3.body.includes('press pound'));
+    check('AskName has speech input', r3.body.includes('input="speech"'));
+    check('AskName uses auto speech timeout', r3.body.includes('speechTimeout="auto"'));
+    check('AskName explicit en-US language', r3.body.includes('language="en-US"'));
+    check('AskName prompts to say name after beep', r3.body.includes('after the beep'));
 
     // 4. Speech result
     const a3 = extractAction(r3.body);

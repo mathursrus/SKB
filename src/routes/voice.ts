@@ -100,11 +100,17 @@ export function voiceRouter(): Router {
         }
 
         const prompt = attempt === 0
-            ? 'Please say your name, then press pound.'
-            : 'Sorry, I didn\'t catch that. Please say your name clearly, then press pound.';
+            ? 'Please say your name after the beep.'
+            : 'Sorry, I didn\'t catch that. Please say your name clearly after the beep.';
 
+        // Speech recognition tuning (works on all paid Twilio accounts):
+        // - speechTimeout="auto" — Twilio's adaptive silence detection (more reliable than a fixed 2s)
+        // - language="en-US" — explicit, ensures correct model
+        // - No finishOnKey — let auto silence detection end recording naturally
+        // - actionOnEmptyResult="true" — still post on no input so we can retry
+        // - input="speech" only — DTMF on this step caused confusion with the prompt
         res.type('text/xml').send(twiml(`
-<Gather input="speech dtmf" timeout="8" speechTimeout="2" finishOnKey="#" actionOnEmptyResult="true" action="${action(req, 'got-name', { from, attempt: String(attempt) })}">
+<Gather input="speech" language="en-US" timeout="8" speechTimeout="auto" actionOnEmptyResult="true" action="${action(req, 'got-name', { from, attempt: String(attempt) })}">
   <Say>${prompt}</Say>
 </Gather>
 <Say>Something went wrong. Goodbye.</Say>
@@ -118,10 +124,26 @@ export function voiceRouter(): Router {
         const from = String(req.query.from || '');
         const attempt = parseInt(String(req.query.attempt || '0'), 10);
 
-        console.log(JSON.stringify({ t: new Date().toISOString(), level: 'info', msg: 'voice.speech_result', loc: loc(req), speech: speechResult, confidence, attempt }));
+        // Verbose logging for production debugging — log all Twilio fields when result is empty
+        if (!speechResult) {
+            console.log(JSON.stringify({
+                t: new Date().toISOString(),
+                level: 'warn',
+                msg: 'voice.speech_empty',
+                loc: loc(req),
+                attempt,
+                bodyKeys: Object.keys(req.body),
+                callStatus: req.body.CallStatus,
+                from: req.body.From ? `******${String(req.body.From).slice(-4)}` : null,
+                hasSpeechResult: 'SpeechResult' in req.body,
+            }));
+        } else {
+            console.log(JSON.stringify({ t: new Date().toISOString(), level: 'info', msg: 'voice.speech_result', loc: loc(req), speech: speechResult, confidence, attempt }));
+        }
 
-        if (!speechResult || confidence < 0.3) {
-            console.log(JSON.stringify({ t: new Date().toISOString(), level: 'warn', msg: 'voice.speech_retry', loc: loc(req), reason: !speechResult ? 'empty' : 'low_confidence', attempt }));
+        // Accept any non-empty result; Twilio confidence can be unreliable for names
+        if (!speechResult) {
+            console.log(JSON.stringify({ t: new Date().toISOString(), level: 'warn', msg: 'voice.speech_retry', loc: loc(req), reason: 'empty', attempt }));
             res.type('text/xml').send(twiml(
                 `<Redirect>${action(req, 'ask-name', { from, attempt: String(attempt + 1) })}</Redirect>`
             ));

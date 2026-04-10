@@ -37,11 +37,14 @@ npm run test:prod
 
 | File | Purpose |
 |------|---------|
-| `twilio.prod.test.ts` | Verifies Twilio voice IVR webhook surface: routes registered, signature validation active, all 7 voice endpoints exist, queue state dependency reachable |
+| `twilio.prod.test.ts` | Twilio voice IVR webhook surface: routes registered, signature validation active, all 9 voice endpoints exist, queue state dependency reachable |
+| `google-maps.prod.test.ts` | Issue #30 Google Maps integration: JSON-LD Restaurant schema, Open Graph tags (type, url, title, description), canonical URL, meta description, title tag — verified against live prod queue page |
+| `compliance-pages.prod.test.ts` | SMS compliance pages (`privacy.html`, `terms.html`) load and contain every TCR-required element: brand name, STOP/HELP keywords (bolded on terms), message frequency, data rates disclaimer, support email, supported carriers, cross-page links |
+| `twilio-status.prod.test.ts` | Monitoring probe (not a hard gate) that reports the current state of the two parallel SMS approval paths — Toll-Free Verification on the 844 and A2P 10DLC campaign on the 425 — plus recent outbound SMS delivery health. Requires `TWILIO_ACCOUNT_SID` + `TWILIO_AUTH_TOKEN` env vars; skips cleanly if not set |
 
 ## What each test confirms
 
-### Twilio suite
+### Twilio voice suite (`twilio.prod.test.ts`)
 
 | Test | Confirms |
 |------|---------|
@@ -50,8 +53,29 @@ npm run test:prod
 | `voice /incoming endpoint is registered` | Returns 403 (not 404) — `TWILIO_VOICE_ENABLED=true` is set in app config |
 | `voice endpoints reject requests without x-twilio-signature` | Returns 403 — signature validation middleware is enforcing |
 | `voice endpoints reject requests with an invalid signature` | Returns 403 — validation actually checks the signature |
-| `voice /*` endpoint exists (per-route) | Each of the 7 voice routes returns 403 — router fully registered |
+| `voice /*` endpoint exists (per-route) | Each of the 9 voice routes returns 403 — router fully registered |
 | `queue page renders` | Voice IVR depends on queue state; this confirms the dependency |
+
+### Google Maps suite (`google-maps.prod.test.ts`)
+
+| Test | Confirms |
+|------|---------|
+| `queue page loads` | `/r/:loc/queue.html` returns 200 |
+| `JSON-LD schema.org Restaurant` | Structured data block present with correct @context and @type |
+| `JSON-LD potentialAction + PostalAddress` | Google can render the "Join the waitlist" rich action and address |
+| `JSON-LD has no PII` | No queue codes or individual party data leaked into public page |
+| `og:title / og:description / og:type / og:url` | All four Open Graph tags present for social previews |
+| `og:url points at the correct prod location` | Confirms `Location.publicUrl` in MongoDB is set and being used |
+| `canonical link present and matches og:url` | Google indexes the correct canonical URL |
+| `meta description and title tag` | Standard SEO metadata |
+
+### Compliance pages suite (`compliance-pages.prod.test.ts`)
+
+Both `privacy.html` and `terms.html` are load-bearing for the A2P 10DLC campaign registration. If TCR re-scans these URLs and finds missing or changed content, the campaign can be rejected retroactively and SMS delivery breaks. This suite verifies every required element is still present on the deployed version.
+
+### Twilio status suite (`twilio-status.prod.test.ts`)
+
+Reports (not asserts) the current state of every pending SMS approval path. Run this when you want to know "is SMS working yet". It prints TFV status, 10DLC campaign status, and the last 10 outbound messages with their delivery status.
 
 ## Adding a new suite
 

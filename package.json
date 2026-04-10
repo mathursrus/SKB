@@ -14,6 +14,7 @@
     "test": "tsx tests/unit/codes.test.ts && tsx tests/unit/serviceDay.test.ts && tsx tests/unit/queue.test.ts && tsx tests/unit/hostAuth.test.ts && tsx tests/unit/rateLimit.test.ts && tsx tests/unit/qr.test.ts && tsx tests/unit/stats.test.ts && tsx tests/unit/jsonld.test.ts && tsx tests/unit/analytics.test.ts",
     "test:integration": "tsx tests/integration/queue.integration.test.ts && tsx tests/integration/board.integration.test.ts && tsx tests/integration/queue-template.integration.test.ts && tsx tests/integration/host-auth.integration.test.ts && tsx tests/integration/multi-tenant.integration.test.ts",
     "test:e2e": "tsx e2e/queue.e2e.test.ts",
+    "test:prod": "tsx prod-validation/twilio.prod.test.ts",
     "test:all": "npm test && npm run test:integration && npm run test:e2e"
   },
   "dependencies": {

@@ -48,10 +48,10 @@ Your queue page URL follows this pattern:
 https://<your-domain>/r/<location-id>/queue.html
 ```
 
-For example, if your domain is `skb.azurewebsites.net` and your location ID is `skb`:
+For example, if your domain is `skb-waitlist.azurewebsites.net` and your location ID is `skb`:
 
 ```
-https://skb.azurewebsites.net/r/skb/queue.html
+https://skb-waitlist.azurewebsites.net/r/skb/queue.html
 ```
 
 ### Step 3: Add the Queue Link to Google Business Profile
@@ -80,7 +80,7 @@ For the best search engine and social media experience, set the `publicUrl` fiel
 // In MongoDB shell:
 db.locations.updateOne(
   { _id: "skb" },
-  { $set: { publicUrl: "https://skb.azurewebsites.net" } }
+  { $set: { publicUrl: "https://skb-waitlist.azurewebsites.net" } }
 )
 ```
 

@@ -23,7 +23,9 @@
 4. **AI-native MCP server surface** — already exposing the system to ChatGPT/Claude/Gemini agents (`src/mcp-server.ts`)
 5. **$79/month flat, no contracts, no per-cover fees** — predictable owner-perceived cost is the entire wedge against OpenTable
 
-**The plan.** Bootstrap to **10 paying customers ($5K MRR)** in 6–9 months from a side-project posture, founder goes full-time within 30 days of crossing $5K MRR, raise an optional **$750K–$1.5M pre-seed** to accelerate to **500 paid customers ($480K ARR) by end of Year 2** and **1,500 paid customers ($1.44M ARR) by end of Year 3**. Capital-efficient by design. Target outcome: $3M+ ARR, 80%+ gross margin, profitable, founder retains majority. Venture-optional, not venture-required.
+**The plan.** Bootstrap to **10 paying customers ($5K MRR)** in 6–9 months from a side-project posture, founder goes full-time within 30 days of crossing $5K MRR, raise an optional **$750K–$1.5M pre-seed** to accelerate to **500 paid customers ($480K ARR) by end of Year 2** and **1,500 paid customers ($1.44M ARR) by end of Year 3**. Capital-efficient by design. Target outcome: $3M+ ARR, profitable, founder retains majority. Venture-optional, not venture-required.
+
+**The unit economics.** The load-bearing pricing decision is **$79/month flat Pro tier, $149 High Volume tier**, powered by a **Telnyx + WhatsApp Business API messaging stack** instead of Twilio-only. At realistic volumes, this produces 58–81% gross margin on Pro customers (healthy, not the originally-claimed 87% which was based on a fabricated volume assumption and has been corrected — see the errata and corrected COGS table in Part 3). The combination of Telnyx (~36% cheaper CPaaS than Twilio) and WhatsApp (free service-window messages for diaspora restaurants where ~90% of diners use it) produces a 70%+ messaging-cost reduction versus the default Twilio-only stack that incumbents use. **This cost structure is the moat that makes the "$79 flat, no overage, no per-cover" pricing posture sustainable.**
 
 ---
 
@@ -186,15 +188,47 @@ A subtle "Powered by Frontline" mark on every diner queue page footer turns each
 
 **All four segments clear the >3:1 floor.** Three of four clear >5:1 healthy. **Segment A at 17:1 is the standout** and validates the "diaspora-cuisine first" entry strategy. The right reading: the diaspora-cuisine entry funds everything else.
 
-**Pricing tiers (locked):**
-- **Free** — $0, 100 joins/mo, no SMS, no voice IVR — top-of-funnel only
-- **Pro** — **$79/mo flat**, unlimited, 2,000 SMS bundled, voice IVR, full dining lifecycle, analytics — *the load-bearing tier*
-- **Multi-location** — $59/mo per location, billed annually — Year 2 expansion target
-- **Enterprise** — Custom (start $20K/yr) — Year 3+ optional
+### Unit economics — honest COGS with the corrected messaging stack
 
-**No per-cover or per-revenue pricing.** The entire wedge against Yelp Guest Manager and OpenTable is *predictable flat fee*. Variable pricing destroys the wedge.
+> **Errata (2026-04-10):** the original COGS table in this document assumed ~600 SMS/month per Pro customer and claimed an 87% gross margin. A post-commit review of realistic restaurant volumes showed the 600-SMS assumption was off by ~10× — a real 80-joins/day diaspora-cuisine restaurant produces ~6,500 SMS/month on a pure-SMS stack. Corrected numbers below use (a) Telnyx instead of Twilio as the default SMS provider, (b) WhatsApp Business API as the primary channel for diaspora-segment restaurants with SMS fallback, and (c) volume profiles grounded in realistic join counts rather than placeholder numbers. **Volumes are still estimates pending a production telemetry pull from SKB Bellevue's analytics service (action I6 below) — do not lock any downstream decision on exact figures until that data is in.**
 
-**Cost of goods sold per Pro customer / month:** ~$10.34 (Twilio SMS $6.40, voice IVR $0.65, Stripe $2.59, Azure compute $0.80, Mongo $0.40, monitoring $0.50). **Gross margin: 87%.**
+**Messaging stack decision — Telnyx primary + WhatsApp Business API for diaspora segment, SMS as universal fallback.**
+
+The carrier surcharges on A2P 10DLC are imposed on the message by the mobile carriers (T-Mobile $0.0025, AT&T $0.003+, Verizon ~$0.0025) regardless of which CPaaS you use. That is the floor. Above that floor, providers add a markup:
+
+| Provider | All-in per segment (markup + carrier) | vs Twilio | Recommended use |
+|---|---:|---:|---|
+| **Twilio** | ~$0.0120 | baseline | Voice IVR (better voice stack) |
+| **Azure Communication Services** | ~$0.0110 | −8% | Dual-vendor redundancy (issue #33), not primary |
+| **Telnyx** | **~$0.0075** | **−36%** | **Primary SMS provider for Frontline** |
+| **Bandwidth** (carrier of record) | ~$0.0075 | −36% | Only at 10k+ customers when we can absorb setup complexity |
+
+Sources: [Twilio US SMS pricing](https://www.twilio.com/en-us/sms/pricing/us), [Azure Communication Services pricing](https://azure.microsoft.com/en-us/pricing/details/communication-services/), [Telnyx 10DLC fees](https://support.telnyx.com/en/articles/5634625-10dlc-fees-and-charges), [Telgorithm — T-Mobile 2026 pass-through fees](https://www.telgorithm.com/news/t-mobile-announces-new-2026-a2p-sms-pass-through-fees).
+
+**For the diaspora-cuisine segment specifically, WhatsApp Business API is a massive unlock.** [WhatsApp Business Platform pricing](https://business.whatsapp.com/products/platform-pricing) makes service messages (replies within a 24-hour user-initiated window) **free**, and utility messages in the US are $0.004–$0.008/message — cheaper than A2P 10DLC SMS. Since ~90% of diners at a typical Indian or halal restaurant in Bellevue are already on WhatsApp, the join flow can be routed via a `wa.me` link on the queue page that opens a service window on the diner's first tap, making the entire downstream lifecycle (confirmation, ETA, table-ready) free inside that window. Expected channel mix for a diaspora restaurant: ~60% WhatsApp in-window (free), ~20% WhatsApp utility (paid), ~20% SMS fallback (Telnyx).
+
+### Corrected COGS per Pro customer / month
+
+| Profile | Est. joins/day | Est. msgs/mo | Stack | Messaging cost | Stripe (2.9%+$0.30) | Cloud (Azure+Mongo+mon) | **Total COGS** | **$79 revenue → margin** |
+|---|---:|---:|---|---:|---:|---:|---:|---:|
+| **Small** (free-tier graduate) | 15 | 1,200 | Telnyx+WhatsApp | $11 | $2.59 | $1.70 | **$15.29** | **+$63.71 / 81%** ✅ |
+| **Median Pro customer** | 50 | 4,050 | Telnyx+WhatsApp | $22 | $2.59 | $1.70 | **$26.29** | **+$52.71 / 67%** ✅ |
+| **SKB Bellevue scale** | 80 | 6,500 | Telnyx+WhatsApp | $29 | $2.59 | $1.70 | **$33.29** | **+$45.71 / 58%** ✅ |
+| **Very high volume** (boba TikTok week, large brunch surge) | 150 | 12,000 | Telnyx+WhatsApp | $55 | $2.59 | $1.70 | **$59.29** | **+$19.71 / 25%** ⚠️ |
+
+The $79 flat tier is **healthy-margin for segments A, B, C and for median D**, and **remains profitable even at SKB Bellevue's actual volume** once the WhatsApp + Telnyx stack is in place. The only profile that squeezes the margin is the 150+ joins/day outlier — handled by the new High Volume tier below.
+
+### Pricing tiers (locked, corrected)
+
+- **Free** — $0, 100 joins/mo, SMS disabled, voice IVR disabled, basic analytics. Top-of-funnel only. No COGS exposure.
+- **Pro** — **$79/mo flat**. Unlimited joins, full WhatsApp + Telnyx SMS stack with a fair-use cap of 8,000 messages/month (covers 100% of Segment A/B/C customers and the vast majority of Segment D). Voice IVR included. Full dining lifecycle. Analytics. **The load-bearing tier.**
+- **High Volume** — **$149/mo**. For restaurants consistently over 8,000 messages/month (very large boba, brunch surge patterns, TikTok-spike weeks). Includes a 15,000-message fair-use cap and priority support during surge events.
+- **Multi-location** — **$59/mo per location**, billed annually. Pro features × N locations, unified analytics. Year 2 expansion target.
+- **Enterprise** — Custom (start $20K/yr). White-label, SSO, SLA. Year 3+ optional.
+
+**What changed from the original locked pricing:** we kept $79 flat for Pro (the wedge against Yelp / OpenTable holds), but (a) added an 8,000-message fair-use cap which virtually no target-segment customer will hit, (b) added a High Volume tier at $149 for genuine outliers, and (c) removed the original "2,000 SMS bundled / overage at $0.015" language in favor of a single fair-use cap. The new pricing is still predictable for the owner — no overage bills, no surprise charges — while staying profitable because the WhatsApp + Telnyx stack brings per-message cost from ~$0.012 to a blended ~$0.005 average.
+
+**No per-cover or per-revenue pricing.** The wedge against Yelp Guest Manager and OpenTable is still *predictable flat fee*. Variable pricing destroys the wedge. The High Volume tier is a flat step-up, not a meter.
 
 ---
 
@@ -224,6 +258,44 @@ A subtle "Powered by Frontline" mark on every diner queue page footer turns each
 
 **The most direct competitor at our price point is Tock's $79 Base plan**, which is the *only* other product in our exact price band. Tock Base ships waitlist + events but no voice IVR, no full dining lifecycle, no MCP server, no community-network distribution, no diaspora-cuisine focus — and it's owned by American Express via the Resy/Tock merger, which means it is increasingly aligned with the high-end restaurant segment Tock and Resy serve. **The Tock Base $79 datapoint validates that $79 is the right price for waitlist-tier functionality** while leaving Frontline structurally differentiated on the five pillars below.
 
+### How competitors handle messaging costs (SMS / voice / notifications)
+
+Every restaurant waitlist product has to deal with the same A2P 10DLC cost structure we do — carrier surcharges of $0.003–0.004/segment plus CPaaS markup plus TCR registration fees plus potential voice IVR costs. The competitive question is **how visibly they pass those costs to the customer**, and owner-operators in our target segments consistently rate pricing transparency as a top-3 concern.
+
+There are three patterns in the market:
+
+| Pattern | Competitors using it | Owner experience |
+|---|---|---|
+| **Opaque-bundled** — SMS/voice "included" with no published limits | Yelp Guest Manager, Tock, OpenTable, NextMe (paid tiers), Toast/Square waitlist add-ons | Owner doesn't know the real cost until they either hit a hidden cap and get throttled, or a sales rep emails about an "upgrade conversation" |
+| **Metered credits** — separate prepaid balance for messaging | Waitwhile (initial $2 testing credit, auto-refill from there); Twilio itself if self-built | Owner sees the meter tick; anxiety about overruns; predictable if they do the math |
+| **Bundled + published overage** — fixed notification count per tier, per-message overage disclosed | **Waitlist Me is the only transparent public-rate competitor** | Owner can do back-of-envelope math before signing |
+
+#### Detailed competitor messaging-cost matrix
+
+| Competitor | Base price | Messaging model | Bundle size | Overage rate | Transparency |
+|---|---:|---|---|---:|---|
+| **Yelp Guest Manager** | $99–299/mo | Bundled / unpublished | Not disclosed publicly | Not disclosed | **Opaque** — sales-only disclosure |
+| **Waitwhile** | $31–55+/mo (volume-tiered) | **Prepaid message credits**, separate line item | $2 starting credit | Auto-refill at published CPaaS-equivalent rates | **Transparent (metered)** — but adds billing complexity |
+| **Waitlist Me** | $24 / $40 / $80 | **Bundled + overage** | **1,000 / 2,500 / 5,000 notifications/mo** | **$0.02 per additional notification** | **Most transparent bundled model in market** |
+| **Waitly** | $49/mo Premium | Bundled | "Up to 1,000 guest parties/mo" (not segments — parties) | Not disclosed | Semi-opaque |
+| **NextMe** | Free / $50 / $125 | Bundled | Free tier: **100 SMS/mo**; paid: not disclosed | Not disclosed | Opaque for paid tiers |
+| **Tock Base** | $79/mo | "Included" | Not disclosed publicly; owner must email hospitality@tockhq.com | Not disclosed | **Opaque** |
+| **OpenTable** | $149–499/mo + per-cover | Bundled within per-cover model | Not messaging-focused | — | Opaque; per-cover fees dominate |
+| **Resy** | $249/mo | Bundled | Not disclosed | Not disclosed | Opaque |
+| **SevenRooms** | $500+/mo custom | Bundled in enterprise quote | Custom | Custom | Opaque; quote-based |
+| **Toast / Square (waitlist add-on)** | Bundled with POS | Bundled with POS contract | Varies by POS tier | Not separately priced | Opaque — absorbed into POS invoice |
+| **Frontline (proposed)** | **$79 Pro / $149 High Volume** | **Flat with fair-use cap** | **8,000 messages/mo (Pro) / 15,000 (High Volume)** | **None — hard fair-use cap, upgrade prompt at 80%** | **Fully transparent + no overage bills** |
+
+Sources: [G2 — Yelp Guest Manager pricing](https://www.g2.com/products/yelp-guest-manager/pricing), [Waitwhile — How much do SMS cost?](https://help.waitwhile.com/en/articles/9566821-how-much-do-sms-cost), [Waitlist Me — US & Canadian plans](https://www.waitlist.me/pricing), [Tock — Plans & Pricing](https://www.exploretock.com/join/pricing/), [Waitly — Pricing](https://www.waitly.com/pricing/), [NextMe — Pricing](https://nextmeapp.com/pricing/).
+
+#### The strategic implication
+
+**Waitlist Me's $0.02/notification overage is a public anchor we can exploit directly.** At $0.02, Waitlist Me is charging ~1.7× their actual A2P 10DLC cost (~$0.012 all-in on Twilio, less if they use Telnyx). That's a normal SaaS markup, but it creates a clean comparison: **a restaurant at SKB Bellevue's volume (~6,500 SMS/mo) on Waitlist Me Platinum pays $80 base + (6,500 − 5,000) × $0.02 = $80 + $30 = $110/month**, and still has no voice IVR, no full dining lifecycle, no MCP, and no WhatsApp strategy. Frontline at the same volume is **$79 flat with no overage** and the five differentiators intact.
+
+**The opaque-bundled competitors (Yelp, Tock, OpenTable) are vulnerable to a transparency attack.** An owner-operator who has been burned by a Yelp upgrade conversation is primed to hear "we publish our caps, we don't have overage bills, and the only conversation you'll ever have with us about messaging is if you cross 8,000 messages/month — at which point you pay $70 more and we don't change anything else." That is a trust signal the opaque competitors cannot replicate without restructuring their own pricing.
+
+**The WhatsApp angle widens the gap further for Segment A.** None of the 13 competitors in the matrix currently route queue traffic over WhatsApp Business API. For a diaspora-cuisine restaurant where ~90% of diners are on WhatsApp, Frontline's effective per-message cost is ~$0.003 blended (mostly free service-window messages plus ~20% SMS fallback), which is cheaper than **Waitlist Me's overage rate by 7× and cheaper than Yelp's implied cost by even more**. This is the kind of cost gap that produces a durable pricing moat.
+
 ### Differentiation Strategy
 
 **Five structural pillars** competitors cannot replicate without rewriting their product:
@@ -252,6 +324,8 @@ A subtle "Powered by Frontline" mark on every diner queue page footer turns each
 3. Lead with predictable flat price (Pillar 5) in Segment C and D where buyers are more price-sensitive
 4. Do not compete on "more features than Yelp" — compete on better at the specific job
 5. Build the pitch page around a **lobby calculator** (input weekend covers, output dollars saved) — anchors the price conversation in dollars saved rather than dollars paid
+6. **Run a transparency attack in pitch conversations.** When a prospect mentions Yelp, Tock, or Waitlist Me, ask them: "Do you know how much your SMS costs this month?" — the answer is almost always "no." Then show them Frontline's published cap and the comparison table in this section. Transparency is a product feature.
+7. **For Segment A specifically, lead with WhatsApp.** "Your customers already text their family in WhatsApp groups about where to eat. When they join your Frontline queue, they do it inside that same conversation — and the rich link preview shows your restaurant with the live wait time." This is a product story and a cost story at the same time.
 
 ---
 
@@ -268,6 +342,9 @@ A subtle "Powered by Frontline" mark on every diner queue page footer turns each
 | **I3** | Pick 5 prospect restaurants in the diaspora-cuisine segment within 30 miles of Bellevue as design partners | List of 5 names, contact info, intro plan |
 | **I4** | Draft a one-page pitch + lobby calculator landing page at `[domain]/restaurants` linking to a Calendly demo slot | Page live, demo slot booking link |
 | **I5** | Make the multi-tenant isolation architectural call (single-DB vs namespace-per-customer vs DB-per-customer) | Documented decision |
+| **I6** | **Pull actual SKB Bellevue production telemetry** (`src/services/analytics.ts`) — 30-day join counts, SMS segments sent, voice IVR minutes, by day-of-week. Replace the estimated volumes in the COGS table with real numbers and re-run the unit economics. This is a correction for the fabricated-volume error that landed in the initial commit of this plan. | Real COGS table locked before any pricing decision or outbound sales |
+| **I7** | **Spike a Telnyx SMS migration** (behind a feature flag) for the SKB Bellevue tenant. Target: 100% of outbound SMS routed via Telnyx instead of Twilio for one week, measure delivery rates, compare costs. | Go/no-go decision on switching Frontline's default SMS provider |
+| **I8** | **Spike a WhatsApp Business API integration** for the SKB Bellevue tenant. Add a `wa.me` link next to the join form on the queue page; route the confirmation + table-ready messages through WhatsApp for opted-in diners; measure adoption rate over a 2-week test. | Go/no-go decision on WhatsApp as primary channel for Segment A |
 
 #### Short-term (next 90 days) — "design partners → first paying customer"
 
@@ -359,7 +436,7 @@ Risks scored on severity × likelihood (1-5 each).
 
 | # | Risk | Score | Mitigation |
 |---|---|---:|---|
-| **R1** | Twilio A2P 10DLC compliance pricing keeps creeping up | **20** | Dual-vendor (Azure Communication in flight per #33); pass overages transparently; per-tenant SMS budget caps |
+| **R1** | A2P 10DLC carrier surcharges + CPaaS markup drive messaging costs high enough to pressure margin on high-volume customers | **20** | **Three stacked levers**: (a) switch default SMS provider from Twilio to Telnyx (~36% markup reduction); (b) route diaspora-segment customers through WhatsApp Business API for free in-window messages + cheap utility messages (~70% messaging cost reduction for that segment); (c) complete Azure Communication Services dual-vendor migration per #33 for risk hedging. High Volume tier ($149) absorbs true outliers. See Part 3 corrected COGS table. |
 | **R3** | Founder bandwidth — Sid solo, side-project until $5K MRR | **16** | Ruthless segment focus: only Segment A in Months 1–6; no press until customer #20; first contractor at month 9 |
 | **R2** | Toast/Square ship a free waitlist add-on | **15** | We do not target POS-anchored restaurants in Year 1; build POS integrations as partner mode in Year 2 instead of fighting |
 | **R5** | Restaurant industry contraction (–2.3% in 2025) | **12** | Surviving restaurants need *more* efficiency, not less; tighten the lobby-calculator pitch |
@@ -401,6 +478,21 @@ All citations used in this document, in order of first appearance:
 - [Eat App — Best restaurant waitlist apps 2026](https://restaurant.eatapp.co/blog/best-restaurant-waitlist-management-systems)
 - [Bessemer Venture Partners — The Rise of Toast](https://www.bvp.com/atlas/the-rise-of-toast)
 
+**Messaging infrastructure and competitor messaging-cost citations (added in revision):**
+- [Twilio — US SMS Pricing](https://www.twilio.com/en-us/sms/pricing/us)
+- [Apidog — Twilio SMS API cost breakdown 2026](https://apidog.com/blog/twilio-sms-api-cost/)
+- [Azure — Communication Services pricing](https://azure.microsoft.com/en-us/pricing/details/communication-services/)
+- [Microsoft Learn — Azure Communication Services SMS pricing](https://learn.microsoft.com/en-us/azure/communication-services/concepts/sms-pricing)
+- [Telnyx — 10DLC fees and charges](https://support.telnyx.com/en/articles/5634625-10dlc-fees-and-charges)
+- [Bandwidth — A2P 10DLC local messaging](https://www.bandwidth.com/products/a2p-10dlc/)
+- [Bandwidth — Carrier surcharges](https://www.bandwidth.com/support/en/articles/12823178-carrier-surcharges)
+- [Telgorithm — T-Mobile 2026 pass-through fees](https://www.telgorithm.com/news/t-mobile-announces-new-2026-a2p-sms-pass-through-fees)
+- [Telgorithm — Carrier pass-through fees glossary](https://www.telgorithm.com/glossary/carrier-pass-through-fees)
+- [WhatsApp Business Platform — Pricing](https://business.whatsapp.com/products/platform-pricing)
+- [Meta for Developers — WhatsApp Business pricing documentation](https://developers.facebook.com/documentation/business-messaging/whatsapp/pricing)
+- [Waitwhile Help Center — How much do SMS cost?](https://help.waitwhile.com/en/articles/9566821-how-much-do-sms-cost)
+- [Waitlist Me — US & Canadian pricing with per-notification overage](https://www.waitlist.me/pricing)
+
 ---
 
-*Created via FRAIM Business Development Strategy Workflow on 2026-04-10. Working draft sections that fed this document live in `.business-plan-draft.md` and can be removed once this plan is approved. Companion document: [SKB Restaurant Queue Distribution Plan](skb-restaurant-queue-distribution.md) — the GTM playbook for the flagship customer.*
+*Created via FRAIM Business Development Strategy Workflow on 2026-04-10. Revised 2026-04-10 with corrected unit economics (Telnyx + WhatsApp messaging stack) and a new "How competitors handle messaging costs" section in Part 4. A coaching-moment record for the original fabricated-volume error lives at `fraim/personalized-employee/learnings/raw/sid.mathur@gmail.com-2026-04-10T18-20-00-fabricated-cogs-volume.md`. Companion document: [SKB Restaurant Queue Distribution Plan](skb-restaurant-queue-distribution.md) — the GTM playbook for the flagship customer.*

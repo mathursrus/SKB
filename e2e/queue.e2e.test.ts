@@ -157,7 +157,21 @@ async function main(): Promise<void> {
         assert(seated >= 1, `expected at least 1 seated in stats, got ${seated}`);
         console.log(`[E2E] PASS: stats PIN-gated, shows 1 seated`);
 
-        console.log('\n[E2E] ✅ ALL 13 CHECKS PASSED — critical waitlist path is green');
+        // 14. State endpoint reflects reduced count after seating (auto-refresh polling contract)
+        const stateAfterSeat = await get('/api/queue/state');
+        assert(
+            (stateAfterSeat.data.partiesWaiting as number) < 3,
+            `state after seat: partiesWaiting=${stateAfterSeat.data.partiesWaiting} (expected <3)`,
+        );
+        console.log(`[E2E] PASS: state endpoint reflects reduced count after seating (auto-refresh contract)`);
+
+        // 15. Repeated status calls return consistent fresh data (polling contract)
+        const chandraStatus2 = await get(`/api/queue/status?code=${j3.data.code}`);
+        assert(chandraStatus2.data.position === chandraStatus.data.position,
+            `chandra position inconsistent on repeat poll: ${chandraStatus2.data.position} vs ${chandraStatus.data.position}`);
+        console.log(`[E2E] PASS: repeated status calls return consistent data (polling contract)`);
+
+        console.log('\n[E2E] ✅ ALL 15 CHECKS PASSED — critical waitlist path is green');
     } finally {
         await stopTestServer();
     }

@@ -15,6 +15,40 @@
 
     const STORAGE_KEY = 'skb_queue_code';
 
+    // --- Auto-refresh polling ---
+    const STATUS_POLL_MS = 30_000;  // 30s when diner is in the queue
+    const STATE_POLL_MS  = 60_000;  // 60s when browsing (not in queue)
+    let pollTimer = null;
+
+    function startPolling(mode) {
+        stopPolling();
+        const ms = mode === 'status' ? STATUS_POLL_MS : STATE_POLL_MS;
+        pollTimer = setInterval(async () => {
+            if (mode === 'status') {
+                const code = localStorage.getItem(STORAGE_KEY);
+                if (!code) { startPolling('state'); return; }
+                const left = await loadStatus(code);
+                if (left) startPolling('state');
+            } else {
+                await loadState();
+            }
+        }, ms);
+    }
+
+    function stopPolling() {
+        if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+    }
+
+    // Pause when tab is hidden, resume when visible
+    document.addEventListener('visibilitychange', () => {
+        if (document.hidden) {
+            stopPolling();
+        } else {
+            const code = localStorage.getItem(STORAGE_KEY);
+            startPolling(code && confCard.style.display !== 'none' ? 'status' : 'state');
+        }
+    });
+
     function fmtTime(iso) {
         try {
             const d = new Date(iso);
@@ -45,6 +79,15 @@
         return 'Called ' + arr.map(m => m + 'm ago').join(' · ');
     }
 
+    // "You're next" highlight
+    function updateNextUp(position) {
+        if (position === 1) {
+            confCard.classList.add('next-up');
+        } else {
+            confCard.classList.remove('next-up');
+        }
+    }
+
     async function loadStatus(code) {
         try {
             const res = await fetch('api/queue/status?code=' + encodeURIComponent(code));
@@ -54,6 +97,7 @@
                 localStorage.removeItem(STORAGE_KEY);
                 joinCard.style.display = '';
                 confCard.style.display = 'none';
+                confCard.classList.remove('next-up');
                 statusCard.style.display = '';
                 return true; // caller should still reload state
             }
@@ -74,11 +118,13 @@
             } else {
                 calledCallout.style.display = 'none';
             }
+            updateNextUp(s.position);
             return false; // skip reloading state
         } catch {
             // fall back to join view
             joinCard.style.display = '';
             confCard.style.display = 'none';
+            confCard.classList.remove('next-up');
             statusCard.style.display = '';
             return true;
         }
@@ -117,6 +163,8 @@
             statusCard.style.display = 'none';
             joinCard.style.display = 'none';
             confCard.style.display = '';
+            updateNextUp(r.position);
+            startPolling('status');
         } catch (err) {
             joinError.textContent = err && err.message ? err.message : 'Join failed';
             joinError.style.display = '';
@@ -140,5 +188,8 @@
             needStateLoad = await loadStatus(existing);
         }
         if (needStateLoad) await loadState();
+
+        // Start auto-refresh
+        startPolling(existing && !needStateLoad ? 'status' : 'state');
     })();
 })();

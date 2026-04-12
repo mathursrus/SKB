@@ -169,6 +169,15 @@ button.primary:disabled { opacity: 0.5; cursor: not-allowed; }
 .confirmation .eta-time { font-size: 17px; color: var(--fg); }
 .confirmation .eta-mins { color: var(--muted); font-size: 15px; font-weight: 500; }
 .confirmation .hint { color: var(--muted); font-size: 13px; margin: 14px 0 4px; line-height: 1.5; }
+.confirmation.next-up {
+    border: 3px solid var(--accent);
+    box-shadow: 0 0 0 3px rgba(227, 191, 61, 0.25);
+    animation: next-up-pulse 2s ease-in-out infinite;
+}
+@keyframes next-up-pulse {
+    0%, 100% { box-shadow: 0 0 0 3px rgba(227, 191, 61, 0.25); }
+    50%      { box-shadow: 0 0 0 8px rgba(227, 191, 61, 0.10); }
+}
 .callout {
     background: var(--accent);
     color: #111;

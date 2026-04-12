@@ -32,8 +32,18 @@
             <div>oldest: <strong id="count-oldest">0m</strong></div>
         </div>
         <div class="turn">
-            Avg turn time (min):
-            <input type="number" id="turn" min="1" max="60" value="8" />
+            <label class="turn-mode-label">
+                ETA:
+                <select id="eta-mode">
+                    <option value="manual">Manual</option>
+                    <option value="dynamic">Dynamic</option>
+                </select>
+            </label>
+            <label>
+                <span id="turn-label">min:</span>
+                <input type="number" id="turn" min="1" max="60" value="8" />
+            </label>
+            <span id="turn-info" class="turn-info" style="display:none"></span>
         </div>
         <a href="analytics.html" class="logout" style="text-decoration:none;text-align:center">Analytics</a>
         <button class="logout" id="logout-btn">Log out</button>

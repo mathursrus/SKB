@@ -42,10 +42,22 @@ export interface QueueEntry {
     serviceDay: string; // YYYY-MM-DD in PT
 }
 
+export type EtaMode = 'manual' | 'dynamic';
+
 export interface Settings {
     _id: string; // locationId, e.g., "skb"
     avgTurnTimeMinutes: number;
+    etaMode?: EtaMode; // absent → 'manual' (backwards compat)
     updatedAt: Date;
+}
+
+export interface EffectiveTurnTime {
+    effectiveMinutes: number;      // what the ETA formula actually uses
+    mode: EtaMode;                 // what's configured
+    manualMinutes: number;         // the stored manual value (also the dynamic fallback)
+    dynamicMinutes: number | null; // computed from data (null if mode=manual OR sample too small)
+    sampleSize: number;            // number of data points that fed the median
+    fellBackToManual: boolean;     // true iff mode=dynamic but sampleSize < MIN_DYNAMIC_SAMPLE
 }
 
 // API DTOs --------------------------------------------------------------------

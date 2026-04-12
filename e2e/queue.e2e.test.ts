@@ -171,7 +171,41 @@ async function main(): Promise<void> {
             `chandra position inconsistent on repeat poll: ${chandraStatus2.data.position} vs ${chandraStatus.data.position}`);
         console.log(`[E2E] PASS: repeated status calls return consistent data (polling contract)`);
 
-        console.log('\n[E2E] ✅ ALL 15 CHECKS PASSED — critical waitlist path is green');
+        // 16. /host/settings returns extended payload with mode + effective info
+        const settings0 = await get('/api/host/settings', hostCookie);
+        assert(settings0.status === 200, `settings get status=${settings0.status}`);
+        assert(typeof settings0.data.avgTurnTimeMinutes === 'number', 'settings missing avgTurnTimeMinutes');
+        assert(typeof settings0.data.etaMode === 'string', 'settings missing etaMode');
+        assert(typeof settings0.data.effectiveMinutes === 'number', 'settings missing effectiveMinutes');
+        assert(typeof settings0.data.sampleSize === 'number', 'settings missing sampleSize');
+        console.log(`[E2E] PASS: GET /host/settings returns extended payload (mode=${settings0.data.etaMode})`);
+
+        // 17. POST /host/settings — partial update, mode only
+        const setMode = await post('/api/host/settings', { etaMode: 'dynamic' }, hostCookie);
+        assert(setMode.status === 200 && setMode.data.etaMode === 'dynamic', `setMode status=${setMode.status} mode=${setMode.data.etaMode}`);
+        console.log(`[E2E] PASS: POST /host/settings accepts partial update (mode only)`);
+
+        // 18. POST /host/settings — partial update, avgTurnTime only (mode should persist from step 17)
+        const setTurn = await post('/api/host/settings', { avgTurnTimeMinutes: 11 }, hostCookie);
+        assert(setTurn.status === 200 && setTurn.data.avgTurnTimeMinutes === 11 && setTurn.data.etaMode === 'dynamic',
+            `setTurn status=${setTurn.status} avg=${setTurn.data.avgTurnTimeMinutes} mode=${setTurn.data.etaMode}`);
+        console.log(`[E2E] PASS: POST /host/settings partial update preserves the other field`);
+
+        // 19. POST /host/settings — empty body rejected
+        const setEmpty = await post('/api/host/settings', {}, hostCookie);
+        assert(setEmpty.status === 400, `setEmpty status=${setEmpty.status} (expected 400)`);
+        console.log(`[E2E] PASS: POST /host/settings rejects empty body`);
+
+        // 20. POST /host/settings — invalid mode rejected
+        const setBadMode = await post('/api/host/settings', { etaMode: 'turbo' }, hostCookie);
+        assert(setBadMode.status === 400, `setBadMode status=${setBadMode.status} (expected 400)`);
+        console.log(`[E2E] PASS: POST /host/settings rejects invalid mode`);
+
+        // 21. Reset mode to manual for subsequent test runs (polite cleanup)
+        await post('/api/host/settings', { etaMode: 'manual', avgTurnTimeMinutes: 8 }, hostCookie);
+        console.log(`[E2E] PASS: reset settings to manual/8 for cleanup`);
+
+        console.log('\n[E2E] ✅ ALL 21 CHECKS PASSED — critical waitlist path is green');
     } finally {
         await stopTestServer();
     }

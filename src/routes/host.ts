@@ -11,7 +11,8 @@ import {
     listDiningParties,
     getPartyTimeline,
 } from '../services/dining.js';
-import { getAvgTurnTime, setAvgTurnTime } from '../services/settings.js';
+import { getAvgTurnTime, getEffectiveTurnTime, setAvgTurnTime, setEtaMode } from '../services/settings.js';
+import type { EtaMode } from '../types/queue.js';
 import { getHostStats } from '../services/stats.js';
 import { getAnalytics } from '../services/analytics.js';
 import { getLocation } from '../services/locations.js';
@@ -185,18 +186,53 @@ export function hostRouter(): Router {
     });
 
     r.get('/host/settings', requireHost, async (req: Request, res: Response) => {
-        try { res.json({ avgTurnTimeMinutes: await getAvgTurnTime(loc(req)) }); }
-        catch (err) { dbError(res, err); }
+        try {
+            const info = await getEffectiveTurnTime(loc(req));
+            res.json({
+                // Backwards-compat: the old single field at top level always reflects the manual value.
+                avgTurnTimeMinutes: info.manualMinutes,
+                etaMode: info.mode,
+                effectiveMinutes: info.effectiveMinutes,
+                dynamicMinutes: info.dynamicMinutes,
+                sampleSize: info.sampleSize,
+                fellBackToManual: info.fellBackToManual,
+            });
+        } catch (err) { dbError(res, err); }
     });
 
     r.post('/host/settings', requireHost, async (req: Request, res: Response) => {
-        const n = Number(req.body?.avgTurnTimeMinutes);
+        const body = req.body ?? {};
+        const hasTurn = body.avgTurnTimeMinutes !== undefined && body.avgTurnTimeMinutes !== null;
+        const hasMode = body.etaMode !== undefined && body.etaMode !== null;
+
+        if (!hasTurn && !hasMode) {
+            res.status(400).json({ error: 'provide avgTurnTimeMinutes, etaMode, or both' });
+            return;
+        }
+
         try {
-            const saved = await setAvgTurnTime(loc(req), n);
-            res.json({ avgTurnTimeMinutes: saved });
+            if (hasTurn) {
+                await setAvgTurnTime(loc(req), Number(body.avgTurnTimeMinutes));
+            }
+            if (hasMode) {
+                await setEtaMode(loc(req), body.etaMode as EtaMode);
+            }
+            const info = await getEffectiveTurnTime(loc(req));
+            res.json({
+                avgTurnTimeMinutes: info.manualMinutes,
+                etaMode: info.mode,
+                effectiveMinutes: info.effectiveMinutes,
+                dynamicMinutes: info.dynamicMinutes,
+                sampleSize: info.sampleSize,
+                fellBackToManual: info.fellBackToManual,
+            });
         } catch (err) {
             if (err instanceof Error && err.message.startsWith('avgTurnTimeMinutes')) {
                 res.status(400).json({ error: err.message, field: 'avgTurnTimeMinutes' });
+                return;
+            }
+            if (err instanceof Error && err.message.startsWith('etaMode')) {
+                res.status(400).json({ error: err.message, field: 'etaMode' });
                 return;
             }
             dbError(res, err);

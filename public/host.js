@@ -12,6 +12,8 @@
     const countDining = $('count-dining');
     const countOldest = $('count-oldest');
     const turnInput = $('turn');
+    const etaModeSelect = $('eta-mode');
+    const turnInfo = $('turn-info');
     const logoutBtn = $('logout-btn');
     const statsCard = $('stats-card');
     const statsToggle = $('stats-toggle');
@@ -73,7 +75,8 @@
             const data = await r.json();
             countWaiting.textContent = String(data.parties.length);
             countOldest.textContent = data.oldestWaitMinutes + 'm';
-            turnInput.value = String(data.avgTurnTimeMinutes);
+            // turnInput value is owned by refreshSettings() — don't overwrite from the queue payload
+            // (the queue payload returns the effective minutes, not the manual value).
             tabBadgeWaiting.textContent = String(data.parties.length);
             if (data.parties.length === 0) {
                 rows.innerHTML = '<tr><td colspan="7" class="empty">Nobody waiting.</td></tr>';
@@ -324,7 +327,41 @@
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ avgTurnTimeMinutes: n }),
         });
+        await refreshSettings();
         refreshAll();
+    }
+
+    async function onEtaModeChange() {
+        const mode = etaModeSelect.value;
+        await fetch('api/host/settings', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ etaMode: mode }),
+        });
+        await refreshSettings();
+        refreshAll();
+    }
+
+    async function refreshSettings() {
+        try {
+            const r = await fetch('api/host/settings');
+            if (!r.ok) return;
+            const s = await r.json();
+            turnInput.value = String(s.avgTurnTimeMinutes);
+            etaModeSelect.value = s.etaMode || 'manual';
+            if (s.etaMode === 'dynamic') {
+                if (s.fellBackToManual) {
+                    turnInfo.textContent = '(using manual — need 5+ recent parties)';
+                } else {
+                    turnInfo.textContent = '(dynamic: ~' + s.effectiveMinutes + 'm from ' + s.sampleSize + ' parties)';
+                }
+                turnInfo.style.display = '';
+            } else {
+                turnInfo.style.display = 'none';
+            }
+        } catch {
+            // non-blocking
+        }
     }
 
     // Waiting tab: delegate clicks
@@ -371,6 +408,7 @@
     });
 
     turnInput.addEventListener('change', onTurnChange);
+    etaModeSelect.addEventListener('change', onEtaModeChange);
     logoutBtn.addEventListener('click', async () => {
         await fetch('api/host/logout', { method: 'POST' });
         showLogin();
@@ -396,6 +434,7 @@
         refreshDining();
         refreshCompleted();
         refreshStats();
+        refreshSettings();
     }
 
     function showLogin() {

@@ -50,58 +50,36 @@ function isValidEtaMode(x: unknown): x is EtaMode {
 
 /**
  * Compute the dynamic turn time from the most recent departed parties.
- * Returns null when there's no sample OR when the underlying query fails for any
- * reason (timeout, index miss, sort-memory overflow, etc.). Caller is responsible
- * for checking sampleSize >= MIN_DYNAMIC_SAMPLE.
+ * Returns null when there's any sample; returns the median + sample size.
+ * Caller is responsible for checking sampleSize >= MIN_DYNAMIC_SAMPLE.
  *
  * Filters to entries with state='departed' AND both seatedAt and departedAt
  * timestamps present, ordered by departedAt descending (most recent first).
  * Service-day agnostic — we want recent data even if it spans a boundary.
- *
- * The query is backed by the `loc_state_departedAt` index bootstrapped in
- * `src/core/db/mongo.ts`. In production without that index the collection scan
- * + in-memory sort exceeded Mongo's 32MB sort limit and broke every endpoint
- * that called getEffectiveTurnTime (incident 2026-04-13).
  */
 export async function computeDynamicTurnTime(
     locationId: string,
 ): Promise<{ minutes: number; sampleSize: number } | null> {
-    try {
-        const db = await getDb();
-        const docs = await queueEntries(db)
-            .find({
-                locationId,
-                state: 'departed',
-                seatedAt: { $exists: true },
-                departedAt: { $exists: true },
-            })
-            .project<{ seatedAt: Date; departedAt: Date }>({ seatedAt: 1, departedAt: 1 })
-            .sort({ departedAt: -1 })
-            .limit(DYNAMIC_SAMPLE_WINDOW)
-            .toArray();
+    const db = await getDb();
+    const docs = await queueEntries(db)
+        .find({
+            locationId,
+            state: 'departed',
+            seatedAt: { $exists: true },
+            departedAt: { $exists: true },
+        })
+        .project<{ seatedAt: Date; departedAt: Date }>({ seatedAt: 1, departedAt: 1 })
+        .sort({ departedAt: -1 })
+        .limit(DYNAMIC_SAMPLE_WINDOW)
+        .toArray();
 
-        if (docs.length === 0) return null;
+    if (docs.length === 0) return null;
 
-        const durations = docs.map((d) => minutesBetween(d.seatedAt, d.departedAt));
-        const median = medianMinutes(durations);
-        // Round to integer minutes; clamp to at least 1 so the ETA formula never yields 0.
-        const minutes = Math.max(1, Math.round(median));
-        return { minutes, sampleSize: docs.length };
-    } catch (err) {
-        // Dynamic ETA is opportunistic — if the query fails for any reason, treat it
-        // as "not available" rather than propagating the error up the stack and breaking
-        // every endpoint that computes an ETA. The caller will fall back to manual.
-        console.log(
-            JSON.stringify({
-                t: new Date().toISOString(),
-                level: 'warn',
-                msg: 'settings.computeDynamicTurnTime_failed',
-                locationId,
-                detail: err instanceof Error ? err.message : String(err),
-            }),
-        );
-        return null;
-    }
+    const durations = docs.map((d) => minutesBetween(d.seatedAt, d.departedAt));
+    const median = medianMinutes(durations);
+    // Round to integer minutes; clamp to at least 1 so the ETA formula never yields 0.
+    const minutes = Math.max(1, Math.round(median));
+    return { minutes, sampleSize: docs.length };
 }
 
 /**
@@ -111,9 +89,6 @@ export async function computeDynamicTurnTime(
  * Always computes the dynamic value (even in manual mode) so callers — including
  * the host UI — can tell whether dynamic would currently be available and can
  * hide/disable the dynamic option when it isn't.
- *
- * If the dynamic query fails, the caller gets a graceful fallback to manual —
- * computeDynamicTurnTime swallows errors and returns null.
  */
 export async function getEffectiveTurnTime(locationId: string): Promise<EffectiveTurnTime> {
     const db = await getDb();
@@ -122,7 +97,6 @@ export async function getEffectiveTurnTime(locationId: string): Promise<Effectiv
     const mode: EtaMode = (doc?.etaMode && isValidEtaMode(doc.etaMode)) ? doc.etaMode : DEFAULT_ETA_MODE;
 
     // Always compute dynamic so the UI knows whether the option is currently viable.
-    // Errors inside computeDynamicTurnTime are caught there and surface as null.
     const dynamic = await computeDynamicTurnTime(locationId);
     const sampleSize = dynamic?.sampleSize ?? 0;
     const dynamicAvailable = dynamic !== null && sampleSize >= MIN_DYNAMIC_SAMPLE;

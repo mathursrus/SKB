@@ -52,16 +52,6 @@ async function bootstrapIndexes(db: Db): Promise<void> {
         { code: 1 },
         { name: 'code_unique', unique: true },
     );
-    // Backs computeDynamicTurnTime: find by locationId + state='departed', sort by departedAt desc.
-    // Without this, prod collection scans + in-memory sorts crashed every ETA-computing endpoint
-    // (incident 2026-04-13). Partial filter keeps the index narrow.
-    await queueEntries(db).createIndex(
-        { locationId: 1, state: 1, departedAt: -1 },
-        {
-            name: 'loc_state_departedAt',
-            partialFilterExpression: { state: 'departed', departedAt: { $exists: true } },
-        },
-    );
 }
 
 export async function closeDb(): Promise<void> {

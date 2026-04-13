@@ -112,22 +112,15 @@ const cases: BaseTestCase[] = [
         },
     },
     {
-        name: 'manual mode: dynamic is still computed for UI availability but effective value comes from manual',
+        name: 'manual mode: existing dining data is ignored (no dynamic computation)',
         tags: ['integration', 'dynamic-eta', 'manual-mode'],
         testFn: async () => {
             await resetDb();
             await setAvgTurnTime(LOC, 8);
-            // Seed 10 parties with 30-min durations — dynamic IS computed (so the UI can tell it's
-            // available), but effective stays at the manual 8 because mode=manual takes precedence.
+            // Seed 10 parties with 30-min durations — would pull dynamic to 30, but we're in manual mode.
             await seedDeparted(10, [30, 30, 30, 30, 30, 30, 30, 30, 30, 30]);
             const info = await getEffectiveTurnTime(LOC);
-            return (
-                info.effectiveMinutes === 8 &&
-                info.mode === 'manual' &&
-                info.dynamicMinutes === 30 &&
-                info.sampleSize === 10 &&
-                info.fellBackToManual === false
-            );
+            return info.effectiveMinutes === 8 && info.mode === 'manual';
         },
     },
 

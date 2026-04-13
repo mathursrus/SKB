@@ -347,16 +347,30 @@
             const r = await fetch('api/host/settings');
             if (!r.ok) return;
             const s = await r.json();
-            turnInput.value = String(s.avgTurnTimeMinutes);
-            etaModeSelect.value = s.etaMode || 'manual';
-            if (s.etaMode === 'dynamic') {
-                if (s.fellBackToManual) {
-                    turnInfo.textContent = '(using manual — need 5+ recent parties)';
-                } else {
-                    turnInfo.textContent = '(dynamic: ~' + s.effectiveMinutes + 'm from ' + s.sampleSize + ' parties)';
-                }
+
+            // Dynamic is "available" when the backend computed a real median
+            // (i.e., sample >= MIN_DYNAMIC_SAMPLE and the query returned data).
+            const dynamicAvailable = typeof s.dynamicMinutes === 'number';
+            const dynamicOption = etaModeSelect.querySelector('option[value="dynamic"]');
+            dynamicOption.hidden = !dynamicAvailable;
+
+            // If the stored mode is dynamic but data isn't available, fall through
+            // to the manual display. The server-side preference is preserved; the UI
+            // just reflects what's currently effective.
+            const showDynamic = s.etaMode === 'dynamic' && dynamicAvailable;
+
+            if (showDynamic) {
+                // Show the computed median in a read-only view.
+                etaModeSelect.value = 'dynamic';
+                turnInput.value = String(s.effectiveMinutes);
+                turnInput.readOnly = true;
+                turnInfo.textContent = '(median of ' + s.sampleSize + ' recent parties)';
                 turnInfo.style.display = '';
             } else {
+                // Manual mode — editable input showing the stored manual value.
+                etaModeSelect.value = 'manual';
+                turnInput.value = String(s.avgTurnTimeMinutes);
+                turnInput.readOnly = false;
                 turnInfo.style.display = 'none';
             }
         } catch {

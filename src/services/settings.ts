@@ -50,41 +50,72 @@ function isValidEtaMode(x: unknown): x is EtaMode {
 
 /**
  * Compute the dynamic turn time from the most recent departed parties.
- * Returns null when there's any sample; returns the median + sample size.
- * Caller is responsible for checking sampleSize >= MIN_DYNAMIC_SAMPLE.
+ * Returns null when there's no sample OR when the underlying query fails
+ * for any reason (timeout, index miss, sort-memory overflow). Caller is
+ * responsible for checking sampleSize >= MIN_DYNAMIC_SAMPLE.
  *
  * Filters to entries with state='departed' AND both seatedAt and departedAt
  * timestamps present, ordered by departedAt descending (most recent first).
  * Service-day agnostic — we want recent data even if it spans a boundary.
+ *
+ * Query is backed by the `loc_state_departedAt` partial index created in
+ * `src/core/db/mongo.ts` (c91a9ee). Without that index the previous
+ * incarnation of this code caused a production outage on 2026-04-13 because
+ * the unindexed COLLSCAN + in-memory sort exceeded Mongo's 32MB sort limit.
+ * The try-catch below is belt-and-suspenders: even if a future query-plan
+ * change makes this slow again, failures become "dynamic unavailable"
+ * rather than propagating up and breaking every ETA-resolving endpoint.
  */
 export async function computeDynamicTurnTime(
     locationId: string,
 ): Promise<{ minutes: number; sampleSize: number } | null> {
-    const db = await getDb();
-    const docs = await queueEntries(db)
-        .find({
-            locationId,
-            state: 'departed',
-            seatedAt: { $exists: true },
-            departedAt: { $exists: true },
-        })
-        .project<{ seatedAt: Date; departedAt: Date }>({ seatedAt: 1, departedAt: 1 })
-        .sort({ departedAt: -1 })
-        .limit(DYNAMIC_SAMPLE_WINDOW)
-        .toArray();
+    try {
+        const db = await getDb();
+        const docs = await queueEntries(db)
+            .find({
+                locationId,
+                state: 'departed',
+                seatedAt: { $exists: true },
+                departedAt: { $exists: true },
+            })
+            .project<{ seatedAt: Date; departedAt: Date }>({ seatedAt: 1, departedAt: 1 })
+            .sort({ departedAt: -1 })
+            .limit(DYNAMIC_SAMPLE_WINDOW)
+            .toArray();
 
-    if (docs.length === 0) return null;
+        if (docs.length === 0) return null;
 
-    const durations = docs.map((d) => minutesBetween(d.seatedAt, d.departedAt));
-    const median = medianMinutes(durations);
-    // Round to integer minutes; clamp to at least 1 so the ETA formula never yields 0.
-    const minutes = Math.max(1, Math.round(median));
-    return { minutes, sampleSize: docs.length };
+        const durations = docs.map((d) => minutesBetween(d.seatedAt, d.departedAt));
+        const median = medianMinutes(durations);
+        // Round to integer minutes; clamp to at least 1 so the ETA formula never yields 0.
+        const minutes = Math.max(1, Math.round(median));
+        return { minutes, sampleSize: docs.length };
+    } catch (err) {
+        // Dynamic ETA is opportunistic — if the query fails for any reason,
+        // treat it as "not available" rather than propagating the error up
+        // the stack and breaking every endpoint that computes an ETA.
+        console.log(
+            JSON.stringify({
+                t: new Date().toISOString(),
+                level: 'warn',
+                msg: 'settings.computeDynamicTurnTime_failed',
+                locationId,
+                detail: err instanceof Error ? err.message : String(err),
+            }),
+        );
+        return null;
+    }
 }
 
 /**
  * Resolve the effective turn time for a location, considering mode + fallback.
  * This is the authoritative getter used by the ETA formula throughout queue.ts.
+ *
+ * Always computes the dynamic value (even in manual mode) so callers — including
+ * the host UI — can tell whether dynamic would currently be available and can
+ * hide/disable the dynamic option when it isn't. If the dynamic query fails
+ * (computeDynamicTurnTime swallows the error and returns null), the caller
+ * gracefully falls back to manual.
  */
 export async function getEffectiveTurnTime(locationId: string): Promise<EffectiveTurnTime> {
     const db = await getDb();
@@ -92,39 +123,32 @@ export async function getEffectiveTurnTime(locationId: string): Promise<Effectiv
     const manualMinutes = doc?.avgTurnTimeMinutes ?? DEFAULT_AVG_TURN_TIME_MINUTES;
     const mode: EtaMode = (doc?.etaMode && isValidEtaMode(doc.etaMode)) ? doc.etaMode : DEFAULT_ETA_MODE;
 
-    if (mode === 'manual') {
+    // Always compute dynamic so the UI knows whether the option is currently viable.
+    // Errors inside computeDynamicTurnTime are caught there and surface as null.
+    const dynamic = await computeDynamicTurnTime(locationId);
+    const sampleSize = dynamic?.sampleSize ?? 0;
+    const dynamicAvailable = dynamic !== null && sampleSize >= MIN_DYNAMIC_SAMPLE;
+    const dynamicMinutes = dynamicAvailable ? dynamic!.minutes : null;
+
+    if (mode === 'dynamic' && dynamicAvailable) {
         return {
-            effectiveMinutes: manualMinutes,
+            effectiveMinutes: dynamic!.minutes,
             mode,
             manualMinutes,
-            dynamicMinutes: null,
-            sampleSize: 0,
+            dynamicMinutes,
+            sampleSize,
             fellBackToManual: false,
         };
     }
 
-    // Dynamic mode — compute from recent departed parties
-    const dynamic = await computeDynamicTurnTime(locationId);
-    const sampleSize = dynamic?.sampleSize ?? 0;
-
-    if (!dynamic || sampleSize < MIN_DYNAMIC_SAMPLE) {
-        return {
-            effectiveMinutes: manualMinutes,
-            mode,
-            manualMinutes,
-            dynamicMinutes: null,
-            sampleSize,
-            fellBackToManual: true,
-        };
-    }
-
+    // Either mode=manual OR mode=dynamic but sample is too small (fallback).
     return {
-        effectiveMinutes: dynamic.minutes,
+        effectiveMinutes: manualMinutes,
         mode,
         manualMinutes,
-        dynamicMinutes: dynamic.minutes,
+        dynamicMinutes,
         sampleSize,
-        fellBackToManual: false,
+        fellBackToManual: mode === 'dynamic' && !dynamicAvailable,
     };
 }
 

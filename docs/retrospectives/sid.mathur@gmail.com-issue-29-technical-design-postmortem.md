@@ -1,7 +1,7 @@
 ---
 author: sid.mathur@gmail.com
 date: 2026-04-08
-synthesized:
+synthesized: 2026-04-12
 ---
 
 # Postmortem: SMS Technical Design - Issue #29

@@ -1,7 +1,7 @@
 ---
 author: sid.mathur@gmail.com
 date: 2026-04-10
-synthesized:
+synthesized: 2026-04-12
 ---
 
 # Postmortem: Frontline Business Plan Creation (session-2026-04-10-business-plan)

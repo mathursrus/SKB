@@ -85,6 +85,10 @@ export async function computeDynamicTurnTime(
 /**
  * Resolve the effective turn time for a location, considering mode + fallback.
  * This is the authoritative getter used by the ETA formula throughout queue.ts.
+ *
+ * Always computes the dynamic value (even in manual mode) so callers — including
+ * the host UI — can tell whether dynamic would currently be available and can
+ * hide/disable the dynamic option when it isn't.
  */
 export async function getEffectiveTurnTime(locationId: string): Promise<EffectiveTurnTime> {
     const db = await getDb();
@@ -92,39 +96,31 @@ export async function getEffectiveTurnTime(locationId: string): Promise<Effectiv
     const manualMinutes = doc?.avgTurnTimeMinutes ?? DEFAULT_AVG_TURN_TIME_MINUTES;
     const mode: EtaMode = (doc?.etaMode && isValidEtaMode(doc.etaMode)) ? doc.etaMode : DEFAULT_ETA_MODE;
 
-    if (mode === 'manual') {
+    // Always compute dynamic so the UI knows whether the option is currently viable.
+    const dynamic = await computeDynamicTurnTime(locationId);
+    const sampleSize = dynamic?.sampleSize ?? 0;
+    const dynamicAvailable = dynamic !== null && sampleSize >= MIN_DYNAMIC_SAMPLE;
+    const dynamicMinutes = dynamicAvailable ? dynamic!.minutes : null;
+
+    if (mode === 'dynamic' && dynamicAvailable) {
         return {
-            effectiveMinutes: manualMinutes,
+            effectiveMinutes: dynamic!.minutes,
             mode,
             manualMinutes,
-            dynamicMinutes: null,
-            sampleSize: 0,
+            dynamicMinutes,
+            sampleSize,
             fellBackToManual: false,
         };
     }
 
-    // Dynamic mode — compute from recent departed parties
-    const dynamic = await computeDynamicTurnTime(locationId);
-    const sampleSize = dynamic?.sampleSize ?? 0;
-
-    if (!dynamic || sampleSize < MIN_DYNAMIC_SAMPLE) {
-        return {
-            effectiveMinutes: manualMinutes,
-            mode,
-            manualMinutes,
-            dynamicMinutes: null,
-            sampleSize,
-            fellBackToManual: true,
-        };
-    }
-
+    // Either mode=manual OR mode=dynamic but sample is too small (fallback).
     return {
-        effectiveMinutes: dynamic.minutes,
+        effectiveMinutes: manualMinutes,
         mode,
         manualMinutes,
-        dynamicMinutes: dynamic.minutes,
+        dynamicMinutes,
         sampleSize,
-        fellBackToManual: false,
+        fellBackToManual: mode === 'dynamic' && !dynamicAvailable,
     };
 }
 

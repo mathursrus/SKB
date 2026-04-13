@@ -52,6 +52,24 @@ async function bootstrapIndexes(db: Db): Promise<void> {
         { code: 1 },
         { name: 'code_unique', unique: true },
     );
+    // Backs computeDynamicTurnTime in src/services/settings.ts, which filters
+    // state='departed' with both seatedAt and departedAt present and sorts by
+    // departedAt desc to grab the most recent samples. Without this index, the
+    // query does a COLLSCAN + in-memory sort that exceeds Mongo's 32MB sort
+    // limit at production-scale collections (incident 2026-04-13, see the
+    // retrospective in docs/retrospectives/). The partial filter keeps the
+    // index narrow — only entries in the exact state the query targets.
+    //
+    // This index is required BEFORE any code calls computeDynamicTurnTime
+    // against the full collection (i.e., on every request), so it ships in
+    // its own commit ahead of the UX refinement that depends on it.
+    await queueEntries(db).createIndex(
+        { locationId: 1, state: 1, departedAt: -1 },
+        {
+            name: 'loc_state_departedAt',
+            partialFilterExpression: { state: 'departed', departedAt: { $exists: true } },
+        },
+    );
 }
 
 export async function closeDb(): Promise<void> {

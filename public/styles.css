@@ -842,6 +842,42 @@ body.queue-boot::before {
     box-sizing: content-box;
 }
 
+/* ---------- Seated + Complete tabs: per-transition duration columns ----------
+   These columns show the time between state transitions as small, right-
+   aligned numeric cells. Filled cells render in the normal foreground
+   color; unfilled cells render dimmed so the row still visually aligns
+   without drawing attention to data that isn't there yet. */
+th.transit {
+    font-size: 10px;
+    text-align: right;
+    width: 72px;
+    letter-spacing: 0.04em;
+}
+td.transit-cell {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    font-size: 13px;
+    width: 72px;
+    padding-right: 12px;
+}
+td.transit-cell.filled {
+    color: var(--fg);
+    font-weight: 600;
+}
+td.transit-cell.empty {
+    color: var(--border);
+}
+
+/* Tighter table padding on the dining/completed tabs so the extra
+   transition columns don't push the actions cell off-screen at 1280. */
+.host .dining-table th,
+.host .dining-table td,
+.host .completed-table th,
+.host .completed-table td {
+    padding-left: 10px;
+    padding-right: 10px;
+}
+
 /* Seated tab table-number column */
 td.table-num {
     font-size: 18px;

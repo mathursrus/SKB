@@ -174,6 +174,13 @@ export interface HostDiningPartyDTO {
     seatedAt: string;        // ISO
     timeInStateMinutes: number;
     totalTableMinutes: number;
+    // Per-transition durations in minutes. waitMinutes is always set for
+    // dining rows (they've been seated by definition). The other three are
+    // populated only as the party reaches the target state; null beforehand.
+    waitMinutes: number;                // joinedAt → seatedAt
+    toOrderMinutes: number | null;      // seatedAt → orderedAt
+    toServeMinutes: number | null;      // orderedAt → servedAt
+    toCheckoutMinutes: number | null;   // servedAt → checkoutAt
 }
 
 export interface HostDiningDTO {
@@ -190,6 +197,12 @@ export interface HostCompletedPartyDTO {
     waitTimeMinutes: number; // join to seated (or join to removal for no-show)
     tableTimeMinutes: number | null; // seated to departed (null for no-show)
     totalTimeMinutes: number; // join to departure/removal
+    // Per-transition durations. All null for no-shows. For departed parties
+    // these are the authoritative phase timings used by the host's retro view.
+    toOrderMinutes: number | null;      // seatedAt → orderedAt
+    toServeMinutes: number | null;      // orderedAt → servedAt
+    toCheckoutMinutes: number | null;   // servedAt → checkoutAt
+    toDepartMinutes: number | null;     // checkoutAt → departedAt
 }
 
 export interface HostCompletedDTO {

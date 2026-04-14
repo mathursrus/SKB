@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>SKB · You're on the list</title>
+<style>
+  :root {
+    --bg: #0f1115;
+    --surface: #171a21;
+    --surface-2: #1f232c;
+    --line: #2a2f3a;
+    --text: #e8ebf1;
+    --muted: #8a93a6;
+    --accent: #ffb347;
+    --accent-strong: #ff9a1f;
+    --ok: #4ade80;
+    --warn: #f87171;
+    --me-bg: rgba(255, 179, 71, 0.08);
+    --me-border: #ffb347;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
+    font-size: 16px; line-height: 1.4; }
+  main { max-width: 420px; margin: 0 auto; padding: 16px 16px 80px; }
+  header.brand { display: flex; align-items: center; justify-content: space-between;
+    padding: 6px 2px 14px; color: var(--muted); font-size: 13px; letter-spacing: 0.04em; text-transform: uppercase; }
+  header.brand .logo { color: var(--text); font-weight: 700; letter-spacing: 0.12em; }
+
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: 16px;
+    padding: 20px; box-shadow: 0 10px 30px rgba(0,0,0,.35); }
+  .card.hero { padding: 22px 20px 20px; }
+  .hero .label { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.1em; }
+  .hero .position { font-size: 44px; font-weight: 800; margin: 6px 0 4px; letter-spacing: -0.02em; }
+  .hero .position .small { font-size: 20px; color: var(--muted); font-weight: 600; }
+  .hero .party-name { font-size: 15px; color: var(--muted); margin-bottom: 14px; }
+
+  .kv { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 4px; }
+  .kv .cell { background: var(--surface-2); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; }
+  .kv .cell .k { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; }
+  .kv .cell .v { font-size: 20px; font-weight: 700; margin-top: 2px; }
+  .kv .cell .v.tick { font-variant-numeric: tabular-nums; }
+
+  .status-pill { display: inline-flex; align-items: center; gap: 6px;
+    background: rgba(74, 222, 128, 0.1); color: var(--ok);
+    border: 1px solid rgba(74, 222, 128, 0.35);
+    border-radius: 999px; padding: 4px 10px; font-size: 12px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.06em; }
+  .status-pill.waiting { background: rgba(255, 179, 71, 0.1); color: var(--accent); border-color: rgba(255, 179, 71, 0.35); }
+
+  h2.section { font-size: 13px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.1em;
+    margin: 26px 4px 10px; font-weight: 600; }
+
+  .list { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; overflow: hidden; }
+  .row { display: grid; grid-template-columns: 34px 1fr 44px 72px 64px; gap: 10px; align-items: center;
+    padding: 14px 14px; border-bottom: 1px solid var(--line); }
+  .row:last-child { border-bottom: none; }
+  .row .pos { font-weight: 700; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .row .name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .row .size { color: var(--muted); font-variant-numeric: tabular-nums; }
+  .row .promised { color: var(--muted); font-variant-numeric: tabular-nums; text-align: right; }
+  .row .waiting { color: var(--text); font-variant-numeric: tabular-nums; text-align: right; font-weight: 600; }
+  .row.head { background: var(--surface-2); font-size: 11px; text-transform: uppercase;
+    letter-spacing: 0.08em; color: var(--muted); font-weight: 600; padding: 10px 14px; }
+  .row.head .name, .row.head .waiting { color: var(--muted); font-weight: 600; }
+  .row.me { background: var(--me-bg); border-left: 3px solid var(--me-border); padding-left: 11px; }
+  .row.me .name::after { content: " (you)"; color: var(--accent); font-weight: 700; }
+
+  footer { text-align: center; color: var(--muted); font-size: 12px; margin-top: 22px; padding: 0 8px; }
+  footer a { color: var(--accent); text-decoration: none; }
+
+  /* Ready state */
+  .ready-card { background: linear-gradient(180deg, rgba(74,222,128,.12), rgba(74,222,128,.04));
+    border-color: rgba(74,222,128,.45); }
+  .ready-card .position { color: var(--ok); }
+  .cta { display: block; width: 100%; margin-top: 16px; padding: 14px 16px;
+    background: var(--ok); color: #08240f; font-weight: 700; font-size: 16px;
+    border: none; border-radius: 12px; cursor: pointer; }
+
+  /* States toggler for the mock */
+  .states { display: flex; gap: 6px; margin: 10px 2px 18px; flex-wrap: wrap; }
+  .states button { background: var(--surface-2); color: var(--muted); border: 1px solid var(--line);
+    border-radius: 999px; padding: 6px 12px; font-size: 12px; cursor: pointer; }
+  .states button.active { color: var(--text); border-color: var(--accent); }
+  .state { display: none; }
+  .state.active { display: block; }
+</style>
+</head>
+<body>
+<main>
+  <header class="brand">
+    <span class="logo">SKB</span>
+    <span>You're on the list</span>
+  </header>
+
+  <div class="states" role="tablist" aria-label="Mock states">
+    <button class="active" data-state="waiting">Waiting</button>
+    <button data-state="ready">Table ready</button>
+    <button data-state="seated">Seated (terminal)</button>
+  </div>
+
+  <!-- Waiting state -->
+  <section class="state active" data-state="waiting">
+    <div class="card hero">
+      <span class="status-pill waiting">● Waiting</span>
+      <div class="position" style="margin-top:10px;">#3 <span class="small">of 7</span></div>
+      <div class="party-name">Patel party of 4</div>
+      <div class="kv">
+        <div class="cell">
+          <div class="k">Promised by</div>
+          <div class="v">6:42 PM</div>
+        </div>
+        <div class="cell">
+          <div class="k">Waiting</div>
+          <div class="v tick">08:12</div>
+        </div>
+      </div>
+    </div>
+
+    <h2 class="section">Full waitlist</h2>
+    <div class="list" aria-label="Live waitlist">
+      <div class="row head" role="row">
+        <span class="pos">#</span><span class="name">Name</span>
+        <span class="size">Size</span><span class="promised">Promised</span><span class="waiting">Waiting</span>
+      </div>
+      <div class="row" role="row">
+        <span class="pos">1</span><span class="name">Kim, J.</span>
+        <span class="size">2</span><span class="promised">6:28 PM</span><span class="waiting">22:04</span>
+      </div>
+      <div class="row" role="row">
+        <span class="pos">2</span><span class="name">Nguyen, T.</span>
+        <span class="size">5</span><span class="promised">6:35 PM</span><span class="waiting">14:51</span>
+      </div>
+      <div class="row me" role="row" aria-current="true">
+        <span class="pos">3</span><span class="name">Patel, S.</span>
+        <span class="size">4</span><span class="promised">6:42 PM</span><span class="waiting">08:12</span>
+      </div>
+      <div class="row" role="row">
+        <span class="pos">4</span><span class="name">Ortega, L.</span>
+        <span class="size">2</span><span class="promised">6:50 PM</span><span class="waiting">05:30</span>
+      </div>
+      <div class="row" role="row">
+        <span class="pos">5</span><span class="name">Williams, M.</span>
+        <span class="size">3</span><span class="promised">6:55 PM</span><span class="waiting">03:18</span>
+      </div>
+      <div class="row" role="row">
+        <span class="pos">6</span><span class="name">Okafor, B.</span>
+        <span class="size">4</span><span class="promised">7:02 PM</span><span class="waiting">01:44</span>
+      </div>
+      <div class="row" role="row">
+        <span class="pos">7</span><span class="name">Tran, A.</span>
+        <span class="size">2</span><span class="promised">7:08 PM</span><span class="waiting">00:22</span>
+      </div>
+    </div>
+    <footer>Updates every 15s · <a href="#">text host</a></footer>
+  </section>
+
+  <!-- Ready state -->
+  <section class="state" data-state="ready">
+    <div class="card hero ready-card">
+      <span class="status-pill">● Table ready</span>
+      <div class="position" style="margin-top:10px;">Your table is ready</div>
+      <div class="party-name">Patel party of 4 · please return to the host</div>
+      <div class="kv">
+        <div class="cell">
+          <div class="k">Notified at</div>
+          <div class="v">6:41 PM</div>
+        </div>
+        <div class="cell">
+          <div class="k">Held for</div>
+          <div class="v tick">05:00</div>
+        </div>
+      </div>
+      <button class="cta">I'm on my way</button>
+    </div>
+    <footer>This page will close automatically once you're seated.</footer>
+  </section>
+
+  <!-- Seated (terminal) -->
+  <section class="state" data-state="seated">
+    <div class="card hero">
+      <span class="status-pill">● Seated</span>
+      <div class="position" style="margin-top:10px;">Table 12</div>
+      <div class="party-name">Enjoy your meal, Patel party of 4.</div>
+    </div>
+    <footer>Thanks for waiting with SKB.</footer>
+  </section>
+</main>
+
+<script>
+  const buttons = document.querySelectorAll('.states button');
+  const sections = document.querySelectorAll('.state');
+  buttons.forEach(btn => btn.addEventListener('click', () => {
+    buttons.forEach(b => b.classList.toggle('active', b === btn));
+    const target = btn.dataset.state;
+    sections.forEach(s => s.classList.toggle('active', s.dataset.state === target));
+  }));
+
+  // Live-tick the waiting cells
+  const tickEls = document.querySelectorAll('.tick');
+  setInterval(() => {
+    tickEls.forEach(el => {
+      const [m, s] = el.textContent.split(':').map(Number);
+      let total = m * 60 + s + 1;
+      const mm = String(Math.floor(total/60)).padStart(2,'0');
+      const ss = String(total % 60).padStart(2,'0');
+      el.textContent = `${mm}:${ss}`;
+    });
+  }, 1000);
+</script>
+</body>
+</html>

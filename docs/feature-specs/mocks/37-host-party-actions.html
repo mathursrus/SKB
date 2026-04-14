@@ -1,0 +1,254 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>SKB · Host Stand — Party actions (Chat + Call)</title>
+<style>
+  :root {
+    --bg: #0f1115;
+    --surface: #171a21;
+    --surface-2: #1f232c;
+    --line: #2a2f3a;
+    --text: #e8ebf1;
+    --muted: #8a93a6;
+    --accent: #ffb347;
+    --accent-strong: #ff9a1f;
+    --ok: #4ade80;
+    --warn: #f87171;
+    --btn: #2a2f3a;
+    --btn-hover: #343a48;
+    --me: rgba(255, 179, 71, 0.08);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--text);
+    font: 14px -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif; }
+  .app { display: grid; grid-template-rows: auto auto 1fr; min-height: 100vh; }
+
+  /* Top bar */
+  .topbar { display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 20px; border-bottom: 1px solid var(--line); background: var(--surface); }
+  .topbar .title { font-weight: 700; letter-spacing: 0.06em; }
+  .topbar .stats { display: flex; gap: 20px; color: var(--muted); font-size: 13px; }
+  .topbar .stats strong { color: var(--text); }
+  .topbar .eta { display: flex; gap: 10px; align-items: center; color: var(--muted); font-size: 13px; }
+  .topbar select, .topbar input { background: var(--surface-2); color: var(--text);
+    border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; }
+  .topbar .logout { background: transparent; color: var(--muted); border: 1px solid var(--line);
+    border-radius: 8px; padding: 6px 12px; cursor: pointer; }
+
+  /* Tabs */
+  .tabs { display: flex; gap: 2px; padding: 12px 20px 0; border-bottom: 1px solid var(--line);
+    background: var(--surface); }
+  .tabs button { background: transparent; color: var(--muted); border: none; padding: 10px 16px;
+    font-size: 14px; font-weight: 600; cursor: pointer; border-bottom: 2px solid transparent; }
+  .tabs button.active { color: var(--text); border-bottom-color: var(--accent); }
+  .tabs button .badge { display: inline-block; margin-left: 6px; background: var(--surface-2);
+    border-radius: 999px; padding: 1px 8px; font-size: 12px; color: var(--muted); }
+  .tabs button.active .badge { color: var(--text); }
+
+  /* Table */
+  main { padding: 16px 20px 40px; }
+  table { width: 100%; border-collapse: separate; border-spacing: 0;
+    background: var(--surface); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+  th, td { padding: 14px 14px; text-align: left; border-bottom: 1px solid var(--line);
+    vertical-align: middle; }
+  thead th { background: var(--surface-2); color: var(--muted); font-size: 11px;
+    text-transform: uppercase; letter-spacing: 0.08em; font-weight: 600; }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr:hover { background: rgba(255,255,255,0.02); }
+  td .pos { font-weight: 700; color: var(--muted); font-variant-numeric: tabular-nums; }
+  td .name { font-weight: 600; }
+  td .phone { color: var(--muted); font-variant-numeric: tabular-nums; }
+  td .promised, td .waiting { font-variant-numeric: tabular-nums; }
+  td.actions { text-align: right; white-space: nowrap; }
+
+  /* Row action buttons */
+  .rowbtn { display: inline-flex; align-items: center; gap: 6px;
+    background: var(--btn); color: var(--text); border: 1px solid var(--line);
+    border-radius: 8px; padding: 8px 10px; margin-left: 6px; font-size: 13px; font-weight: 600;
+    cursor: pointer; position: relative; }
+  .rowbtn:hover { background: var(--btn-hover); }
+  .rowbtn.primary { background: var(--accent); color: #2a1a00; border-color: var(--accent-strong); }
+  .rowbtn.primary:hover { background: var(--accent-strong); }
+  .rowbtn.new { outline: 2px solid rgba(255,179,71,0.35); outline-offset: 2px; }
+  .rowbtn.danger { color: var(--warn); }
+  .rowbtn[disabled] { opacity: 0.4; cursor: not-allowed; }
+  .rowbtn .dot { position: absolute; top: -4px; right: -4px;
+    background: var(--warn); color: #2a0808; font-size: 10px; font-weight: 800;
+    border-radius: 999px; min-width: 16px; height: 16px; padding: 0 4px;
+    display: inline-flex; align-items: center; justify-content: center; }
+  .rowbtn svg { width: 14px; height: 14px; }
+
+  .legend { margin: 14px 0 8px; color: var(--muted); font-size: 12px; }
+  .legend .chip { display: inline-block; border: 1px dashed rgba(255,179,71,0.5); color: var(--accent);
+    padding: 2px 8px; border-radius: 999px; margin: 0 6px; font-size: 11px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.06em; }
+
+  /* Chat slide-over */
+  .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: none; z-index: 10; }
+  .overlay.open { display: block; }
+  .drawer { position: fixed; top: 0; right: 0; bottom: 0; width: 420px; max-width: 100vw;
+    background: var(--surface); border-left: 1px solid var(--line);
+    display: flex; flex-direction: column; z-index: 11; transform: translateX(100%);
+    transition: transform 0.2s ease; }
+  .drawer.open { transform: translateX(0); }
+  .drawer header { padding: 16px 18px; border-bottom: 1px solid var(--line); display: flex;
+    justify-content: space-between; align-items: center; }
+  .drawer header .who { font-weight: 700; }
+  .drawer header .who small { display: block; color: var(--muted); font-weight: 400; font-size: 12px; }
+  .drawer header .close { background: transparent; color: var(--muted); border: none;
+    font-size: 22px; cursor: pointer; }
+  .thread { flex: 1; overflow-y: auto; padding: 16px 18px; display: flex; flex-direction: column; gap: 10px; }
+  .msg { max-width: 78%; padding: 10px 12px; border-radius: 14px; font-size: 14px; line-height: 1.35; }
+  .msg .ts { display: block; font-size: 10px; color: var(--muted); margin-top: 4px; }
+  .msg.in { background: var(--surface-2); border: 1px solid var(--line); align-self: flex-start; border-bottom-left-radius: 4px; }
+  .msg.out { background: var(--accent); color: #2a1a00; align-self: flex-end; border-bottom-right-radius: 4px; }
+  .msg.out .ts { color: rgba(42,26,0,0.6); }
+  .quicks { display: flex; gap: 6px; padding: 10px 14px; border-top: 1px solid var(--line); flex-wrap: wrap; }
+  .quicks button { background: var(--surface-2); color: var(--text); border: 1px solid var(--line);
+    padding: 6px 10px; border-radius: 999px; font-size: 12px; cursor: pointer; }
+  .composer { display: flex; gap: 8px; padding: 12px 14px 16px; border-top: 1px solid var(--line); }
+  .composer input { flex: 1; background: var(--surface-2); color: var(--text);
+    border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; font-size: 14px; }
+  .composer button { background: var(--accent); color: #2a1a00; border: none; border-radius: 10px;
+    padding: 10px 14px; font-weight: 700; cursor: pointer; }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="topbar">
+    <div class="title">SKB · Host Stand</div>
+    <div class="stats">
+      <span><strong>3</strong> waiting</span>
+      <span><strong>6</strong> dining</span>
+      <span>oldest: <strong>22m</strong></span>
+    </div>
+    <div class="eta">
+      ETA:
+      <select><option>Manual</option><option>Dynamic</option></select>
+      min: <input type="number" value="10" style="width: 56px;" />
+    </div>
+    <button class="logout">Log out</button>
+  </div>
+
+  <div class="tabs" role="tablist">
+    <button class="active">Waiting <span class="badge">3</span></button>
+    <button>Seated <span class="badge">6</span></button>
+    <button>Complete <span class="badge">12</span></button>
+  </div>
+
+  <main>
+    <div class="legend">
+      New in this spec: <span class="chip">Chat</span> <span class="chip">Call</span> buttons are additive — the existing Custom SMS / Custom Call actions are preserved.
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th>#</th><th>Name</th><th>Size</th><th>Phone</th><th>Promised</th><th>Waiting</th><th></th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><span class="pos">1</span></td>
+          <td><span class="name">Kim, Jae</span></td>
+          <td>2</td>
+          <td class="phone">+1 555 010 2233</td>
+          <td class="promised">6:28 PM</td>
+          <td class="waiting">22:04</td>
+          <td class="actions">
+            <button class="rowbtn primary">Seat</button>
+            <button class="rowbtn">Notify</button>
+            <button class="rowbtn new" id="openChat" title="Chat (new)">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+              Chat
+              <span class="dot">2</span>
+            </button>
+            <button class="rowbtn new" title="Call (new)">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.35 1.9.65 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.3 1.85.52 2.81.65A2 2 0 0 1 22 16.92z"/></svg>
+              Call
+            </button>
+            <button class="rowbtn" title="Custom SMS (existing)">Custom SMS</button>
+            <button class="rowbtn" title="Custom Call (existing)">Custom Call</button>
+            <button class="rowbtn danger" title="No-show">No-show</button>
+          </td>
+        </tr>
+        <tr>
+          <td><span class="pos">2</span></td>
+          <td><span class="name">Nguyen, Thao</span></td>
+          <td>5</td>
+          <td class="phone">+1 555 019 7781</td>
+          <td class="promised">6:35 PM</td>
+          <td class="waiting">14:51</td>
+          <td class="actions">
+            <button class="rowbtn primary">Seat</button>
+            <button class="rowbtn">Notify</button>
+            <button class="rowbtn new">Chat</button>
+            <button class="rowbtn new">Call</button>
+            <button class="rowbtn">Custom SMS</button>
+            <button class="rowbtn">Custom Call</button>
+            <button class="rowbtn danger">No-show</button>
+          </td>
+        </tr>
+        <tr>
+          <td><span class="pos">3</span></td>
+          <td><span class="name">Walk-in (no phone)</span></td>
+          <td>3</td>
+          <td class="phone">—</td>
+          <td class="promised">6:42 PM</td>
+          <td class="waiting">08:12</td>
+          <td class="actions">
+            <button class="rowbtn primary">Seat</button>
+            <button class="rowbtn" disabled>Notify</button>
+            <button class="rowbtn new" disabled title="No phone number on file">Chat</button>
+            <button class="rowbtn new" disabled title="No phone number on file">Call</button>
+            <button class="rowbtn" disabled>Custom SMS</button>
+            <button class="rowbtn" disabled>Custom Call</button>
+            <button class="rowbtn danger">No-show</button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </main>
+</div>
+
+<!-- Chat slide-over -->
+<div class="overlay" id="overlay"></div>
+<aside class="drawer" id="drawer" aria-label="Chat with guest">
+  <header>
+    <div class="who">Kim, Jae · 2 <small>+1 555 010 2233</small></div>
+    <button class="close" id="closeChat" aria-label="Close">×</button>
+  </header>
+  <div class="thread">
+    <div class="msg in">Hi, just wanted to check our spot?<span class="ts">6:40 PM</span></div>
+    <div class="msg out">You're up next — about 3 minutes away.<span class="ts">6:40 PM</span></div>
+    <div class="msg in">Great, we're right outside.<span class="ts">6:41 PM</span></div>
+    <div class="msg in">Any chance of a booth?<span class="ts">6:44 PM</span></div>
+  </div>
+  <div class="quicks">
+    <button>Your table is almost ready</button>
+    <button>Need 5 more minutes?</button>
+    <button>We lost you — still here?</button>
+  </div>
+  <div class="composer">
+    <input type="text" placeholder="Type a message…" />
+    <button>Send</button>
+  </div>
+</aside>
+
+<script>
+  const overlay = document.getElementById('overlay');
+  const drawer = document.getElementById('drawer');
+  document.getElementById('openChat').addEventListener('click', () => {
+    overlay.classList.add('open');
+    drawer.classList.add('open');
+  });
+  function closeChat() {
+    overlay.classList.remove('open');
+    drawer.classList.remove('open');
+  }
+  document.getElementById('closeChat').addEventListener('click', closeChat);
+  overlay.addEventListener('click', closeChat);
+</script>
+</body>
+</html>

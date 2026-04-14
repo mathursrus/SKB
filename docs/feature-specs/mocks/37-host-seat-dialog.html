@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>SKB · Host Stand — Seat Party dialog</title>
+<style>
+  :root {
+    --bg: #0f1115;
+    --surface: #171a21;
+    --surface-2: #1f232c;
+    --line: #2a2f3a;
+    --text: #e8ebf1;
+    --muted: #8a93a6;
+    --accent: #ffb347;
+    --accent-strong: #ff9a1f;
+    --ok: #4ade80;
+    --warn: #f87171;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--text);
+    font: 14px -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
+    min-height: 100vh; }
+
+  /* Stand-in background so the dialog has context */
+  .page { padding: 40px; filter: blur(1.5px) brightness(0.6); pointer-events: none; }
+  .page h1 { margin: 0 0 8px; letter-spacing: 0.06em; font-size: 18px; }
+  .page .row { display: grid; grid-template-columns: 40px 1fr 60px 180px 100px 100px 220px;
+    gap: 10px; padding: 14px; background: var(--surface); border: 1px solid var(--line);
+    border-radius: 10px; margin-bottom: 8px; align-items: center; }
+  .page .row.head { background: var(--surface-2); color: var(--muted); text-transform: uppercase;
+    font-size: 11px; letter-spacing: 0.08em; }
+
+  /* Modal */
+  .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.65); display: flex;
+    align-items: center; justify-content: center; padding: 20px; }
+  .modal { width: 100%; max-width: 480px; background: var(--surface); border: 1px solid var(--line);
+    border-radius: 16px; box-shadow: 0 30px 80px rgba(0,0,0,0.6); overflow: hidden; }
+  .modal header { padding: 18px 20px 14px; border-bottom: 1px solid var(--line);
+    display: flex; align-items: center; justify-content: space-between; }
+  .modal header h2 { margin: 0; font-size: 16px; letter-spacing: 0.02em; }
+  .modal header .close { background: transparent; border: none; color: var(--muted);
+    font-size: 22px; cursor: pointer; }
+
+  .party { padding: 14px 20px; background: var(--surface-2); border-bottom: 1px solid var(--line);
+    display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+  .party .k { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; }
+  .party .v { font-size: 15px; font-weight: 700; margin-top: 2px; }
+
+  .body { padding: 18px 20px 6px; }
+  label.field { display: block; font-size: 12px; color: var(--muted); text-transform: uppercase;
+    letter-spacing: 0.08em; font-weight: 600; margin-bottom: 8px; }
+  input.table-num { width: 100%; background: var(--bg); color: var(--text);
+    border: 1px solid var(--line); border-radius: 12px; padding: 18px 18px;
+    font-size: 32px; font-weight: 800; font-variant-numeric: tabular-nums;
+    text-align: center; letter-spacing: 0.05em; outline: none; }
+  input.table-num:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(255,179,71,0.18); }
+  input.table-num.error { border-color: var(--warn); box-shadow: 0 0 0 3px rgba(248,113,113,0.18); }
+
+  .chips-label { margin-top: 14px; font-size: 11px; color: var(--muted);
+    text-transform: uppercase; letter-spacing: 0.08em; }
+  .chips { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+  .chip { background: var(--surface-2); color: var(--text); border: 1px solid var(--line);
+    border-radius: 10px; padding: 10px 14px; font-weight: 700; font-size: 14px;
+    cursor: pointer; font-variant-numeric: tabular-nums; }
+  .chip:hover { border-color: var(--accent); color: var(--accent); }
+  .chip.occupied { opacity: 0.5; text-decoration: line-through; cursor: not-allowed; }
+  .chip.occupied::after { content: " · occupied"; font-weight: 400; font-size: 11px; color: var(--muted); }
+
+  .alert { margin: 12px 0 0; padding: 10px 12px; border-radius: 10px;
+    background: rgba(248,113,113,0.1); border: 1px solid rgba(248,113,113,0.4);
+    color: var(--warn); font-size: 13px; display: none; }
+  .alert.show { display: block; }
+  .alert strong { color: #fff; }
+  .alert .override { display: inline-block; margin-left: 6px; background: transparent;
+    color: var(--warn); border: 1px solid var(--warn); border-radius: 8px; padding: 3px 8px;
+    font-size: 12px; cursor: pointer; font-weight: 700; }
+
+  footer.modal-footer { padding: 16px 20px 18px; display: flex; gap: 10px; justify-content: flex-end;
+    border-top: 1px solid var(--line); }
+  footer button { border-radius: 10px; padding: 12px 16px; font-size: 14px; font-weight: 700;
+    border: 1px solid var(--line); cursor: pointer; }
+  .btn.ghost { background: transparent; color: var(--muted); }
+  .btn.primary { background: var(--accent); color: #2a1a00; border-color: var(--accent-strong); }
+  .btn.primary[disabled] { opacity: 0.4; cursor: not-allowed; }
+
+  /* States toggler */
+  .states { position: fixed; top: 16px; left: 16px; display: flex; gap: 6px; z-index: 20; }
+  .states button { background: var(--surface-2); color: var(--muted); border: 1px solid var(--line);
+    border-radius: 999px; padding: 6px 12px; font-size: 12px; cursor: pointer; }
+  .states button.active { color: var(--text); border-color: var(--accent); }
+</style>
+</head>
+<body>
+
+<div class="states">
+  <button class="active" data-state="empty">Empty input</button>
+  <button data-state="valid">Valid table</button>
+  <button data-state="conflict">Conflict</button>
+</div>
+
+<!-- Blurred background standing in for the host stand -->
+<div class="page" aria-hidden="true">
+  <h1>SKB · Host Stand — Waiting</h1>
+  <div class="row head">
+    <span>#</span><span>Name</span><span>Size</span><span>Phone</span><span>Promised</span><span>Waiting</span><span>Actions</span>
+  </div>
+  <div class="row"><span>1</span><span>Kim, Jae</span><span>2</span><span>+1 555 010 2233</span><span>6:28 PM</span><span>22:04</span><span></span></div>
+  <div class="row"><span>2</span><span>Nguyen, Thao</span><span>5</span><span>+1 555 019 7781</span><span>6:35 PM</span><span>14:51</span><span></span></div>
+  <div class="row"><span>3</span><span>Patel, Sana</span><span>4</span><span>+1 555 020 3344</span><span>6:42 PM</span><span>08:12</span><span></span></div>
+</div>
+
+<!-- Seat Party dialog -->
+<div class="overlay">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="seat-title">
+    <header>
+      <h2 id="seat-title">Seat Party</h2>
+      <button class="close" aria-label="Close">×</button>
+    </header>
+
+    <div class="party">
+      <div><div class="k">Party</div><div class="v">Patel, Sana</div></div>
+      <div><div class="k">Size</div><div class="v">4</div></div>
+      <div><div class="k">Waiting</div><div class="v">08:12</div></div>
+    </div>
+
+    <div class="body">
+      <label class="field" for="tnum">Table #</label>
+      <input id="tnum" class="table-num" type="number" min="1" max="999" placeholder="—" value="" />
+
+      <div class="chips-label">Recent tables</div>
+      <div class="chips">
+        <button class="chip" data-val="12">12</button>
+        <button class="chip" data-val="14">14</button>
+        <button class="chip occupied" data-val="7" disabled>7</button>
+        <button class="chip" data-val="22">22</button>
+        <button class="chip" data-val="5">5</button>
+      </div>
+
+      <div class="alert" id="alert">
+        Table <strong id="alertN">12</strong> is occupied by <strong>Kim, Jae</strong>.
+        <button class="override">Seat anyway</button>
+      </div>
+    </div>
+
+    <footer class="modal-footer">
+      <button class="btn ghost">Cancel</button>
+      <button class="btn primary" id="confirm" disabled>Seat at table —</button>
+    </footer>
+  </div>
+</div>
+
+<script>
+  const input = document.getElementById('tnum');
+  const confirm = document.getElementById('confirm');
+  const alertBox = document.getElementById('alert');
+  const alertN = document.getElementById('alertN');
+  const stateBtns = document.querySelectorAll('.states button');
+
+  function render() {
+    const v = input.value.trim();
+    if (!v) {
+      confirm.textContent = 'Seat at table —';
+      confirm.disabled = true;
+    } else {
+      confirm.textContent = `Seat at table ${v}`;
+      confirm.disabled = false;
+    }
+  }
+
+  input.addEventListener('input', () => {
+    alertBox.classList.remove('show');
+    input.classList.remove('error');
+    render();
+  });
+
+  document.querySelectorAll('.chip').forEach(c => c.addEventListener('click', () => {
+    if (c.disabled) return;
+    input.value = c.dataset.val;
+    alertBox.classList.remove('show');
+    input.classList.remove('error');
+    render();
+    input.focus();
+  }));
+
+  stateBtns.forEach(b => b.addEventListener('click', () => {
+    stateBtns.forEach(x => x.classList.toggle('active', x === b));
+    const s = b.dataset.state;
+    if (s === 'empty') { input.value = ''; alertBox.classList.remove('show'); input.classList.remove('error'); }
+    if (s === 'valid') { input.value = '14'; alertBox.classList.remove('show'); input.classList.remove('error'); }
+    if (s === 'conflict') { input.value = '12'; alertN.textContent = '12'; alertBox.classList.add('show'); input.classList.add('error'); }
+    render();
+  }));
+
+  render();
+</script>
+</body>
+</html>

@@ -1,6 +1,10 @@
 // Quick standalone debug — no test framework
 process.env.MONGODB_DB_NAME = 'skb_voice_standalone';
 delete process.env.TWILIO_AUTH_TOKEN;
+// The signature middleware is now strict by default (BB-05 follow-up). Local
+// tests that intentionally run without Twilio creds must opt in to the
+// unsigned-request bypass.
+process.env.SKB_ALLOW_UNSIGNED_TWILIO = '1';
 
 import express from 'express';
 import http from 'http';

@@ -53,21 +53,27 @@ const cases: BaseTestCase[] = [
         },
     },
 
-    // -- Host queue shows masked phone --
+    // -- Host queue shows masked phone (plus optional host-only dial field) --
     {
-        name: 'sms: host queue returns phoneMasked, not full phone',
+        name: 'sms: host queue returns phoneMasked, not bare phone',
         tags: ['integration', 'sms', 'host-queue', 'privacy'],
         testFn: async () => {
             await resetDb();
             await joinQueue('test', { name: 'Sid', partySize: 2, phone: '5127753555' });
             const q = await listHostQueue('test');
             const party = q.parties[0];
-            const json = JSON.stringify(party);
-            return (
-                party.phoneMasked === '******3555' &&
-                !json.includes('5127753555') &&
-                !('phone' in party)
-            );
+            // Must be masked for display.
+            if (party.phoneMasked !== '******3555') return false;
+            // Must never expose a bare `phone` key.
+            if ('phone' in party) return false;
+            // phoneForDial is a new host-only field populated behind the
+            // PIN-gated /host route so the browser can use a tel: anchor.
+            // It is allowed (and expected) to contain the full E.164 number
+            // here; the privacy guard is that this field MUST NEVER appear
+            // on any diner-facing (/queue/*) response — see the snapshot
+            // test in tests/integration/queue.integration.test.ts.
+            return typeof party.phoneForDial === 'string'
+                && party.phoneForDial === '+15127753555';
         },
     },
 

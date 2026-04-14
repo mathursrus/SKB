@@ -236,7 +236,7 @@ td.size { text-align: center; width: 60px; }
 td.phone { font-family: ui-monospace, Menlo, Consolas, monospace; color: var(--muted); width: 80px; }
 td.eta { width: 100px; font-weight: 600; }
 td.wait { width: 90px; color: var(--muted); }
-td.actions { width: 380px; text-align: right; white-space: nowrap; }
+td.actions { width: 460px; text-align: right; white-space: nowrap; }
 tr.row-called td { background: #fff8e1; }
 .badge-called {
     display: inline-block;
@@ -474,6 +474,29 @@ tr.expandable:hover { background: var(--surface-alt); }
    Issue #37 — waitlist transparency, host chat/call, table on seat
    ============================================================================ */
 
+/* ---------- Diner: FOUC guard ---------------------
+   Before queue.js decides which card to show, keep all three cards hidden
+   so a deep-link arrival doesn't flash the join form for ~500ms on top of
+   a seated/called user. queue.js removes .queue-boot once loadStatus
+   returns, and from that point forward individual card visibility is
+   managed via style.display on each card element. */
+body.queue-boot main > .card,
+body.queue-boot main > .public-list { visibility: hidden; }
+/* Tiny in-card spinner shown during the first-load flicker window so the
+   page isn't visually empty. Positioned absolutely so it doesn't reserve
+   layout space. */
+body.queue-boot::before {
+    content: "Loading…";
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 14px;
+    color: var(--muted);
+    font-family: inherit;
+    pointer-events: none;
+}
+
 /* ---------- Diner: seated terminal card ---------- */
 .seated-caption {
     margin-top: 6px;
@@ -661,6 +684,19 @@ tr.expandable:hover { background: var(--surface-alt); }
     background: currentColor;
     -webkit-mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/></svg>") center / contain no-repeat;
             mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/></svg>") center / contain no-repeat;
+}
+
+/* Custom SMS / Custom Call are "more" actions — icon-only square buttons
+   to keep the row tight. Tooltip provides the labeled meaning. */
+.host td.actions button.more-btn {
+    width: 36px;
+    padding: 0;
+    font-size: 15px;
+    color: var(--muted);
+}
+.host td.actions button.more-btn:hover {
+    color: var(--fg);
+    background: var(--surface-alt);
 }
 
 /* No-show sits visually quieter — text-only tertiary so it never competes
@@ -851,6 +887,114 @@ input.seat-dialog-input:focus {
     padding: 16px 20px;
     margin-top: 14px;
     border-top: 1px solid var(--divider);
+}
+
+/* ---------- Custom SMS dialog ---------- */
+.custom-sms-dialog,
+.custom-call-dialog {
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 0;
+    width: 480px;
+    max-width: 92vw;
+    box-shadow: var(--shadow-md);
+    background: var(--card);
+    color: var(--fg);
+}
+.custom-sms-dialog::backdrop,
+.custom-call-dialog::backdrop { background: rgba(0,0,0,0.5); }
+.custom-sms-dialog form,
+.custom-call-dialog form { padding: 0; margin: 0; }
+.custom-sms-to {
+    padding: 14px 20px;
+    background: var(--surface-alt);
+    border-bottom: 1px solid var(--divider);
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+}
+.custom-sms-to .k {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--muted);
+}
+.custom-sms-to .v {
+    font-size: 16px;
+    font-weight: 700;
+}
+.custom-sms-to .v-phone {
+    font-family: ui-monospace, Menlo, Consolas, monospace;
+    color: var(--muted);
+    font-size: 13px;
+}
+textarea.custom-sms-textarea {
+    display: block;
+    width: calc(100% - 40px);
+    margin: 0 20px;
+    padding: 12px 14px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    font-family: inherit;
+    font-size: 14px;
+    line-height: 1.4;
+    resize: vertical;
+    min-height: 96px;
+    background: var(--bg);
+    color: var(--fg);
+    box-sizing: border-box;
+}
+textarea.custom-sms-textarea:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(227, 191, 61, 0.25);
+}
+.custom-sms-charcount {
+    margin: 6px 20px 0;
+    font-size: 11px;
+    color: var(--muted);
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+/* ---------- Custom Call dialog ---------- */
+.custom-call-body {
+    padding: 20px 24px;
+    text-align: center;
+}
+.custom-call-body strong {
+    display: block;
+    font-size: 18px;
+    margin-bottom: 4px;
+}
+.custom-call-phone {
+    font-family: ui-monospace, Menlo, Consolas, monospace;
+    color: var(--muted);
+    font-size: 15px;
+    margin-bottom: 14px;
+}
+.custom-call-hint {
+    font-size: 12px;
+    color: var(--muted);
+    line-height: 1.4;
+    margin: 0;
+}
+a#custom-call-confirm.primary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 10px 18px;
+    text-decoration: none;
+    background: #111;
+    color: #fff;
+    border-radius: 8px;
+    font-weight: 700;
+    font-size: 14px;
+}
+a#custom-call-confirm.primary:hover { background: var(--accent-dark); color: #111; }
+a#custom-call-confirm[aria-disabled="true"] {
+    opacity: 0.4;
+    pointer-events: none;
 }
 
 /* ---------- Chat drawer ---------- */

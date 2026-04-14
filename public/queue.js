@@ -321,6 +321,13 @@
 
     // Boot
     (async function () {
+        // Allow ?code=SKB-XXX in the URL to override localStorage so shared
+        // deep links (and the join confirmation SMS) just work.
+        const params = new URLSearchParams(window.location.search);
+        const urlCode = params.get('code');
+        if (urlCode) {
+            localStorage.setItem(STORAGE_KEY, urlCode);
+        }
         const existing = localStorage.getItem(STORAGE_KEY);
         let needStateLoad = true;
         if (existing) {

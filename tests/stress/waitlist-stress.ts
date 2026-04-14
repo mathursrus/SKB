@@ -10,6 +10,16 @@
 // host loop walks the waiting list on a tight cadence and randomly notifies
 // / seats / no-shows / advances parties through the dining lifecycle.
 //
+// The stress test connects to whatever MongoDB database the rest of the
+// repo is using (resolved via `determineDatabaseName()` from git-utils), so
+// if you run `npm run mcp` in one terminal and `npm run stress` in another,
+// the host stand at http://127.0.0.1:8720/r/stress/host.html will see the
+// same data the stress test is producing.
+//
+// It scopes all its data to its own Location (`stress`) and wipes that
+// location at the start of each run, so it can't clobber your normal dev
+// data at the default `skb` location.
+//
 // At the end the script prints ops counts, per-op latency percentiles, and
 // runs a set of hard assertions on the final collection state:
 //
@@ -27,19 +37,14 @@
 // Usage:
 //
 //   npm run stress
-//     — against local mongo, skb_stress_test database, fresh slate.
+//     — default 200 diners / 75s / no slowmo. Uses the shared dev db.
 //
-//   MONGODB_URI=mongodb://host:port/ npm run stress
-//     — point at a different mongo instance.
+//   STRESS_SLOWMO_MS=1500 STRESS_DURATION_MS=600000 npm run stress
+//     — paced at 1.5s per host action for comfortable browser watching.
 //
 //   STRESS_NUM_DINERS=500 STRESS_DURATION_MS=180000 npm run stress
 //     — turn the knobs for a heavier run.
 // ============================================================================
-
-// Env must be set BEFORE importing anything that touches the db module.
-// Use a dedicated db so we never pollute dev/prod.
-process.env.MONGODB_DB_NAME = process.env.MONGODB_DB_NAME ?? 'skb_stress_test';
-process.env.FRAIM_BRANCH = '';
 
 import {
     closeDb,
@@ -67,15 +72,29 @@ import { ensureLocation } from '../../src/services/locations.js';
 // --- Tunables ---------------------------------------------------------------
 
 const LOCATION_ID = 'stress';
+const LOCATION_PIN = '1234'; // matches the default dev server SKB_HOST_PIN
 const NUM_DINERS = Number(process.env.STRESS_NUM_DINERS ?? 200);
 const TEST_DURATION_MS = Number(process.env.STRESS_DURATION_MS ?? 75_000); // 75s
 const MAX_PARTY_SIZE = 6;
 
-// Diner poll cadence (random within this range)
+// STRESS_SLOWMO_MS — inject a flat sleep between host actions, diner polls,
+// and diner joins so you can watch the queue build and drain in a browser
+// at http://127.0.0.1:8720/r/stress/host.html. Default 0 (max speed for CI).
+// Values worth trying:
+//   0    → max speed, CI / data-integrity (200 diners drains in ~45s)
+//   500  → noticeable pacing, still quick
+//   1500 → comfortable browser watching, each action spaced ~1.5s apart
+//   3000 → demo mode
+const SLOWMO_MS = Number(process.env.STRESS_SLOWMO_MS ?? 0);
+
+// Diner poll cadence (random within this range). Slowmo is added on top.
 const DINER_POLL_MIN_MS = 600;
 const DINER_POLL_MAX_MS = 1_800;
 
-// Host loop cadence (random within this range)
+// Host loop cadence (random within this range). When slowmo is non-zero,
+// it REPLACES the random range with a flat pace so the visible queue
+// change is evenly spaced, which is much easier to track with the eyes
+// than a jittery cadence.
 const HOST_TICK_MIN_MS = 150;
 const HOST_TICK_MAX_MS = 400;
 
@@ -192,8 +211,15 @@ async function simulateDiner(
 ): Promise<DinerResult> {
     // Stagger joins over roughly the first third of the test window so the
     // host loop always has something to work on, not a giant initial lump.
-    const joinDelay = rnd(0, TEST_DURATION_MS / 3);
-    await sleep(joinDelay);
+    //
+    // When SLOWMO is on, stretch the join window to cover ~60% of the run
+    // so the queue visibly grows over time instead of slamming in at the
+    // start and then just draining. Each diner also gets an evenly-spaced
+    // baseline slot so the build-up is smooth on the eye.
+    const joinWindow = SLOWMO_MS > 0 ? TEST_DURATION_MS * 0.6 : TEST_DURATION_MS / 3;
+    const baseline = (id / Math.max(1, NUM_DINERS)) * joinWindow;
+    const jitter = rnd(0, joinWindow / NUM_DINERS);
+    await sleep(baseline + jitter);
     if (Date.now() >= stopAt) {
         return { id, outcome: 'timeout_join' };
     }
@@ -237,8 +263,18 @@ async function simulateDiner(
 // --- Host loop --------------------------------------------------------------
 
 async function runHostLoop(report: Report, stopAt: number): Promise<void> {
+    // When SLOWMO is on, flatten the tick cadence to the slowmo value so
+    // the visible queue changes every N milliseconds on a steady beat.
+    // Otherwise use the original jittery range for max concurrency stress.
+    const tickSleep = (): Promise<void> =>
+        SLOWMO_MS > 0 ? sleep(SLOWMO_MS) : sleep(rnd(HOST_TICK_MIN_MS, HOST_TICK_MAX_MS));
+    // Per-action pause inside a single tick — the main knob that makes
+    // individual seats/notifies visible to a browser eye.
+    const perActionSleep = (): Promise<void> =>
+        SLOWMO_MS > 0 ? sleep(SLOWMO_MS) : Promise.resolve();
+
     while (Date.now() < stopAt) {
-        await sleep(rnd(HOST_TICK_MIN_MS, HOST_TICK_MAX_MS));
+        await tickSleep();
         if (Date.now() >= stopAt) break;
 
         // --- Waiting + called parties: notify / seat / no-show ---
@@ -255,6 +291,7 @@ async function runHostLoop(report: Report, stopAt: number): Promise<void> {
                         await report.time('notify', () => callParty(party.id));
                         report.counts.notifies++;
                     } catch { /* tracked */ }
+                    await perActionSleep();
                     continue;
                 }
                 if (
@@ -272,6 +309,7 @@ async function runHostLoop(report: Report, stopAt: number): Promise<void> {
                             report.counts.seats++;
                         }
                     } catch { /* tracked */ }
+                    await perActionSleep();
                     continue;
                 }
                 if (roll < P_NOTIFY_IF_WAITING + P_SEAT_IF_NOTIFIED_OR_WAITING + P_NO_SHOW) {
@@ -281,6 +319,7 @@ async function runHostLoop(report: Report, stopAt: number): Promise<void> {
                         );
                         if (r.ok) report.counts.noShows++;
                     } catch { /* tracked */ }
+                    await perActionSleep();
                 }
             }
         } catch { /* tracked */ }
@@ -298,6 +337,7 @@ async function runHostLoop(report: Report, stopAt: number): Promise<void> {
                     const r = await report.time('advance', () => advanceParty(p.id, next));
                     if (r.ok) report.counts.advances++;
                 } catch { /* tracked */ }
+                await perActionSleep();
             }
         } catch { /* tracked */ }
     }
@@ -347,17 +387,27 @@ function fmtMs(n: number): string {
 }
 
 async function main(): Promise<void> {
+    // Reuse whatever db the dev server uses so `npm run mcp` in another
+    // terminal can watch the queue build and drain in a real browser.
+    const db = await getDb();
+    const dbName = db.databaseName;
+
     console.log('========================================');
     console.log(' SKB Waitlist stress test');
     console.log('========================================');
-    console.log(`Mongo db            : ${process.env.MONGODB_DB_NAME}`);
-    console.log(`Location id         : ${LOCATION_ID}`);
+    console.log(`Mongo db            : ${dbName}`);
+    console.log(`Location id         : ${LOCATION_ID}  (PIN ${LOCATION_PIN})`);
     console.log(`Num diners          : ${NUM_DINERS}`);
     console.log(`Test duration       : ${Math.round(TEST_DURATION_MS / 1000)}s`);
+    console.log(`Slowmo              : ${SLOWMO_MS === 0 ? 'off' : `${SLOWMO_MS}ms / action`}`);
+    console.log('');
+    console.log('Watch in browser:');
+    console.log(`  Host   : http://127.0.0.1:8720/r/${LOCATION_ID}/host.html   (PIN ${LOCATION_PIN})`);
+    console.log(`  Diner  : http://127.0.0.1:8720/r/${LOCATION_ID}/queue.html`);
     console.log('');
 
     await resetStressDb();
-    await ensureLocation(LOCATION_ID, 'Stress Test', '0000');
+    await ensureLocation(LOCATION_ID, 'Stress Test', LOCATION_PIN);
 
     const report = new Report();
     const t0 = Date.now();
@@ -491,7 +541,6 @@ async function main(): Promise<void> {
     );
 
     // A7: every completed/dining party has the timestamps we expect for their state.
-    const db = await getDb();
     const rawEntries = await queueEntries(db).find({ locationId: LOCATION_ID }).toArray();
     let missingTs = 0;
     for (const e of rawEntries) {

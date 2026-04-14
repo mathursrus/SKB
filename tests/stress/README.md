@@ -17,15 +17,47 @@ on the final collection state with no HTTP-layer noise.
 npm run stress
 ```
 
-Defaults: 200 diners, 75 seconds, MongoDB at `localhost:27017` on a dedicated
-`skb_stress_test` database. The stress test creates its own Location
-(`stress`) and wipes its own data at the start of each run.
+Defaults: 200 diners, 75 seconds, MongoDB resolved via `determineDatabaseName()`
+(same way the dev server resolves it — typically `skb_dev` on local master).
+The stress test scopes all its data to its own Location (`stress`, PIN `1234`)
+and wipes that location at the start of each run, so it can't clobber your
+manual dev data at the default `skb` location.
+
+## Watch it live in a browser
+
+Because the stress test uses the **same** database as the dev server, you can
+run the dev server in one terminal and the stress test in another, and watch
+the queue build and drain in real time:
+
+```bash
+# Terminal 1 — dev server (uses skb_dev by default)
+SKB_HOST_PIN=1234 \
+SKB_COOKIE_SECRET=dev \
+SKB_ALLOW_UNSIGNED_TWILIO=1 \
+PORT=8720 \
+npm run mcp
+
+# Terminal 2 — stress test with a comfortable pace for watching
+STRESS_NUM_DINERS=100 \
+STRESS_DURATION_MS=600000 \
+STRESS_SLOWMO_MS=1500 \
+npm run stress
+```
+
+Then open:
+
+- **Host**: <http://127.0.0.1:8720/r/stress/host.html> — PIN `1234`
+- **Diner**: <http://127.0.0.1:8720/r/stress/queue.html>
+
+You'll see parties appearing in the Waiting tab, flipping through Called /
+Seated / No-show, and advancing through the Dining tab in real time on the
+host's 5-second poll.
 
 ## Heavy run
 
 ```bash
 npm run stress:heavy
-# 500 diners, 120s
+# 500 diners, 120s, max speed (no slowmo)
 ```
 
 ## Knobs (env vars)
@@ -34,8 +66,9 @@ npm run stress:heavy
 |---|---|---|
 | `STRESS_NUM_DINERS` | `200` | Total simulated diners across the run |
 | `STRESS_DURATION_MS` | `75000` | Max run duration in ms (diners stop polling + host loop stops after this) |
+| `STRESS_SLOWMO_MS` | `0` | **Pacing knob** for watching in a browser. When non-zero, the host loop pauses this long between each action (seat, notify, no-show, advance), and diner joins are spread across ~60% of the run duration instead of the first third. Try `1500` for comfortable watching, `3000` for demo pace. |
 | `MONGODB_URI` | `mongodb://localhost:27017` | Point at a different mongo |
-| `MONGODB_DB_NAME` | `skb_stress_test` | Override the stress db name (useful if you want to aim at a throwaway per-branch db) |
+| `MONGODB_DB_NAME` | *(auto)* | Normally unset — the stress test uses whatever `determineDatabaseName()` returns (matches the dev server). Set this if you want to aim at a throwaway db. |
 
 ## What gets exercised
 

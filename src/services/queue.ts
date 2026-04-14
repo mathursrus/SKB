@@ -243,6 +243,7 @@ export async function listHostQueue(locationId: string, now: Date = new Date()):
         const position = i + 1;
         return {
             id: String(d._id ?? ''),
+            code: d.code,
             position,
             name: d.name,
             partySize: d.partySize,

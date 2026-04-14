@@ -108,6 +108,7 @@ export interface StatusResponseDTO {
 
 export interface HostPartyDTO {
     id: string;
+    code: string; // party code, e.g. "SKB-7Q3" — used by chat templates on the UI
     position: number;
     name: string;
     partySize: number;

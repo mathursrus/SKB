@@ -16,9 +16,12 @@
     const STORAGE_KEY = 'skb_queue_code';
 
     // --- Auto-refresh polling ---
-    const STATUS_POLL_MS = 30_000;  // 30s when diner is in the queue
+    // R5: diner view updates at least every 15s while waiting.
+    const STATUS_POLL_MS = 15_000;  // 15s when diner is in the queue
     const STATE_POLL_MS  = 60_000;  // 60s when browsing (not in queue)
     let pollTimer = null;
+    let lastJoinedAtMs = null;       // base for the live-tick waiting counter
+    let tickTimer = null;
 
     function startPolling(mode) {
         stopPolling();
@@ -72,6 +75,74 @@
     const statusCard = document.getElementById('status-card');
     const confEtaMins = document.getElementById('conf-eta-mins');
     const calledTimes = document.getElementById('called-times');
+    const waitElapsed = document.getElementById('wait-elapsed');
+    const waitElapsedVal = document.getElementById('wait-elapsed-val');
+    const ackBtn = document.getElementById('ack-btn');
+    const publicListCard = document.getElementById('public-list-card');
+    const publicListRows = document.getElementById('public-list-rows');
+    const publicListCount = document.getElementById('public-list-count');
+
+    function fmtDuration(seconds) {
+        if (!Number.isFinite(seconds) || seconds < 0) return '00:00';
+        const hours = Math.floor(seconds / 3600);
+        const mins = Math.floor((seconds % 3600) / 60);
+        const secs = Math.floor(seconds % 60);
+        if (hours > 0) return `${hours}h ${mins}m`;
+        return String(mins).padStart(2, '0') + ':' + String(secs).padStart(2, '0');
+    }
+
+    function startLiveTick() {
+        stopLiveTick();
+        tickTimer = setInterval(() => {
+            // Tick the viewer's own wait counter
+            if (lastJoinedAtMs != null) {
+                const s = Math.max(0, Math.floor((Date.now() - lastJoinedAtMs) / 1000));
+                if (waitElapsedVal) waitElapsedVal.textContent = fmtDuration(s);
+            }
+            // Tick every row in the public list
+            const rowEls = publicListRows ? publicListRows.querySelectorAll('[data-joined]') : [];
+            rowEls.forEach(el => {
+                const j = Number(el.getAttribute('data-joined'));
+                if (!Number.isFinite(j)) return;
+                const s = Math.max(0, Math.floor((Date.now() - j) / 1000));
+                const waitEl = el.querySelector('.pqr-wait');
+                if (waitEl) waitEl.textContent = fmtDuration(s);
+            });
+        }, 1000);
+    }
+
+    function stopLiveTick() {
+        if (tickTimer) { clearInterval(tickTimer); tickTimer = null; }
+    }
+
+    function renderPublicList(queue) {
+        if (!publicListCard || !publicListRows) return;
+        if (!Array.isArray(queue) || queue.length === 0) {
+            publicListCard.style.display = 'none';
+            publicListRows.innerHTML = '';
+            return;
+        }
+        publicListCard.style.display = '';
+        publicListCount.textContent = queue.length + (queue.length === 1 ? ' party' : ' parties');
+        publicListRows.innerHTML = queue.map(row => {
+            const joined = new Date(Date.now() - row.waitingSeconds * 1000).getTime();
+            const klass = row.isMe ? 'pqr pqr-me' : 'pqr';
+            const me = row.isMe ? ' <span class="pqr-you">(you)</span>' : '';
+            return '<div class="' + klass + '" role="listitem" data-joined="' + joined + '">' +
+                '<span class="pqr-pos">#' + row.position + '</span>' +
+                '<span class="pqr-name">' + escapeHtml(row.displayName) + me + '</span>' +
+                '<span class="pqr-size">' + row.partySize + '</span>' +
+                '<span class="pqr-eta">' + fmtTime(row.promisedEtaAt) + '</span>' +
+                '<span class="pqr-wait">' + fmtDuration(row.waitingSeconds) + '</span>' +
+            '</div>';
+        }).join('');
+    }
+
+    function escapeHtml(s) {
+        return String(s).replace(/[&<>"']/g, (c) => ({
+            '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+        }[c]));
+    }
 
     function fmtCalls(arr) {
         if (!Array.isArray(arr) || arr.length === 0) return '';
@@ -91,14 +162,38 @@
     async function loadStatus(code) {
         try {
             const res = await fetch('api/queue/status?code=' + encodeURIComponent(code));
+            if (res.status === 429) {
+                // Rate limited — just skip this cycle; next poll will retry.
+                return false;
+            }
             if (!res.ok) throw new Error('status failed');
             const s = await res.json();
-            if (s.state === 'not_found' || s.state === 'seated' || s.state === 'no_show') {
+            if (s.state === 'seated') {
+                // R7 terminal: "Seated at table <N>"
+                statusCard.style.display = 'none';
+                joinCard.style.display = 'none';
+                confCard.style.display = '';
+                confCard.classList.remove('next-up');
+                confCode.textContent = s.code;
+                confPos.textContent = s.tableNumber ? ('Table ' + s.tableNumber) : 'Seated';
+                confEta.textContent = 'Enjoy your meal';
+                confEtaMins.textContent = '';
+                calledCallout.style.display = 'none';
+                if (waitElapsed) waitElapsed.style.display = 'none';
+                renderPublicList([]);
+                stopLiveTick();
+                stopPolling();
+                localStorage.removeItem(STORAGE_KEY);
+                return false;
+            }
+            if (s.state === 'not_found' || s.state === 'no_show' || s.state === 'departed') {
                 localStorage.removeItem(STORAGE_KEY);
                 joinCard.style.display = '';
                 confCard.style.display = 'none';
                 confCard.classList.remove('next-up');
                 statusCard.style.display = '';
+                renderPublicList([]);
+                stopLiveTick();
                 return true; // caller should still reload state
             }
             // In queue — hide the "should I join?" card
@@ -106,15 +201,36 @@
             joinCard.style.display = 'none';
             confCard.style.display = '';
             confCode.textContent = s.code;
-            confPos.textContent = '#' + s.position;
+            confPos.textContent = s.position === 1 ? "You're next" : ('#' + s.position + ' of ' + (s.totalParties || s.position));
             confEta.textContent = s.etaAt ? fmtTime(s.etaAt) : '—';
             confEtaMins.textContent =
                 (typeof s.etaMinutes === 'number')
                     ? ('in ~' + s.etaMinutes + ' min')
                     : '';
+            // Compute lastJoinedAtMs from my row's waitingSeconds (server-authoritative).
+            const myRow = Array.isArray(s.queue) ? s.queue.find(r => r.isMe) : null;
+            if (myRow) {
+                lastJoinedAtMs = Date.now() - myRow.waitingSeconds * 1000;
+                if (waitElapsed) {
+                    waitElapsed.style.display = '';
+                    waitElapsedVal.textContent = fmtDuration(myRow.waitingSeconds);
+                }
+            }
+            renderPublicList(s.queue || []);
+            startLiveTick();
             if (s.state === 'called') {
                 calledCallout.style.display = '';
                 calledTimes.textContent = fmtCalls(s.callsMinutesAgo);
+                if (ackBtn) {
+                    // If the diner already acked on a prior poll, surface confirmed state.
+                    if (s.onMyWayAt) {
+                        ackBtn.textContent = "On the way \u2713";
+                        ackBtn.disabled = true;
+                    } else {
+                        ackBtn.textContent = "I'm on my way";
+                        ackBtn.disabled = false;
+                    }
+                }
             } else {
                 calledCallout.style.display = 'none';
             }
@@ -126,7 +242,29 @@
             confCard.style.display = 'none';
             confCard.classList.remove('next-up');
             statusCard.style.display = '';
+            renderPublicList([]);
+            stopLiveTick();
             return true;
+        }
+    }
+
+    async function onAcknowledge() {
+        const code = localStorage.getItem(STORAGE_KEY);
+        if (!code || !ackBtn) return;
+        ackBtn.disabled = true;
+        const oldText = ackBtn.textContent;
+        ackBtn.textContent = 'Sending…';
+        try {
+            const res = await fetch('api/queue/acknowledge', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ code }),
+            });
+            if (!res.ok) throw new Error('ack failed');
+            ackBtn.textContent = "On the way \u2713";
+        } catch {
+            ackBtn.textContent = oldText;
+            ackBtn.disabled = false;
         }
     }
 
@@ -179,6 +317,7 @@
         const needStateLoad = code ? await loadStatus(code) : true;
         if (needStateLoad) await loadState();
     });
+    if (ackBtn) ackBtn.addEventListener('click', onAcknowledge);
 
     // Boot
     (async function () {

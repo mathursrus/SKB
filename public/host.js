@@ -92,18 +92,30 @@
                         }).join(' ')
                         : ' <span class="badge-called">CALLED</span>')
                     : '';
-                const callLabel = p.state === 'called' ? 'Recall' : 'Call';
-                return '<tr data-id="' + p.id + '" class="' + (p.state === 'called' ? 'row-called' : '') + '">' +
+                const notifyLabel = p.state === 'called' ? 'Re-notify' : 'Notify';
+                const hasPhone = !!p.phoneMasked && p.phoneMasked !== '—';
+                const disabledAttr = hasPhone ? '' : ' disabled';
+                const onWayBadge = p.onMyWayAt
+                    ? ' <span class="badge-on-way">On the way</span>'
+                    : '';
+                const unread = Number(p.unreadChat || 0);
+                const unreadDot = unread > 0 ? '<span class="unread-dot" aria-label="' + unread + ' unread">' + unread + '</span>' : '';
+                const safeName = escapeHtml(p.name);
+                const callHref = hasPhone && p.phoneForDial ? 'tel:' + p.phoneForDial : '#';
+                const callDisabled = hasPhone ? '' : ' aria-disabled="true"';
+                return '<tr data-id="' + p.id + '" data-code="' + escapeHtml(p.code || '') + '" data-name="' + safeName + '" data-size="' + p.partySize + '" data-wait="' + p.waitingMinutes + '" data-phone-mask="' + (p.phoneMasked || '') + '" class="' + (p.state === 'called' ? 'row-called' : '') + '">' +
                     '<td class="num">' + p.position + '</td>' +
-                    '<td>' + escapeHtml(p.name) + calledBadge + '</td>' +
+                    '<td>' + safeName + calledBadge + onWayBadge + '</td>' +
                     '<td class="size">' + p.partySize + '</td>' +
                     '<td class="phone">' + (p.phoneMasked || '\u2014') + '</td>' +
                     '<td class="eta">' + fmtTime(p.etaAt) + '</td>' +
                     '<td class="wait">' + p.waitingMinutes + 'm</td>' +
                     '<td class="actions">' +
-                        '<button class="call-btn" data-action="call">' + callLabel + '</button>' +
-                        '<button class="remove" data-reason="seated">Seated</button>' +
-                        '<button class="remove" data-reason="no_show">No-show</button>' +
+                        '<button class="primary seat-btn" data-action="seat" aria-label="Seat ' + safeName + '">Seat</button>' +
+                        '<button class="notify-btn" data-action="notify" aria-label="' + notifyLabel + ' ' + safeName + '"' + disabledAttr + '>' + notifyLabel + '</button>' +
+                        '<button class="chat-btn rowbtn-new" data-action="chat" aria-label="Chat with ' + safeName + (unread ? ', ' + unread + ' unread' : '') + '"' + disabledAttr + '>Chat' + unreadDot + '</button>' +
+                        '<a class="call-dial-btn rowbtn-new" data-action="call" href="' + callHref + '" aria-label="Call ' + safeName + '"' + callDisabled + '>Call</a>' +
+                        '<button class="remove" data-reason="no_show" aria-label="Mark ' + safeName + ' as no-show">No-show</button>' +
                     '</td></tr>';
             }).join('');
         } catch (e) {
@@ -128,7 +140,7 @@
             countDining.textContent = String(data.diningCount);
             tabBadgeSeated.textContent = String(data.diningCount);
             if (data.parties.length === 0) {
-                diningRows.innerHTML = '<tr><td colspan="6" class="empty">No dining parties.</td></tr>';
+                diningRows.innerHTML = '<tr><td colspan="7" class="empty">No dining parties.</td></tr>';
                 return;
             }
             let html = '';
@@ -138,7 +150,9 @@
                     ? '<button class="advance-btn" data-id="' + p.id + '" data-state="' + next.state + '">' + next.label + '</button>' +
                       (p.state !== 'checkout' ? '<button class="depart-btn" data-id="' + p.id + '" data-state="departed">Departed</button>' : '')
                     : '';
+                const tbl = (typeof p.tableNumber === 'number') ? String(p.tableNumber) : '\u2014';
                 html += '<tr class="expandable" data-dining-id="' + p.id + '">' +
+                    '<td class="table-num"><strong>' + tbl + '</strong></td>' +
                     '<td>' + escapeHtml(p.name) + '</td>' +
                     '<td class="size">' + p.partySize + '</td>' +
                     '<td><span class="state-badge state-' + p.state + '">' + p.state + '</span></td>' +
@@ -148,7 +162,7 @@
                     '</tr>';
                 // Timeline expansion row
                 if (expandedTimelineId === p.id) {
-                    html += '<tr class="timeline-row" data-timeline-for="' + p.id + '"><td colspan="6"><div class="timeline-detail" id="timeline-' + p.id + '">Loading...</div></td></tr>';
+                    html += '<tr class="timeline-row" data-timeline-for="' + p.id + '"><td colspan="7"><div class="timeline-detail" id="timeline-' + p.id + '">Loading...</div></td></tr>';
                 }
             }
             diningRows.innerHTML = html;
@@ -278,17 +292,32 @@
     }
 
     // -- Event handlers --
-    async function onRemove(id, reason) {
+    async function onRemove(id, reason, extra) {
+        const body = Object.assign({ reason }, extra || {});
         const r = await fetch('api/host/queue/' + encodeURIComponent(id) + '/remove', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ reason }),
+            body: JSON.stringify(body),
         });
-        if (r.status === 401) { showLogin(); return; }
+        if (r.status === 401) { showLogin(); return { ok: false }; }
+        if (r.status === 409) {
+            return { ok: false, conflict: await r.json().catch(() => ({})) };
+        }
+        if (!r.ok) {
+            return { ok: false };
+        }
         refreshAll();
+        return { ok: true };
     }
 
-    async function onCall(id) {
+    // R11: non-blocking call-log ping (frontend triggers the tel: dial itself).
+    async function onCallLog(id) {
+        try {
+            await fetch('api/host/queue/' + encodeURIComponent(id) + '/call-log', { method: 'POST' });
+        } catch { /* non-blocking */ }
+    }
+
+    async function onNotify(id) {
         const r = await fetch('api/host/queue/' + encodeURIComponent(id) + '/call', {
             method: 'POST',
         });
@@ -308,6 +337,239 @@
             }
         }
         setTimeout(refreshAll, 800);
+    }
+
+    // ========================================================================
+    // R14/R15: Seat Party dialog
+    // ========================================================================
+    const seatDialog = document.getElementById('seat-dialog');
+    const seatForm = document.getElementById('seat-form');
+    const seatInput = document.getElementById('seat-table-input');
+    const seatConfirmBtn = document.getElementById('seat-dialog-confirm');
+    const seatAlert = document.getElementById('seat-dialog-alert');
+    const seatChips = document.getElementById('seat-dialog-chips');
+    const seatPartyName = document.getElementById('seat-party-name');
+    const seatPartySize = document.getElementById('seat-party-size');
+    const seatPartyWaiting = document.getElementById('seat-party-waiting');
+    const seatCancelBtn = document.getElementById('seat-dialog-cancel');
+    const seatCloseBtn = document.getElementById('seat-dialog-close');
+    let seatCurrentPartyId = null;
+    let seatOverride = false;
+
+    function setSeatConfirmLabel() {
+        if (!seatConfirmBtn || !seatInput) return;
+        const v = seatInput.value.trim();
+        seatConfirmBtn.textContent = v ? ('Seat at table ' + v) : 'Seat at table —';
+        seatConfirmBtn.disabled = v.length === 0;
+    }
+
+    async function loadRecentTables() {
+        if (!seatChips) return;
+        try {
+            // Recent table picks are derived from the Seated tab payload — no extra API call needed.
+            const r = await fetch('api/host/dining');
+            if (!r.ok) { seatChips.innerHTML = ''; return; }
+            const data = await r.json();
+            const occupied = new Set();
+            for (const p of (data.parties || [])) {
+                if (typeof p.tableNumber === 'number') occupied.add(p.tableNumber);
+            }
+            // Quick-pick chips: the 5 most recently seated tables, plus 3 small unused ones.
+            const chips = Array.from(occupied).slice(0, 5);
+            const out = [];
+            for (const n of chips) {
+                out.push('<button type="button" class="chip chip-occupied" data-val="' + n + '" disabled aria-label="Table ' + n + ' occupied">' + n + '</button>');
+            }
+            seatChips.innerHTML = out.join('');
+        } catch { seatChips.innerHTML = ''; }
+    }
+
+    function openSeatDialog(partyId, partyName, partySize, waitingMinutes) {
+        if (!seatDialog) return;
+        seatCurrentPartyId = partyId;
+        seatOverride = false;
+        seatPartyName.textContent = partyName;
+        seatPartySize.textContent = String(partySize);
+        seatPartyWaiting.textContent = waitingMinutes + 'm';
+        seatInput.value = '';
+        seatAlert.style.display = 'none';
+        seatAlert.textContent = '';
+        setSeatConfirmLabel();
+        loadRecentTables();
+        if (typeof seatDialog.showModal === 'function') {
+            seatDialog.showModal();
+        } else {
+            seatDialog.setAttribute('open', '');
+        }
+        setTimeout(() => seatInput.focus(), 0);
+    }
+
+    function closeSeatDialog() {
+        if (!seatDialog) return;
+        if (typeof seatDialog.close === 'function') seatDialog.close();
+        else seatDialog.removeAttribute('open');
+        seatCurrentPartyId = null;
+    }
+
+    if (seatInput) {
+        seatInput.addEventListener('input', () => {
+            seatAlert.style.display = 'none';
+            setSeatConfirmLabel();
+        });
+    }
+    if (seatChips) {
+        seatChips.addEventListener('click', (e) => {
+            const btn = e.target.closest('button.chip');
+            if (!btn || btn.disabled) return;
+            seatInput.value = btn.dataset.val;
+            seatAlert.style.display = 'none';
+            setSeatConfirmLabel();
+            seatInput.focus();
+        });
+    }
+    if (seatCancelBtn) seatCancelBtn.addEventListener('click', (e) => { e.preventDefault(); closeSeatDialog(); });
+    if (seatCloseBtn) seatCloseBtn.addEventListener('click', (e) => { e.preventDefault(); closeSeatDialog(); });
+    if (seatForm) {
+        seatForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            if (!seatCurrentPartyId) { closeSeatDialog(); return; }
+            const n = Number(seatInput.value.trim());
+            if (!Number.isInteger(n) || n < 1 || n > 999) {
+                seatAlert.textContent = 'Table # must be an integer 1..999';
+                seatAlert.style.display = '';
+                return;
+            }
+            const result = await onRemove(seatCurrentPartyId, 'seated', { tableNumber: n, override: seatOverride });
+            if (result && result.conflict) {
+                seatAlert.innerHTML = 'Table <strong>' + n + '</strong> is occupied by <strong>'
+                    + escapeHtml(result.conflict.occupiedBy || 'another party') + '</strong>. '
+                    + '<button type="button" id="seat-override" class="override-btn">Seat anyway</button>';
+                seatAlert.style.display = '';
+                const overrideBtn = document.getElementById('seat-override');
+                if (overrideBtn) {
+                    overrideBtn.addEventListener('click', async () => {
+                        seatOverride = true;
+                        const retry = await onRemove(seatCurrentPartyId, 'seated', { tableNumber: n, override: true });
+                        if (retry && retry.ok) closeSeatDialog();
+                    });
+                }
+                return;
+            }
+            if (result && result.ok) closeSeatDialog();
+        });
+    }
+
+    // ========================================================================
+    // R10: Chat drawer
+    // ========================================================================
+    const chatDrawer = document.getElementById('chat-drawer');
+    const chatBackdrop = document.getElementById('chat-drawer-backdrop');
+    const chatThread = document.getElementById('chat-drawer-thread');
+    const chatQuicks = document.getElementById('chat-drawer-quicks');
+    const chatInput = document.getElementById('chat-drawer-input');
+    const chatForm = document.getElementById('chat-drawer-form');
+    const chatTitle = document.getElementById('chat-drawer-title');
+    const chatPhone = document.getElementById('chat-drawer-phone');
+    const chatCloseBtn = document.getElementById('chat-drawer-close');
+    let chatOpenId = null;
+    let chatOpenCode = null;
+
+    function renderChatThread(messages) {
+        if (!chatThread) return;
+        if (!Array.isArray(messages) || messages.length === 0) {
+            chatThread.innerHTML = '<div class="chat-empty">No messages yet.</div>';
+            return;
+        }
+        chatThread.innerHTML = messages.map((m) => {
+            const klass = m.direction === 'outbound' ? 'chat-msg chat-msg-out' : 'chat-msg chat-msg-in';
+            const ts = m.at ? fmtTime(m.at) : '';
+            const statusIcon = m.smsStatus === 'failed' ? ' <span class="chat-status-fail">\u2717</span>'
+                : m.smsStatus === 'sent' ? ' <span class="chat-status-ok">\u2713</span>' : '';
+            return '<div class="' + klass + '">' + escapeHtml(m.body) + '<span class="chat-ts">' + ts + statusIcon + '</span></div>';
+        }).join('');
+        // scroll to bottom on initial render
+        chatThread.scrollTop = chatThread.scrollHeight;
+    }
+
+    async function loadChatThread(id) {
+        try {
+            const r = await fetch('api/host/queue/' + encodeURIComponent(id) + '/chat');
+            if (!r.ok) { renderChatThread([]); return; }
+            const thread = await r.json();
+            renderChatThread(thread.messages || []);
+        } catch { renderChatThread([]); }
+    }
+
+    async function markChatRead(id) {
+        try {
+            await fetch('api/host/queue/' + encodeURIComponent(id) + '/chat/read', { method: 'PATCH' });
+        } catch { /* non-blocking */ }
+    }
+
+    async function loadQuickReplies(code) {
+        if (!chatQuicks) return;
+        if (!code) { chatQuicks.innerHTML = ''; return; }
+        try {
+            const r = await fetch('api/host/chat/templates?code=' + encodeURIComponent(code));
+            if (!r.ok) { chatQuicks.innerHTML = ''; return; }
+            const t = await r.json();
+            chatQuicks.innerHTML = [
+                '<button type="button" data-q="' + encodeURIComponent(t.almostReady) + '">Table almost ready</button>',
+                '<button type="button" data-q="' + encodeURIComponent(t.needMoreTime) + '">Need 5 more minutes?</button>',
+                '<button type="button" data-q="' + encodeURIComponent(t.lostYou) + '">We lost you</button>',
+            ].join('');
+        } catch { chatQuicks.innerHTML = ''; }
+    }
+
+    function openChat(id, name, phoneMasked, code) {
+        if (!chatDrawer) return;
+        chatOpenId = id;
+        chatOpenCode = code;
+        chatTitle.textContent = name;
+        chatPhone.textContent = phoneMasked || '';
+        chatThread.innerHTML = '<div class="chat-empty">Loading…</div>';
+        chatDrawer.classList.add('open');
+        chatDrawer.setAttribute('aria-hidden', 'false');
+        if (chatBackdrop) chatBackdrop.classList.add('open');
+        loadChatThread(id).then(() => markChatRead(id).then(refreshWaiting));
+        loadQuickReplies(code);
+        setTimeout(() => chatInput && chatInput.focus(), 0);
+    }
+
+    function closeChat() {
+        if (!chatDrawer) return;
+        chatDrawer.classList.remove('open');
+        chatDrawer.setAttribute('aria-hidden', 'true');
+        if (chatBackdrop) chatBackdrop.classList.remove('open');
+        chatOpenId = null;
+    }
+
+    if (chatCloseBtn) chatCloseBtn.addEventListener('click', closeChat);
+    if (chatBackdrop) chatBackdrop.addEventListener('click', closeChat);
+    if (chatQuicks) {
+        chatQuicks.addEventListener('click', (e) => {
+            const b = e.target.closest('button[data-q]');
+            if (!b || !chatInput) return;
+            chatInput.value = decodeURIComponent(b.dataset.q || '');
+            chatInput.focus();
+        });
+    }
+    if (chatForm) {
+        chatForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            if (!chatOpenId || !chatInput) return;
+            const body = chatInput.value.trim();
+            if (!body) return;
+            chatInput.value = '';
+            try {
+                await fetch('api/host/queue/' + encodeURIComponent(chatOpenId) + '/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ body }),
+                });
+            } catch { /* non-blocking */ }
+            await loadChatThread(chatOpenId);
+        });
     }
 
     async function onAdvance(id, state) {
@@ -381,17 +643,46 @@
     // Waiting tab: delegate clicks
     rows.addEventListener('click', (e) => {
         const target = e.target;
-        const callBtn = target.closest('button.call-btn');
-        if (callBtn) {
-            const id = callBtn.closest('tr')?.dataset.id;
-            if (id) onCall(id);
+        const tr = target.closest('tr');
+        if (!tr) return;
+        const id = tr.dataset.id;
+        if (!id) return;
+
+        // R14: Seat opens dialog (not direct submit)
+        const seatBtn = target.closest('button.seat-btn');
+        if (seatBtn) {
+            openSeatDialog(id, tr.dataset.name || '', Number(tr.dataset.size) || 0, Number(tr.dataset.wait) || 0);
             return;
         }
+        // Notify (existing backend /call path) — formerly "Call"
+        const notifyBtn = target.closest('button.notify-btn');
+        if (notifyBtn) {
+            if (notifyBtn.hasAttribute('disabled')) return;
+            onNotify(id);
+            return;
+        }
+        // R10: Chat opens drawer
+        const chatBtn = target.closest('button.chat-btn');
+        if (chatBtn) {
+            if (chatBtn.hasAttribute('disabled')) return;
+            openChat(id, tr.dataset.name || '', tr.dataset.phoneMask || '', tr.dataset.code || '');
+            return;
+        }
+        // R11: Call is an anchor — log the dial but let the browser handle tel:
+        const callAnchor = target.closest('a.call-dial-btn');
+        if (callAnchor) {
+            if (callAnchor.getAttribute('aria-disabled') === 'true') {
+                e.preventDefault();
+                return;
+            }
+            onCallLog(id);
+            return;
+        }
+        // No-show — still a direct remove
         const removeBtn = target.closest('button.remove');
         if (removeBtn) {
-            const id = removeBtn.closest('tr')?.dataset.id;
             const reason = removeBtn.dataset.reason;
-            if (id && reason) onRemove(id, reason);
+            if (reason === 'no_show') onRemove(id, reason);
         }
     });
 

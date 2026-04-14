@@ -260,7 +260,7 @@ export function hostRouter(): Router {
 
     // R10: expose the quick-reply templates to the client so host.js doesn't
     // have to hardcode wording that lives server-side in smsTemplates.ts.
-    r.get('/host/queue/:id/chat/templates', requireHost, async (req: Request, res: Response) => {
+    r.get('/host/chat/templates', requireHost, async (req: Request, res: Response) => {
         const code = String(req.query.code ?? '');
         if (!code) { res.status(400).json({ error: 'code required', field: 'code' }); return; }
         res.json({

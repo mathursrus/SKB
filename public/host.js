@@ -111,10 +111,10 @@
                     '<td class="eta">' + fmtTime(p.etaAt) + '</td>' +
                     '<td class="wait">' + p.waitingMinutes + 'm</td>' +
                     '<td class="actions">' +
-                        '<button class="primary seat-btn" data-action="seat" aria-label="Seat ' + safeName + '">Seat</button>' +
+                        '<button class="seat-btn" data-action="seat" aria-label="Seat ' + safeName + '">Seat</button>' +
                         '<button class="notify-btn" data-action="notify" aria-label="' + notifyLabel + ' ' + safeName + '"' + disabledAttr + '>' + notifyLabel + '</button>' +
-                        '<button class="chat-btn rowbtn-new" data-action="chat" aria-label="Chat with ' + safeName + (unread ? ', ' + unread + ' unread' : '') + '"' + disabledAttr + '>Chat' + unreadDot + '</button>' +
-                        '<a class="call-dial-btn rowbtn-new" data-action="call" href="' + callHref + '" aria-label="Call ' + safeName + '"' + callDisabled + '>Call</a>' +
+                        '<button class="chat-btn" data-action="chat" aria-label="Chat with ' + safeName + (unread ? ', ' + unread + ' unread' : '') + '"' + disabledAttr + '>Chat' + unreadDot + '</button>' +
+                        '<a class="call-dial-btn rowbtn" data-action="call" href="' + callHref + '" aria-label="Call ' + safeName + '"' + callDisabled + '>Call</a>' +
                         '<button class="remove" data-reason="no_show" aria-label="Mark ' + safeName + ' as no-show">No-show</button>' +
                     '</td></tr>';
             }).join('');

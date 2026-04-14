@@ -16,40 +16,55 @@
     const STORAGE_KEY = 'skb_queue_code';
 
     // --- Auto-refresh polling ---
-    // R5: diner view updates at least every 15s while waiting.
-    const STATUS_POLL_MS = 15_000;  // 15s when diner is in the queue
-    const STATE_POLL_MS  = 60_000;  // 60s when browsing (not in queue)
+    // We poll aggressively while the diner is in the queue so state changes
+    // (called, seated) reach the page without a manual refresh. The server
+    // rate-limits status at 1/5s/code so 10s is safely within the budget.
+    const STATUS_POLL_MS = 10_000;
+    const STATE_POLL_MS  = 60_000;
     let pollTimer = null;
+    let pollMode = null;             // 'status' | 'state' | null
     let lastJoinedAtMs = null;       // base for the live-tick waiting counter
+    let lastEtaAtMs = null;          // base for the live countdown to promised time
+    let lastSeenState = null;        // so we can pulse when the state flips
     let tickTimer = null;
+
+    async function pollOnce() {
+        if (pollMode === 'status') {
+            const code = localStorage.getItem(STORAGE_KEY);
+            if (!code) { startPolling('state'); return; }
+            const left = await loadStatus(code);
+            if (left) startPolling('state');
+        } else {
+            await loadState();
+        }
+    }
 
     function startPolling(mode) {
         stopPolling();
+        pollMode = mode;
         const ms = mode === 'status' ? STATUS_POLL_MS : STATE_POLL_MS;
-        pollTimer = setInterval(async () => {
-            if (mode === 'status') {
-                const code = localStorage.getItem(STORAGE_KEY);
-                if (!code) { startPolling('state'); return; }
-                const left = await loadStatus(code);
-                if (left) startPolling('state');
-            } else {
-                await loadState();
-            }
-        }, ms);
+        pollTimer = setInterval(pollOnce, ms);
     }
 
     function stopPolling() {
         if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
     }
 
-    // Pause when tab is hidden, resume when visible
-    document.addEventListener('visibilitychange', () => {
+    // When the tab becomes visible again (phone unlock, app switch), fire an
+    // immediate refresh BEFORE restarting the interval so the diner sees the
+    // current state right away — not after another 10-60s wait.
+    document.addEventListener('visibilitychange', async () => {
         if (document.hidden) {
             stopPolling();
-        } else {
-            const code = localStorage.getItem(STORAGE_KEY);
-            startPolling(code && confCard.style.display !== 'none' ? 'status' : 'state');
+            return;
         }
+        const code = localStorage.getItem(STORAGE_KEY);
+        const mode = code && confCard.style.display !== 'none' ? 'status' : 'state';
+        // Immediate fetch
+        pollMode = mode;
+        await pollOnce();
+        // Then resume the periodic poll
+        startPolling(mode);
     });
 
     function fmtTime(iso) {
@@ -98,6 +113,19 @@
             if (lastJoinedAtMs != null) {
                 const s = Math.max(0, Math.floor((Date.now() - lastJoinedAtMs) / 1000));
                 if (waitElapsedVal) waitElapsedVal.textContent = fmtDuration(s);
+            }
+            // Tick the "in ~N min" live countdown against the promised time.
+            // This decreases smoothly minute by minute instead of sitting on a
+            // static number until the server reports a position change.
+            if (lastEtaAtMs != null && confEtaMins) {
+                const remainingMs = lastEtaAtMs - Date.now();
+                if (remainingMs <= 30_000) {
+                    // Within 30s of promised time — switch wording
+                    confEtaMins.textContent = 'any minute now';
+                } else {
+                    const mins = Math.max(0, Math.round(remainingMs / 60_000));
+                    confEtaMins.textContent = 'in ~' + mins + ' min';
+                }
             }
             // Tick every row in the public list
             const rowEls = publicListRows ? publicListRows.querySelectorAll('[data-joined]') : [];
@@ -206,13 +234,20 @@
             statusCard.style.display = 'none';
             joinCard.style.display = 'none';
             confCard.style.display = '';
+            confCard.classList.remove('is-seated');
             confCode.textContent = s.code;
             confPos.textContent = s.position === 1 ? "You're next" : ('#' + s.position + ' of ' + (s.totalParties || s.position));
             confEta.textContent = s.etaAt ? fmtTime(s.etaAt) : '—';
-            confEtaMins.textContent =
-                (typeof s.etaMinutes === 'number')
-                    ? ('in ~' + s.etaMinutes + ' min')
-                    : '';
+            // Capture the promised time so the 1s tick can count it down
+            // smoothly minute by minute.
+            lastEtaAtMs = s.etaAt ? new Date(s.etaAt).getTime() : null;
+            if (lastEtaAtMs != null) {
+                const remainingMs = lastEtaAtMs - Date.now();
+                const mins = Math.max(0, Math.round(remainingMs / 60_000));
+                confEtaMins.textContent = remainingMs <= 30_000 ? 'any minute now' : ('in ~' + mins + ' min');
+            } else {
+                confEtaMins.textContent = '';
+            }
             // Compute lastJoinedAtMs from my row's waitingSeconds (server-authoritative).
             const myRow = Array.isArray(s.queue) ? s.queue.find(r => r.isMe) : null;
             if (myRow) {
@@ -237,9 +272,28 @@
                         ackBtn.disabled = false;
                     }
                 }
+                // If we just flipped from waiting → called, pulse the card + try
+                // a best-effort haptic + notification so a user with the tab in
+                // the background notices.
+                if (lastSeenState && lastSeenState !== 'called') {
+                    confCard.classList.remove('state-flip');
+                    // Force reflow so the animation restarts if the class lingers
+                    void confCard.offsetWidth;
+                    confCard.classList.add('state-flip');
+                    if (navigator.vibrate) { try { navigator.vibrate([120, 60, 120]); } catch {} }
+                    try {
+                        if ('Notification' in window && Notification.permission === 'granted') {
+                            new Notification('SKB: Your table is ready', {
+                                body: 'Please head to the host stand.',
+                                tag: 'skb-table-ready',
+                            });
+                        }
+                    } catch {}
+                }
             } else {
                 calledCallout.style.display = 'none';
             }
+            lastSeenState = s.state;
             updateNextUp(s.position);
             return false; // skip reloading state
         } catch {
@@ -300,14 +354,28 @@
             const r = await res.json();
             localStorage.setItem(STORAGE_KEY, r.code);
             confCode.textContent = r.code;
-            confPos.textContent = '#' + r.position;
+            confPos.textContent = r.position === 1 ? "You're next" : ('#' + r.position);
             confEta.textContent = fmtTime(r.etaAt);
-            confEtaMins.textContent = 'in ~' + r.etaMinutes + ' min';
+            lastEtaAtMs = r.etaAt ? new Date(r.etaAt).getTime() : null;
+            if (lastEtaAtMs != null) {
+                const remainingMs = lastEtaAtMs - Date.now();
+                const mins = Math.max(0, Math.round(remainingMs / 60_000));
+                confEtaMins.textContent = remainingMs <= 30_000 ? 'any minute now' : ('in ~' + mins + ' min');
+            }
             calledCallout.style.display = 'none';
             statusCard.style.display = 'none';
             joinCard.style.display = 'none';
             confCard.style.display = '';
             updateNextUp(r.position);
+            // Best-effort notification permission so we can ping the diner when
+            // their table is ready even if the tab is backgrounded. Must run
+            // inside a user gesture (form submit counts) per browser rules.
+            if ('Notification' in window && Notification.permission === 'default') {
+                try { Notification.requestPermission(); } catch {}
+            }
+            // Fire an immediate status refresh to populate the public list +
+            // live wait counter without waiting for the first poll tick.
+            await loadStatus(r.code);
             startPolling('status');
         } catch (err) {
             joinError.textContent = err && err.message ? err.message : 'Join failed';

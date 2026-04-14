@@ -15,7 +15,9 @@
     "test:integration": "tsx tests/integration/queue.integration.test.ts && tsx tests/integration/board.integration.test.ts && tsx tests/integration/queue-template.integration.test.ts && tsx tests/integration/host-auth.integration.test.ts && tsx tests/integration/multi-tenant.integration.test.ts && tsx tests/integration/dynamic-eta.integration.test.ts && tsx tests/integration/sms.integration.test.ts && tsx tests/integration/voice.integration.test.ts && tsx tests/integration/waitlist-transparency.integration.test.ts && tsx tests/integration/visit-route.integration.test.ts",
     "test:e2e": "tsx e2e/queue.e2e.test.ts",
     "test:prod": "tsx prod-validation/twilio.prod.test.ts && tsx prod-validation/google-maps.prod.test.ts && tsx prod-validation/compliance-pages.prod.test.ts && tsx prod-validation/twilio-status.prod.test.ts",
-    "test:all": "npm test && npm run test:integration && npm run test:e2e"
+    "test:all": "npm test && npm run test:integration && npm run test:e2e",
+    "stress": "tsx tests/stress/waitlist-stress.ts",
+    "stress:heavy": "STRESS_NUM_DINERS=500 STRESS_DURATION_MS=120000 tsx tests/stress/waitlist-stress.ts"
   },
   "dependencies": {
     "@azure/communication-phone-numbers": "^1.5.0",

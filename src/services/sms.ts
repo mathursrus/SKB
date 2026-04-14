@@ -24,6 +24,18 @@ function getConfig(): SmsConfig | null {
     return { accountSid, authToken, fromNumber };
 }
 
+// Twilio's messages.create() returns status=queued and dispatches delivery
+// asynchronously. Final state (delivered / failed / undelivered + error_code)
+// is only reported by a statusCallback POST. Without one, carrier rejections
+// (e.g. 30034 "unregistered 10DLC") are invisible to the app. The route lives
+// at /api/sms/status in src/routes/sms.ts and is tenant-global — we only log
+// from it, so we don't need /r/:loc scoping.
+function buildStatusCallbackUrl(): string | undefined {
+    const base = process.env.SKB_PUBLIC_BASE_URL;
+    if (!base) return undefined;
+    return `${base.replace(/\/$/, '')}/api/sms/status`;
+}
+
 export async function sendSms(to: string, body: string): Promise<SmsSendResult> {
     const config = getConfig();
     if (!config) {
@@ -32,11 +44,13 @@ export async function sendSms(to: string, body: string): Promise<SmsSendResult> 
     }
 
     const client = twilio(config.accountSid, config.authToken);
+    const statusCallback = buildStatusCallbackUrl();
     try {
         const msg = await client.messages.create({
             from: config.fromNumber,
             to: `+1${to}`,
             body,
+            ...(statusCallback ? { statusCallback } : {}),
         });
         console.log(JSON.stringify({
             t: new Date().toISOString(), level: 'info', msg: 'sms.sent',

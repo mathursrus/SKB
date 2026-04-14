@@ -22,7 +22,7 @@ import { queueRouter } from './routes/queue.js';
 import { hostRouter } from './routes/host.js';
 import { healthRouter } from './routes/health.js';
 import { voiceRouter } from './routes/voice.js';
-import { smsRouter } from './routes/sms.js';
+import { smsRouter, smsStatusRouter } from './routes/sms.js';
 import { renderQueuePage } from './services/queue-template.js';
 import { resolveVisit } from './services/visit-page.js';
 import { listLocations, ensureLocation } from './services/locations.js';
@@ -56,6 +56,7 @@ app.get('/', async (_req: Request, res: Response) => {
 app.use('/r/:loc/api', queueRouter());
 app.use('/r/:loc/api', hostRouter());
 app.use('/r/:loc/api', smsRouter()); // inbound SMS webhook (Twilio)
+app.use('/api', smsStatusRouter()); // outbound SMS delivery statusCallback (Twilio, tenant-global)
 // Voice IVR routes (conditionally enabled)
 if (process.env.TWILIO_VOICE_ENABLED === 'true') {
     app.use('/r/:loc/api', voiceRouter());

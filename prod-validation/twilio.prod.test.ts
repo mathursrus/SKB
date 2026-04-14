@@ -113,6 +113,54 @@ const cases: BaseTestCase[] = [
             return r.status === 200 && r.body.includes('SKB');
         },
     },
+
+    // ── Outbound SMS delivery statusCallback ─────────────────────────────
+    // This endpoint is tenant-global (mounted at /api/sms/status, not under
+    // /r/:loc) and receives Twilio POSTs every time a message status
+    // changes. Without it, carrier rejections (30034 "unregistered 10DLC")
+    // disappear silently. We prove it's registered + middleware-protected
+    // the same way we do for voice: POST without a signature → 403.
+    {
+        name: 'sms /api/sms/status endpoint is registered (not 404)',
+        tags: ['prod', 'twilio', 'sms', 'router'],
+        testFn: async () => {
+            const r = await httpPost('/api/sms/status', {
+                MessageSid: 'SMprobe0000000000000000000000000000',
+                MessageStatus: 'delivered',
+                AccountSid: 'ACprobe0000000000000000000000000000',
+            });
+            if (r.status === 404) {
+                console.error('  ⚠ SMS status route not registered — check smsStatusRouter mount in src/mcp-server.ts');
+            }
+            return r.status === 403;
+        },
+    },
+    {
+        name: 'sms /api/sms/status rejects requests without x-twilio-signature',
+        tags: ['prod', 'twilio', 'sms', 'security'],
+        testFn: async () => {
+            const r = await httpPost('/api/sms/status', {
+                MessageSid: 'SMprobe0000000000000000000000000000',
+                MessageStatus: 'delivered',
+            });
+            return r.status === 403;
+        },
+    },
+    {
+        name: 'sms /api/sms/status rejects requests with an invalid signature',
+        tags: ['prod', 'twilio', 'sms', 'security'],
+        testFn: async () => {
+            const r = await httpPost(
+                '/api/sms/status',
+                {
+                    MessageSid: 'SMprobe0000000000000000000000000000',
+                    MessageStatus: 'delivered',
+                },
+                { 'x-twilio-signature': 'ThisIsNotAValidSignature==' },
+            );
+            return r.status === 403;
+        },
+    },
 ];
 
 console.log(`\nRunning against: ${BASE_URL}\nLocation: ${LOC}\n`);

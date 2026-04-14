@@ -190,6 +190,24 @@ const cases: BaseTestCase[] = [
         },
     },
     {
+        name: 'getStatusByCode response never contains any phone/dial key (privacy guard)',
+        tags: ['integration', 'queue', 'privacy', 'host-dto'],
+        testFn: async () => {
+            await resetDb();
+            await joinQueue('test', { name: 'Viewer', partySize: 2, phone: '5127753555' });
+            const r = await joinQueue('test', { name: 'Other', partySize: 3, phone: '5127759999' });
+            const s = await getStatusByCode(r.code);
+            const json = JSON.stringify(s);
+            // No full phone, no masked display, no E.164, no phoneForDial.
+            if (json.includes('5127753555')) return false;
+            if (json.includes('5127759999')) return false;
+            if (json.includes('phoneForDial')) return false;
+            if (json.includes('phoneMasked')) return false;
+            if (json.includes('"phone"')) return false;
+            return true;
+        },
+    },
+    {
         name: 'appendInbound with no matching phone stores with entryCode=null (audit)',
         tags: ['integration', 'queue', 'chat'],
         testFn: async () => {

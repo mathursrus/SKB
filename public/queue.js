@@ -404,10 +404,18 @@
         }
         const existing = localStorage.getItem(STORAGE_KEY);
         let needStateLoad = true;
-        if (existing) {
-            needStateLoad = await loadStatus(existing);
+        try {
+            if (existing) {
+                needStateLoad = await loadStatus(existing);
+            }
+            if (needStateLoad) await loadState();
+        } finally {
+            // Reveal whatever card queue.js decided to show. Until this point,
+            // body.queue-boot keeps everything hidden to avoid the flash of
+            // "join form" that happens on a deep link for a seated/called user.
+            document.body.classList.remove('queue-boot');
+            document.body.classList.add('queue-ready');
         }
-        if (needStateLoad) await loadState();
 
         // Start auto-refresh
         startPolling(existing && !needStateLoad ? 'status' : 'state');

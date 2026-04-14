@@ -159,6 +159,54 @@
         </form>
     </dialog>
 
+    <!-- Custom SMS compose modal (one-off free-text send to a specific party). -->
+    <dialog id="custom-sms-dialog" class="custom-sms-dialog" aria-labelledby="custom-sms-title">
+        <form method="dialog" id="custom-sms-form">
+            <header class="seat-dialog-header">
+                <h2 id="custom-sms-title">Send custom message</h2>
+                <button type="button" class="seat-dialog-close" id="custom-sms-close" aria-label="Close">&times;</button>
+            </header>
+            <div class="custom-sms-to">
+                <span class="k">To</span>
+                <span class="v" id="custom-sms-to-name">—</span>
+                <span class="v-phone" id="custom-sms-to-phone">—</span>
+            </div>
+            <label for="custom-sms-body" class="seat-dialog-label">Message</label>
+            <textarea id="custom-sms-body" class="custom-sms-textarea" rows="4" maxlength="1600"
+                placeholder="Type a one-off message…"></textarea>
+            <div class="custom-sms-charcount"><span id="custom-sms-charcount">0</span> / 1600</div>
+            <div class="seat-dialog-alert" id="custom-sms-alert" role="alert" style="display:none"></div>
+            <footer class="seat-dialog-footer">
+                <button type="button" id="custom-sms-cancel">Cancel</button>
+                <button type="submit" id="custom-sms-send" class="primary" disabled>Send</button>
+            </footer>
+        </form>
+    </dialog>
+
+    <!-- Custom Call confirmation modal (confirm-before-dial, useful for
+         shared devices where accidental taps should NOT auto-dial). -->
+    <dialog id="custom-call-dialog" class="custom-call-dialog" aria-labelledby="custom-call-title">
+        <form method="dialog" id="custom-call-form">
+            <header class="seat-dialog-header">
+                <h2 id="custom-call-title">Confirm call</h2>
+                <button type="button" class="seat-dialog-close" id="custom-call-close" aria-label="Close">&times;</button>
+            </header>
+            <div class="custom-call-body">
+                <div>Call <strong id="custom-call-to-name">—</strong></div>
+                <div class="custom-call-phone" id="custom-call-to-phone">—</div>
+                <p class="custom-call-hint">
+                    This will open your device dialer. The party will see your
+                    restaurant number (or your personal number if the host
+                    stand is a personal phone).
+                </p>
+            </div>
+            <footer class="seat-dialog-footer">
+                <button type="button" id="custom-call-cancel">Cancel</button>
+                <a href="#" id="custom-call-confirm" class="primary">Call now</a>
+            </footer>
+        </form>
+    </dialog>
+
     <!-- R10: Chat slide-over drawer. -->
     <aside id="chat-drawer" class="chat-drawer" role="dialog" aria-modal="true"
         aria-labelledby="chat-drawer-title" aria-hidden="true">

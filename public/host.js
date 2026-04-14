@@ -103,7 +103,8 @@
                 const safeName = escapeHtml(p.name);
                 const callHref = hasPhone && p.phoneForDial ? 'tel:' + p.phoneForDial : '#';
                 const callDisabled = hasPhone ? '' : ' aria-disabled="true"';
-                return '<tr data-id="' + p.id + '" data-code="' + escapeHtml(p.code || '') + '" data-name="' + safeName + '" data-size="' + p.partySize + '" data-wait="' + p.waitingMinutes + '" data-phone-mask="' + (p.phoneMasked || '') + '" class="' + (p.state === 'called' ? 'row-called' : '') + '">' +
+                const phoneForDial = p.phoneForDial || '';
+                return '<tr data-id="' + p.id + '" data-code="' + escapeHtml(p.code || '') + '" data-name="' + safeName + '" data-size="' + p.partySize + '" data-wait="' + p.waitingMinutes + '" data-phone-mask="' + (p.phoneMasked || '') + '" data-phone-dial="' + escapeHtml(phoneForDial) + '" class="' + (p.state === 'called' ? 'row-called' : '') + '">' +
                     '<td class="num">' + p.position + '</td>' +
                     '<td>' + safeName + calledBadge + onWayBadge + '</td>' +
                     '<td class="size">' + p.partySize + '</td>' +
@@ -115,6 +116,8 @@
                         '<button class="notify-btn" data-action="notify" aria-label="' + notifyLabel + ' ' + safeName + '"' + disabledAttr + '>' + notifyLabel + '</button>' +
                         '<button class="chat-btn" data-action="chat" aria-label="Chat with ' + safeName + (unread ? ', ' + unread + ' unread' : '') + '"' + disabledAttr + '>Chat' + unreadDot + '</button>' +
                         '<a class="call-dial-btn rowbtn" data-action="call" href="' + callHref + '" aria-label="Call ' + safeName + '"' + callDisabled + '>Call</a>' +
+                        '<button class="custom-sms-btn more-btn" data-action="custom-sms" aria-label="Custom message to ' + safeName + '"' + disabledAttr + ' title="Custom message">\u2709</button>' +
+                        '<button class="custom-call-btn more-btn" data-action="custom-call" aria-label="Confirm-and-call ' + safeName + '"' + disabledAttr + ' title="Confirm call">\u260E</button>' +
                         '<button class="remove" data-reason="no_show" aria-label="Mark ' + safeName + ' as no-show">No-show</button>' +
                     '</td></tr>';
             }).join('');
@@ -429,9 +432,15 @@
     }
     if (seatCancelBtn) seatCancelBtn.addEventListener('click', (e) => { e.preventDefault(); closeSeatDialog(); });
     if (seatCloseBtn) seatCloseBtn.addEventListener('click', (e) => { e.preventDefault(); closeSeatDialog(); });
+    let seatSubmitting = false;
     if (seatForm) {
         seatForm.addEventListener('submit', async (e) => {
             e.preventDefault();
+            // Debounce double-clicks — the state guard on the backend would
+            // harmlessly 404 the second request, but disabling the button
+            // locally avoids the brief "in flight" window where nothing looks
+            // like it's happening.
+            if (seatSubmitting) return;
             if (!seatCurrentPartyId) { closeSeatDialog(); return; }
             const n = Number(seatInput.value.trim());
             if (!Number.isInteger(n) || n < 1 || n > 999) {
@@ -439,23 +448,40 @@
                 seatAlert.style.display = '';
                 return;
             }
-            const result = await onRemove(seatCurrentPartyId, 'seated', { tableNumber: n, override: seatOverride });
-            if (result && result.conflict) {
-                seatAlert.innerHTML = 'Table <strong>' + n + '</strong> is occupied by <strong>'
-                    + escapeHtml(result.conflict.occupiedBy || 'another party') + '</strong>. '
-                    + '<button type="button" id="seat-override" class="override-btn">Seat anyway</button>';
-                seatAlert.style.display = '';
-                const overrideBtn = document.getElementById('seat-override');
-                if (overrideBtn) {
-                    overrideBtn.addEventListener('click', async () => {
-                        seatOverride = true;
-                        const retry = await onRemove(seatCurrentPartyId, 'seated', { tableNumber: n, override: true });
-                        if (retry && retry.ok) closeSeatDialog();
-                    });
+            seatSubmitting = true;
+            seatConfirmBtn.disabled = true;
+            const oldLabel = seatConfirmBtn.textContent;
+            seatConfirmBtn.textContent = 'Seating…';
+            try {
+                const result = await onRemove(seatCurrentPartyId, 'seated', { tableNumber: n, override: seatOverride });
+                if (result && result.conflict) {
+                    seatAlert.innerHTML = 'Table <strong>' + n + '</strong> is occupied by <strong>'
+                        + escapeHtml(result.conflict.occupiedBy || 'another party') + '</strong>. '
+                        + '<button type="button" id="seat-override" class="override-btn">Seat anyway</button>';
+                    seatAlert.style.display = '';
+                    const overrideBtn = document.getElementById('seat-override');
+                    if (overrideBtn) {
+                        overrideBtn.addEventListener('click', async () => {
+                            if (seatSubmitting) return;
+                            seatSubmitting = true;
+                            overrideBtn.disabled = true;
+                            try {
+                                seatOverride = true;
+                                const retry = await onRemove(seatCurrentPartyId, 'seated', { tableNumber: n, override: true });
+                                if (retry && retry.ok) closeSeatDialog();
+                            } finally {
+                                seatSubmitting = false;
+                            }
+                        });
+                    }
+                    return;
                 }
-                return;
+                if (result && result.ok) closeSeatDialog();
+            } finally {
+                seatSubmitting = false;
+                seatConfirmBtn.disabled = false;
+                seatConfirmBtn.textContent = oldLabel;
             }
-            if (result && result.ok) closeSeatDialog();
         });
     }
 
@@ -572,6 +598,139 @@
         });
     }
 
+    // ========================================================================
+    // Custom SMS (one-off free-text compose) + Custom Call (confirm dialer)
+    // ========================================================================
+    const customSmsDialog = document.getElementById('custom-sms-dialog');
+    const customSmsForm = document.getElementById('custom-sms-form');
+    const customSmsBody = document.getElementById('custom-sms-body');
+    const customSmsSendBtn = document.getElementById('custom-sms-send');
+    const customSmsToName = document.getElementById('custom-sms-to-name');
+    const customSmsToPhone = document.getElementById('custom-sms-to-phone');
+    const customSmsAlert = document.getElementById('custom-sms-alert');
+    const customSmsCharCount = document.getElementById('custom-sms-charcount');
+    const customSmsCancel = document.getElementById('custom-sms-cancel');
+    const customSmsCloseBtn = document.getElementById('custom-sms-close');
+    let customSmsTargetId = null;
+    let customSmsSubmitting = false;
+
+    function openCustomSms(id, name, phoneMasked) {
+        if (!customSmsDialog) return;
+        customSmsTargetId = id;
+        customSmsToName.textContent = name;
+        customSmsToPhone.textContent = phoneMasked || '';
+        customSmsBody.value = '';
+        customSmsCharCount.textContent = '0';
+        customSmsSendBtn.disabled = true;
+        customSmsAlert.style.display = 'none';
+        customSmsAlert.textContent = '';
+        if (typeof customSmsDialog.showModal === 'function') customSmsDialog.showModal();
+        else customSmsDialog.setAttribute('open', '');
+        setTimeout(() => customSmsBody.focus(), 0);
+    }
+
+    function closeCustomSms() {
+        if (!customSmsDialog) return;
+        if (typeof customSmsDialog.close === 'function') customSmsDialog.close();
+        else customSmsDialog.removeAttribute('open');
+        customSmsTargetId = null;
+    }
+
+    if (customSmsBody) {
+        customSmsBody.addEventListener('input', () => {
+            const len = customSmsBody.value.length;
+            customSmsCharCount.textContent = String(len);
+            customSmsSendBtn.disabled = customSmsBody.value.trim().length === 0;
+        });
+    }
+    if (customSmsCancel) customSmsCancel.addEventListener('click', (e) => { e.preventDefault(); closeCustomSms(); });
+    if (customSmsCloseBtn) customSmsCloseBtn.addEventListener('click', (e) => { e.preventDefault(); closeCustomSms(); });
+    if (customSmsForm) {
+        customSmsForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            if (customSmsSubmitting || !customSmsTargetId) return;
+            const body = customSmsBody.value.trim();
+            if (!body) {
+                customSmsAlert.textContent = 'Message cannot be empty.';
+                customSmsAlert.style.display = '';
+                return;
+            }
+            customSmsSubmitting = true;
+            customSmsSendBtn.disabled = true;
+            const oldLabel = customSmsSendBtn.textContent;
+            customSmsSendBtn.textContent = 'Sending…';
+            try {
+                const r = await fetch('api/host/queue/' + encodeURIComponent(customSmsTargetId) + '/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ body }),
+                });
+                if (r.status === 401) { showLogin(); return; }
+                if (!r.ok) {
+                    const err = await r.json().catch(() => ({}));
+                    customSmsAlert.textContent = err.error || 'Send failed.';
+                    customSmsAlert.style.display = '';
+                    return;
+                }
+                closeCustomSms();
+                // Refresh host list so unread / delivery-status icons update.
+                refreshWaiting();
+            } catch {
+                customSmsAlert.textContent = 'Network error. Try again.';
+                customSmsAlert.style.display = '';
+            } finally {
+                customSmsSubmitting = false;
+                customSmsSendBtn.disabled = false;
+                customSmsSendBtn.textContent = oldLabel;
+            }
+        });
+    }
+
+    const customCallDialog = document.getElementById('custom-call-dialog');
+    const customCallToName = document.getElementById('custom-call-to-name');
+    const customCallToPhone = document.getElementById('custom-call-to-phone');
+    const customCallConfirm = document.getElementById('custom-call-confirm');
+    const customCallCancel = document.getElementById('custom-call-cancel');
+    const customCallCloseBtn = document.getElementById('custom-call-close');
+    let customCallTargetId = null;
+
+    function openCustomCall(id, name, phoneMasked, phoneDial) {
+        if (!customCallDialog) return;
+        customCallTargetId = id;
+        customCallToName.textContent = name;
+        customCallToPhone.textContent = phoneMasked || '';
+        if (phoneDial) {
+            customCallConfirm.setAttribute('href', 'tel:' + phoneDial);
+            customCallConfirm.removeAttribute('aria-disabled');
+        } else {
+            customCallConfirm.setAttribute('href', '#');
+            customCallConfirm.setAttribute('aria-disabled', 'true');
+        }
+        if (typeof customCallDialog.showModal === 'function') customCallDialog.showModal();
+        else customCallDialog.setAttribute('open', '');
+    }
+
+    function closeCustomCall() {
+        if (!customCallDialog) return;
+        if (typeof customCallDialog.close === 'function') customCallDialog.close();
+        else customCallDialog.removeAttribute('open');
+        customCallTargetId = null;
+    }
+
+    if (customCallCancel) customCallCancel.addEventListener('click', (e) => { e.preventDefault(); closeCustomCall(); });
+    if (customCallCloseBtn) customCallCloseBtn.addEventListener('click', (e) => { e.preventDefault(); closeCustomCall(); });
+    if (customCallConfirm) {
+        customCallConfirm.addEventListener('click', (e) => {
+            if (customCallConfirm.getAttribute('aria-disabled') === 'true') {
+                e.preventDefault();
+                return;
+            }
+            if (customCallTargetId) onCallLog(customCallTargetId);
+            // Let the browser handle the tel: navigation, then dismiss
+            setTimeout(closeCustomCall, 100);
+        });
+    }
+
     async function onAdvance(id, state) {
         const r = await fetch('api/host/queue/' + encodeURIComponent(id) + '/advance', {
             method: 'POST',
@@ -676,6 +835,22 @@
                 return;
             }
             onCallLog(id);
+            return;
+        }
+        // Custom SMS — opens a one-off compose modal (distinct from the
+        // Chat drawer which carries the persistent thread context).
+        const customSmsBtn = target.closest('button.custom-sms-btn');
+        if (customSmsBtn) {
+            if (customSmsBtn.hasAttribute('disabled')) return;
+            openCustomSms(id, tr.dataset.name || '', tr.dataset.phoneMask || '');
+            return;
+        }
+        // Custom Call — opens a confirm-before-dial modal (safer on a
+        // shared device where accidental taps would otherwise auto-dial).
+        const customCallBtn = target.closest('button.custom-call-btn');
+        if (customCallBtn) {
+            if (customCallBtn.hasAttribute('disabled')) return;
+            openCustomCall(id, tr.dataset.name || '', tr.dataset.phoneMask || '', tr.dataset.phoneDial || '');
             return;
         }
         // No-show — still a direct remove

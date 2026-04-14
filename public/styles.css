@@ -474,6 +474,15 @@ tr.expandable:hover { background: var(--surface-alt); }
    Issue #37 — waitlist transparency, host chat/call, table on seat
    ============================================================================ */
 
+/* ---------- Diner: seated terminal card ---------- */
+.seated-caption {
+    margin-top: 6px;
+    font-size: 15px;
+    color: var(--muted);
+    font-style: italic;
+}
+.is-seated .pos { color: var(--ok); }
+
 /* ---------- Diner: live waiting counter + public list ---------- */
 .wait-elapsed {
     font-size: 14px;
@@ -503,8 +512,12 @@ tr.expandable:hover { background: var(--surface-alt); }
 .public-list-rows { display: flex; flex-direction: column; }
 .pqr {
     display: grid;
-    grid-template-columns: 40px 1fr 36px 68px 60px;
-    gap: 8px;
+    /* Tight tracks — the name column (1fr) needs the most room on narrow
+       phones. `minmax(0, 1fr)` lets the track actually shrink past its
+       content-min-size so an overflowing long name doesn't steal width from
+       the other columns. */
+    grid-template-columns: 28px minmax(0, 1fr) 26px 58px 52px;
+    gap: 6px;
     align-items: center;
     padding: 10px 4px;
     border-bottom: 1px solid var(--divider);
@@ -512,10 +525,16 @@ tr.expandable:hover { background: var(--surface-alt); }
 }
 .pqr:last-child { border-bottom: none; }
 .pqr-pos { color: var(--muted); font-variant-numeric: tabular-nums; font-weight: 600; }
-.pqr-name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pqr-name {
+    font-weight: 600;
+    /* Let the name wrap if needed rather than eliding the "(you)" marker. */
+    min-width: 0;
+    overflow-wrap: anywhere;
+    line-height: 1.25;
+}
 .pqr-size { color: var(--muted); font-variant-numeric: tabular-nums; }
-.pqr-eta { color: var(--muted); font-variant-numeric: tabular-nums; text-align: right; }
-.pqr-wait { color: var(--fg); font-variant-numeric: tabular-nums; text-align: right; font-weight: 600; }
+.pqr-eta { color: var(--muted); font-variant-numeric: tabular-nums; text-align: right; font-size: 13px; }
+.pqr-wait { color: var(--fg); font-variant-numeric: tabular-nums; text-align: right; font-weight: 600; font-size: 13px; }
 .pqr-me {
     background: rgba(227, 191, 61, 0.08);
     border-left: 3px solid var(--accent);
@@ -646,7 +665,10 @@ td.table-num {
     letter-spacing: 0.06em;
     color: var(--muted);
 }
-.seat-dialog-input {
+/* input.seat-dialog-input raises specificity above the global
+   `input[type=number]` rule at line 110 so width / padding / font-size
+   are honored (otherwise the input overflows the modal). */
+input.seat-dialog-input {
     display: block;
     width: calc(100% - 40px);
     margin: 0 20px;
@@ -660,8 +682,9 @@ td.table-num {
     font-family: 'Fira Sans', sans-serif;
     background: var(--bg);
     color: var(--fg);
+    box-sizing: border-box;
 }
-.seat-dialog-input:focus {
+input.seat-dialog-input:focus {
     outline: none;
     border-color: var(--accent);
     box-shadow: 0 0 0 3px rgba(227, 191, 61, 0.25);

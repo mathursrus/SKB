@@ -169,15 +169,21 @@
             if (!res.ok) throw new Error('status failed');
             const s = await res.json();
             if (s.state === 'seated') {
-                // R7 terminal: "Seated at table <N>"
+                // R7 terminal: "Seated at table <N>" — hide the waiting-card
+                // furniture (ETA line, Refresh, hint) and surface a clean
+                // "Enjoy your meal" caption instead.
                 statusCard.style.display = 'none';
                 joinCard.style.display = 'none';
                 confCard.style.display = '';
                 confCard.classList.remove('next-up');
+                confCard.classList.add('is-seated');
                 confCode.textContent = s.code;
                 confPos.textContent = s.tableNumber ? ('Table ' + s.tableNumber) : 'Seated';
-                confEta.textContent = 'Enjoy your meal';
-                confEtaMins.textContent = '';
+                document.getElementById('conf-pos-label').textContent = 'your table';
+                document.getElementById('conf-eta-line').style.display = 'none';
+                document.getElementById('conf-hint').style.display = 'none';
+                document.getElementById('seated-caption').style.display = '';
+                document.getElementById('refresh-btn').style.display = 'none';
                 calledCallout.style.display = 'none';
                 if (waitElapsed) waitElapsed.style.display = 'none';
                 renderPublicList([]);

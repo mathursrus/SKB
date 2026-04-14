@@ -37,12 +37,13 @@
     </div>
 
     <div class="card confirmation" id="conf-card" style="display:none">
-        <div class="pos-label">your place</div>
+        <div class="pos-label" id="conf-pos-label">your place</div>
         <div class="pos" id="conf-pos">—</div>
         <div class="code" id="conf-code">SKB-—</div>
-        <div class="eta-time">Promised by <strong id="conf-eta">—</strong> · <span id="conf-eta-mins" class="eta-mins">—</span></div>
+        <div class="eta-time" id="conf-eta-line">Promised by <strong id="conf-eta">—</strong> · <span id="conf-eta-mins" class="eta-mins">—</span></div>
         <div class="wait-elapsed" id="wait-elapsed" style="display:none">Waiting <strong id="wait-elapsed-val">00:00</strong></div>
-        <div class="hint">We'll call your name and code when your table is ready. Updates automatically.</div>
+        <div class="hint" id="conf-hint">We'll call your name and code when your table is ready. Updates automatically.</div>
+        <div class="seated-caption" id="seated-caption" style="display:none">Enjoy your meal.</div>
         <button type="button" class="primary" id="refresh-btn">Refresh</button>
         <div class="callout" id="called-callout" style="display:none">
             <div>The host has called your party — please come to the front.</div>

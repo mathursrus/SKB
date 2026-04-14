@@ -134,6 +134,18 @@
         checkout: { label: 'Departed', state: 'departed' },
     };
 
+    // Helpers for the transition-duration cells. A completed phase renders
+    // "12m" with an accent color, an in-progress or not-yet-reached phase
+    // renders a dimmed em-dash so the row still has visual alignment.
+    function mins(n) {
+        return (typeof n === 'number') ? (n + 'm') : '\u2014';
+    }
+    function transitCell(n) {
+        const filled = typeof n === 'number';
+        const cls = filled ? 'transit-cell filled' : 'transit-cell empty';
+        return '<td class="' + cls + '">' + mins(n) + '</td>';
+    }
+
     async function refreshDining() {
         try {
             const r = await fetch('api/host/dining');
@@ -143,7 +155,7 @@
             countDining.textContent = String(data.diningCount);
             tabBadgeSeated.textContent = String(data.diningCount);
             if (data.parties.length === 0) {
-                diningRows.innerHTML = '<tr><td colspan="7" class="empty">No dining parties.</td></tr>';
+                diningRows.innerHTML = '<tr><td colspan="11" class="empty">No dining parties.</td></tr>';
                 return;
             }
             let html = '';
@@ -158,6 +170,10 @@
                     '<td class="table-num"><strong>' + tbl + '</strong></td>' +
                     '<td>' + escapeHtml(p.name) + '</td>' +
                     '<td class="size">' + p.partySize + '</td>' +
+                    transitCell(p.waitMinutes) +
+                    transitCell(p.toOrderMinutes) +
+                    transitCell(p.toServeMinutes) +
+                    transitCell(p.toCheckoutMinutes) +
                     '<td><span class="state-badge state-' + p.state + '">' + p.state + '</span></td>' +
                     '<td>' + p.timeInStateMinutes + 'm</td>' +
                     '<td>' + p.totalTableMinutes + 'm</td>' +
@@ -165,7 +181,7 @@
                     '</tr>';
                 // Timeline expansion row
                 if (expandedTimelineId === p.id) {
-                    html += '<tr class="timeline-row" data-timeline-for="' + p.id + '"><td colspan="7"><div class="timeline-detail" id="timeline-' + p.id + '">Loading...</div></td></tr>';
+                    html += '<tr class="timeline-row" data-timeline-for="' + p.id + '"><td colspan="11"><div class="timeline-detail" id="timeline-' + p.id + '">Loading...</div></td></tr>';
                 }
             }
             diningRows.innerHTML = html;
@@ -193,21 +209,28 @@
                 '<span>Avg Wait: <strong>' + (data.avgWaitMinutes != null ? data.avgWaitMinutes + 'm' : '\u2014') + '</strong></span>' +
                 '<span>Avg Table: <strong>' + (data.avgTableOccupancyMinutes != null ? data.avgTableOccupancyMinutes + 'm' : '\u2014') + '</strong></span>';
             if (data.parties.length === 0) {
-                completedRows.innerHTML = '<tr><td colspan="6" class="empty">No completed parties.</td></tr>';
+                completedRows.innerHTML = '<tr><td colspan="10" class="empty">No completed parties.</td></tr>';
                 return;
             }
             let html = '';
             for (const p of data.parties) {
+                // For no-shows, waitTimeMinutes is still filled (join → removal)
+                // but all the post-seat transitions are null. transitCell
+                // renders those as a dimmed em-dash.
                 html += '<tr class="expandable" data-completed-id="' + p.id + '">' +
                     '<td>' + escapeHtml(p.name) + '</td>' +
                     '<td class="size">' + p.partySize + '</td>' +
                     '<td><span class="state-badge state-' + p.state + '">' + p.state.replace('_', '-') + '</span></td>' +
-                    '<td>' + p.waitTimeMinutes + 'm</td>' +
+                    transitCell(p.waitTimeMinutes) +
+                    transitCell(p.toOrderMinutes) +
+                    transitCell(p.toServeMinutes) +
+                    transitCell(p.toCheckoutMinutes) +
+                    transitCell(p.toDepartMinutes) +
                     '<td>' + (p.tableTimeMinutes != null ? p.tableTimeMinutes + 'm' : '\u2014') + '</td>' +
                     '<td>' + p.totalTimeMinutes + 'm</td>' +
                     '</tr>';
                 if (expandedTimelineId === p.id) {
-                    html += '<tr class="timeline-row" data-timeline-for="' + p.id + '"><td colspan="6"><div class="timeline-detail" id="timeline-' + p.id + '">Loading...</div></td></tr>';
+                    html += '<tr class="timeline-row" data-timeline-for="' + p.id + '"><td colspan="10"><div class="timeline-detail" id="timeline-' + p.id + '">Loading...</div></td></tr>';
                 }
             }
             completedRows.innerHTML = html;

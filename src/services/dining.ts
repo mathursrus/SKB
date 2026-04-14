@@ -112,6 +112,21 @@ export async function listDiningParties(locationId: string, now: Date = new Date
         const timeInStateMinutes = minutesBetween(stateEnteredAt, now);
         const totalTableMinutes = d.seatedAt ? minutesBetween(d.seatedAt, now) : 0;
 
+        // Per-transition durations. `waitMinutes` is the initial wait
+        // (joinedAt → seatedAt), always set for dining rows because they
+        // have been seated by definition. The three forward transitions
+        // are null until the party has actually reached the target state.
+        const waitMinutes = d.seatedAt ? minutesBetween(d.joinedAt, d.seatedAt) : 0;
+        const toOrderMinutes = d.seatedAt && d.orderedAt
+            ? minutesBetween(d.seatedAt, d.orderedAt)
+            : null;
+        const toServeMinutes = d.orderedAt && d.servedAt
+            ? minutesBetween(d.orderedAt, d.servedAt)
+            : null;
+        const toCheckoutMinutes = d.servedAt && d.checkoutAt
+            ? minutesBetween(d.servedAt, d.checkoutAt)
+            : null;
+
         return {
             id: String(d._id ?? ''),
             name: d.name,
@@ -122,6 +137,10 @@ export async function listDiningParties(locationId: string, now: Date = new Date
             seatedAt: (d.seatedAt ?? d.joinedAt).toISOString(),
             timeInStateMinutes,
             totalTableMinutes,
+            waitMinutes,
+            toOrderMinutes,
+            toServeMinutes,
+            toCheckoutMinutes,
         };
     });
 
@@ -169,6 +188,22 @@ export async function listCompletedParties(locationId: string, now: Date = new D
             totalWaitCount++;
         }
 
+        // Per-transition durations. Always null for no-shows (they never
+        // reached any dining state). For departed parties these fill in
+        // from the captured timestamps on the entry.
+        const toOrderMinutes = d.seatedAt && d.orderedAt
+            ? minutesBetween(d.seatedAt, d.orderedAt)
+            : null;
+        const toServeMinutes = d.orderedAt && d.servedAt
+            ? minutesBetween(d.orderedAt, d.servedAt)
+            : null;
+        const toCheckoutMinutes = d.servedAt && d.checkoutAt
+            ? minutesBetween(d.servedAt, d.checkoutAt)
+            : null;
+        const toDepartMinutes = d.checkoutAt && d.departedAt
+            ? minutesBetween(d.checkoutAt, d.departedAt)
+            : null;
+
         return {
             id: String(d._id ?? ''),
             name: d.name,
@@ -178,6 +213,10 @@ export async function listCompletedParties(locationId: string, now: Date = new D
             waitTimeMinutes,
             tableTimeMinutes,
             totalTimeMinutes,
+            toOrderMinutes,
+            toServeMinutes,
+            toCheckoutMinutes,
+            toDepartMinutes,
         };
     });
 

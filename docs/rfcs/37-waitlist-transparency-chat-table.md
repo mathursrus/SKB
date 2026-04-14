@@ -78,7 +78,7 @@ graph TD
 | `src/services/chat.ts` (NEW) | `sendChatMessage(entryId, body)`, `getChatThread(entryId, limit)`, `appendInbound(locationId, fromPhone, body, twilioSid)`, `countUnread(entryIds[])` |
 | `src/services/nameRedact.ts` (NEW) | `redactName("Patel, Sana")` → `"Sana P."`; `toPublicRow(entry, viewerCode)` |
 | `src/services/stats.ts` | No change to stats shape; `tableNumber` simply flows through on entries. Future POS join uses `QueueEntry.tableNumber`. |
-| `src/routes/queue.ts` | `GET /queue/status` returns full public queue when `code` is valid |
+| `src/routes/queue.ts` | `GET /queue/status` returns full public queue when `code` is valid; new `POST /queue/acknowledge` sets `onMyWayAt` on the entry |
 | `src/routes/host.ts` | Seat path accepts `tableNumber` + `override`; new `POST /host/queue/:id/chat` + `GET /host/queue/:id/chat`; `HostPartyDTO.unreadChat` populated in list responses |
 | `src/routes/sms.ts` (NEW) | `POST /sms/inbound` (Twilio form-encoded), gated by `validateTwilioSignature` |
 | `src/mcp-server.ts` | Register `smsRoutes`; add `express.urlencoded({extended:false})` on the `/r/:loc/api/sms` subpath for Twilio form posts |
@@ -111,6 +111,7 @@ graph TD
      removedReason?: RemovalReason;
      seatedAt?: Date;
 +    tableNumber?: number;              // set when state→seated; 1..999
++    onMyWayAt?: Date;                  // set when diner clicks "I'm on my way" (R6)
      orderedAt?: Date;
      servedAt?: Date;
      checkoutAt?: Date;
@@ -207,6 +208,23 @@ export interface HostSeatRequestDTO {
      ...
      calls: { minutesAgo: number; smsStatus: string }[];
 +    unreadChat: number;           // count of inbound messages with readByHostAt == null
++    onMyWayAt?: string;           // ISO8601; set by diner "I'm on my way" ack (R6)
+ }
+```
+
+`HostDiningPartyDTO` (Seated tab) gains `tableNumber` so the Seated tab row can render the assigned table as its leftmost cell (R15):
+
+```diff
+ export interface HostDiningPartyDTO {
+     id: string;
+     name: string;
+     partySize: number;
+     phoneMasked: string;
++    tableNumber: number;          // assigned at seat time; populated for every row in this tab
+     state: 'seated' | 'ordered' | 'served' | 'checkout';
+     seatedAt: string;
+     timeInStateMinutes: number;
+     totalTableMinutes: number;
  }
 ```
 
@@ -237,6 +255,17 @@ res.json({
 ```
 
 Server-side rate limit (R20): 1 request / 5s / `code`. Implemented via an in-memory LRU keyed on `${locationId}:${code}` → last-hit timestamp; on hit-within-window return `429 Too Many Requests` with `Retry-After: 5`. The existing diner poll cadence is 15s so the limit only bites on abusive polling.
+
+#### New: `POST /r/:loc/api/queue/acknowledge` — "I'm on my way" (R6)
+
+```typescript
+// body: { code: string }
+// Sets onMyWayAt on the QueueEntry and logs diner.ack.on_way.
+// No state transition — the entry stays in 'called' state until host seats.
+// Idempotent; second call within 30s is a no-op.
+```
+
+Schema add: `QueueEntry.onMyWayAt?: Date`. Not diffed above because it's a single optional timestamp; the host row will render an `On the way` pill when present so the host knows to expect the guest imminently.
 
 #### `POST /r/:loc/api/host/queue/:id/remove` — extended for Seat
 
@@ -315,9 +344,11 @@ r.post('/host/queue/:id/chat', requireHost, async (req, res) => {
 
 `sendChatMessage()` reads the entry for phone + code, calls `sendSms(entry.phone, body)`, then inserts one `queue_messages` document with `direction: 'outbound'`. Fire-and-forget would lose delivery status, so it's synchronous — same pattern as the existing `callParty()`.
 
-#### New: `GET /r/:loc/api/host/queue/:id/chat` — fetch thread
+#### New: `GET /r/:loc/api/host/queue/:id/chat?before=<ISO>&limit=50` — fetch thread
 
-Returns the last 50 messages for the entry plus an unread count. Opening the drawer posts `PATCH /host/queue/:id/chat/read` which sets `readByHostAt = now` for all inbound messages where it is unset. This keeps the unread-dot logic server-authoritative rather than relying on the host's localStorage.
+Returns up to `limit` messages for the entry (default 50, max 200), ordered oldest → newest, ending before the `before` cursor if present. On initial open the drawer fetches the most recent 50 (no cursor); when the host scrolls to the top of the thread the client issues a second request with `before` set to the oldest loaded message's `createdAt`, implementing lazy pagination (R21). Response shape: `{ messages: ChatMessageDTO[], unread: number, hasMore: boolean }`.
+
+Opening the drawer posts `PATCH /host/queue/:id/chat/read` which sets `readByHostAt = now` for all inbound messages where it is unset. This keeps the unread-dot logic server-authoritative rather than relying on the host's localStorage.
 
 #### New: `POST /r/:loc/api/sms/inbound` — Twilio webhook
 
@@ -356,7 +387,7 @@ The new **Call** button is pure frontend: `<a href="tel:+1${phone}">` on the row
 | File | Change |
 |---|---|
 | `queue.html` | Add `<section id="full-waitlist">` below the current status card, containing a 5-col grid (`#`, Name, Size, Promised, Waiting). Header pill that swaps between Waiting / Table ready / Seated states. |
-| `queue.js` | Extend `refreshStatus()` to read `queue[]` and `totalParties` from the status response; render each row via `renderPublicRow()`; add an `isMe` class for the viewer row; decrement the poll interval from 30s to 15s **only** while state is `waiting` or `called`. On state `seated`, show `Seated at table ${tableNumber}` and stop polling. On state `no_show` / `departed`, show terminal card and stop polling. |
+| `queue.js` | Extend `refreshStatus()` to read `queue[]` and `totalParties` from the status response; render each row via `renderPublicRow()`; add an `isMe` class for the viewer row; decrement the poll interval from 30s to 15s **only** while state is `waiting` or `called`. On state `called` the header card flips to a green `Your table is ready` card with an `I'm on my way` CTA that POSTs to `/queue/acknowledge` with the viewer's `code` (R6); button goes to a spinner then disabled with `On the way ✓`. On state `seated`, show `Seated at table ${tableNumber}` and stop polling. On state `no_show` / `departed`, show terminal card and stop polling. |
 | `queue.js` | Client-side live-tick: every 1s, increment each row's waiting seconds in place (no re-fetch). Reconcile on every poll. |
 
 No JS required for the header card to render (R8) — server renders it into the HTML on initial GET when `?code=` is present. Subsequent updates are JSON.
@@ -371,6 +402,7 @@ No JS required for the header card to render (R8) — server renders it into the
 | `host.js` | `onCall(entry)` replaced: the button is now `<a href="tel:+1${entry.phoneFullForDial}">`. Server sends a dial-only payload that is **only** used for this `tel:` link (see PII note below). Best-effort `POST /host/queue/:id/call-log`. |
 | `host.js` | `onSeat(entry)` no longer directly POSTs — it opens `#seat-dialog`. Submit sends `POST .../remove` with `{reason:'seated', tableNumber, override?}`. On 409, re-render the dialog with the conflict alert + override button. |
 | `host.js` | Relabel the existing "Call" row button to "Notify" in the UI only; backend endpoint stays `/call`. |
+| `host.js` | **Accessibility (R19)**: every row button carries an `aria-label` (`"Seat ${name}"`, `"Notify ${name}"`, `"Chat with ${name}, ${unreadChat} unread"`, `"Call ${name}"`, etc.). Buttons are tabbable in row order. The chat drawer uses `role="dialog"` + `aria-labelledby` + focus trap on open, restoring focus to the Chat button on close. The seat `<dialog>` inherits native a11y from the element. Color contrast verified against `--bg / --fg / --accent / --danger` tokens at AA. |
 
 **PII note (Call button)**: the current `HostPartyDTO.phoneMasked` hides the phone. `tel:` needs the real digits. We add a separate `phoneForDial` field on `HostPartyDTO` that is populated **only when** `requireHost` passes and **only in** the host list endpoints. Never exposed on any diner API.
 
@@ -472,6 +504,8 @@ High confidence:
 | Viewer at position 1 | Header reads "You're next" | Unit: header renderer given position=1 |
 | Host seats viewer with table 12 | Status page flips to "Seated at table 12", poll stops | E2E: host seat → wait 15s → assert terminal state |
 | Diner polls faster than 1/5s | 429 Retry-After: 5 | Integration: POST /status twice in 1s → assert 429 |
+| Diner clicks "I'm on my way" | `onMyWayAt` set on entry, host row shows `On the way` pill within 5s | Integration: POST /queue/acknowledge → GET /host/queue → assert `onMyWayAt` populated |
+| Host scrolls chat drawer to top | Older messages load via `before` cursor | E2E: seed 120 messages → open drawer → scroll top → assert 50 more loaded |
 | Host sends chat | Message appears in drawer, delivery checkmark | Integration: POST /chat → GET /chat → assert message |
 | Inbound SMS arrives | Appears in drawer on next poll, unread badge on row | Integration: POST /sms/inbound (signed) → GET /chat → assert inbound |
 | Inbound SMS from unknown phone | Logged, stored with `entryCode: null` | Integration: POST /sms/inbound with unknown From |

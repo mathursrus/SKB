@@ -497,6 +497,104 @@ body.queue-boot::before {
     pointer-events: none;
 }
 
+/* ---------- Host stand: Visit Page admin card ---------- */
+.visit-mode-badge {
+    display: inline-block;
+    margin-left: 8px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: var(--surface-alt);
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    border: 1px solid var(--border);
+}
+.visit-mode-badge.mode-closed {
+    background: rgba(185, 28, 28, 0.12);
+    color: var(--danger);
+    border-color: rgba(185, 28, 28, 0.35);
+}
+.visit-mode-badge.mode-menu {
+    background: rgba(227, 191, 61, 0.15);
+    color: var(--accent-dark);
+    border-color: rgba(227, 191, 61, 0.4);
+}
+.visit-mode-badge.mode-queue {
+    background: rgba(21, 128, 61, 0.12);
+    color: var(--ok);
+    border-color: rgba(21, 128, 61, 0.35);
+}
+.visit-body { padding: 16px 20px 20px; }
+.visit-help {
+    margin: 0 0 14px;
+    color: var(--muted);
+    font-size: 13px;
+    line-height: 1.5;
+}
+.visit-help code {
+    background: var(--surface-alt);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 1px 6px;
+    font-family: ui-monospace, Menlo, Consolas, monospace;
+    font-size: 12px;
+    color: var(--fg);
+}
+.visit-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px 16px;
+    margin-bottom: 14px;
+}
+.visit-field { display: flex; flex-direction: column; gap: 4px; }
+.visit-field-full { grid-column: 1 / -1; }
+.visit-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--muted);
+    font-weight: 600;
+}
+.visit-field select,
+.visit-field input {
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-family: inherit;
+    font-size: 14px;
+    background: #fff;
+    color: var(--fg);
+    width: 100%;
+}
+.visit-field select:focus,
+.visit-field input:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(227, 191, 61, 0.18);
+}
+.visit-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 12px;
+}
+.visit-status {
+    font-size: 12px;
+    color: var(--muted);
+    transition: color 0.2s;
+}
+.visit-status.success { color: var(--ok); }
+.visit-status.error { color: var(--danger); }
+.visit-actions button.primary {
+    width: auto;
+    margin: 0;
+    min-height: 36px;
+    padding: 8px 18px;
+    font-size: 13px;
+}
+
 /* ---------- Diner: seated terminal card ---------- */
 .seated-caption {
     margin-top: 6px;

@@ -168,7 +168,11 @@ const cases: BaseTestCase[] = [
         tags: ['integration', 'multi-tenant', 'isolation', 'analytics'],
         testFn: async () => {
             await resetDb();
-            const t = new Date('2026-04-07T20:00:00Z');
+            // Use a relative timestamp so the fixture stays inside the
+            // 7-day analytics window regardless of when the test runs.
+            // (A previous hardcoded `'2026-04-07T20:00:00Z'` drifted out
+            // of range as wall-clock time advanced past 2026-04-14.)
+            const t = new Date(Date.now() - 24 * 60 * 60 * 1000); // yesterday
             // Create full-lifecycle entry for loc-a
             const jA = await joinQueue('loc-a', { name: 'Alice', partySize: 2, phone: '2065551234' }, t);
             const listA = await listHostQueue('loc-a', t);

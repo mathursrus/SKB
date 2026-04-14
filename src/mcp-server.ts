@@ -24,6 +24,7 @@ import { healthRouter } from './routes/health.js';
 import { voiceRouter } from './routes/voice.js';
 import { smsRouter } from './routes/sms.js';
 import { renderQueuePage } from './services/queue-template.js';
+import { resolveVisit } from './services/visit-page.js';
 import { listLocations, ensureLocation } from './services/locations.js';
 
 const SERVER_NAME = 'skb-mcp';
@@ -69,6 +70,30 @@ app.get('/r/:loc/queue.html', async (req: Request, res: Response) => {
     } catch (err) {
         console.error('[MCP Server] queue template error:', err);
         res.status(500).send('Internal server error');
+    }
+});
+
+/**
+ * `/r/:loc/visit` — the stable URL printed on the door QR. Routes the
+ * scanner to whatever the restaurant has currently configured (queue,
+ * menu, or a "we're closed" page) without ever having to reprint the
+ * sticker. See src/services/visit-page.ts for the decision logic.
+ *
+ * Mounted at the top level (not under /r/:loc/api/) so the printed URL
+ * stays short and human-readable.
+ */
+app.get('/r/:loc/visit', async (req: Request, res: Response) => {
+    const locationId = String(req.params.loc);
+    try {
+        const decision = await resolveVisit(locationId);
+        if (decision.kind === 'redirect') {
+            res.redirect(302, decision.url ?? `/r/${locationId}/queue.html`);
+            return;
+        }
+        res.type('html').send(decision.html ?? '');
+    } catch (err) {
+        console.error('[MCP Server] visit route error:', err);
+        res.status(503).send('Service temporarily unavailable');
     }
 });
 

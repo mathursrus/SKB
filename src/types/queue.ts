@@ -11,7 +11,19 @@ export interface Location {
     createdAt: Date;
     publicUrl?: string;       // public HTTPS base URL, e.g., "https://skb.azurewebsites.net"
     googlePlaceId?: string;   // Google Maps Place ID, e.g., "ChIJ..."
+    // Visit-page routing: a single stable URL `/r/:loc/visit` that decides at
+    // request time what to serve, so the printed door QR never has to change.
+    // - 'auto'   (default): show the queue if anyone is waiting, otherwise
+    //                       show the menu (or queue if no menuUrl).
+    // - 'queue'           : always show the queue page.
+    // - 'menu'            : always redirect to menuUrl (or render a stub if unset).
+    // - 'closed'          : render a "we're closed" page using closedMessage.
+    visitMode?: 'auto' | 'queue' | 'menu' | 'closed';
+    menuUrl?: string;         // external URL to redirect to in 'menu' mode
+    closedMessage?: string;   // shown to scanners in 'closed' mode
 }
+
+export type VisitMode = 'auto' | 'queue' | 'menu' | 'closed';
 
 export type PartyState = 'waiting' | 'called' | 'seated' | 'ordered' | 'served' | 'checkout' | 'departed' | 'no_show';
 export type RemovalReason = 'seated' | 'no_show' | 'departed';

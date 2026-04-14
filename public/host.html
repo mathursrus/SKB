@@ -95,6 +95,41 @@
             <p id="stats-empty" class="stats-empty" style="display:none">No data yet</p>
         </div>
     </section>
+    <section id="visit-card" class="stats-card collapsed">
+        <button id="visit-toggle" class="stats-toggle" aria-expanded="false">
+            <span class="stats-toggle-label">Visit Page <span class="visit-mode-badge" id="visit-mode-badge">auto</span></span>
+            <span class="stats-toggle-arrow" aria-hidden="true">&#9660;</span>
+        </button>
+        <div id="visit-body" class="stats-body visit-body">
+            <p class="visit-help">
+                The door QR points to <code id="visit-url">/r/skb/visit</code>. This page decides what to show
+                when someone scans, so you never have to reprint the sticker.
+            </p>
+            <div class="visit-grid">
+                <label class="visit-field">
+                    <span class="visit-label">Mode</span>
+                    <select id="visit-mode-select">
+                        <option value="auto">Auto — queue if anyone is waiting, else menu</option>
+                        <option value="queue">Always show queue page</option>
+                        <option value="menu">Always redirect to menu URL</option>
+                        <option value="closed">Closed — show "we're closed" page</option>
+                    </select>
+                </label>
+                <label class="visit-field">
+                    <span class="visit-label">Menu URL</span>
+                    <input type="url" id="visit-menu-url" placeholder="https://skb.com/menu" maxlength="500" />
+                </label>
+                <label class="visit-field visit-field-full">
+                    <span class="visit-label">Closed message</span>
+                    <input type="text" id="visit-closed-message" placeholder="We're closed today — back tomorrow at 11am" maxlength="280" />
+                </label>
+            </div>
+            <div class="visit-actions">
+                <span class="visit-status" id="visit-status"></span>
+                <button type="button" id="visit-save" class="primary">Save</button>
+            </div>
+        </div>
+    </section>
     <div class="tabs">
         <button class="tab active" data-tab="waiting">Waiting <span class="tab-badge" id="tab-badge-waiting">0</span></button>
         <button class="tab" data-tab="seated">Seated <span class="tab-badge" id="tab-badge-seated">0</span></button>

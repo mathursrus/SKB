@@ -117,6 +117,7 @@ export async function listDiningParties(locationId: string, now: Date = new Date
             name: d.name,
             partySize: d.partySize,
             phoneMasked: '******' + (d.phone ?? '').slice(-4),
+            tableNumber: typeof d.tableNumber === 'number' ? d.tableNumber : null,
             state: d.state as 'seated' | 'ordered' | 'served' | 'checkout',
             seatedAt: (d.seatedAt ?? d.joinedAt).toISOString(),
             timeInStateMinutes,

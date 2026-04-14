@@ -6,6 +6,7 @@ import { MongoClient, type Db, type Collection } from 'mongodb';
 
 import { determineDatabaseName } from '../utils/git-utils.js';
 import type { Location, QueueEntry, Settings } from '../../types/queue.js';
+import type { ChatMessage } from '../../types/chat.js';
 
 let client: MongoClient | null = null;
 let db: Db | null = null;
@@ -43,6 +44,10 @@ export function locations(db: Db): Collection<Location> {
     return db.collection<Location>('locations');
 }
 
+export function queueMessages(db: Db): Collection<ChatMessage> {
+    return db.collection<ChatMessage>('queue_messages');
+}
+
 async function bootstrapIndexes(db: Db): Promise<void> {
     await queueEntries(db).createIndex(
         { locationId: 1, serviceDay: 1, state: 1, joinedAt: 1 },
@@ -69,6 +74,27 @@ async function bootstrapIndexes(db: Db): Promise<void> {
             name: 'loc_state_departedAt',
             partialFilterExpression: { state: 'departed', departedAt: { $exists: true } },
         },
+    );
+    // Supports seat-conflict detection (findOne by locationId+serviceDay+state+tableNumber)
+    // without triggering a collection scan. Partial filter narrows to rows that
+    // actually carry a tableNumber.
+    await queueEntries(db).createIndex(
+        { locationId: 1, serviceDay: 1, state: 1, tableNumber: 1 },
+        {
+            name: 'loc_serviceDay_state_tableNumber',
+            partialFilterExpression: { tableNumber: { $exists: true } },
+        },
+    );
+    // queue_messages (host ↔ diner chat) — two indexes:
+    // 1. fetch thread by entry, ordered oldest → newest
+    // 2. unread inbound counts for the host list badge
+    await queueMessages(db).createIndex(
+        { locationId: 1, entryCode: 1, createdAt: 1 },
+        { name: 'loc_code_created' },
+    );
+    await queueMessages(db).createIndex(
+        { locationId: 1, entryCode: 1, direction: 1, readByHostAt: 1 },
+        { name: 'unread_lookup' },
     );
 }
 

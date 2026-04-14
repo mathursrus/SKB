@@ -16,6 +16,7 @@ import type {
     JoinRequestDTO,
     JoinResponseDTO,
     PartyState,
+    PublicQueueRowDTO,
     QueueEntry,
     QueueStateDTO,
     RemovalReason,
@@ -24,10 +25,13 @@ import type {
 import { sendSms } from './sms.js';
 import { firstCallMessage, repeatCallMessage } from './smsTemplates.js';
 import { maskPhone } from './sms.js';
+import { redactName } from './nameRedact.js';
+import { countUnreadForEntries } from './chat.js';
 
 const MAX_CODE_RETRIES = 5;
 
 const ACTIVE_STATES: QueueEntry['state'][] = ['waiting', 'called'];
+const DINING_STATES: QueueEntry['state'][] = ['seated', 'ordered', 'served', 'checkout'];
 
 // -- Pure helpers -------------------------------------------------------------
 
@@ -129,16 +133,30 @@ export async function getStatusByCode(
 ): Promise<StatusResponseDTO> {
     const db = await getDb();
     const entry = await queueEntries(db).findOne({ code });
+    const empty = { queue: [] as PublicQueueRowDTO[], totalParties: 0 };
     if (!entry) {
-        return { code, position: 0, etaAt: null, etaMinutes: null, state: 'not_found', callsMinutesAgo: [] };
+        return { code, position: 0, etaAt: null, etaMinutes: null, state: 'not_found', callsMinutesAgo: [], ...empty };
     }
-    const postQueueStates: PartyState[] = ['seated', 'ordered', 'served', 'checkout', 'departed', 'no_show'];
+    if (entry.state === 'seated') {
+        // Terminal: surface the assigned table but keep the queue empty (R7)
+        return {
+            code,
+            position: 0,
+            etaAt: null,
+            etaMinutes: null,
+            state: 'seated',
+            callsMinutesAgo: [],
+            ...empty,
+            tableNumber: entry.tableNumber,
+        };
+    }
+    const postQueueStates: PartyState[] = ['ordered', 'served', 'checkout', 'departed', 'no_show'];
     if (postQueueStates.includes(entry.state)) {
-        return { code, position: 0, etaAt: null, etaMinutes: null, state: entry.state, callsMinutesAgo: [] };
+        return { code, position: 0, etaAt: null, etaMinutes: null, state: entry.state, callsMinutesAgo: [], ...empty };
     }
     const today = serviceDay(now);
     if (entry.serviceDay !== today) {
-        return { code, position: 0, etaAt: null, etaMinutes: null, state: 'not_found', callsMinutesAgo: [] };
+        return { code, position: 0, etaAt: null, etaMinutes: null, state: 'not_found', callsMinutesAgo: [], ...empty };
     }
     const ahead = await queueEntries(db).countDocuments({
         locationId: entry.locationId,
@@ -149,6 +167,7 @@ export async function getStatusByCode(
     const position = ahead + 1;
     const avg = await getAvgTurnTime(entry.locationId);
     const etaMinutes = computeEtaMinutes(position, avg);
+    const publicQueue = await listPublicQueue(entry.locationId, today, code, now);
     return {
         code,
         position,
@@ -156,7 +175,53 @@ export async function getStatusByCode(
         etaMinutes,
         state: entry.state,
         callsMinutesAgo: (entry.calls ?? []).map((c) => minutesBetween(c.at, now)),
+        queue: publicQueue,
+        totalParties: publicQueue.length,
+        onMyWayAt: entry.onMyWayAt ? entry.onMyWayAt.toISOString() : undefined,
     };
+}
+
+/**
+ * Build the public waitlist for a given service day, with names redacted to
+ * first name + last initial per R3. Sorted by `joinedAt` ascending so each row
+ * carries its actual queue position. The viewer's own row is flagged `isMe`
+ * but is NOT moved out of sort position (R4).
+ */
+export async function listPublicQueue(
+    locationId: string,
+    serviceDayStr: string,
+    viewerCode: string,
+    now: Date = new Date(),
+): Promise<PublicQueueRowDTO[]> {
+    const db = await getDb();
+    const docs = await queueEntries(db)
+        .find({ locationId, serviceDay: serviceDayStr, state: { $in: ACTIVE_STATES } })
+        .sort({ joinedAt: 1 })
+        .toArray();
+    return docs.map((d, i): PublicQueueRowDTO => ({
+        position: i + 1,
+        displayName: redactName(d.name),
+        partySize: d.partySize,
+        promisedEtaAt: (d.promisedEtaAt ?? d.joinedAt).toISOString(),
+        waitingSeconds: Math.max(0, Math.floor((now.getTime() - d.joinedAt.getTime()) / 1000)),
+        isMe: d.code === viewerCode,
+    }));
+}
+
+/**
+ * Sets onMyWayAt on the entry for `code`. Idempotent; does not transition
+ * state. Returns ok=false if no matching entry or entry is terminal.
+ */
+export async function acknowledgeOnMyWay(
+    code: string,
+    now: Date = new Date(),
+): Promise<{ ok: boolean }> {
+    const db = await getDb();
+    const res = await queueEntries(db).updateOne(
+        { code, state: { $in: ACTIVE_STATES } },
+        { $set: { onMyWayAt: now } },
+    );
+    return { ok: res.matchedCount === 1 };
 }
 
 export async function listHostQueue(locationId: string, now: Date = new Date()): Promise<HostQueueDTO> {
@@ -168,14 +233,23 @@ export async function listHostQueue(locationId: string, now: Date = new Date()):
         .sort({ joinedAt: 1 })
         .toArray();
 
+    // Batch-fetch unread counts so the host list doesn't trigger N round-trips
+    const codes = docs.map((d) => d.code);
+    const unreadMap = codes.length > 0
+        ? await countUnreadForEntries(locationId, codes)
+        : new Map<string, number>();
+
     const parties: HostPartyDTO[] = docs.map((d, i) => {
         const position = i + 1;
         return {
             id: String(d._id ?? ''),
+            code: d.code,
             position,
             name: d.name,
             partySize: d.partySize,
             phoneMasked: maskPhone(d.phone ?? ''),
+            // phoneForDial is host-only — populated here behind the /host/ PIN gate.
+            phoneForDial: d.phone ? `+1${d.phone}` : undefined,
             joinedAt: d.joinedAt.toISOString(),
             etaAt: (d.promisedEtaAt ?? d.joinedAt).toISOString(),
             waitingMinutes: minutesBetween(d.joinedAt, now),
@@ -184,6 +258,8 @@ export async function listHostQueue(locationId: string, now: Date = new Date()):
                 minutesAgo: minutesBetween(c.at, now),
                 smsStatus: c.smsStatus ?? 'not_configured',
             })),
+            unreadChat: unreadMap.get(d.code) ?? 0,
+            onMyWayAt: d.onMyWayAt ? d.onMyWayAt.toISOString() : undefined,
         };
     });
 
@@ -191,11 +267,27 @@ export async function listHostQueue(locationId: string, now: Date = new Date()):
     return { parties, oldestWaitMinutes: oldest, avgTurnTimeMinutes: avg };
 }
 
+export interface RemoveOptions {
+    tableNumber?: number; // required when reason === 'seated'
+    override?: boolean;   // bypass conflict detection
+}
+
+export interface RemoveResult {
+    ok: boolean;
+    /** Populated when reason==='seated' AND a live party already holds this table AND override !== true. */
+    conflict?: { partyName: string; partyId: string };
+}
+
 export async function removeFromQueue(
     id: string,
     reason: RemovalReason,
-    now: Date = new Date(),
-): Promise<{ ok: boolean }> {
+    optsOrNow: RemoveOptions | Date = {},
+    nowArg: Date = new Date(),
+): Promise<RemoveResult> {
+    // Back-compat: legacy callers pass (id, reason, now). New callers pass
+    // (id, reason, opts, now).
+    const opts: RemoveOptions = optsOrNow instanceof Date ? {} : optsOrNow;
+    const now: Date = optsOrNow instanceof Date ? optsOrNow : nowArg;
     if (reason !== 'seated' && reason !== 'no_show') {
         throw new Error(`invalid reason: ${reason}`);
     }
@@ -208,16 +300,61 @@ export async function removeFromQueue(
     }
 
     if (reason === 'seated') {
+        // The route layer is responsible for validating that new callers pass a
+        // tableNumber (R14). The service tolerates missing tableNumber so legacy
+        // callers and migration-safe tests keep working.
+        const hasTable = typeof opts.tableNumber === 'number'
+            && Number.isInteger(opts.tableNumber)
+            && opts.tableNumber >= 1 && opts.tableNumber <= 999;
+
+        if (hasTable && !opts.override) {
+            const entry = await queueEntries(db).findOne({ _id, state: { $in: ACTIVE_STATES } });
+            if (!entry) return { ok: false };
+            const conflict = await queueEntries(db).findOne({
+                locationId: entry.locationId,
+                serviceDay: entry.serviceDay,
+                state: { $in: DINING_STATES },
+                tableNumber: opts.tableNumber,
+                _id: { $ne: _id },
+            });
+            if (conflict) {
+                return { ok: false, conflict: { partyName: conflict.name, partyId: String(conflict._id ?? '') } };
+            }
+        }
+
+        const update: Record<string, unknown> = { state: 'seated' as PartyState, seatedAt: now };
+        if (hasTable) update.tableNumber = opts.tableNumber;
         const res = await queueEntries(db).updateOne(
             { _id, state: { $in: ACTIVE_STATES } },
-            { $set: { state: 'seated' as PartyState, seatedAt: now } },
+            { $set: update },
         );
         return { ok: res.matchedCount === 1 };
     }
 
+    // reason === 'no_show'
     const res = await queueEntries(db).updateOne(
         { _id, state: { $in: ACTIVE_STATES } },
         { $set: { state: reason as PartyState, removedAt: now, removedReason: reason } },
+    );
+    return { ok: res.matchedCount === 1 };
+}
+
+/**
+ * Best-effort log entry: host tapped the tel: dial link. Non-authoritative;
+ * fire-and-forget from the client. We append a CallRecord with a
+ * phone_dial-flavored smsStatus so existing analytics don't break.
+ */
+export async function logCallDial(id: string, now: Date = new Date()): Promise<{ ok: boolean }> {
+    const db = await getDb();
+    let _id: ObjectId;
+    try { _id = new ObjectId(id); } catch { throw new Error('invalid id'); }
+    const callRecord: CallRecord = {
+        at: now,
+        smsStatus: 'not_configured', // phone dial does not go through SMS
+    };
+    const res = await queueEntries(db).updateOne(
+        { _id },
+        { $push: { calls: callRecord } },
     );
     return { ok: res.matchedCount === 1 };
 }

@@ -37,17 +37,30 @@
     </div>
 
     <div class="card confirmation" id="conf-card" style="display:none">
-        <div class="pos-label">your place</div>
+        <div class="pos-label" id="conf-pos-label">your place</div>
         <div class="pos" id="conf-pos">—</div>
         <div class="code" id="conf-code">SKB-—</div>
-        <div class="eta-time">Promised by <strong id="conf-eta">—</strong> · <span id="conf-eta-mins" class="eta-mins">—</span></div>
-        <div class="hint">We'll call your name and code when your table is ready. Updates automatically.</div>
+        <div class="eta-time" id="conf-eta-line">Promised by <strong id="conf-eta">—</strong> · <span id="conf-eta-mins" class="eta-mins">—</span></div>
+        <div class="wait-elapsed" id="wait-elapsed" style="display:none">Waiting <strong id="wait-elapsed-val">00:00</strong></div>
+        <div class="hint" id="conf-hint">We'll call your name and code when your table is ready. Updates automatically.</div>
+        <div class="seated-caption" id="seated-caption" style="display:none">Enjoy your meal.</div>
         <button type="button" class="primary" id="refresh-btn">Refresh</button>
         <div class="callout" id="called-callout" style="display:none">
             <div>The host has called your party — please come to the front.</div>
             <div id="called-times" class="called-times"></div>
+            <button type="button" class="primary" id="ack-btn">I'm on my way</button>
         </div>
     </div>
+
+    <!-- R3: full public waitlist (every party in line, names redacted) -->
+    <section class="card public-list" id="public-list-card" style="display:none">
+        <div class="public-list-heading">
+            <strong>Who's in line</strong>
+            <span class="public-list-sub" id="public-list-count">0 parties</span>
+        </div>
+        <div class="public-list-rows" id="public-list-rows" role="list"></div>
+        <div class="public-list-footer">Updates automatically · First name and last initial only</div>
+    </section>
 </main>
 <footer>No app needed · No account · Your data stays with SKB</footer>
 <script src="queue.js"></script>

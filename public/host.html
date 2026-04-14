@@ -115,10 +115,10 @@
             <table>
                 <thead>
                     <tr>
-                        <th>Name</th><th>Size</th><th>State</th><th>In State</th><th>At Table</th><th></th>
+                        <th>Table</th><th>Name</th><th>Size</th><th>State</th><th>In State</th><th>At Table</th><th></th>
                     </tr>
                 </thead>
-                <tbody id="dining-rows"><tr><td colspan="6" class="empty">No dining parties.</td></tr></tbody>
+                <tbody id="dining-rows"><tr><td colspan="7" class="empty">No dining parties.</td></tr></tbody>
             </table>
         </div>
         <div class="tab-content" id="tab-complete">
@@ -133,6 +133,50 @@
             </table>
         </div>
     </main>
+
+    <!-- R14: Seat Party dialog. Native <dialog> for built-in a11y + focus-trap. -->
+    <dialog id="seat-dialog" class="seat-dialog" aria-labelledby="seat-dialog-title">
+        <form method="dialog" id="seat-form">
+            <header class="seat-dialog-header">
+                <h2 id="seat-dialog-title">Seat Party</h2>
+                <button type="button" class="seat-dialog-close" id="seat-dialog-close" aria-label="Close">&times;</button>
+            </header>
+            <div class="seat-dialog-party">
+                <div><span class="k">Party</span><span class="v" id="seat-party-name">—</span></div>
+                <div><span class="k">Size</span><span class="v" id="seat-party-size">—</span></div>
+                <div><span class="k">Waiting</span><span class="v" id="seat-party-waiting">—</span></div>
+            </div>
+            <label for="seat-table-input" class="seat-dialog-label">Table #</label>
+            <input type="number" inputmode="numeric" id="seat-table-input" min="1" max="999"
+                placeholder="—" class="seat-dialog-input" aria-describedby="seat-dialog-alert" />
+            <div class="seat-dialog-chips-label">Recent tables</div>
+            <div class="seat-dialog-chips" id="seat-dialog-chips"></div>
+            <div class="seat-dialog-alert" id="seat-dialog-alert" role="alert" style="display:none"></div>
+            <footer class="seat-dialog-footer">
+                <button type="button" id="seat-dialog-cancel">Cancel</button>
+                <button type="submit" id="seat-dialog-confirm" class="primary" disabled>Seat at table —</button>
+            </footer>
+        </form>
+    </dialog>
+
+    <!-- R10: Chat slide-over drawer. -->
+    <aside id="chat-drawer" class="chat-drawer" role="dialog" aria-modal="true"
+        aria-labelledby="chat-drawer-title" aria-hidden="true">
+        <header class="chat-drawer-header">
+            <div class="chat-drawer-who">
+                <div id="chat-drawer-title">—</div>
+                <small id="chat-drawer-phone">—</small>
+            </div>
+            <button type="button" class="chat-drawer-close" id="chat-drawer-close" aria-label="Close chat">&times;</button>
+        </header>
+        <div class="chat-drawer-thread" id="chat-drawer-thread" aria-live="polite"></div>
+        <div class="chat-drawer-quicks" id="chat-drawer-quicks"></div>
+        <form class="chat-drawer-composer" id="chat-drawer-form">
+            <input type="text" id="chat-drawer-input" placeholder="Type a message…" maxlength="1600" />
+            <button type="submit">Send</button>
+        </form>
+    </aside>
+    <div id="chat-drawer-backdrop" class="chat-drawer-backdrop" aria-hidden="true"></div>
 </div>
 <script src="host.js"></script>
 </body>

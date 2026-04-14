@@ -35,6 +35,8 @@ export interface QueueEntry {
     removedAt?: Date;
     removedReason?: RemovalReason;
     seatedAt?: Date;
+    tableNumber?: number; // set when transitioning to seated; 1..999
+    onMyWayAt?: Date; // set when diner clicks "I'm on my way" (R6)
     orderedAt?: Date;
     servedAt?: Date;
     checkoutAt?: Date;
@@ -81,6 +83,16 @@ export interface JoinResponseDTO {
     etaMinutes: number;
 }
 
+export interface PublicQueueRowDTO {
+    position: number; // 1-indexed
+    displayName: string; // "Sana P." — first name + last initial only
+    partySize: number;
+    promisedEtaAt: string; // ISO8601
+    waitingSeconds: number; // joinedAt → now
+    isMe: boolean; // true if this row corresponds to the viewer's code
+    tableNumber?: number; // present iff state === 'seated'
+}
+
 export interface StatusResponseDTO {
     code: string;
     position: number;
@@ -88,19 +100,27 @@ export interface StatusResponseDTO {
     etaMinutes: number | null; // minutes until seated, from now
     state: PartyState | 'not_found';
     callsMinutesAgo: number[]; // one entry per host Call/Recall (oldest → newest)
+    queue: PublicQueueRowDTO[]; // full public waitlist (R3) — oldest position first
+    totalParties: number; // length of `queue`
+    tableNumber?: number; // present iff viewer is seated
+    onMyWayAt?: string; // ISO8601; set after diner clicks "I'm on my way"
 }
 
 export interface HostPartyDTO {
     id: string;
+    code: string; // party code, e.g. "SKB-7Q3" — used by chat templates on the UI
     position: number;
     name: string;
     partySize: number;
     phoneMasked: string; // "******1234" — never expose full phone
+    phoneForDial?: string; // full E.164 (e.g. "+12065551234") — host-only, NEVER in diner APIs
     joinedAt: string; // ISO
     etaAt: string; // ISO
     waitingMinutes: number;
     state: 'waiting' | 'called';
     calls: { minutesAgo: number; smsStatus: string }[];
+    unreadChat: number; // count of inbound messages with readByHostAt == null
+    onMyWayAt?: string; // ISO8601; set by diner acknowledge (R6)
 }
 
 export interface HostQueueDTO {
@@ -137,6 +157,7 @@ export interface HostDiningPartyDTO {
     name: string;
     partySize: number;
     phoneMasked: string;
+    tableNumber: number | null; // assigned at seat time (null only for legacy rows)
     state: 'seated' | 'ordered' | 'served' | 'checkout';
     seatedAt: string;        // ISO
     timeInStateMinutes: number;

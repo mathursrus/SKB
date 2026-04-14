@@ -4,7 +4,7 @@
 
 import { Router, type Request, type Response } from 'express';
 
-import { getBoardEntries, getQueueState, joinQueue, getStatusByCode } from '../services/queue.js';
+import { getBoardEntries, getQueueState, joinQueue, getStatusByCode, acknowledgeOnMyWay } from '../services/queue.js';
 import { rateLimit } from '../middleware/rateLimit.js';
 import { sendSms } from '../services/sms.js';
 import { joinConfirmationMessage } from '../services/smsTemplates.js';
@@ -12,6 +12,11 @@ import type { ErrorDTO } from '../types/queue.js';
 
 const JOIN_WINDOW_MS = 10 * 60 * 1000; // 10 min
 const JOIN_MAX = 5;
+
+// R20: 1 status request / 5s / code. Diner poll cadence is 15s, so this only
+// bites on abusive polling.
+const STATUS_WINDOW_MS = 5_000;
+const STATUS_MAX = 1;
 
 /** Extract locationId from req.params.loc (set by parent router mount). */
 function loc(req: Request): string {
@@ -84,15 +89,48 @@ export function queueRouter(): Router {
         },
     );
 
-    r.get('/queue/status', async (req: Request, res: Response) => {
-        const code = String(req.query.code ?? '');
+    r.get(
+        '/queue/status',
+        rateLimit({
+            windowMs: STATUS_WINDOW_MS,
+            max: STATUS_MAX,
+            keyFn: (req) => `${loc(req)}:${String(req.query.code ?? '')}`,
+        }),
+        async (req: Request, res: Response) => {
+            const code = String(req.query.code ?? '');
+            if (!code) {
+                res.status(400).json({ error: 'code required', field: 'code' });
+                return;
+            }
+            try {
+                const status = await getStatusByCode(code);
+                res.json(status);
+            } catch (err) {
+                handleDbError(res, err);
+            }
+        },
+    );
+
+    r.post('/queue/acknowledge', async (req: Request, res: Response) => {
+        const code = String(req.body?.code ?? '').trim();
         if (!code) {
             res.status(400).json({ error: 'code required', field: 'code' });
             return;
         }
         try {
-            const status = await getStatusByCode(code);
-            res.json(status);
+            const result = await acknowledgeOnMyWay(code);
+            if (!result.ok) {
+                res.status(404).json({ error: 'not waiting' });
+                return;
+            }
+            console.log(JSON.stringify({
+                t: new Date().toISOString(),
+                level: 'info',
+                msg: 'diner.ack.on_way',
+                loc: loc(req),
+                code,
+            }));
+            res.json({ ok: true });
         } catch (err) {
             handleDbError(res, err);
         }

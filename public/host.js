@@ -269,6 +269,98 @@
         statsToggle.setAttribute('aria-expanded', String(!statsCard.classList.contains('collapsed')));
     });
 
+    // -- Visit page admin (door QR routing) --
+    const visitCard = $('visit-card');
+    const visitToggle = $('visit-toggle');
+    const visitModeBadge = $('visit-mode-badge');
+    const visitModeSelect = $('visit-mode-select');
+    const visitMenuUrl = $('visit-menu-url');
+    const visitClosedMessage = $('visit-closed-message');
+    const visitSaveBtn = $('visit-save');
+    const visitStatus = $('visit-status');
+    const visitUrlEl = $('visit-url');
+
+    if (visitToggle && visitCard) {
+        visitToggle.addEventListener('click', () => {
+            visitCard.classList.toggle('collapsed');
+            visitToggle.setAttribute('aria-expanded', String(!visitCard.classList.contains('collapsed')));
+        });
+    }
+
+    function setVisitModeBadge(mode) {
+        if (!visitModeBadge) return;
+        visitModeBadge.textContent = mode || 'auto';
+        visitModeBadge.className = 'visit-mode-badge mode-' + (mode || 'auto');
+    }
+
+    async function refreshVisitConfig() {
+        if (!visitModeSelect) return;
+        try {
+            const r = await fetch('api/host/visit-config');
+            if (r.status === 401) return;
+            if (!r.ok) return;
+            const s = await r.json();
+            visitModeSelect.value = s.visitMode || 'auto';
+            visitMenuUrl.value = s.menuUrl || '';
+            visitClosedMessage.value = s.closedMessage || '';
+            setVisitModeBadge(s.visitMode || 'auto');
+            // Build the absolute /r/:loc/visit URL for the help text. Strip
+            // any trailing slash, append /r/<loc>/visit.
+            const loc = (window.location.pathname.match(/^\/r\/([^/]+)\//) || [])[1] || 'skb';
+            visitUrlEl.textContent = `${window.location.origin}/r/${loc}/visit`;
+        } catch {
+            // non-blocking
+        }
+    }
+
+    function setVisitStatus(text, kind) {
+        if (!visitStatus) return;
+        visitStatus.textContent = text;
+        visitStatus.className = 'visit-status' + (kind ? ' ' + kind : '');
+        if (kind === 'success') {
+            setTimeout(() => {
+                if (visitStatus.textContent === text) {
+                    visitStatus.textContent = '';
+                    visitStatus.className = 'visit-status';
+                }
+            }, 2500);
+        }
+    }
+
+    if (visitSaveBtn) {
+        visitSaveBtn.addEventListener('click', async () => {
+            visitSaveBtn.disabled = true;
+            const oldLabel = visitSaveBtn.textContent;
+            visitSaveBtn.textContent = 'Saving…';
+            setVisitStatus('', '');
+            try {
+                const r = await fetch('api/host/visit-config', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        visitMode: visitModeSelect.value,
+                        menuUrl: visitMenuUrl.value.trim() || null,
+                        closedMessage: visitClosedMessage.value.trim() || null,
+                    }),
+                });
+                if (r.status === 401) { showLogin(); return; }
+                if (!r.ok) {
+                    const err = await r.json().catch(() => ({}));
+                    setVisitStatus(err.error || 'Save failed', 'error');
+                    return;
+                }
+                const updated = await r.json();
+                setVisitModeBadge(updated.visitMode || 'auto');
+                setVisitStatus('Saved \u2713', 'success');
+            } catch {
+                setVisitStatus('Network error', 'error');
+            } finally {
+                visitSaveBtn.disabled = false;
+                visitSaveBtn.textContent = oldLabel;
+            }
+        });
+    }
+
     async function refreshStats() {
         try {
             const r = await fetch('api/host/stats');
@@ -915,6 +1007,7 @@
         refreshCompleted();
         refreshStats();
         refreshSettings();
+        refreshVisitConfig();
     }
 
     function showLogin() {

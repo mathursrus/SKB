@@ -21,7 +21,7 @@ import { getAvgTurnTime, getEffectiveTurnTime, setAvgTurnTime, setEtaMode } from
 import type { EtaMode } from '../types/queue.js';
 import { getHostStats } from '../services/stats.js';
 import { getAnalytics } from '../services/analytics.js';
-import { getLocation } from '../services/locations.js';
+import { getLocation, updateLocationVisitConfig } from '../services/locations.js';
 import { verifyCookie, __test__ } from '../middleware/hostAuth.js';
 import { createHmac, timingSafeEqual } from 'node:crypto';
 
@@ -338,6 +338,71 @@ export function hostRouter(): Router {
                 fellBackToManual: info.fellBackToManual,
             });
         } catch (err) { dbError(res, err); }
+    });
+
+    // ----------------------------------------------------------------------
+    // Visit-page admin: read + update the per-location config that drives
+    // /r/:loc/visit. Stored on the Location document, not Settings, because
+    // these are tenant-level routing rules — not per-day operational tuning.
+    // ----------------------------------------------------------------------
+    r.get('/host/visit-config', requireHost, async (req: Request, res: Response) => {
+        try {
+            const location = await getLocation(loc(req));
+            res.json({
+                visitMode: location?.visitMode ?? 'auto',
+                menuUrl: location?.menuUrl ?? '',
+                closedMessage: location?.closedMessage ?? '',
+            });
+        } catch (err) { dbError(res, err); }
+    });
+
+    r.post('/host/visit-config', requireHost, async (req: Request, res: Response) => {
+        const body = (req.body ?? {}) as {
+            visitMode?: unknown;
+            menuUrl?: unknown;
+            closedMessage?: unknown;
+        };
+        const update: { visitMode?: 'auto' | 'queue' | 'menu' | 'closed'; menuUrl?: string | null; closedMessage?: string | null } = {};
+        if (body.visitMode !== undefined) {
+            update.visitMode = String(body.visitMode) as 'auto' | 'queue' | 'menu' | 'closed';
+        }
+        if (body.menuUrl !== undefined) {
+            update.menuUrl = body.menuUrl === null ? null : String(body.menuUrl);
+        }
+        if (body.closedMessage !== undefined) {
+            update.closedMessage = body.closedMessage === null ? null : String(body.closedMessage);
+        }
+        try {
+            const updated = await updateLocationVisitConfig(loc(req), update);
+            console.log(JSON.stringify({
+                t: new Date().toISOString(),
+                level: 'info',
+                msg: 'host.visit_config.updated',
+                loc: loc(req),
+                visitMode: updated.visitMode ?? 'auto',
+                menuUrlSet: !!updated.menuUrl,
+                closedMessageSet: !!updated.closedMessage,
+            }));
+            res.json({
+                visitMode: updated.visitMode ?? 'auto',
+                menuUrl: updated.menuUrl ?? '',
+                closedMessage: updated.closedMessage ?? '',
+            });
+        } catch (err) {
+            if (err instanceof Error && (
+                err.message.startsWith('visitMode')
+                || err.message.startsWith('menuUrl')
+                || err.message.startsWith('closedMessage')
+            )) {
+                res.status(400).json({ error: err.message });
+                return;
+            }
+            if (err instanceof Error && err.message === 'location not found') {
+                res.status(404).json({ error: 'location not found' });
+                return;
+            }
+            dbError(res, err);
+        }
     });
 
     r.post('/host/settings', requireHost, async (req: Request, res: Response) => {

@@ -45,7 +45,7 @@ app.use(healthRouter(SERVER_NAME));
 app.get('/', async (_req: Request, res: Response) => {
     try {
         const locs = await listLocations();
-        const links = locs.map(l => `<li><a href="/r/${l._id}/queue.html">${l.name}</a> — <a href="/r/${l._id}/host.html">Host</a> · <a href="/r/${l._id}/analytics.html">Analytics</a></li>`).join('\n');
+        const links = locs.map(l => `<li><a href="/r/${l._id}/queue.html">${l.name}</a> — <a href="/r/${l._id}/host.html">Host</a> · <a href="/r/${l._id}/admin.html">Admin</a></li>`).join('\n');
         res.type('html').send(`<!doctype html><html><head><title>SKB — Locations</title><link href="https://fonts.googleapis.com/css2?family=Fira+Sans:wght@400;600;700&display=swap" rel="stylesheet"><style>body{font-family:'Fira Sans',sans-serif;max-width:600px;margin:40px auto;padding:0 20px}h1{font-size:24px}li{margin:8px 0;font-size:16px}a{color:#b45309}</style></head><body><h1>SKB Waitlist</h1><ul>${links || '<li>No locations configured.</li>'}</ul></body></html>`);
     } catch {
         res.status(503).send('Service unavailable');

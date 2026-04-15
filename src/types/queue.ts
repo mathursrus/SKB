@@ -8,6 +8,8 @@ export interface Location {
     name: string;        // display name, e.g., "Shri Krishna Bhavan"
     pin: string;         // host-stand PIN for this location
     frontDeskPhone?: string; // 10-digit phone for IVR transfer (large parties)
+    voiceEnabled?: boolean;   // location-level intent to expose IVR entry
+    voiceLargePartyThreshold?: number; // override for IVR transfer threshold
     createdAt: Date;
     publicUrl?: string;       // public HTTPS base URL, e.g., "https://skb.azurewebsites.net"
     googlePlaceId?: string;   // Google Maps Place ID, e.g., "ChIJ..."
@@ -251,11 +253,18 @@ export interface PhaseHistogram {
     total: number;        // sample count
 }
 
+export type AnalyticsStage = 'joined' | 'seated' | 'ordered' | 'served' | 'checkout' | 'departed';
+
 export interface AnalyticsDTO {
     histograms: PhaseHistogram[];
     dateRange: { from: string; to: string };
     partySizeFilter: string; // "all" | "1-2" | "3-4" | "5+"
     totalParties: number;
+    selectedRange?: {
+        startStage: AnalyticsStage;
+        endStage: AnalyticsStage;
+        label: string;
+    };
 }
 
 export interface ErrorDTO {

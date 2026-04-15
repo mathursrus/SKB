@@ -45,91 +45,9 @@
             </label>
             <span id="turn-info" class="turn-info" style="display:none"></span>
         </div>
-        <a href="analytics.html" class="logout" style="text-decoration:none;text-align:center">Analytics</a>
+        <a href="admin.html" class="logout" id="open-admin-link" style="text-decoration:none;text-align:center">Open Admin</a>
         <button class="logout" id="logout-btn">Log out</button>
     </div>
-    <section id="stats-card" class="stats-card collapsed">
-        <button id="stats-toggle" class="stats-toggle" aria-expanded="false">
-            <span class="stats-toggle-label">Today's Stats</span>
-            <span class="stats-toggle-arrow" aria-hidden="true">&#9660;</span>
-        </button>
-        <div id="stats-body" class="stats-body">
-            <div class="stats-grid" id="stats-grid">
-                <div class="stat-item">
-                    <div class="stat-value" id="stat-seated">0</div>
-                    <div class="stat-label">Seated</div>
-                </div>
-                <div class="stat-item">
-                    <div class="stat-value" id="stat-noshows">0</div>
-                    <div class="stat-label">No-Shows</div>
-                </div>
-                <div class="stat-item">
-                    <div class="stat-value" id="stat-avg-wait">&mdash;</div>
-                    <div class="stat-label">Avg Wait</div>
-                </div>
-                <div class="stat-item">
-                    <div class="stat-value" id="stat-peak">&mdash;</div>
-                    <div class="stat-label">Peak Hour</div>
-                </div>
-                <div class="stat-item stat-item-wide">
-                    <div class="stat-value"><span id="stat-turn-set">&mdash;</span> <span class="stat-vs">vs</span> <span id="stat-turn-actual">&mdash;</span></div>
-                    <div class="stat-label">Turn Time: Set vs Actual</div>
-                </div>
-                <div class="stat-item">
-                    <div class="stat-value" id="stat-avg-order">&mdash;</div>
-                    <div class="stat-label">Avg Order</div>
-                </div>
-                <div class="stat-item">
-                    <div class="stat-value" id="stat-avg-serve">&mdash;</div>
-                    <div class="stat-label">Avg Serve</div>
-                </div>
-                <div class="stat-item">
-                    <div class="stat-value" id="stat-avg-checkout">&mdash;</div>
-                    <div class="stat-label">Avg Checkout</div>
-                </div>
-                <div class="stat-item">
-                    <div class="stat-value" id="stat-avg-table">&mdash;</div>
-                    <div class="stat-label">Avg Table</div>
-                </div>
-            </div>
-            <p id="stats-empty" class="stats-empty" style="display:none">No data yet</p>
-        </div>
-    </section>
-    <section id="visit-card" class="stats-card collapsed">
-        <button id="visit-toggle" class="stats-toggle" aria-expanded="false">
-            <span class="stats-toggle-label">Visit Page <span class="visit-mode-badge" id="visit-mode-badge">auto</span></span>
-            <span class="stats-toggle-arrow" aria-hidden="true">&#9660;</span>
-        </button>
-        <div id="visit-body" class="stats-body visit-body">
-            <p class="visit-help">
-                The door QR points to <code id="visit-url">/r/skb/visit</code>. This page decides what to show
-                when someone scans, so you never have to reprint the sticker.
-            </p>
-            <div class="visit-grid">
-                <label class="visit-field">
-                    <span class="visit-label">Mode</span>
-                    <select id="visit-mode-select">
-                        <option value="auto">Auto — queue if anyone is waiting, else menu</option>
-                        <option value="queue">Always show queue page</option>
-                        <option value="menu">Always redirect to menu URL</option>
-                        <option value="closed">Closed — show "we're closed" page</option>
-                    </select>
-                </label>
-                <label class="visit-field">
-                    <span class="visit-label">Menu URL</span>
-                    <input type="url" id="visit-menu-url" placeholder="https://skb.com/menu" maxlength="500" />
-                </label>
-                <label class="visit-field visit-field-full">
-                    <span class="visit-label">Closed message</span>
-                    <input type="text" id="visit-closed-message" placeholder="We're closed today — back tomorrow at 11am" maxlength="280" />
-                </label>
-            </div>
-            <div class="visit-actions">
-                <span class="visit-status" id="visit-status"></span>
-                <button type="button" id="visit-save" class="primary">Save</button>
-            </div>
-        </div>
-    </section>
     <div class="tabs">
         <button class="tab active" data-tab="waiting">Waiting <span class="tab-badge" id="tab-badge-waiting">0</span></button>
         <button class="tab" data-tab="seated">Seated <span class="tab-badge" id="tab-badge-seated">0</span></button>
@@ -262,7 +180,7 @@
     </dialog>
 
     <!-- R10: Chat slide-over drawer. -->
-    <aside id="chat-drawer" class="chat-drawer" role="dialog" aria-modal="true"
+    <aside id="chat-drawer" class="chat-drawer" role="dialog" aria-modal="true" hidden
         aria-labelledby="chat-drawer-title" aria-hidden="true">
         <header class="chat-drawer-header">
             <div class="chat-drawer-who">

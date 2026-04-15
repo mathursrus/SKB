@@ -5,6 +5,10 @@
 import { getDb, locations } from '../core/db/mongo.js';
 import type { Location, VisitMode } from '../types/queue.js';
 
+const FRONT_DESK_PHONE_RE = /^\d{10}$/;
+const MIN_VOICE_LARGE_PARTY_THRESHOLD = 6;
+const MAX_VOICE_LARGE_PARTY_THRESHOLD = 20;
+
 export async function getLocation(locationId: string): Promise<Location | null> {
     const db = await getDb();
     return locations(db).findOne({ _id: locationId });
@@ -18,6 +22,27 @@ export interface VisitConfigUpdate {
     visitMode?: VisitMode;
     menuUrl?: string | null;        // null means clear the field
     closedMessage?: string | null;  // null means clear the field
+}
+
+export interface VoiceConfigUpdate {
+    voiceEnabled?: boolean;
+    frontDeskPhone?: string | null;
+    voiceLargePartyThreshold?: number;
+}
+
+export function validateVoiceConfigUpdate(update: VoiceConfigUpdate): void {
+    if (update.frontDeskPhone !== undefined && update.frontDeskPhone !== null && update.frontDeskPhone !== '') {
+        const phone = String(update.frontDeskPhone).trim();
+        if (!FRONT_DESK_PHONE_RE.test(phone)) {
+            throw new Error('frontDeskPhone must be a 10-digit phone number');
+        }
+    }
+    if (update.voiceLargePartyThreshold !== undefined) {
+        const threshold = Number(update.voiceLargePartyThreshold);
+        if (!Number.isInteger(threshold) || threshold < MIN_VOICE_LARGE_PARTY_THRESHOLD || threshold > MAX_VOICE_LARGE_PARTY_THRESHOLD) {
+            throw new Error(`voiceLargePartyThreshold must be an integer in [${MIN_VOICE_LARGE_PARTY_THRESHOLD}, ${MAX_VOICE_LARGE_PARTY_THRESHOLD}]`);
+        }
+    }
 }
 
 /**
@@ -78,6 +103,46 @@ export async function updateLocationVisitConfig(
         if (!existing) throw new Error('location not found');
         return existing;
     }
+    const result = await locations(db).findOneAndUpdate(
+        { _id: locationId },
+        updateDoc,
+        { returnDocument: 'after' },
+    );
+    if (!result) throw new Error('location not found');
+    return result;
+}
+
+export async function updateLocationVoiceConfig(
+    locationId: string,
+    update: VoiceConfigUpdate,
+): Promise<Location> {
+    validateVoiceConfigUpdate(update);
+
+    const db = await getDb();
+    const $set: Record<string, unknown> = {};
+    const $unset: Record<string, ''> = {};
+
+    if (update.voiceEnabled !== undefined) {
+        $set.voiceEnabled = Boolean(update.voiceEnabled);
+    }
+    if (update.frontDeskPhone !== undefined) {
+        const phone = update.frontDeskPhone === null ? '' : String(update.frontDeskPhone).trim();
+        if (phone === '') $unset.frontDeskPhone = '';
+        else $set.frontDeskPhone = phone;
+    }
+    if (update.voiceLargePartyThreshold !== undefined) {
+        $set.voiceLargePartyThreshold = Number(update.voiceLargePartyThreshold);
+    }
+
+    const updateDoc: Record<string, unknown> = {};
+    if (Object.keys($set).length > 0) updateDoc.$set = $set;
+    if (Object.keys($unset).length > 0) updateDoc.$unset = $unset;
+    if (Object.keys(updateDoc).length === 0) {
+        const existing = await getLocation(locationId);
+        if (!existing) throw new Error('location not found');
+        return existing;
+    }
+
     const result = await locations(db).findOneAndUpdate(
         { _id: locationId },
         updateDoc,

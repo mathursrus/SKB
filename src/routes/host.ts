@@ -21,7 +21,8 @@ import { getAvgTurnTime, getEffectiveTurnTime, setAvgTurnTime, setEtaMode } from
 import type { EtaMode } from '../types/queue.js';
 import { getHostStats } from '../services/stats.js';
 import { getAnalytics } from '../services/analytics.js';
-import { getLocation, updateLocationVisitConfig } from '../services/locations.js';
+import { getLocation, updateLocationVisitConfig, updateLocationVoiceConfig } from '../services/locations.js';
+import type { AnalyticsStage } from '../types/queue.js';
 import { verifyCookie, __test__ } from '../middleware/hostAuth.js';
 import { createHmac, timingSafeEqual } from 'node:crypto';
 
@@ -316,8 +317,20 @@ export function hostRouter(): Router {
     r.get('/host/analytics', requireHost, async (req: Request, res: Response) => {
         const range = String(req.query.range ?? '7');
         const partySize = String(req.query.partySize ?? 'all');
-        try { res.json(await getAnalytics(loc(req), range, partySize)); }
-        catch (err) { dbError(res, err); }
+        const startStage = req.query.startStage === undefined ? undefined : String(req.query.startStage) as AnalyticsStage;
+        const endStage = req.query.endStage === undefined ? undefined : String(req.query.endStage) as AnalyticsStage;
+        if ((startStage && !endStage) || (!startStage && endStage)) {
+            res.status(400).json({ error: 'startStage and endStage must both be provided' });
+            return;
+        }
+        try { res.json(await getAnalytics(loc(req), range, partySize, startStage, endStage)); }
+        catch (err) {
+            if (err instanceof Error && err.message === 'invalid analytics stage range') {
+                res.status(400).json({ error: err.message, field: 'startStage,endStage' });
+                return;
+            }
+            dbError(res, err);
+        }
     });
 
     r.get('/host/stats', requireHost, async (req: Request, res: Response) => {
@@ -393,6 +406,58 @@ export function hostRouter(): Router {
                 err.message.startsWith('visitMode')
                 || err.message.startsWith('menuUrl')
                 || err.message.startsWith('closedMessage')
+            )) {
+                res.status(400).json({ error: err.message });
+                return;
+            }
+            if (err instanceof Error && err.message === 'location not found') {
+                res.status(404).json({ error: 'location not found' });
+                return;
+            }
+            dbError(res, err);
+        }
+    });
+
+    r.get('/host/voice-config', requireHost, async (req: Request, res: Response) => {
+        try {
+            const location = await getLocation(loc(req));
+            res.json({
+                voiceEnabled: location?.voiceEnabled ?? (process.env.TWILIO_VOICE_ENABLED === 'true'),
+                frontDeskPhone: location?.frontDeskPhone ?? '',
+                voiceLargePartyThreshold: location?.voiceLargePartyThreshold ?? 10,
+            });
+        } catch (err) { dbError(res, err); }
+    });
+
+    r.post('/host/voice-config', requireHost, async (req: Request, res: Response) => {
+        const body = (req.body ?? {}) as {
+            voiceEnabled?: unknown;
+            frontDeskPhone?: unknown;
+            voiceLargePartyThreshold?: unknown;
+        };
+        try {
+            const updated = await updateLocationVoiceConfig(loc(req), {
+                voiceEnabled: body.voiceEnabled === undefined ? undefined : Boolean(body.voiceEnabled),
+                frontDeskPhone: body.frontDeskPhone === undefined ? undefined : (body.frontDeskPhone === null ? null : String(body.frontDeskPhone)),
+                voiceLargePartyThreshold: body.voiceLargePartyThreshold === undefined ? undefined : Number(body.voiceLargePartyThreshold),
+            });
+            console.log(JSON.stringify({
+                t: new Date().toISOString(),
+                level: 'info',
+                msg: 'host.voice_config.updated',
+                loc: loc(req),
+                voiceEnabled: updated.voiceEnabled ?? (process.env.TWILIO_VOICE_ENABLED === 'true'),
+                frontDeskPhoneSet: !!updated.frontDeskPhone,
+                voiceLargePartyThreshold: updated.voiceLargePartyThreshold ?? 10,
+            }));
+            res.json({
+                voiceEnabled: updated.voiceEnabled ?? (process.env.TWILIO_VOICE_ENABLED === 'true'),
+                frontDeskPhone: updated.frontDeskPhone ?? '',
+                voiceLargePartyThreshold: updated.voiceLargePartyThreshold ?? 10,
+            });
+        } catch (err) {
+            if (err instanceof Error && (
+                err.message.startsWith('frontDeskPhone') || err.message.startsWith('voiceLargePartyThreshold')
             )) {
                 res.status(400).json({ error: err.message });
                 return;

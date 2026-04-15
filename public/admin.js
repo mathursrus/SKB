@@ -102,7 +102,7 @@
             range: rangeSelect.value,
             partySize: partySizeSelect.value,
         });
-        if (startStageSelect.value || endStageSelect.value) {
+        if (startStageSelect.value && endStageSelect.value) {
             params.set('startStage', startStageSelect.value);
             params.set('endStage', endStageSelect.value);
         }

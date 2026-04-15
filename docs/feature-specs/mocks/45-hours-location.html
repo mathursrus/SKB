@@ -242,10 +242,10 @@
 
     <main>
         <section>
-            <h2>Hours <span class="owner-flag">needs owner confirm</span></h2>
+            <h2>Hours</h2>
             <table class="hours-table">
                 <tbody>
-                    <tr><td>Monday</td><td>11:30 AM – 2:30 PM · 5:30 PM – 9:30 PM</td></tr>
+                    <tr><td>Monday</td><td style="color: #b86a16; font-style: italic;">Closed</td></tr>
                     <tr><td>Tuesday</td><td>11:30 AM – 2:30 PM · 5:30 PM – 9:30 PM</td></tr>
                     <tr><td>Wednesday</td><td>11:30 AM – 2:30 PM · 5:30 PM – 9:30 PM</td></tr>
                     <tr><td>Thursday</td><td>11:30 AM – 2:30 PM · 5:30 PM – 9:30 PM</td></tr>
@@ -255,13 +255,21 @@
                 </tbody>
             </table>
             <div class="last-order">
-                <strong>Last orders:</strong> 2:10 PM for lunch, 9:10 PM for dinner — every day.
+                <strong>Last orders:</strong> 2:10 PM for lunch, 9:10 PM for dinner.
             </div>
         </section>
 
         <section>
             <h2>Find Us</h2>
-            <div class="map-block" role="img" aria-label="Map showing Shri Krishna Bhavan at 12 Bellevue Way SE"></div>
+            <div class="map-block" role="img" aria-label="Map showing Shri Krishna Bhavan at 12 Bellevue Way SE" style="padding: 0; background: transparent; border: 1px solid var(--line);">
+                <iframe
+                    title="Map of Shri Krishna Bhavan"
+                    src="https://www.google.com/maps?q=12+Bellevue+Way+SE+Bellevue+WA+98004&amp;output=embed"
+                    width="100%" height="280"
+                    style="border: 0; border-radius: 6px;"
+                    loading="lazy"
+                    referrerpolicy="no-referrer-when-downgrade"></iframe>
+            </div>
             <a class="map-cta" href="https://www.google.com/maps/search/?api=1&amp;query=12+Bellevue+Way+SE+Bellevue+WA+98004">Open in Google Maps</a>
 
             <div class="address-block" style="margin-top: 24px;">
@@ -269,10 +277,11 @@
                 <div class="line">12 Bellevue Way SE</div>
                 <div class="line">Bellevue, WA 98004</div>
                 <div class="line muted" style="margin-top: 8px;">(253) 656-5478 · skb.bellevue@gmail.com</div>
+                <div class="line muted" style="font-size: 0.75rem; margin-top: 4px;">Address is admin-configurable per location</div>
             </div>
 
             <div class="parking-block">
-                <h3>Parking <span class="owner-flag">needs owner confirm</span></h3>
+                <h3>Parking</h3>
                 <p>Complimentary parking is available in the lot at our building. Overflow street parking on Bellevue Way SE.</p>
             </div>
         </section>

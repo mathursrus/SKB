@@ -80,14 +80,28 @@ The greeting is capped at ~22 seconds of audio to avoid fatiguing callers who on
 This is a **category overview** (not a full item-by-item read) — reading 79 items by voice would take several minutes and is unusable. Callers who want item-level detail are directed to the website. Caller can press `*` to return to the main menu or `1` to short-circuit into the join flow.
 
 **Branch: press 4 — Hours and Location (new)**
-> *"Shri Krishna Bhavan is located at 12 Bellevue Way SE in Bellevue, Washington. We're open seven days a week. Lunch service is from 11:30 AM to 2:30 PM, with last orders at 2:10 PM. Dinner service is from 5:30 PM to 9:30 PM, with last orders at 9:10 PM. Complimentary parking is available in the lot at our building. To return to the main menu, press star. To join the waitlist, press 1."*
+> *"Shri Krishna Bhavan is located at 12 Bellevue Way SE in Bellevue, Washington. We're open Tuesday through Sunday — we're closed on Mondays. Lunch service is from 11:30 AM to 2:30 PM, with last orders at 2:10 PM. Dinner service is from 5:30 PM to 9:30 PM, with last orders at 9:10 PM. Complimentary parking is available in the lot at our building. To return to the main menu, press star. To join the waitlist, press 1."*
 
-> ⚠️ **`[NEEDS OWNER CONFIRM]`**: the weekly hours (11:30–2:30 lunch, 5:30–9:30 dinner, 7 days/week) and the parking description ("complimentary lot") are inferred defaults based on the "last orders 2:10 / 9:10" line on the current website. **These must be confirmed with the restaurant owner before this IVR branch is deployed.** See Spec-Review Questions below.
+Owner-confirmed values (PR #47 review, 2026-04-15): **closed Mondays**, Tue–Sun hours as above, parking description confirmed. The address string in the script is rendered server-side from the admin-configured `location.address` field (see Admin Configuration below) so future address changes don't require a code deploy.
 
 **Branch: press 0 — Front desk transfer (new)**
 > *"Connecting you to our host. Please hold."*
 
-This dials the `frontDeskPhone` configured on the `skb` location (same mechanism used today by the large-party transfer on `/voice/got-size`). If `frontDeskPhone` is not configured, fallback to: *"Our host is currently unavailable. To join the waitlist, press 1. Or you can reach us at skbbellevue dot com."*
+This dials the `frontDeskPhone` configured on the `skb` location. Owner-confirmed (PR #47): `frontDeskPhone` must be **admin-configurable** via the host admin UI — not a hard-coded value, not a DB-only value the owner has to edit manually. See Admin Configuration below. If `frontDeskPhone` is unset, fallback to: *"Our host is currently unavailable. To join the waitlist, press 1. Or you can reach us at skbbellevue dot com."*
+
+### Admin Configuration (owner-configurable per location)
+
+Based on PR #47 review feedback (Q5 and Q6), the following fields must be editable by the restaurant owner via the existing host admin UI (`public/host.html` → location settings) — **not** edited in the DB directly or hard-coded into the site:
+
+| Field | Purpose | Used by |
+|---|---|---|
+| `location.address` | Street, city, state, zip of the restaurant | Home page footer, Hours & Location page, Contact page, IVR hours/location script, Google Maps embed `q=` parameter, JSON-LD `PostalAddress` |
+| `location.frontDeskPhone` | Phone the IVR press-0 transfer dials | Voice IVR press-0 transfer, existing large-party transfer in `/voice/got-size` |
+| `location.hours` (existing or new) | Weekly hours with support for closed days | Hours & Location page, IVR hours script |
+
+**Closed-day handling**: the hours data structure must support a closed day (Monday in SKB's case) without requiring the spec copy to hard-code "closed on Mondays." The IVR hours script and the website hours table both read from the same source, so a future change (e.g., also closing on Tuesdays) is a one-field admin edit and a one-minute re-render.
+
+> 📌 **Implementation prerequisite** (PR #47 review, Q5): **pull from `master` before starting the feature-implementation job.** The host admin section has been refactored after this feature branch was cut, and the new admin configuration fields must be added to the refactored codebase — not the old one.
 
 **Branch: no input / invalid input**
 > *"I didn't catch that. Let me repeat the options."* → replay greeting (bounded to 1 retry, then goodbye).
@@ -278,22 +292,22 @@ All pricing data above was pulled on 2026-04-15 from the cited sources. Pricing 
 
 Research methodology: fetched each competitor's own product page via WebFetch, then cross-referenced with two to four third-party pricing aggregators per vendor. Prices cited only where they appear in at least one cited source; values marked as "not public" otherwise.
 
-## Spec-Review Questions for Sid
+## Spec-Review Questions — Resolutions (PR #47, 2026-04-15)
 
-These are the items flagged for owner confirmation before implementation begins. Each one blocks a specific section of the final site/IVR:
+All 10 questions resolved via inline review comments on PR #47. Owner overrides are marked ⚠️. Full feedback trace in `docs/evidence/45-spec-feedback.md`.
 
-| # | Question | Blocks | My guessed default (used in mocks) |
+| # | Question | Owner answer | Outcome |
 |---|---|---|---|
-| Q1 | What are the **actual weekly operating hours** of Shri Krishna Bhavan? (Current site only shows "last orders 2:10 PM / 9:10 PM".) | Hours page, IVR branch 4 | Mon–Sun lunch 11:30a–2:30p, dinner 5:30p–9:30p |
-| Q2 | Is the restaurant open **every day**, or closed on any specific day (e.g., Mondays)? | Hours page, IVR branch 4 | 7 days/week |
-| Q3 | What's the **parking situation**? On-site lot? Street? Validated? Any restrictions? | Hours/location page, IVR branch 4 | "Complimentary parking in the lot at our building" |
-| Q4 | Is **"Shri Krishna Bhavan"** the correct spelling? (Current site says "Shri Kriskhna Bhavan" — I'm assuming that's a typo.) | Every page on the new site | "Krishna" |
-| Q5 | Is the `frontDeskPhone` field already populated on the `skb` location in the DB? (Needed for the new "press 0" IVR branch.) | IVR branch 0 | Assume populated; spec falls back gracefully if not |
-| Q6 | Do you want a **Google Maps embed** on the Hours page, or is a static map image + "Open in Maps" link enough? (Embed is ~200KB of JS on every page view.) | Hours page mock | Static image + "Open in Maps" link (lighter, no third-party JS) |
-| Q7 | Do you want the **newsletter signup** on the old site preserved, or dropped? (Currently non-functional — form submits to nowhere.) | Home page mock | Dropped (listed under non-goals) |
-| Q8 | Any **food photos** you want featured that aren't on the current site? (I'm planning to reuse the current site's hero images; if you have higher-res originals, please share.) | Home and Menu pages | Reuse current site images, re-compressed to WebP |
-| Q9 | **DNS cutover** — will you execute the cutover runbook yourself, or should the implementation PR include a scheduled task to do it automatically? | Cutover phase | You'll execute the runbook manually |
-| Q10 | The **About page copy** on the current site is a few short paragraphs. Do you want me to rewrite it in a warmer hospitality tone (my default), or preserve it verbatim minus the typo fix? | About page mock | Rewrite, warmer tone |
+| Q1 | Weekly operating hours | "correct" | Lunch 11:30 AM – 2:30 PM, dinner 5:30 PM – 9:30 PM confirmed |
+| Q2 | Open every day? | ⚠️ "closed on mondays" | **Override**: Closed Mondays; Tue–Sun only. IVR + mocks + spec copy updated. |
+| Q3 | Parking | "what you have is right" | Complimentary lot + overflow street confirmed |
+| Q4 | Name spelling | "you got it right" | "Shri Krishna Bhavan" confirmed; current-site "Kriskhna" is a typo |
+| Q5 | `frontDeskPhone` populated? | ⚠️ "configurable in the admin section ... pull from master before starting implementation" | **Override**: Make `frontDeskPhone` admin-configurable via host UI; pull from `master` before implementation because admin has been refactored |
+| Q6 | Map embed or static? | ⚠️ "embed would be good .. allow address to be configured by the admin" | **Override**: Use Google Maps embed iframe + make address admin-configurable |
+| Q7 | Newsletter signup | "drop it" | Drop confirmed (already in non-goals) |
+| Q8 | Food photos | "use whats on the site for now" | Reuse current-site images confirmed |
+| Q9 | DNS cutover | "i will do that later" | Owner will run the runbook manually after implementation lands |
+| Q10 | About page rewrite | "you got it right" | Warmer hospitality rewrite confirmed |
 
 ## Retrospective
 

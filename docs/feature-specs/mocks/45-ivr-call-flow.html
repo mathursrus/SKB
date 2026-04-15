@@ -225,9 +225,10 @@
         <div class="step-label">Press 0 — Transfer to Front Desk <span class="tag transfer">new</span></div>
         <div class="step-script">"Connecting you to our host. Please hold."</div>
         <div class="step-action">
-            <code>&lt;Dial&gt;+1{frontDeskPhone}&lt;/Dial&gt;</code>
+            <code>&lt;Dial&gt;+1{location.frontDeskPhone}&lt;/Dial&gt;</code>
             — uses same pattern as the existing large-party transfer in <code>/voice/got-size</code>.
-            If <code>frontDeskPhone</code> is unset, falls back to: "Our host is currently unavailable. To join the waitlist, press 1..."
+            <code>frontDeskPhone</code> is admin-configurable per location via the host admin UI (PR #47 review).
+            If unset, falls back to: "Our host is currently unavailable. To join the waitlist, press 1..."
         </div>
     </div>
 
@@ -262,15 +263,16 @@
         <div class="step-label">Hours &amp; location <span class="tag new">new</span></div>
         <div class="step-script">
             "Shri Krishna Bhavan is located at 12 Bellevue Way SE in Bellevue, Washington.
-            We're open seven days a week. Lunch service is from 11:30 AM to 2:30 PM, with last orders at 2:10 PM.
+            We're open Tuesday through Sunday — we're closed on Mondays.
+            Lunch service is from 11:30 AM to 2:30 PM, with last orders at 2:10 PM.
             Dinner service is from 5:30 PM to 9:30 PM, with last orders at 9:10 PM.
             Complimentary parking is available in the lot at our building.
             To return to the main menu, press star. To join the waitlist, press 1."
-            <span class="flag">hours &amp; parking need owner confirm</span>
         </div>
         <div class="step-action">
             <code>&lt;Gather input="dtmf" numDigits="1" timeout="8" action="/voice/menu-choice"&gt;</code>
-            — same <code>*</code> / <code>1</code> shortcuts as the menu branch
+            — same <code>*</code> / <code>1</code> shortcuts as the menu branch.
+            Address is rendered server-side from <code>location.address</code> (admin-configurable per PR #47 review).
         </div>
     </div>
 

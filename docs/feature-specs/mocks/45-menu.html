@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Menu — Shri Krishna Bhavan</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        :root {
+            --cream: #fdf8ef;
+            --cream-warm: #faf1dc;
+            --charcoal: #2a2a2a;
+            --saffron: #e08a2e;
+            --saffron-dark: #b86a16;
+            --muted: #6d6660;
+            --line: #e8dcc4;
+            --leaf: #3d5a3d;
+        }
+        body {
+            font-family: 'Georgia', 'Times New Roman', serif;
+            background: var(--cream);
+            color: var(--charcoal);
+            line-height: 1.6;
+        }
+        .site-banner {
+            background: var(--leaf);
+            color: var(--cream);
+            text-align: center;
+            padding: 8px 16px;
+            font-size: 0.85rem;
+            font-family: 'Helvetica', sans-serif;
+        }
+        header.site-header {
+            background: var(--cream);
+            border-bottom: 1px solid var(--line);
+            padding: 20px 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .brand-name {
+            font-size: 1.4rem;
+            color: var(--saffron-dark);
+            letter-spacing: 0.04em;
+        }
+        .brand-tag {
+            font-size: 0.8rem;
+            color: var(--muted);
+            font-family: 'Helvetica', sans-serif;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+        }
+        nav.site-nav ul {
+            display: flex;
+            list-style: none;
+            gap: 28px;
+            font-family: 'Helvetica', sans-serif;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+        }
+        nav.site-nav a {
+            color: var(--charcoal);
+            text-decoration: none;
+            padding: 6px 0;
+            border-bottom: 2px solid transparent;
+        }
+        nav.site-nav a[aria-current="page"] {
+            border-bottom-color: var(--saffron);
+        }
+        .menu-hero {
+            text-align: center;
+            padding: 64px 24px 24px;
+            max-width: 900px;
+            margin: 0 auto;
+        }
+        .menu-hero h1 {
+            font-size: 2.6rem;
+            color: var(--saffron-dark);
+            font-weight: normal;
+            margin-bottom: 12px;
+            letter-spacing: 0.02em;
+        }
+        .menu-hero p {
+            color: var(--muted);
+            font-style: italic;
+        }
+        .category-strip {
+            position: sticky;
+            top: 0;
+            background: var(--cream);
+            border-bottom: 1px solid var(--line);
+            padding: 16px 24px;
+            overflow-x: auto;
+            white-space: nowrap;
+            z-index: 50;
+        }
+        .category-strip a {
+            color: var(--muted);
+            text-decoration: none;
+            font-family: 'Helvetica', sans-serif;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            margin-right: 24px;
+            padding: 4px 0;
+        }
+        .category-strip a:hover { color: var(--saffron-dark); }
+        main.menu-main {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 24px 24px 72px;
+        }
+        .category {
+            margin-bottom: 56px;
+        }
+        .category h2 {
+            font-size: 1.6rem;
+            color: var(--saffron-dark);
+            font-weight: normal;
+            margin-bottom: 6px;
+            letter-spacing: 0.03em;
+            border-bottom: 1px solid var(--line);
+            padding-bottom: 10px;
+        }
+        .category-count {
+            color: var(--muted);
+            font-size: 0.85rem;
+            font-style: italic;
+            margin-bottom: 20px;
+        }
+        .items {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px 36px;
+        }
+        .item {
+            display: flex;
+            align-items: baseline;
+            border-bottom: 1px dotted var(--line);
+            padding: 10px 0;
+        }
+        .item-name {
+            flex: 1;
+            font-size: 0.98rem;
+            padding-right: 12px;
+        }
+        .item-tag {
+            display: inline-block;
+            font-size: 0.65rem;
+            background: var(--cream-warm);
+            color: var(--muted);
+            padding: 2px 6px;
+            border-radius: 3px;
+            margin-left: 6px;
+            font-family: 'Helvetica', sans-serif;
+            vertical-align: middle;
+        }
+        .item-tag.non-vegan { background: #f4e4d4; color: #8a5a2a; }
+        .item-price {
+            color: var(--saffron-dark);
+            font-weight: bold;
+            font-family: 'Helvetica', sans-serif;
+            font-size: 0.95rem;
+            white-space: nowrap;
+        }
+        footer.site-footer {
+            background: var(--charcoal);
+            color: var(--cream);
+            padding: 48px 24px 24px;
+            text-align: center;
+            font-family: 'Helvetica', sans-serif;
+            font-size: 0.85rem;
+        }
+        footer.site-footer a {
+            color: var(--cream);
+            text-decoration: none;
+            margin: 0 16px;
+        }
+        footer.site-footer .fcopy {
+            color: #7a756f;
+            margin-top: 12px;
+            font-size: 0.75rem;
+        }
+        .mock-note {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            background: #fff7d6;
+            border: 1px solid #e3bf3d;
+            padding: 8px 12px;
+            font-family: monospace;
+            font-size: 0.75rem;
+            color: #6b5500;
+            border-radius: 4px;
+            max-width: 280px;
+            z-index: 1000;
+        }
+        .loading {
+            text-align: center;
+            color: var(--muted);
+            padding: 48px 0;
+            font-style: italic;
+        }
+        @media (max-width: 720px) {
+            .items { grid-template-columns: 1fr; }
+            header.site-header { flex-direction: column; gap: 16px; }
+            .menu-hero h1 { font-size: 2rem; }
+            nav.site-nav ul { gap: 16px; font-size: 0.75rem; }
+        }
+    </style>
+</head>
+<body>
+    <div class="mock-note">Mock — Issue #45 — Menu (79 items from 45-menu-data.json)</div>
+
+    <div class="site-banner">Last orders daily at 2:10 PM &amp; 9:10 PM</div>
+
+    <header class="site-header">
+        <div>
+            <div class="brand-name">Shri Krishna Bhavan</div>
+            <div class="brand-tag">South Indian · Bellevue</div>
+        </div>
+        <nav class="site-nav" aria-label="Primary navigation">
+            <ul>
+                <li><a href="45-home.html">Home</a></li>
+                <li><a href="45-menu.html" aria-current="page">Menu</a></li>
+                <li><a href="45-about.html">About</a></li>
+                <li><a href="45-hours-location.html">Hours &amp; Location</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <div class="menu-hero">
+        <h1>Our Menu</h1>
+        <p>Every dish prepared fresh to order. Last orders at 2:10 PM for lunch and 9:10 PM for dinner.</p>
+    </div>
+
+    <nav class="category-strip" id="category-strip" aria-label="Menu categories">
+        <span class="loading">Loading categories…</span>
+    </nav>
+
+    <main class="menu-main" id="menu-main">
+        <div class="loading">Loading menu…</div>
+    </main>
+
+    <footer class="site-footer">
+        <div style="margin-bottom: 16px;">
+            <a href="45-home.html">Home</a>
+            <a href="45-menu.html">Menu</a>
+            <a href="45-about.html">About</a>
+            <a href="45-hours-location.html">Hours &amp; Location</a>
+        </div>
+        <div>12 Bellevue Way SE, Bellevue WA 98004 · (253) 656-5478 · skb.bellevue@gmail.com</div>
+        <div class="fcopy">© 2026 Shri Krishna Bhavan · All rights reserved</div>
+    </footer>
+
+    <script>
+    (async function () {
+        const main = document.getElementById('menu-main');
+        const strip = document.getElementById('category-strip');
+        try {
+            const res = await fetch('45-menu-data.json');
+            const data = await res.json();
+            const items = data.items || [];
+            // Preserve category order of first appearance from the scrape
+            const categoryOrder = [];
+            const byCategory = {};
+            for (const it of items) {
+                const cat = it.category || 'Other';
+                if (!byCategory[cat]) { byCategory[cat] = []; categoryOrder.push(cat); }
+                byCategory[cat].push(it);
+            }
+
+            // Category strip
+            strip.innerHTML = '';
+            for (const cat of categoryOrder) {
+                const a = document.createElement('a');
+                a.href = '#cat-' + cat.replace(/\s+/g, '-').toLowerCase();
+                a.textContent = cat + ' (' + byCategory[cat].length + ')';
+                strip.appendChild(a);
+            }
+
+            // Sections
+            main.innerHTML = '';
+            for (const cat of categoryOrder) {
+                const section = document.createElement('section');
+                section.className = 'category';
+                section.id = 'cat-' + cat.replace(/\s+/g, '-').toLowerCase();
+                const h2 = document.createElement('h2');
+                h2.textContent = cat;
+                const count = document.createElement('div');
+                count.className = 'category-count';
+                count.textContent = byCategory[cat].length + ' dish' + (byCategory[cat].length === 1 ? '' : 'es');
+                const grid = document.createElement('div');
+                grid.className = 'items';
+                for (const it of byCategory[cat]) {
+                    const row = document.createElement('div');
+                    row.className = 'item';
+                    const name = document.createElement('div');
+                    name.className = 'item-name';
+                    // Clean the name: title case, strip some noise markers
+                    const cleanName = it.name
+                        .toLowerCase()
+                        .replace(/\b\w/g, c => c.toUpperCase())
+                        .replace(/\(Non-Vegan\)/gi, '')
+                        .replace(/\(\s*\)/g, '')
+                        .trim();
+                    name.textContent = cleanName;
+                    if (/non-vegan/i.test(it.name)) {
+                        const t = document.createElement('span');
+                        t.className = 'item-tag non-vegan';
+                        t.textContent = 'non-vegan';
+                        name.appendChild(t);
+                    }
+                    const price = document.createElement('div');
+                    price.className = 'item-price';
+                    price.textContent = (it.price || '').replace(/\s+/g, ' ').trim();
+                    row.appendChild(name);
+                    row.appendChild(price);
+                    grid.appendChild(row);
+                }
+                section.appendChild(h2);
+                section.appendChild(count);
+                section.appendChild(grid);
+                main.appendChild(section);
+            }
+        } catch (err) {
+            main.innerHTML = '<div class="loading">Could not load menu: ' + err.message + '</div>';
+        }
+    })();
+    </script>
+</body>
+</html>

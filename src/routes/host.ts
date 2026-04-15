@@ -21,8 +21,14 @@ import { getAvgTurnTime, getEffectiveTurnTime, setAvgTurnTime, setEtaMode } from
 import type { EtaMode } from '../types/queue.js';
 import { getHostStats } from '../services/stats.js';
 import { getAnalytics } from '../services/analytics.js';
-import { getLocation, updateLocationVisitConfig, updateLocationVoiceConfig } from '../services/locations.js';
-import type { AnalyticsStage } from '../types/queue.js';
+import {
+    getLocation,
+    updateLocationVisitConfig,
+    updateLocationVoiceConfig,
+    updateLocationSiteConfig,
+    toPublicLocation,
+} from '../services/locations.js';
+import type { AnalyticsStage, LocationAddress, WeeklyHours } from '../types/queue.js';
 import { verifyCookie, __test__ } from '../middleware/hostAuth.js';
 import { createHmac, timingSafeEqual } from 'node:crypto';
 
@@ -418,6 +424,10 @@ export function hostRouter(): Router {
         }
     });
 
+    // Voice / IVR admin config (from PR #48) — voiceEnabled,
+    // frontDeskPhone, voiceLargePartyThreshold. The press-0 transfer branch
+    // added in issue #45 dials whatever `frontDeskPhone` the owner has
+    // saved here.
     r.get('/host/voice-config', requireHost, async (req: Request, res: Response) => {
         try {
             const location = await getLocation(loc(req));
@@ -468,6 +478,110 @@ export function hostRouter(): Router {
             }
             dbError(res, err);
         }
+    });
+
+    // ----------------------------------------------------------------------
+    // Site admin (issue #45): address, weekly hours, public host. Drives
+    // the diner-facing website pages and the IVR hours/location branch.
+    // Split from visit-config and voice-config because it's a third
+    // capability area — the replacement for skbbellevue.com lives here.
+    // ----------------------------------------------------------------------
+    r.get('/host/site-config', requireHost, async (req: Request, res: Response) => {
+        try {
+            const location = await getLocation(loc(req));
+            res.json({
+                address: location?.address ?? null,
+                hours: location?.hours ?? null,
+                publicHost: location?.publicHost ?? '',
+            });
+        } catch (err) { dbError(res, err); }
+    });
+
+    r.post('/host/site-config', requireHost, async (req: Request, res: Response) => {
+        const body = (req.body ?? {}) as {
+            address?: unknown;
+            hours?: unknown;
+            publicHost?: unknown;
+        };
+        const update: {
+            address?: LocationAddress | null;
+            hours?: WeeklyHours | null;
+            publicHost?: string | null;
+        } = {};
+        if (body.address !== undefined) {
+            if (body.address === null) {
+                update.address = null;
+            } else if (typeof body.address === 'object') {
+                const a = body.address as Record<string, unknown>;
+                update.address = {
+                    street: String(a.street ?? ''),
+                    city: String(a.city ?? ''),
+                    state: String(a.state ?? ''),
+                    zip: String(a.zip ?? ''),
+                };
+            } else {
+                res.status(400).json({ error: 'address must be an object or null' });
+                return;
+            }
+        }
+        if (body.hours !== undefined) {
+            if (body.hours === null) {
+                update.hours = null;
+            } else if (typeof body.hours === 'object') {
+                update.hours = body.hours as WeeklyHours;
+            } else {
+                res.status(400).json({ error: 'hours must be an object or null' });
+                return;
+            }
+        }
+        if (body.publicHost !== undefined) {
+            update.publicHost = body.publicHost === null ? null : String(body.publicHost);
+        }
+        try {
+            const updated = await updateLocationSiteConfig(loc(req), update);
+            console.log(JSON.stringify({
+                t: new Date().toISOString(),
+                level: 'info',
+                msg: 'host.site_config.updated',
+                loc: loc(req),
+                addressSet: !!updated.address,
+                hoursSet: !!updated.hours,
+                publicHostSet: !!updated.publicHost,
+            }));
+            res.json({
+                address: updated.address ?? null,
+                hours: updated.hours ?? null,
+                publicHost: updated.publicHost ?? '',
+            });
+        } catch (err) {
+            if (err instanceof Error && (
+                err.message.startsWith('address')
+                || err.message.startsWith('hours')
+                || err.message.startsWith('publicHost')
+            )) {
+                res.status(400).json({ error: err.message });
+                return;
+            }
+            if (err instanceof Error && err.message === 'location not found') {
+                res.status(404).json({ error: 'location not found' });
+                return;
+            }
+            dbError(res, err);
+        }
+    });
+
+    // Public (unauthenticated) subset of the location config for the new
+    // diner-facing website pages (issue #45). Excludes `pin` and internal
+    // flags — see `toPublicLocation` in src/services/locations.ts.
+    r.get('/public-config', async (req: Request, res: Response) => {
+        try {
+            const location = await getLocation(loc(req));
+            if (!location) {
+                res.status(404).json({ error: 'location not found' });
+                return;
+            }
+            res.json(toPublicLocation(location));
+        } catch (err) { dbError(res, err); }
     });
 
     r.post('/host/settings', requireHost, async (req: Request, res: Response) => {

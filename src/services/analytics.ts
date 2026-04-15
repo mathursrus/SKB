@@ -5,6 +5,7 @@
 import { getDb, queueEntries } from '../core/db/mongo.js';
 import { minutesBetween, serviceDay } from '../core/utils/time.js';
 import type {
+    AnalyticsStage,
     AnalyticsDTO,
     HistogramBucket,
     PhaseHistogram,
@@ -30,6 +31,31 @@ const PHASES: PhaseConfig[] = [
     { phase: 'checkout', label: 'Checkout Time (checkout → departed)', startField: 'checkoutAt', endField: 'departedAt' },
     { phase: 'table', label: 'Total Table Occupancy (seated → departed)', startField: 'seatedAt', endField: 'departedAt' },
 ];
+
+const ANALYTICS_STAGE_ORDER: AnalyticsStage[] = ['joined', 'seated', 'ordered', 'served', 'checkout', 'departed'];
+
+const STAGE_FIELDS: Record<AnalyticsStage, keyof QueueEntry> = {
+    joined: 'joinedAt',
+    seated: 'seatedAt',
+    ordered: 'orderedAt',
+    served: 'servedAt',
+    checkout: 'checkoutAt',
+    departed: 'departedAt',
+};
+
+export function isValidAnalyticsStagePair(startStage: AnalyticsStage, endStage: AnalyticsStage): boolean {
+    const startIdx = ANALYTICS_STAGE_ORDER.indexOf(startStage);
+    const endIdx = ANALYTICS_STAGE_ORDER.indexOf(endStage);
+    return startIdx >= 0 && endIdx >= 0 && endIdx > startIdx;
+}
+
+function stageTitle(stage: AnalyticsStage): string {
+    return stage.charAt(0).toUpperCase() + stage.slice(1);
+}
+
+export function buildRangeLabel(startStage: AnalyticsStage, endStage: AnalyticsStage): string {
+    return `${stageTitle(startStage)} -> ${stageTitle(endStage)}`;
+}
 
 function partySizeBucket(size: number): string {
     if (size <= 2) return '1-2';
@@ -78,6 +104,8 @@ export async function getAnalytics(
     locationId: string,
     rangeDays: string = '7',
     partySizeFilter: string = 'all',
+    startStage?: AnalyticsStage,
+    endStage?: AnalyticsStage,
 ): Promise<AnalyticsDTO> {
     const db = await getDb();
     const days = dateRangeToDays(rangeDays);
@@ -131,6 +159,40 @@ export async function getAnalytics(
         };
     });
 
+    let selectedRange: AnalyticsDTO['selectedRange'];
+    if (startStage && endStage) {
+        if (!isValidAnalyticsStagePair(startStage, endStage)) {
+            throw new Error('invalid analytics stage range');
+        }
+
+        const startField = STAGE_FIELDS[startStage];
+        const endField = STAGE_FIELDS[endStage];
+        const values: number[] = [];
+        for (const d of filtered) {
+            const start = d[startField] as Date | undefined;
+            const end = d[endField] as Date | undefined;
+            if (start && end) {
+                values.push(minutesBetween(start, end));
+            }
+        }
+
+        const rangeHistogram: PhaseHistogram = {
+            phase: `${startStage}-${endStage}`,
+            label: `${buildRangeLabel(startStage, endStage)} Time`,
+            buckets: buildHistogram(values),
+            avg: values.length > 0
+                ? Math.round(values.reduce((a, b) => a + b, 0) / values.length)
+                : null,
+            total: values.length,
+        };
+        histograms.unshift(rangeHistogram);
+        selectedRange = {
+            startStage,
+            endStage,
+            label: buildRangeLabel(startStage, endStage),
+        };
+    }
+
     const from = serviceDays[serviceDays.length - 1];
     const to = serviceDays[0];
 
@@ -139,5 +201,6 @@ export async function getAnalytics(
         dateRange: { from, to },
         partySizeFilter,
         totalParties: filtered.length,
+        selectedRange,
     };
 }

@@ -109,6 +109,79 @@ const cases: BaseTestCase[] = [
         },
     },
     {
+        name: 'host-auth: /api/host/analytics accepts stage-range params with valid cookie',
+        tags: ['integration', 'auth', 'analytics'],
+        testFn: async () => {
+            const loginRes = await fetch(`${getTestServerUrl()}/api/host/login`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ pin: '1234' }),
+            });
+            const cookieValue = (loginRes.headers.get('set-cookie') ?? '').split(';')[0];
+
+            const analyticsRes = await fetch(`${getTestServerUrl()}/api/host/analytics?range=7&partySize=all&startStage=ordered&endStage=served`, {
+                headers: { Cookie: cookieValue },
+            });
+            return analyticsRes.ok;
+        },
+    },
+    {
+        name: 'host-auth: /api/host/analytics rejects invalid stage-range params',
+        tags: ['integration', 'auth', 'analytics'],
+        testFn: async () => {
+            const loginRes = await fetch(`${getTestServerUrl()}/api/host/login`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ pin: '1234' }),
+            });
+            const cookieValue = (loginRes.headers.get('set-cookie') ?? '').split(';')[0];
+
+            const analyticsRes = await fetch(`${getTestServerUrl()}/api/host/analytics?range=7&partySize=all&startStage=served&endStage=ordered`, {
+                headers: { Cookie: cookieValue },
+            });
+            return analyticsRes.status === 400;
+        },
+    },
+    {
+        name: 'host-auth: /api/host/voice-config with valid cookie returns 200',
+        tags: ['integration', 'auth', 'voice'],
+        testFn: async () => {
+            const loginRes = await fetch(`${getTestServerUrl()}/api/host/login`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ pin: '1234' }),
+            });
+            const cookieValue = (loginRes.headers.get('set-cookie') ?? '').split(';')[0];
+
+            const voiceRes = await fetch(`${getTestServerUrl()}/api/host/voice-config`, {
+                headers: { Cookie: cookieValue },
+            });
+            return voiceRes.ok;
+        },
+    },
+    {
+        name: 'host-auth: /api/host/voice-config rejects invalid update',
+        tags: ['integration', 'auth', 'voice'],
+        testFn: async () => {
+            const loginRes = await fetch(`${getTestServerUrl()}/api/host/login`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ pin: '1234' }),
+            });
+            const cookieValue = (loginRes.headers.get('set-cookie') ?? '').split(';')[0];
+
+            const voiceRes = await fetch(`${getTestServerUrl()}/api/host/voice-config`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Cookie: cookieValue,
+                },
+                body: JSON.stringify({ frontDeskPhone: '123', voiceLargePartyThreshold: 2 }),
+            });
+            return voiceRes.status === 400;
+        },
+    },
+    {
         name: 'host-auth: logout clears cookie, next request returns 401',
         tags: ['integration', 'auth'],
         testFn: async () => {

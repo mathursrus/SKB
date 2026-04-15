@@ -1,6 +1,7 @@
-// Unit tests for pure helpers in src/services/settings.ts
+// Unit tests for pure helpers in src/services/settings.ts and location-level voice config validation
 import { runTests, type BaseTestCase } from '../test-utils.js';
 import { medianMinutes } from '../../src/services/settings.js';
+import { validateVoiceConfigUpdate } from '../../src/services/locations.js';
 
 const cases: BaseTestCase[] = [
     {
@@ -64,6 +65,42 @@ const cases: BaseTestCase[] = [
         name: 'medianMinutes: all identical values → that value',
         tags: ['unit', 'settings'],
         testFn: async () => medianMinutes([12, 12, 12, 12, 12]) === 12,
+    },
+    {
+        name: 'validateVoiceConfigUpdate: accepts valid front desk phone and threshold',
+        tags: ['unit', 'settings', 'voice'],
+        testFn: async () => {
+            validateVoiceConfigUpdate({
+                frontDeskPhone: '2065551234',
+                voiceEnabled: true,
+                voiceLargePartyThreshold: 12,
+            });
+            return true;
+        },
+    },
+    {
+        name: 'validateVoiceConfigUpdate: rejects invalid front desk phone',
+        tags: ['unit', 'settings', 'voice'],
+        testFn: async () => {
+            try {
+                validateVoiceConfigUpdate({ frontDeskPhone: '123' });
+                return false;
+            } catch (err) {
+                return err instanceof Error && err.message.includes('frontDeskPhone');
+            }
+        },
+    },
+    {
+        name: 'validateVoiceConfigUpdate: rejects out-of-range large party threshold',
+        tags: ['unit', 'settings', 'voice'],
+        testFn: async () => {
+            try {
+                validateVoiceConfigUpdate({ voiceLargePartyThreshold: 3 });
+                return false;
+            } catch (err) {
+                return err instanceof Error && err.message.includes('voiceLargePartyThreshold');
+            }
+        },
     },
 ];
 

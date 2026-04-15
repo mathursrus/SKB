@@ -1,0 +1,564 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>SKB Issue 46 Mock — Host vs Admin</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Archivo+SemiCondensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+:root {
+    --host-bg:#f4efe7;
+    --admin-bg:#eef3f1;
+    --panel:#fffdf8;
+    --ink:#1d1b19;
+    --muted:#6a6258;
+    --host-accent:#cb6a34;
+    --admin-accent:#1f6a5d;
+    --line:#ddd3c5;
+    --good:#1f8f5f;
+    --warn:#b45309;
+    --danger:#b42318;
+}
+* { box-sizing:border-box; }
+body {
+    margin:0;
+    font:15px/1.45 'IBM Plex Sans', sans-serif;
+    color:var(--ink);
+    background:
+        radial-gradient(circle at top left, rgba(203,106,52,.14), transparent 28%),
+        radial-gradient(circle at top right, rgba(31,106,93,.14), transparent 26%),
+        linear-gradient(135deg, #f7f1e8 0%, #edf4f2 100%);
+}
+.page {
+    max-width:1500px;
+    margin:0 auto;
+    padding:24px;
+}
+.intro {
+    display:flex;
+    justify-content:space-between;
+    gap:20px;
+    align-items:flex-end;
+    margin-bottom:22px;
+}
+.intro h1 {
+    margin:0 0 8px;
+    font:700 38px/1 'Archivo SemiCondensed', sans-serif;
+    letter-spacing:.02em;
+}
+.intro p {
+    margin:0;
+    max-width:760px;
+    color:var(--muted);
+}
+.legend {
+    display:flex;
+    gap:10px;
+    flex-wrap:wrap;
+}
+.pill {
+    padding:8px 12px;
+    border-radius:999px;
+    background:rgba(255,255,255,.72);
+    border:1px solid rgba(0,0,0,.08);
+    font-size:13px;
+    font-weight:600;
+}
+.workspaces {
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:22px;
+}
+.workspace {
+    min-height:860px;
+    border-radius:28px;
+    overflow:hidden;
+    border:1px solid rgba(0,0,0,.08);
+    box-shadow:0 18px 48px rgba(37,26,15,.08);
+    display:flex;
+    flex-direction:column;
+}
+.workspace.host { background:var(--host-bg); }
+.workspace.admin { background:var(--admin-bg); }
+.topbar {
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    padding:18px 22px;
+    border-bottom:1px solid rgba(0,0,0,.08);
+    background:rgba(255,255,255,.66);
+    backdrop-filter:blur(10px);
+}
+.brand {
+    display:flex;
+    flex-direction:column;
+    gap:4px;
+}
+.eyebrow {
+    font-size:11px;
+    letter-spacing:.18em;
+    text-transform:uppercase;
+    color:var(--muted);
+}
+.title {
+    font:700 28px/1 'Archivo SemiCondensed', sans-serif;
+}
+.navbtn {
+    border:1px solid rgba(0,0,0,.1);
+    background:#fff;
+    padding:10px 14px;
+    border-radius:12px;
+    font-weight:600;
+}
+.body {
+    padding:20px;
+    display:flex;
+    flex-direction:column;
+    gap:18px;
+}
+.counts {
+    display:grid;
+    grid-template-columns:repeat(3, 1fr);
+    gap:12px;
+}
+.host-controlbar {
+    display:flex;
+    gap:12px;
+    align-items:center;
+    justify-content:space-between;
+    flex-wrap:wrap;
+    padding:14px 16px;
+    border-radius:18px;
+    background:rgba(255,255,255,.72);
+    border:1px solid var(--line);
+}
+.host-controlbar .cluster {
+    display:flex;
+    gap:10px;
+    align-items:center;
+    flex-wrap:wrap;
+}
+.host-controlbar .label {
+    font-size:12px;
+    color:var(--muted);
+    text-transform:uppercase;
+    letter-spacing:.08em;
+}
+.chip {
+    padding:9px 12px;
+    border-radius:12px;
+    border:1px solid var(--line);
+    background:#fff;
+    font-weight:600;
+    font-size:13px;
+}
+.chip.active-host {
+    background:var(--host-accent);
+    color:#fff;
+    border-color:var(--host-accent);
+}
+.count, .panel {
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:18px;
+}
+.count {
+    padding:16px;
+}
+.count .label {
+    color:var(--muted);
+    font-size:12px;
+    text-transform:uppercase;
+    letter-spacing:.08em;
+}
+.count .value {
+    margin-top:8px;
+    font:700 34px/1 'Archivo SemiCondensed', sans-serif;
+}
+.tabs {
+    display:flex;
+    gap:10px;
+}
+.tab {
+    padding:11px 16px;
+    border-radius:14px;
+    border:1px solid var(--line);
+    background:rgba(255,255,255,.75);
+    font-weight:600;
+}
+.tab.active.host { background:var(--host-accent); color:#fff; border-color:var(--host-accent); }
+.table {
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+}
+.row {
+    display:grid;
+    grid-template-columns:54px 1.3fr 70px 92px 1.6fr;
+    gap:10px;
+    align-items:center;
+    padding:14px 16px;
+    border-radius:16px;
+    background:#fff;
+    border:1px solid var(--line);
+}
+.row.header {
+    background:transparent;
+    border:none;
+    padding:0 6px;
+    color:var(--muted);
+    font-size:12px;
+    text-transform:uppercase;
+    letter-spacing:.08em;
+}
+.actions {
+    display:flex;
+    gap:8px;
+    justify-content:flex-end;
+    flex-wrap:wrap;
+}
+.btn {
+    border:none;
+    border-radius:11px;
+    padding:9px 11px;
+    font-weight:600;
+    font-size:13px;
+}
+.btn.primary { background:var(--host-accent); color:#fff; }
+.btn.soft { background:#f6e6dd; color:#8c4216; }
+.btn.plain { background:#f5f2ec; color:#554c42; }
+.badge {
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    padding:6px 10px;
+    border-radius:999px;
+    font-size:12px;
+    font-weight:700;
+}
+.badge.good { background:#def7ea; color:#166a45; }
+.badge.warn { background:#fff1db; color:#9a5b08; }
+.split-note {
+    padding:14px 16px;
+    border-radius:16px;
+    background:#fff7ef;
+    border:1px dashed rgba(203,106,52,.4);
+    color:#7e583b;
+}
+.admin-grid {
+    display:grid;
+    grid-template-columns:1.1fr .9fr;
+    gap:16px;
+}
+.panel {
+    padding:18px;
+}
+.panel h3 {
+    margin:0 0 6px;
+    font:700 22px/1 'Archivo SemiCondensed', sans-serif;
+}
+.panel p, .subtle {
+    margin:0;
+    color:var(--muted);
+}
+.mini-stats {
+    display:grid;
+    grid-template-columns:repeat(4, 1fr);
+    gap:10px;
+    margin-top:14px;
+}
+.mini {
+    padding:14px;
+    border-radius:14px;
+    background:#fff;
+    border:1px solid var(--line);
+}
+.mini .k {
+    color:var(--muted);
+    font-size:12px;
+    text-transform:uppercase;
+    letter-spacing:.08em;
+}
+.mini .v {
+    margin-top:6px;
+    font:700 28px/1 'Archivo SemiCondensed', sans-serif;
+}
+.control-list {
+    display:flex;
+    flex-direction:column;
+    gap:12px;
+    margin-top:16px;
+}
+.control {
+    padding:14px;
+    border:1px solid var(--line);
+    border-radius:14px;
+    background:#fff;
+}
+.control-head {
+    display:flex;
+    justify-content:space-between;
+    gap:12px;
+    align-items:center;
+    margin-bottom:8px;
+}
+.seg {
+    display:inline-flex;
+    border:1px solid var(--line);
+    border-radius:12px;
+    overflow:hidden;
+}
+.seg span {
+    padding:8px 12px;
+    background:#fff;
+    color:var(--muted);
+    font-size:13px;
+    font-weight:600;
+}
+.seg span.active {
+    background:var(--admin-accent);
+    color:#fff;
+}
+.bars {
+    display:flex;
+    align-items:flex-end;
+    gap:8px;
+    height:170px;
+    margin-top:12px;
+}
+.barcol {
+    flex:1;
+    display:flex;
+    flex-direction:column;
+    justify-content:flex-end;
+    align-items:center;
+    gap:6px;
+}
+.barfill {
+    width:100%;
+    border-radius:10px 10px 0 0;
+    background:linear-gradient(180deg, #4fa18d 0%, #1f6a5d 100%);
+}
+.barlabel {
+    font-size:11px;
+    color:var(--muted);
+}
+.callout {
+    background:#e5f3ef;
+    color:#174f46;
+    border:1px solid rgba(31,106,93,.18);
+    border-radius:16px;
+    padding:14px 16px;
+}
+@media (max-width: 1100px) {
+    .workspaces { grid-template-columns:1fr; }
+    .workspace { min-height:auto; }
+}
+@media (max-width: 760px) {
+    .intro { flex-direction:column; align-items:flex-start; }
+    .counts, .mini-stats, .admin-grid { grid-template-columns:1fr; }
+    .row, .row.header { grid-template-columns:1fr 1fr; }
+    .actions { justify-content:flex-start; }
+}
+</style>
+</head>
+<body>
+<div class="page">
+    <section class="intro">
+        <div>
+            <h1>Issue 46: Separate Admin from Host</h1>
+            <p>The host surface is reduced to immediate floor operations. Admin becomes a distinct management workspace for analytics, settings, and QR-routing behavior. The product split follows the issue's framing: host handles the now, admin handles the bigger picture.</p>
+        </div>
+        <div class="legend">
+            <div class="pill">Host = real-time actions</div>
+            <div class="pill">Admin = review + tuning</div>
+            <div class="pill">Same auth, different workspace</div>
+        </div>
+    </section>
+
+    <section class="workspaces">
+        <article class="workspace host">
+            <div class="topbar">
+                <div class="brand">
+                    <div class="eyebrow">Immediate Operations</div>
+                    <div class="title">SKB Host</div>
+                </div>
+                <button class="navbtn">Open Admin</button>
+            </div>
+            <div class="body">
+                <div class="counts">
+                    <div class="count">
+                        <div class="label">Waiting</div>
+                        <div class="value">11</div>
+                    </div>
+                    <div class="count">
+                        <div class="label">Dining</div>
+                        <div class="value">7</div>
+                    </div>
+                    <div class="count">
+                        <div class="label">Oldest Wait</div>
+                        <div class="value">22m</div>
+                    </div>
+                </div>
+
+                <div class="host-controlbar">
+                    <div class="cluster">
+                        <span class="label">ETA mode</span>
+                        <span class="chip">Manual</span>
+                        <span class="chip active-host">Dynamic</span>
+                    </div>
+                    <div class="cluster">
+                        <span class="label">Turn time</span>
+                        <span class="chip">8 min</span>
+                        <span class="label">Dynamic sample</span>
+                        <span class="chip">42 parties</span>
+                    </div>
+                </div>
+
+                <div class="split-note">Removed from Host: shift analytics, visit-page routing, and IVR / phone-system configuration. Host keeps ETA mode and turn time because those affect what the stand says right now.</div>
+
+                <div class="tabs">
+                    <div class="tab active host">Waiting 11</div>
+                    <div class="tab">Seated 7</div>
+                    <div class="tab">Complete 19</div>
+                </div>
+
+                <div class="table">
+                    <div class="row header">
+                        <div>#</div>
+                        <div>Party</div>
+                        <div>Size</div>
+                        <div>Wait</div>
+                        <div style="text-align:right">Actions</div>
+                    </div>
+
+                    <div class="row">
+                        <div>1</div>
+                        <div>
+                            Singh
+                            <div><span class="badge warn">called 3m ago</span></div>
+                        </div>
+                        <div>4</div>
+                        <div>22m</div>
+                        <div class="actions">
+                            <button class="btn primary">Seat</button>
+                            <button class="btn soft">Notify</button>
+                            <button class="btn plain">Chat</button>
+                            <button class="btn plain">Call</button>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div>2</div>
+                        <div>
+                            Kim
+                            <div><span class="badge good">on the way</span></div>
+                        </div>
+                        <div>2</div>
+                        <div>18m</div>
+                        <div class="actions">
+                            <button class="btn primary">Seat</button>
+                            <button class="btn soft">Notify</button>
+                            <button class="btn plain">Chat</button>
+                            <button class="btn plain">Call</button>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div>3</div>
+                        <div>Patel</div>
+                        <div>5</div>
+                        <div>16m</div>
+                        <div class="actions">
+                            <button class="btn primary">Seat</button>
+                            <button class="btn soft">Notify</button>
+                            <button class="btn plain">Chat</button>
+                            <button class="btn plain">Call</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </article>
+
+        <article class="workspace admin">
+            <div class="topbar">
+                <div class="brand">
+                    <div class="eyebrow">Bigger Picture</div>
+                    <div class="title">SKB Admin</div>
+                </div>
+                <button class="navbtn">Back to Host</button>
+            </div>
+            <div class="body">
+                <div class="callout">Admin owns guest-entry systems and historical review: QR routing, IVR behavior, and stage-based analytics. Host keeps the live ETA controls needed to run the floor.</div>
+
+                <div class="panel">
+                    <h3>Service Overview</h3>
+                    <p>Read the current shift at a glance before deciding whether to tune estimates or adjust the guest entry flow.</p>
+                    <div class="mini-stats">
+                        <div class="mini"><div class="k">Seated</div><div class="v">38</div></div>
+                        <div class="mini"><div class="k">No-Shows</div><div class="v">3</div></div>
+                        <div class="mini"><div class="k">Avg Wait</div><div class="v">14m</div></div>
+                        <div class="mini"><div class="k">Peak Hour</div><div class="v">6 PM</div></div>
+                    </div>
+                </div>
+
+                <div class="admin-grid">
+                    <div class="panel">
+                        <h3>Guest Entry Systems</h3>
+                        <p class="subtle">Channel configuration belongs here, away from the live stand workflow.</p>
+                        <div class="control-list">
+                            <div class="control">
+                                <div class="control-head">
+                                    <strong>Visit Page / QR routing</strong>
+                                    <span class="badge good">auto</span>
+                                </div>
+                                <div class="subtle">Auto sends guests to queue if anyone is waiting, otherwise menu. Closed message and menu URL are managed here.</div>
+                            </div>
+                            <div class="control">
+                                <div class="control-head">
+                                    <strong>IVR / phone entry</strong>
+                                    <div class="seg"><span class="active">Enabled</span><span>Fallback</span></div>
+                                </div>
+                                <div class="subtle">Configure phone-based waitlist entry, front-desk transfer behavior, and call-routing defaults for large parties.</div>
+                            </div>
+                            <div class="control">
+                                <div class="control-head">
+                                    <strong>Location systems</strong>
+                                    <span class="badge warn">review weekly</span>
+                                </div>
+                                <div class="subtle">Future home for reusable location-level settings that shape guest entry and operator workflows, without cluttering Host.</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="panel">
+                        <h3>Historical Analytics</h3>
+                        <p class="subtle">Choose a lifecycle start stage and end stage, then view the time distribution for the selected party size.</p>
+                        <div class="control-list" style="margin-top:12px;margin-bottom:4px;">
+                            <div class="control">
+                                <div class="control-head">
+                                    <strong>Distribution slice</strong>
+                                    <div class="seg"><span>1-2</span><span class="active">3-4</span><span>5+</span></div>
+                                </div>
+                                <div class="subtle">Start stage: <strong>Ordered</strong> &nbsp; End stage: <strong>Served</strong> &nbsp; Range: <strong>Past 7 days</strong></div>
+                            </div>
+                        </div>
+                        <div class="bars">
+                            <div class="barcol"><div class="barfill" style="height:34%"></div><div class="barlabel">0-5</div></div>
+                            <div class="barcol"><div class="barfill" style="height:58%"></div><div class="barlabel">5-10</div></div>
+                            <div class="barcol"><div class="barfill" style="height:82%"></div><div class="barlabel">10-15</div></div>
+                            <div class="barcol"><div class="barfill" style="height:69%"></div><div class="barlabel">15-20</div></div>
+                            <div class="barcol"><div class="barfill" style="height:41%"></div><div class="barlabel">20-25</div></div>
+                            <div class="barcol"><div class="barfill" style="height:18%"></div><div class="barlabel">25+</div></div>
+                        </div>
+                        <p class="subtle">Examples: joined → seated for wait time, ordered → served for kitchen time, or seated → departed for full table occupancy.</p>
+                    </div>
+                </div>
+            </div>
+        </article>
+    </section>
+</div>
+</body>
+</html>

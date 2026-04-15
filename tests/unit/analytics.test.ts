@@ -1,6 +1,10 @@
-// Unit tests for src/services/analytics.ts — buildHistogram
+// Unit tests for src/services/analytics.ts — histogram + stage-range helpers
 import { runTests, type BaseTestCase } from '../test-utils.js';
-import { buildHistogram } from '../../src/services/analytics.js';
+import {
+    buildHistogram,
+    buildRangeLabel,
+    isValidAnalyticsStagePair,
+} from '../../src/services/analytics.js';
 
 const cases: BaseTestCase[] = [
     {
@@ -75,6 +79,36 @@ const cases: BaseTestCase[] = [
             const b1 = result.find(b => b.minMinutes === 5);
             return !!b0 && b0.probability === 0.75 && !!b1 && b1.probability === 0.25;
         },
+    },
+    {
+        name: 'isValidAnalyticsStagePair: joined to seated is valid',
+        tags: ['unit', 'analytics'],
+        testFn: async () => isValidAnalyticsStagePair('joined', 'seated') === true,
+    },
+    {
+        name: 'isValidAnalyticsStagePair: ordered to served is valid',
+        tags: ['unit', 'analytics'],
+        testFn: async () => isValidAnalyticsStagePair('ordered', 'served') === true,
+    },
+    {
+        name: 'isValidAnalyticsStagePair: seated to departed is valid',
+        tags: ['unit', 'analytics'],
+        testFn: async () => isValidAnalyticsStagePair('seated', 'departed') === true,
+    },
+    {
+        name: 'isValidAnalyticsStagePair: served to ordered is invalid',
+        tags: ['unit', 'analytics'],
+        testFn: async () => isValidAnalyticsStagePair('served', 'ordered') === false,
+    },
+    {
+        name: 'isValidAnalyticsStagePair: same start and end is invalid',
+        tags: ['unit', 'analytics'],
+        testFn: async () => isValidAnalyticsStagePair('joined', 'joined') === false,
+    },
+    {
+        name: 'buildRangeLabel: ordered to served uses readable label',
+        tags: ['unit', 'analytics'],
+        testFn: async () => buildRangeLabel('ordered', 'served') === 'Ordered -> Served',
     },
 ];
 

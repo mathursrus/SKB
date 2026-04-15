@@ -15,24 +15,12 @@
     const etaModeSelect = $('eta-mode');
     const turnInfo = $('turn-info');
     const logoutBtn = $('logout-btn');
-    const statsCard = $('stats-card');
-    const statsToggle = $('stats-toggle');
-    const statsGrid = $('stats-grid');
-    const statsEmpty = $('stats-empty');
-    const statSeated = $('stat-seated');
-    const statNoshows = $('stat-noshows');
-    const statAvgWait = $('stat-avg-wait');
-    const statPeak = $('stat-peak');
-    const statTurnSet = $('stat-turn-set');
-    const statTurnActual = $('stat-turn-actual');
-    const statAvgOrder = $('stat-avg-order');
-    const statAvgServe = $('stat-avg-serve');
-    const statAvgCheckout = $('stat-avg-checkout');
-    const statAvgTable = $('stat-avg-table');
+    const openAdminLink = $('open-admin-link');
     const tabBadgeWaiting = $('tab-badge-waiting');
     const tabBadgeSeated = $('tab-badge-seated');
     const tabBadgeComplete = $('tab-badge-complete');
     const completeSummary = $('complete-summary');
+    const WORKSPACE_KEY_PREFIX = 'skb:lastWorkspace:';
 
     let pollTimer = null;
     let expandedTimelineId = null;
@@ -286,127 +274,13 @@
         refreshCompleted();
     }
 
-    // -- Stats --
-    statsToggle.addEventListener('click', () => {
-        statsCard.classList.toggle('collapsed');
-        statsToggle.setAttribute('aria-expanded', String(!statsCard.classList.contains('collapsed')));
-    });
-
-    // -- Visit page admin (door QR routing) --
-    const visitCard = $('visit-card');
-    const visitToggle = $('visit-toggle');
-    const visitModeBadge = $('visit-mode-badge');
-    const visitModeSelect = $('visit-mode-select');
-    const visitMenuUrl = $('visit-menu-url');
-    const visitClosedMessage = $('visit-closed-message');
-    const visitSaveBtn = $('visit-save');
-    const visitStatus = $('visit-status');
-    const visitUrlEl = $('visit-url');
-
-    if (visitToggle && visitCard) {
-        visitToggle.addEventListener('click', () => {
-            visitCard.classList.toggle('collapsed');
-            visitToggle.setAttribute('aria-expanded', String(!visitCard.classList.contains('collapsed')));
-        });
+    function workspaceKey() {
+        const loc = (window.location.pathname.match(/^\/r\/([^/]+)\//) || [])[1] || 'skb';
+        return WORKSPACE_KEY_PREFIX + loc;
     }
 
-    function setVisitModeBadge(mode) {
-        if (!visitModeBadge) return;
-        visitModeBadge.textContent = mode || 'auto';
-        visitModeBadge.className = 'visit-mode-badge mode-' + (mode || 'auto');
-    }
-
-    async function refreshVisitConfig() {
-        if (!visitModeSelect) return;
-        try {
-            const r = await fetch('api/host/visit-config');
-            if (r.status === 401) return;
-            if (!r.ok) return;
-            const s = await r.json();
-            visitModeSelect.value = s.visitMode || 'auto';
-            visitMenuUrl.value = s.menuUrl || '';
-            visitClosedMessage.value = s.closedMessage || '';
-            setVisitModeBadge(s.visitMode || 'auto');
-            // Build the absolute /r/:loc/visit URL for the help text. Strip
-            // any trailing slash, append /r/<loc>/visit.
-            const loc = (window.location.pathname.match(/^\/r\/([^/]+)\//) || [])[1] || 'skb';
-            visitUrlEl.textContent = `${window.location.origin}/r/${loc}/visit`;
-        } catch {
-            // non-blocking
-        }
-    }
-
-    function setVisitStatus(text, kind) {
-        if (!visitStatus) return;
-        visitStatus.textContent = text;
-        visitStatus.className = 'visit-status' + (kind ? ' ' + kind : '');
-        if (kind === 'success') {
-            setTimeout(() => {
-                if (visitStatus.textContent === text) {
-                    visitStatus.textContent = '';
-                    visitStatus.className = 'visit-status';
-                }
-            }, 2500);
-        }
-    }
-
-    if (visitSaveBtn) {
-        visitSaveBtn.addEventListener('click', async () => {
-            visitSaveBtn.disabled = true;
-            const oldLabel = visitSaveBtn.textContent;
-            visitSaveBtn.textContent = 'Saving…';
-            setVisitStatus('', '');
-            try {
-                const r = await fetch('api/host/visit-config', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        visitMode: visitModeSelect.value,
-                        menuUrl: visitMenuUrl.value.trim() || null,
-                        closedMessage: visitClosedMessage.value.trim() || null,
-                    }),
-                });
-                if (r.status === 401) { showLogin(); return; }
-                if (!r.ok) {
-                    const err = await r.json().catch(() => ({}));
-                    setVisitStatus(err.error || 'Save failed', 'error');
-                    return;
-                }
-                const updated = await r.json();
-                setVisitModeBadge(updated.visitMode || 'auto');
-                setVisitStatus('Saved \u2713', 'success');
-            } catch {
-                setVisitStatus('Network error', 'error');
-            } finally {
-                visitSaveBtn.disabled = false;
-                visitSaveBtn.textContent = oldLabel;
-            }
-        });
-    }
-
-    async function refreshStats() {
-        try {
-            const r = await fetch('api/host/stats');
-            if (r.status === 401) return;
-            if (!r.ok) return;
-            const s = await r.json();
-            const hasData = s.totalJoined > 0;
-            statsGrid.style.display = hasData ? '' : 'none';
-            statsEmpty.style.display = hasData ? 'none' : '';
-            if (!hasData) return;
-            statSeated.textContent = String(s.partiesSeated);
-            statNoshows.textContent = String(s.noShows);
-            statAvgWait.textContent = s.avgActualWaitMinutes != null ? s.avgActualWaitMinutes + 'm' : '\u2014';
-            statPeak.textContent = s.peakHourLabel ?? '\u2014';
-            statTurnSet.textContent = s.configuredTurnTime + 'm';
-            statTurnActual.textContent = s.actualTurnTime != null ? s.actualTurnTime + 'm' : '\u2014';
-            statAvgOrder.textContent = s.avgOrderTimeMinutes != null ? s.avgOrderTimeMinutes + 'm' : '\u2014';
-            statAvgServe.textContent = s.avgServeTimeMinutes != null ? s.avgServeTimeMinutes + 'm' : '\u2014';
-            statAvgCheckout.textContent = s.avgCheckoutTimeMinutes != null ? s.avgCheckoutTimeMinutes + 'm' : '\u2014';
-            statAvgTable.textContent = s.avgTableOccupancyMinutes != null ? s.avgTableOccupancyMinutes + 'm' : '\u2014';
-        } catch (e) {
-            console.error('stats refresh error', e);
-        }
+    function rememberWorkspace() {
+        localStorage.setItem(workspaceKey(), 'host');
     }
 
     // -- Event handlers --
@@ -666,6 +540,7 @@
         if (!chatDrawer) return;
         chatOpenId = id;
         chatOpenCode = code;
+        chatDrawer.hidden = false;
         chatTitle.textContent = name;
         chatPhone.textContent = phoneMasked || '';
         chatThread.innerHTML = '<div class="chat-empty">Loading…</div>';
@@ -682,6 +557,7 @@
         chatDrawer.classList.remove('open');
         chatDrawer.setAttribute('aria-hidden', 'true');
         if (chatBackdrop) chatBackdrop.classList.remove('open');
+        chatDrawer.hidden = true;
         chatOpenId = null;
     }
 
@@ -1008,6 +884,9 @@
         await fetch('api/host/logout', { method: 'POST' });
         showLogin();
     });
+    if (openAdminLink) {
+        openAdminLink.addEventListener('click', () => rememberWorkspace());
+    }
 
     loginForm.addEventListener('submit', async (e) => {
         e.preventDefault();
@@ -1025,12 +904,11 @@
     });
 
     function refreshAll() {
+        rememberWorkspace();
         refreshWaiting();
         refreshDining();
         refreshCompleted();
-        refreshStats();
         refreshSettings();
-        refreshVisitConfig();
     }
 
     function showLogin() {

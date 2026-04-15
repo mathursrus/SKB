@@ -11,7 +11,6 @@
     const endStageSelect = $('admin-end-stage');
     const histograms = $('admin-histograms');
     const totalParties = $('admin-total-parties');
-    const rangeLabel = $('admin-range-label');
     const selectedRange = $('admin-selected-range');
     const statsEmpty = $('admin-stats-empty');
     const statsGrid = $('admin-stats-grid');
@@ -197,19 +196,20 @@
                 histograms.innerHTML = `<div class="hist-empty">${esc(data.error || 'Failed to load analytics.')}</div>`;
                 return;
             }
-            totalParties.textContent = String(data.totalParties || 0);
-            rangeLabel.textContent = rangeSelect.value === '1' ? '1d' : `${rangeSelect.value}d`;
-            selectedRange.textContent = data.selectedRange?.label || 'Default';
+            if (totalParties) totalParties.textContent = String(data.totalParties || 0);
+            if (selectedRange) selectedRange.textContent = data.selectedRange?.label || 'Default';
             if (!data.totalParties) {
-                histograms.innerHTML = '<div class="hist-empty">No data for this filter.</div>';
+                histograms.innerHTML = '<div class="hist-empty">No data for this filter. Walk a party through the full lifecycle (join → seat → order → serve → checkout → depart) to populate the histograms.</div>';
                 return;
             }
             histograms.innerHTML = '';
             for (const hist of data.histograms || []) {
                 histograms.appendChild(renderHistogram(hist));
             }
-        } catch {
-            histograms.innerHTML = '<div class="hist-empty">Failed to load analytics.</div>';
+        } catch (err) {
+            // Log the real cause so bugs like missing DOM ids don't hide behind "Failed to load"
+            console.error('analytics load failed:', err);
+            histograms.innerHTML = '<div class="hist-empty">Failed to load analytics: ' + esc(err?.message || String(err)) + '</div>';
         }
     }
 
@@ -225,6 +225,26 @@
             visitStatus.textContent = 'Failed to load visit settings';
             visitStatus.className = 'visit-status error';
         }
+        // Show the URL that the door-QR actually resolves to, so the owner
+        // can verify what scanners will land on without having to scan it.
+        // Uses the same logic as the server-side QR endpoint.
+        const qrTarget = document.getElementById('admin-qr-target-url');
+        if (qrTarget) {
+            const loc = (window.location.pathname.match(/^\/r\/([^/]+)\//) || [])[1] || 'skb';
+            const publicHost = (sitePublicHost?.value || '').trim();
+            qrTarget.textContent = publicHost
+                ? `https://${publicHost}/visit`
+                : `${window.location.origin}/r/${loc}/visit`;
+        }
+        // Force-refresh the QR image. The <img> fires at page-load time
+        // (before host-auth cookie exists) and caches a 401, so we nudge
+        // the src with a cache-busting param every time we (re)load the
+        // admin card. Also covers the case where the owner changes
+        // publicHost and the QR should regenerate.
+        const qrImg = document.getElementById('admin-qr-image');
+        if (qrImg) qrImg.src = 'api/host/visit-qr.svg?t=' + Date.now();
+        const qrDownload = document.getElementById('admin-qr-download');
+        if (qrDownload) qrDownload.href = 'api/host/visit-qr.svg?t=' + Date.now();
     }
 
     async function loadVoiceConfig() {

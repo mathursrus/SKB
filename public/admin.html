@@ -111,31 +111,39 @@
         <section class="admin-grid-2up">
             <section class="admin-card">
                 <div class="admin-card-head">
-                    <h2>Visit Page / QR</h2>
-                    <p>Adjust how the stable visit URL routes guests.</p>
+                    <h2>Door QR — where it sends scanners</h2>
+                    <p>The QR sticker on your front door always points at a single stable URL. What scanners see when they arrive is decided here, live, without reprinting the sticker.</p>
+                </div>
+                <div class="qr-preview-block">
+                    <img id="admin-qr-image" class="qr-preview" alt="Door QR code for this location" src="api/host/visit-qr.svg" />
+                    <div class="qr-preview-meta">
+                        <div class="qr-target-label">Scanners land on:</div>
+                        <code id="admin-qr-target-url">loading...</code>
+                        <a id="admin-qr-download" href="api/host/visit-qr.svg" download="skb-visit-qr.svg" class="qr-download-link">Download SVG</a>
+                    </div>
                 </div>
                 <div class="visit-grid">
                     <label class="visit-field">
-                        <span class="visit-label">Mode</span>
+                        <span class="visit-label">What to show on scan</span>
                         <select id="admin-visit-mode">
-                            <option value="auto">Auto — queue if anyone is waiting, else menu</option>
-                            <option value="queue">Always show queue page</option>
-                            <option value="menu">Always redirect to menu URL</option>
+                            <option value="auto">Auto — waitlist if anyone is waiting, otherwise menu</option>
+                            <option value="queue">Always show the waitlist page</option>
+                            <option value="menu">Always redirect to the menu URL</option>
                             <option value="closed">Closed — show "we're closed" page</option>
                         </select>
                     </label>
                     <label class="visit-field">
-                        <span class="visit-label">Menu URL</span>
+                        <span class="visit-label">Menu URL (for menu / auto modes)</span>
                         <input type="url" id="admin-visit-menu-url" placeholder="https://skb.com/menu" maxlength="500" />
                     </label>
                     <label class="visit-field visit-field-full">
-                        <span class="visit-label">Closed message</span>
+                        <span class="visit-label">Closed message (for closed mode)</span>
                         <input type="text" id="admin-visit-closed-message" placeholder="We're closed today — back tomorrow at 11am" maxlength="280" />
                     </label>
                 </div>
                 <div class="visit-actions admin-actions-row">
                     <span class="visit-status" id="admin-visit-status"></span>
-                    <button type="button" id="admin-visit-save" class="primary">Save Visit Settings</button>
+                    <button type="button" id="admin-visit-save" class="primary">Save QR Routing</button>
                 </div>
             </section>
 

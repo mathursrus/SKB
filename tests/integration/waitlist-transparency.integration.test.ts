@@ -25,7 +25,16 @@ import {
     removeFromQueue,
     acknowledgeOnMyWay,
 } from '../../src/services/queue.js';
-import { sendChatMessage, appendInbound, getChatThread, countUnreadForEntries, markThreadRead } from '../../src/services/chat.js';
+import {
+    sendChatMessage,
+    appendInbound,
+    getChatThread,
+    countUnreadForEntries,
+    markThreadRead,
+    appendInboundFromCode,
+    getChatThreadByCode,
+} from '../../src/services/chat.js';
+import { advanceParty } from '../../src/services/dining.js';
 
 async function resetDb(): Promise<void> {
     const db = await getDb();
@@ -232,6 +241,89 @@ const cases: BaseTestCase[] = [
                 && p.phoneForDial === '+12065551003'
                 && p.unreadChat === 1
                 && p.phoneMasked === '******1003';
+        },
+    },
+
+    // ---------- Issue #50 bug 1: diner chat (by-code) ----------
+    {
+        name: 'bug50: appendInboundFromCode appends to thread and shows up via host thread',
+        tags: ['integration', 'queue', 'chat', 'bug50'],
+        testFn: async () => {
+            await resetDb();
+            const r = await joinQueue('test', { name: 'Patel', partySize: 2, phone: '2065551050' });
+            const host = await listHostQueue('test');
+            const id = host.parties[0].id;
+            // Host sends first, then diner replies via web (by-code)
+            await sendChatMessage(id, 'Table in 5 minutes');
+            const res = await appendInboundFromCode('test', r.code, 'Thanks, on my way');
+            if (!res.ok) return false;
+            const thread = await getChatThread(id);
+            if (!thread) return false;
+            if (thread.messages.length !== 2) return false;
+            if (thread.messages[0].direction !== 'outbound') return false;
+            if (thread.messages[0].body !== 'Table in 5 minutes') return false;
+            if (thread.messages[1].direction !== 'inbound') return false;
+            if (thread.messages[1].body !== 'Thanks, on my way') return false;
+            return true;
+        },
+    },
+    {
+        name: 'bug50: getChatThreadByCode returns outbound + inbound in chronological order',
+        tags: ['integration', 'queue', 'chat', 'bug50'],
+        testFn: async () => {
+            await resetDb();
+            const r = await joinQueue('test', { name: 'Lee', partySize: 3, phone: '2065551051' });
+            const host = await listHostQueue('test');
+            const id = host.parties[0].id;
+            await sendChatMessage(id, 'host msg 1', new Date('2026-04-14T20:00:00Z'));
+            await appendInboundFromCode('test', r.code, 'diner msg 1', new Date('2026-04-14T20:01:00Z'));
+            await sendChatMessage(id, 'host msg 2', new Date('2026-04-14T20:02:00Z'));
+            const thread = await getChatThreadByCode('test', r.code);
+            if (!thread) return false;
+            if (thread.messages.length !== 3) return false;
+            if (thread.messages[0].body !== 'host msg 1') return false;
+            if (thread.messages[1].body !== 'diner msg 1') return false;
+            if (thread.messages[2].body !== 'host msg 2') return false;
+            // Diner thread projection never exposes unread count
+            if (thread.unread !== 0) return false;
+            return true;
+        },
+    },
+    {
+        name: 'bug50: appendInboundFromCode rejects terminal-state entries (departed)',
+        tags: ['integration', 'queue', 'chat', 'bug50'],
+        testFn: async () => {
+            await resetDb();
+            const r = await joinQueue('test', { name: 'Done', partySize: 2, phone: '2065551052' });
+            const host = await listHostQueue('test');
+            const id = host.parties[0].id;
+            // Walk the party all the way through to departed
+            await removeFromQueue(id, 'seated', { tableNumber: 5 });
+            await advanceParty(id, 'ordered');
+            await advanceParty(id, 'served');
+            await advanceParty(id, 'checkout');
+            await advanceParty(id, 'departed');
+            const res = await appendInboundFromCode('test', r.code, 'hello?');
+            if (res.ok) return false;
+            return res.state === 'departed';
+        },
+    },
+    {
+        name: 'bug50: appendInboundFromCode returns ok=false for unknown code',
+        tags: ['integration', 'queue', 'chat', 'bug50'],
+        testFn: async () => {
+            await resetDb();
+            const res = await appendInboundFromCode('test', 'SKB-ZZZ', 'nobody home');
+            return !res.ok;
+        },
+    },
+    {
+        name: 'bug50: getChatThreadByCode returns null for unknown code',
+        tags: ['integration', 'queue', 'chat', 'bug50'],
+        testFn: async () => {
+            await resetDb();
+            const thread = await getChatThreadByCode('test', 'SKB-ZZZ');
+            return thread === null;
         },
     },
 ];

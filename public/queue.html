@@ -52,10 +52,27 @@
         <button type="button" class="primary" id="refresh-btn">Check now</button>
         <div class="callout" id="called-callout" style="display:none">
             <div>The host has called your party — please come to the front.</div>
+            <div id="renotify-banner" class="renotify-banner" style="display:none"></div>
             <div id="called-times" class="called-times"></div>
             <button type="button" class="primary" id="ack-btn">I'm on my way</button>
         </div>
     </div>
+
+    <!-- Diner chat (issue #50 bug 1) — shows messages from the host and lets the diner reply.
+         Shown only while the party is active (waiting / called / seated / ordered / served / checkout). -->
+    <section class="card chat-card" id="chat-card" style="display:none">
+        <div class="chat-head">
+            <div class="chat-head-title">Chat with the host</div>
+            <div class="chat-head-sub">We'll also text you at your phone — replies on either channel show up here.</div>
+        </div>
+        <div id="chat-thread" class="chat-thread" role="log" aria-live="polite" aria-label="Chat messages with the host"></div>
+        <form id="chat-form" class="chat-form" autocomplete="off">
+            <label for="chat-input" class="sr-only">Type a message to the host</label>
+            <input type="text" id="chat-input" maxlength="500" placeholder="Type a message to the host…" />
+            <button type="submit" class="primary" id="chat-send">Send</button>
+        </form>
+        <div id="chat-error" class="chat-error" style="display:none"></div>
+    </section>
 
     <!-- R3: full public waitlist (every party in line, names redacted) -->
     <section class="card public-list" id="public-list-card" style="display:none">

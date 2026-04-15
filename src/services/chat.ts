@@ -156,6 +156,75 @@ export async function appendInbound(
 }
 
 /**
+ * Append an inbound chat message from the diner's own web view (queue.html).
+ * Parallel to `appendInbound` but keyed on the party code — the diner has
+ * their code via their status URL but doesn't know the entry ObjectId.
+ *
+ * Persists to the same queue_messages thread as SMS inbound so both channels
+ * converge on one conversation. No SMS is sent — the host already sees the
+ * message in real time when they poll the thread. (Issue #50 bug 1.)
+ */
+export async function appendInboundFromCode(
+    locationId: string,
+    code: string,
+    body: string,
+    now: Date = new Date(),
+): Promise<{ ok: boolean; state?: string }> {
+    const db = await getDb();
+    const entry = await queueEntries(db).findOne({ locationId, code });
+    if (!entry) return { ok: false };
+    // Only accept diner-side messages while the party is still live. After
+    // `departed` / `no_show` the thread is effectively closed.
+    const LIVE_STATES = ['waiting', 'called', 'seated', 'ordered', 'served', 'checkout'];
+    if (!LIVE_STATES.includes(entry.state)) {
+        return { ok: false, state: entry.state };
+    }
+    const msg: ChatMessage = {
+        locationId,
+        entryCode: code,
+        direction: 'inbound',
+        body,
+        createdAt: now,
+    };
+    await queueMessages(db).insertOne(msg);
+    return { ok: true };
+}
+
+/**
+ * Fetch the chat thread for the diner's own web view by party code. Similar
+ * to `getChatThread` but (a) takes a code instead of an entry id and
+ * (b) excludes unread counts since the diner doesn't need them.
+ */
+export async function getChatThreadByCode(
+    locationId: string,
+    code: string,
+    opts: GetThreadOptions = {},
+): Promise<ChatThreadDTO | null> {
+    const db = await getDb();
+    const entry = await queueEntries(db).findOne({ locationId, code });
+    if (!entry) return null;
+    const limit = Math.min(Math.max(1, opts.limit ?? DEFAULT_THREAD_LIMIT), MAX_THREAD_LIMIT);
+    const filter: Record<string, unknown> = { locationId, entryCode: code };
+    if (opts.before) filter.createdAt = { $lt: opts.before };
+    const docs = await queueMessages(db)
+        .find(filter)
+        .sort({ createdAt: -1 })
+        .limit(limit + 1)
+        .toArray();
+    const hasMore = docs.length > limit;
+    const trimmed = hasMore ? docs.slice(0, limit) : docs;
+    const messages: ChatMessageDTO[] = trimmed
+        .map((d): ChatMessageDTO => ({
+            direction: d.direction,
+            body: d.body,
+            at: d.createdAt.toISOString(),
+            smsStatus: d.smsStatus,
+        }))
+        .reverse();
+    return { entryId: entry._id?.toString() ?? '', messages, unread: 0, hasMore };
+}
+
+/**
  * For each code in `codes`, count inbound messages where readByHostAt is
  * missing. One aggregate pass keeps the host list call O(1) round-trips.
  */

@@ -181,6 +181,70 @@ const cases: BaseTestCase[] = [
             return voiceRes.status === 400;
         },
     },
+    // ---------- Issue #50 bug 7: door QR endpoint ----------
+    {
+        name: 'bug50: /api/host/visit-qr.svg returns 200 with image/svg+xml',
+        tags: ['integration', 'auth', 'bug50', 'qr'],
+        testFn: async () => {
+            const loginRes = await fetch(`${getTestServerUrl()}/api/host/login`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ pin: '1234' }),
+            });
+            const cookieValue = (loginRes.headers.get('set-cookie') ?? '').split(';')[0];
+            const qrRes = await fetch(`${getTestServerUrl()}/api/host/visit-qr.svg`, {
+                headers: { Cookie: cookieValue },
+            });
+            if (qrRes.status !== 200) return false;
+            if (!(qrRes.headers.get('content-type') || '').includes('image/svg+xml')) return false;
+            const body = await qrRes.text();
+            return body.startsWith('<svg') && body.includes('</svg>');
+        },
+    },
+    {
+        name: 'bug50: /api/host/visit-qr.svg requires host auth (401 without cookie)',
+        tags: ['integration', 'auth', 'bug50', 'qr'],
+        testFn: async () => {
+            const qrRes = await fetch(`${getTestServerUrl()}/api/host/visit-qr.svg`);
+            return qrRes.status === 401;
+        },
+    },
+    // ---------- Issue #50 bug 1: diner chat public endpoints ----------
+    {
+        name: 'bug50: GET /api/queue/chat/:code returns 404 for unknown code (public, no auth needed)',
+        tags: ['integration', 'bug50', 'chat'],
+        testFn: async () => {
+            const res = await fetch(`${getTestServerUrl()}/api/queue/chat/SKB-ZZZ`);
+            return res.status === 404;
+        },
+    },
+    {
+        name: 'bug50: POST /api/queue/chat/:code rejects empty body with 400',
+        tags: ['integration', 'bug50', 'chat'],
+        testFn: async () => {
+            // Use a unique code so we don't bump into the 1-per-3s write rate
+            // limiter that keys on :loc:chat-write:<code>.
+            const res = await fetch(`${getTestServerUrl()}/api/queue/chat/SKB-AAA`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ body: '' }),
+            });
+            return res.status === 400;
+        },
+    },
+    {
+        name: 'bug50: POST /api/queue/chat/:code rejects body over 500 chars with 400',
+        tags: ['integration', 'bug50', 'chat'],
+        testFn: async () => {
+            const res = await fetch(`${getTestServerUrl()}/api/queue/chat/SKB-BBB`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ body: 'x'.repeat(501) }),
+            });
+            return res.status === 400;
+        },
+    },
+
     {
         name: 'host-auth: logout clears cookie, next request returns 401',
         tags: ['integration', 'auth'],

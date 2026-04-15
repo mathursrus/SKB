@@ -97,7 +97,10 @@ body {
     color: var(--muted);
     font-size: 14px;
 }
-label {
+/* Stacked form-label styling — scoped to .card (login + queue join form)
+   so it doesn't bleed into flex-laid-out labels in the topbar, admin
+   filters, visit config, site config, etc. (issue #50 bugs 2/4/6). */
+.card label {
     display: block;
     font-size: 12px;
     font-weight: 600;
@@ -106,7 +109,7 @@ label {
     letter-spacing: 1px;
     margin: 14px 0 6px;
 }
-label:first-child { margin-top: 0; }
+.card label:first-child { margin-top: 0; }
 input[type=text], input[type=tel], input[type=number], input[type=password] {
     width: 100%;
     padding: 12px 14px;
@@ -195,6 +198,124 @@ button.primary:disabled { opacity: 0.5; cursor: not-allowed; }
     margin-top: 6px;
     color: #2a2305;
 }
+/* Diner chat card — shown on the queue page while the party is live
+   (issue #50 bug 1). Renders the same thread the host sees, plus a send
+   form that POSTs to /queue/chat/:code. */
+.chat-card {
+    margin-top: 16px;
+    padding: 14px 16px;
+}
+.chat-head { margin-bottom: 8px; }
+.chat-head-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--fg);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+.chat-head-sub {
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 4px;
+}
+.chat-thread {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-height: 260px;
+    overflow-y: auto;
+    background: #f7f6f4;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 12px;
+    margin-bottom: 10px;
+}
+.chat-empty {
+    color: var(--muted);
+    font-size: 13px;
+    font-style: italic;
+    text-align: center;
+    padding: 16px 0;
+}
+.chat-row { display: flex; }
+.chat-row.from-host { justify-content: flex-start; }
+.chat-row.from-me { justify-content: flex-end; }
+.chat-bubble {
+    max-width: 76%;
+    padding: 8px 12px;
+    border-radius: 12px;
+    font-size: 14px;
+    line-height: 1.35;
+    word-wrap: break-word;
+}
+.chat-row.from-host .chat-bubble { background: #fff; border: 1px solid var(--border); color: var(--fg); }
+.chat-row.from-me .chat-bubble { background: var(--accent, #e3bf3d); border: 1px solid var(--accent, #e3bf3d); color: #111; }
+.chat-who {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--muted);
+    margin-bottom: 2px;
+}
+.chat-row.from-me .chat-who { color: #2a2305; }
+.chat-body { white-space: pre-wrap; }
+.chat-meta {
+    font-size: 10px;
+    color: var(--muted);
+    margin-top: 3px;
+    text-align: right;
+}
+.chat-row.from-me .chat-meta { color: #5a4a05; }
+.chat-form {
+    display: flex;
+    gap: 8px;
+    align-items: stretch;
+}
+.chat-form input[type="text"] {
+    flex: 1;
+    padding: 12px 14px;
+    font-family: inherit;
+    font-size: 15px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: #fff;
+    color: var(--fg);
+    min-height: 44px;
+}
+.chat-form button {
+    padding: 10px 18px;
+    min-height: 44px;
+    margin: 0;
+    white-space: nowrap;
+}
+.chat-error { color: var(--danger); font-size: 13px; margin-top: 6px; }
+.sr-only {
+    position: absolute; width: 1px; height: 1px;
+    padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0);
+    white-space: nowrap; border: 0;
+}
+
+/* Renotify banner — shown when the host calls a diner a second+ time while
+   they're already in the called state. More visual weight than the regular
+   callout so it can't be missed (issue #50 bug 3). */
+.renotify-banner {
+    background: #dc2626;
+    color: #fff;
+    padding: 12px 14px;
+    border-radius: 6px;
+    margin-top: 10px;
+    font-weight: 700;
+    font-size: 14px;
+    letter-spacing: 0.3px;
+    text-transform: uppercase;
+    box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.25);
+    animation: renotify-pulse 1.5s ease-in-out infinite;
+}
+@keyframes renotify-pulse {
+    0%, 100% { box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.25); }
+    50% { box-shadow: 0 0 0 6px rgba(220, 38, 38, 0.45); }
+}
 .error { color: var(--danger); font-size: 13px; margin-top: 6px; }
 footer {
     text-align: center;
@@ -279,6 +400,64 @@ footer {
     padding: 0;
     max-width: none;
     margin: 0;
+}
+
+/* QR preview inside the Door QR admin card (issue #50 bug 7) */
+.qr-preview-block {
+    display: flex;
+    gap: 20px;
+    align-items: flex-start;
+    padding: 16px;
+    background: var(--surface-alt, #faf9f7);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    margin-bottom: 20px;
+}
+.qr-preview {
+    width: 160px;
+    height: 160px;
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 6px;
+    flex-shrink: 0;
+}
+.qr-preview-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 0;
+    flex: 1;
+}
+.qr-target-label {
+    font-size: 11px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-weight: 600;
+}
+#admin-qr-target-url {
+    font-family: ui-monospace, Menlo, Consolas, monospace;
+    font-size: 13px;
+    color: var(--fg);
+    word-break: break-all;
+    padding: 6px 8px;
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+}
+.qr-download-link {
+    align-self: flex-start;
+    font-size: 13px;
+    color: var(--accent-dark, #b45309);
+    text-decoration: none;
+    padding: 6px 0;
+}
+.qr-download-link:hover { text-decoration: underline; }
+@media (max-width: 600px) {
+    .qr-preview-block { flex-direction: column; align-items: center; text-align: center; }
+    .qr-preview-meta { align-items: center; }
+    #admin-qr-target-url { width: 100%; text-align: center; }
 }
 .admin-counts { flex-wrap: wrap; }
 .admin-actions-row {

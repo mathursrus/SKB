@@ -8,6 +8,7 @@ import { getBoardEntries, getQueueState, joinQueue, getStatusByCode, acknowledge
 import { rateLimit } from '../middleware/rateLimit.js';
 import { sendSms } from '../services/sms.js';
 import { joinConfirmationMessage } from '../services/smsTemplates.js';
+import { appendInboundFromCode, getChatThreadByCode } from '../services/chat.js';
 import type { ErrorDTO } from '../types/queue.js';
 
 const JOIN_WINDOW_MS = 10 * 60 * 1000; // 10 min
@@ -17,6 +18,14 @@ const JOIN_MAX = 5;
 // bites on abusive polling.
 const STATUS_WINDOW_MS = 5_000;
 const STATUS_MAX = 1;
+
+// Diner chat (issue #50 bug 1). Reads are poll-friendly; writes are tight
+// so a bored kid can't spam the thread from the queue page.
+const CHAT_READ_WINDOW_MS = 2_000;
+const CHAT_READ_MAX = 1;
+const CHAT_WRITE_WINDOW_MS = 3_000;
+const CHAT_WRITE_MAX = 1;
+const MAX_CHAT_BODY = 500;
 
 /** Extract locationId from req.params.loc (set by parent router mount). */
 function loc(req: Request): string {
@@ -105,6 +114,76 @@ export function queueRouter(): Router {
             try {
                 const status = await getStatusByCode(code);
                 res.json(status);
+            } catch (err) {
+                handleDbError(res, err);
+            }
+        },
+    );
+
+    // Diner chat (issue #50 bug 1): GET the thread by party code so the
+    // diner can see host messages in-page even if they don't check SMS.
+    r.get(
+        '/queue/chat/:code',
+        rateLimit({
+            windowMs: CHAT_READ_WINDOW_MS,
+            max: CHAT_READ_MAX,
+            keyFn: (req) => `${loc(req)}:chat-read:${String(req.params.code ?? '')}`,
+        }),
+        async (req: Request, res: Response) => {
+            const code = String(req.params.code ?? '').trim();
+            if (!code) {
+                res.status(400).json({ error: 'code required', field: 'code' });
+                return;
+            }
+            try {
+                const thread = await getChatThreadByCode(loc(req), code);
+                if (!thread) {
+                    res.status(404).json({ error: 'thread not found' });
+                    return;
+                }
+                res.json(thread);
+            } catch (err) {
+                handleDbError(res, err);
+            }
+        },
+    );
+
+    // Diner chat: POST a message from the diner's web view. The host sees it
+    // on their next poll of the thread; no SMS is sent because the diner
+    // already knows what they just typed.
+    r.post(
+        '/queue/chat/:code',
+        rateLimit({
+            windowMs: CHAT_WRITE_WINDOW_MS,
+            max: CHAT_WRITE_MAX,
+            keyFn: (req) => `${loc(req)}:chat-write:${String(req.params.code ?? '')}`,
+        }),
+        async (req: Request, res: Response) => {
+            const code = String(req.params.code ?? '').trim();
+            const body = typeof req.body?.body === 'string' ? req.body.body.trim() : '';
+            if (!code) {
+                res.status(400).json({ error: 'code required', field: 'code' });
+                return;
+            }
+            if (!body || body.length > MAX_CHAT_BODY) {
+                res.status(400).json({ error: `body must be 1..${MAX_CHAT_BODY} chars`, field: 'body' });
+                return;
+            }
+            try {
+                const result = await appendInboundFromCode(loc(req), code, body);
+                if (!result.ok) {
+                    res.status(404).json({ error: 'thread not found or closed', state: result.state });
+                    return;
+                }
+                console.log(JSON.stringify({
+                    t: new Date().toISOString(),
+                    level: 'info',
+                    msg: 'diner.chat.inbound_web',
+                    loc: loc(req),
+                    code,
+                    length: body.length,
+                }));
+                res.json({ ok: true });
             } catch (err) {
                 handleDbError(res, err);
             }

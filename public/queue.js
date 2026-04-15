@@ -26,7 +26,126 @@
     let lastJoinedAtMs = null;       // base for the live-tick waiting counter
     let lastEtaAtMs = null;          // base for the live countdown to promised time
     let lastSeenState = null;        // so we can pulse when the state flips
+    let lastSeenCallCount = 0;       // pulse + alert on every re-notify (issue #50 bug 3)
     let tickTimer = null;
+
+    // Diner chat state (issue #50 bug 1)
+    let lastChatAtIso = null;        // last message timestamp we rendered
+    let chatPollTimer = null;
+    const CHAT_POLL_MS = 4000;
+
+    function chatCard() { return document.getElementById('chat-card'); }
+    function chatThreadEl() { return document.getElementById('chat-thread'); }
+    function chatInputEl() { return document.getElementById('chat-input'); }
+    function chatErrorEl() { return document.getElementById('chat-error'); }
+
+    function escHtml(s) {
+        return String(s).replace(/[&<>"']/g, (c) => ({
+            '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+        }[c]));
+    }
+    function formatChatTime(iso) {
+        if (!iso) return '';
+        try {
+            const d = new Date(iso);
+            return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+        } catch { return ''; }
+    }
+
+    function renderChatThread(messages) {
+        const thread = chatThreadEl();
+        if (!thread) return;
+        if (!messages || messages.length === 0) {
+            thread.innerHTML = '<div class="chat-empty">No messages yet. Reply here or text the SKB number — we\'re listening on both.</div>';
+            return;
+        }
+        const rows = messages.map((m) => {
+            const side = m.direction === 'outbound' ? 'from-host' : 'from-me';
+            const who = m.direction === 'outbound' ? 'Host' : 'You';
+            return `<div class="chat-row ${side}">`
+                + `<div class="chat-bubble"><div class="chat-who">${who}</div>`
+                + `<div class="chat-body">${escHtml(m.body)}</div>`
+                + `<div class="chat-meta">${formatChatTime(m.at)}</div></div></div>`;
+        });
+        thread.innerHTML = rows.join('');
+        thread.scrollTop = thread.scrollHeight;
+    }
+
+    async function loadChat(code) {
+        try {
+            const res = await fetch('api/queue/chat/' + encodeURIComponent(code));
+            if (res.status === 404) {
+                if (chatCard()) chatCard().style.display = 'none';
+                return;
+            }
+            if (res.status === 429) return; // skip cycle
+            if (!res.ok) return;
+            const data = await res.json();
+            const messages = data.messages || [];
+            const latestAt = messages.length ? messages[messages.length - 1].at : null;
+            // Only re-render when something changed so we don't stomp on the
+            // scroll position mid-conversation.
+            if (latestAt !== lastChatAtIso) {
+                renderChatThread(messages);
+                lastChatAtIso = latestAt;
+            }
+            if (chatCard()) chatCard().style.display = '';
+        } catch {
+            // non-blocking — user can still read status card
+        }
+    }
+
+    function startChatPoll(code) {
+        if (chatPollTimer) clearInterval(chatPollTimer);
+        loadChat(code);
+        chatPollTimer = setInterval(() => loadChat(code), CHAT_POLL_MS);
+    }
+
+    function stopChatPoll() {
+        if (chatPollTimer) { clearInterval(chatPollTimer); chatPollTimer = null; }
+    }
+
+    async function sendChat(code, body) {
+        const err = chatErrorEl();
+        if (err) err.style.display = 'none';
+        try {
+            const res = await fetch('api/queue/chat/' + encodeURIComponent(code), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ body }),
+            });
+            if (!res.ok) {
+                const data = await res.json().catch(() => ({}));
+                if (err) {
+                    err.textContent = data.error || 'Could not send — please try again.';
+                    err.style.display = '';
+                }
+                return false;
+            }
+            // Force-reload the thread so the diner sees their own bubble immediately.
+            await loadChat(code);
+            return true;
+        } catch {
+            if (err) { err.textContent = 'Network error — please try again.'; err.style.display = ''; }
+            return false;
+        }
+    }
+
+    // Wire up the send button once on DOM ready.
+    document.addEventListener('DOMContentLoaded', () => {
+        const form = document.getElementById('chat-form');
+        if (!form) return;
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const code = localStorage.getItem(STORAGE_KEY);
+            if (!code) return;
+            const input = chatInputEl();
+            const body = (input?.value || '').trim();
+            if (!body) return;
+            const ok = await sendChat(code, body);
+            if (ok && input) input.value = '';
+        });
+    });
 
     async function pollOnce() {
         if (pollMode === 'status') {
@@ -217,6 +336,8 @@
                 renderPublicList([]);
                 stopLiveTick();
                 stopPolling();
+                stopChatPoll();
+                if (chatCard()) chatCard().style.display = 'none';
                 localStorage.removeItem(STORAGE_KEY);
                 return false;
             }
@@ -228,6 +349,8 @@
                 statusCard.style.display = '';
                 renderPublicList([]);
                 stopLiveTick();
+                stopChatPoll();
+                if (chatCard()) chatCard().style.display = 'none';
                 return true; // caller should still reload state
             }
             // In queue — hide the "should I join?" card
@@ -259,9 +382,25 @@
             }
             renderPublicList(s.queue || []);
             startLiveTick();
+            // Start (or keep running) the chat poll for every active state
+            // (waiting/called), so host messages surface in-page in ~4s.
+            startChatPoll(s.code);
             if (s.state === 'called') {
+                const currentCallCount = (s.callsMinutesAgo || []).length;
                 calledCallout.style.display = '';
                 calledTimes.textContent = fmtCalls(s.callsMinutesAgo);
+                // Issue #50 bug 3: show a conspicuous "re-notified" banner after
+                // the first call. The host pressing Notify again needs to be
+                // obvious to the diner even if they're already on the called view.
+                const renotifyBanner = document.getElementById('renotify-banner');
+                if (renotifyBanner) {
+                    if (currentCallCount >= 2) {
+                        renotifyBanner.textContent = `The host has called you ${currentCallCount} times — please come to the front now.`;
+                        renotifyBanner.style.display = '';
+                    } else {
+                        renotifyBanner.style.display = 'none';
+                    }
+                }
                 if (ackBtn) {
                     // If the diner already acked on a prior poll, surface confirmed state.
                     if (s.onMyWayAt) {
@@ -272,26 +411,36 @@
                         ackBtn.disabled = false;
                     }
                 }
-                // If we just flipped from waiting → called, pulse the card + try
-                // a best-effort haptic + notification so a user with the tab in
-                // the background notices.
-                if (lastSeenState && lastSeenState !== 'called') {
+                // Pulse + haptic + notification on both (a) first transition to
+                // called AND (b) every subsequent renotify when the host calls
+                // again while we're already in the called state.
+                const firstTransitionToCalled = lastSeenState && lastSeenState !== 'called';
+                const renotified = lastSeenState === 'called' && currentCallCount > lastSeenCallCount;
+                if (firstTransitionToCalled || renotified) {
                     confCard.classList.remove('state-flip');
                     // Force reflow so the animation restarts if the class lingers
                     void confCard.offsetWidth;
                     confCard.classList.add('state-flip');
-                    if (navigator.vibrate) { try { navigator.vibrate([120, 60, 120]); } catch {} }
+                    if (navigator.vibrate) { try { navigator.vibrate([180, 80, 180, 80, 180]); } catch {} }
                     try {
                         if ('Notification' in window && Notification.permission === 'granted') {
-                            new Notification('SKB: Your table is ready', {
-                                body: 'Please head to the host stand.',
+                            const title = renotified ? 'SKB: Called again — please come now' : 'SKB: Your table is ready';
+                            new Notification(title, {
+                                body: renotified
+                                    ? `The host has called ${currentCallCount} times. Please head to the front stand.`
+                                    : 'Please head to the front stand.',
                                 tag: 'skb-table-ready',
+                                renotify: true,
                             });
                         }
                     } catch {}
                 }
+                lastSeenCallCount = currentCallCount;
             } else {
                 calledCallout.style.display = 'none';
+                const renotifyBanner = document.getElementById('renotify-banner');
+                if (renotifyBanner) renotifyBanner.style.display = 'none';
+                lastSeenCallCount = 0;
             }
             lastSeenState = s.state;
             updateNextUp(s.position);

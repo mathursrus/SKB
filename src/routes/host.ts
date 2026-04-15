@@ -31,6 +31,7 @@ import {
 import type { AnalyticsStage, LocationAddress, WeeklyHours } from '../types/queue.js';
 import { verifyCookie, __test__ } from '../middleware/hostAuth.js';
 import { createHmac, timingSafeEqual } from 'node:crypto';
+import QRCode from 'qrcode';
 
 function loc(req: Request): string {
     return String(req.params.loc ?? 'skb');
@@ -421,6 +422,41 @@ export function hostRouter(): Router {
                 return;
             }
             dbError(res, err);
+        }
+    });
+
+    // Door-QR SVG — renders a fresh QR every request so when the owner
+    // updates publicHost or the deployment URL, the printed sticker
+    // regenerates to match. The QR always encodes the per-location
+    // /visit URL (the dynamic routing endpoint from PR #42) so the
+    // sticker itself never needs reprinting as visit-mode changes
+    // (issue #50 bug 7).
+    r.get('/host/visit-qr.svg', requireHost, async (req: Request, res: Response) => {
+        try {
+            const location = await getLocation(loc(req));
+            const proto = req.headers['x-forwarded-proto'] ?? req.protocol ?? 'https';
+            const fallbackHost = req.headers['x-forwarded-host'] ?? req.headers.host ?? '';
+            const host = location?.publicHost || String(fallbackHost);
+            if (!host) {
+                res.status(503).type('text/plain').send('no host configured');
+                return;
+            }
+            // If publicHost is set, encode the top-level /visit URL so the
+            // domain alone is on the sticker. Otherwise fall back to the
+            // per-location /r/:loc/visit path on the app service hostname.
+            const url = location?.publicHost
+                ? `https://${host}/visit`
+                : `${proto}://${host}/r/${loc(req)}/visit`;
+            const svg = await QRCode.toString(url, {
+                type: 'svg',
+                errorCorrectionLevel: 'H',
+                margin: 2,
+                color: { dark: '#000000', light: '#ffffff' },
+            });
+            res.type('image/svg+xml').setHeader('Cache-Control', 'no-store').send(svg);
+        } catch (err) {
+            console.log(JSON.stringify({ t: new Date().toISOString(), level: 'error', msg: 'host.visit_qr.error', err: err instanceof Error ? err.message : String(err) }));
+            res.status(500).type('text/plain').send('qr generation failed');
         }
     });
 

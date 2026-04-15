@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>About — Shri Krishna Bhavan</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        :root {
+            --cream: #fdf8ef;
+            --cream-warm: #faf1dc;
+            --charcoal: #2a2a2a;
+            --saffron: #e08a2e;
+            --saffron-dark: #b86a16;
+            --muted: #6d6660;
+            --line: #e8dcc4;
+            --leaf: #3d5a3d;
+        }
+        body {
+            font-family: 'Georgia', serif;
+            background: var(--cream);
+            color: var(--charcoal);
+            line-height: 1.75;
+        }
+        .site-banner {
+            background: var(--leaf);
+            color: var(--cream);
+            text-align: center;
+            padding: 8px 16px;
+            font-size: 0.85rem;
+            font-family: 'Helvetica', sans-serif;
+        }
+        header.site-header {
+            background: var(--cream);
+            border-bottom: 1px solid var(--line);
+            padding: 20px 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .brand-name { font-size: 1.4rem; color: var(--saffron-dark); }
+        .brand-tag {
+            font-size: 0.8rem;
+            color: var(--muted);
+            font-family: 'Helvetica', sans-serif;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+        }
+        nav.site-nav ul {
+            display: flex;
+            list-style: none;
+            gap: 28px;
+            font-family: 'Helvetica', sans-serif;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+        }
+        nav.site-nav a {
+            color: var(--charcoal);
+            text-decoration: none;
+            padding: 6px 0;
+            border-bottom: 2px solid transparent;
+        }
+        nav.site-nav a[aria-current="page"] { border-bottom-color: var(--saffron); }
+        .page-hero {
+            background: var(--cream-warm);
+            text-align: center;
+            padding: 80px 24px 64px;
+        }
+        .page-hero h1 {
+            font-size: 2.8rem;
+            color: var(--saffron-dark);
+            font-weight: normal;
+            letter-spacing: 0.02em;
+        }
+        .page-hero p {
+            color: var(--muted);
+            font-style: italic;
+            margin-top: 12px;
+        }
+        main.about {
+            max-width: 760px;
+            margin: 0 auto;
+            padding: 64px 24px 72px;
+        }
+        main.about h2 {
+            color: var(--saffron-dark);
+            font-size: 1.6rem;
+            font-weight: normal;
+            margin: 40px 0 12px;
+            letter-spacing: 0.02em;
+        }
+        main.about p {
+            margin-bottom: 20px;
+            color: var(--charcoal);
+            font-size: 1.05rem;
+        }
+        .pullquote {
+            border-left: 3px solid var(--saffron);
+            padding: 8px 0 8px 24px;
+            margin: 32px 0;
+            font-style: italic;
+            color: var(--muted);
+            font-size: 1.15rem;
+        }
+        .dish-strip {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 16px;
+            margin: 40px 0;
+        }
+        .dish-strip div {
+            background: var(--cream-warm);
+            border: 1px solid var(--line);
+            aspect-ratio: 1 / 1;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--muted);
+            font-size: 0.8rem;
+            font-style: italic;
+            text-align: center;
+            padding: 12px;
+        }
+        footer.site-footer {
+            background: var(--charcoal);
+            color: var(--cream);
+            padding: 48px 24px 24px;
+            text-align: center;
+            font-family: 'Helvetica', sans-serif;
+            font-size: 0.85rem;
+        }
+        footer.site-footer a { color: var(--cream); text-decoration: none; margin: 0 16px; }
+        footer.site-footer .fcopy { color: #7a756f; margin-top: 12px; font-size: 0.75rem; }
+        .mock-note {
+            position: fixed; top: 10px; right: 10px;
+            background: #fff7d6; border: 1px solid #e3bf3d;
+            padding: 8px 12px; font-family: monospace; font-size: 0.75rem;
+            color: #6b5500; border-radius: 4px; max-width: 280px; z-index: 1000;
+        }
+        @media (max-width: 720px) {
+            .dish-strip { grid-template-columns: 1fr; }
+            header.site-header { flex-direction: column; gap: 16px; }
+            nav.site-nav ul { gap: 16px; font-size: 0.75rem; }
+        }
+    </style>
+</head>
+<body>
+    <div class="mock-note">Mock — Issue #45 — About Page</div>
+    <div class="site-banner">Last orders daily at 2:10 PM &amp; 9:10 PM</div>
+
+    <header class="site-header">
+        <div>
+            <div class="brand-name">Shri Krishna Bhavan</div>
+            <div class="brand-tag">South Indian · Bellevue</div>
+        </div>
+        <nav class="site-nav" aria-label="Primary navigation">
+            <ul>
+                <li><a href="45-home.html">Home</a></li>
+                <li><a href="45-menu.html">Menu</a></li>
+                <li><a href="45-about.html" aria-current="page">About</a></li>
+                <li><a href="45-hours-location.html">Hours &amp; Location</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <div class="page-hero">
+        <h1>About Us</h1>
+        <p>A taste of home, in the heart of Bellevue.</p>
+    </div>
+
+    <main class="about">
+        <h2>Our Story</h2>
+        <p>
+            Shri Krishna Bhavan is a family-run South Indian restaurant in downtown Bellevue.
+            We opened to share the dishes we grew up with — the kind of food that gets cooked fresh on a hot tawa,
+            eaten with your hands from a banana-leaf thali, and remembered for years.
+        </p>
+        <p>
+            Our menu is built around the breakfast foods, dosas, uttapams, and thalis that are the backbone of
+            South Indian home cooking. Everything is prepared to order: the dosa batter is fermented overnight,
+            the sambar simmers with whole spices, and every chutney is ground the morning it's served.
+        </p>
+
+        <div class="pullquote">
+            "We're not trying to be the fanciest restaurant in town. We're trying to be the one that tastes most like home."
+        </div>
+
+        <h2>A Taste of South India</h2>
+        <p>
+            South Indian cuisine is famously varied — every state, every district, almost every family has its own
+            way of making a masala dosa. Our menu pulls favorites from across the region: the crispy paper roast from
+            Chennai, the tangy gongura dosa from Andhra, the ghee-rich bisi bele bhath from Karnataka, and the
+            breakfast classics idly and medu vada that are loved everywhere.
+        </p>
+
+        <div class="dish-strip" role="presentation">
+            <div>[food photo — idly &amp; sambar]</div>
+            <div>[food photo — masala dosa]</div>
+            <div>[food photo — thali]</div>
+        </div>
+
+        <h2>Come Visit</h2>
+        <p>
+            We're easy to find on Bellevue Way, with parking on-site and a waitlist that lets you join from your phone
+            before you arrive. Whether it's a weekend breakfast of idly and coffee, a quick dosa at lunch, or a full
+            thali dinner with the family, we hope you'll feel at home when you sit down.
+        </p>
+    </main>
+
+    <footer class="site-footer">
+        <div style="margin-bottom: 16px;">
+            <a href="45-home.html">Home</a>
+            <a href="45-menu.html">Menu</a>
+            <a href="45-about.html">About</a>
+            <a href="45-hours-location.html">Hours &amp; Location</a>
+            <a href="/privacy">Privacy</a>
+        </div>
+        <div>12 Bellevue Way SE, Bellevue WA 98004 · (253) 656-5478 · skb.bellevue@gmail.com</div>
+        <div class="fcopy">© 2026 Shri Krishna Bhavan · All rights reserved</div>
+    </footer>
+</body>
+</html>

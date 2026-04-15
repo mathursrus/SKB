@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hours &amp; Location — Shri Krishna Bhavan</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        :root {
+            --cream: #fdf8ef;
+            --cream-warm: #faf1dc;
+            --charcoal: #2a2a2a;
+            --saffron: #e08a2e;
+            --saffron-dark: #b86a16;
+            --muted: #6d6660;
+            --line: #e8dcc4;
+            --leaf: #3d5a3d;
+            --warn: #b86a16;
+        }
+        body {
+            font-family: 'Georgia', serif;
+            background: var(--cream);
+            color: var(--charcoal);
+            line-height: 1.6;
+        }
+        .site-banner {
+            background: var(--leaf);
+            color: var(--cream);
+            text-align: center;
+            padding: 8px 16px;
+            font-size: 0.85rem;
+            font-family: 'Helvetica', sans-serif;
+        }
+        header.site-header {
+            background: var(--cream);
+            border-bottom: 1px solid var(--line);
+            padding: 20px 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .brand-name { font-size: 1.4rem; color: var(--saffron-dark); }
+        .brand-tag {
+            font-size: 0.8rem;
+            color: var(--muted);
+            font-family: 'Helvetica', sans-serif;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+        }
+        nav.site-nav ul {
+            display: flex;
+            list-style: none;
+            gap: 28px;
+            font-family: 'Helvetica', sans-serif;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+        }
+        nav.site-nav a {
+            color: var(--charcoal);
+            text-decoration: none;
+            padding: 6px 0;
+            border-bottom: 2px solid transparent;
+        }
+        nav.site-nav a[aria-current="page"] { border-bottom-color: var(--saffron); }
+        .page-hero {
+            background: var(--cream-warm);
+            text-align: center;
+            padding: 80px 24px 64px;
+        }
+        .page-hero h1 {
+            font-size: 2.8rem;
+            color: var(--saffron-dark);
+            font-weight: normal;
+            letter-spacing: 0.02em;
+        }
+        .page-hero p {
+            color: var(--muted);
+            font-style: italic;
+            margin-top: 12px;
+        }
+        main {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 64px 24px 72px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 56px;
+        }
+        main h2 {
+            color: var(--saffron-dark);
+            font-size: 1.4rem;
+            font-weight: normal;
+            margin-bottom: 20px;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+        }
+        .hours-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 24px;
+        }
+        .hours-table td {
+            padding: 12px 0;
+            border-bottom: 1px dotted var(--line);
+            font-size: 1rem;
+        }
+        .hours-table td:first-child {
+            font-weight: bold;
+            color: var(--charcoal);
+            width: 120px;
+        }
+        .hours-table td:last-child {
+            color: var(--muted);
+            text-align: right;
+            font-family: 'Helvetica', sans-serif;
+            font-size: 0.95rem;
+        }
+        .last-order {
+            background: var(--cream-warm);
+            border-left: 3px solid var(--saffron);
+            padding: 16px 20px;
+            margin-top: 16px;
+            font-size: 0.95rem;
+        }
+        .last-order strong { color: var(--saffron-dark); }
+        .map-block {
+            background: var(--cream-warm);
+            border: 1px solid var(--line);
+            height: 280px;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--muted);
+            font-style: italic;
+            margin-bottom: 16px;
+            position: relative;
+            overflow: hidden;
+        }
+        .map-block::after {
+            content: "[static map image — 12 Bellevue Way SE, Bellevue WA 98004]";
+            text-align: center;
+            padding: 20px;
+        }
+        .map-cta {
+            display: inline-block;
+            background: var(--saffron);
+            color: #fff;
+            font-family: 'Helvetica', sans-serif;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            padding: 12px 24px;
+            text-decoration: none;
+            margin-top: 12px;
+        }
+        .map-cta:hover { background: var(--saffron-dark); }
+        .address-block {
+            margin-bottom: 24px;
+            font-size: 1rem;
+        }
+        .address-block .line { margin: 4px 0; }
+        .address-block .muted { color: var(--muted); font-size: 0.9rem; }
+        .parking-block {
+            margin-top: 16px;
+            padding: 16px 20px;
+            background: var(--cream-warm);
+            border-left: 3px solid var(--leaf);
+            border-radius: 4px;
+        }
+        .parking-block h3 {
+            font-size: 0.9rem;
+            color: var(--leaf);
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            margin-bottom: 8px;
+        }
+        .parking-block p { color: var(--charcoal); font-size: 0.95rem; }
+        .owner-flag {
+            display: inline-block;
+            background: #fff7d6;
+            border: 1px dashed var(--warn);
+            color: var(--warn);
+            font-family: monospace;
+            font-size: 0.7rem;
+            padding: 2px 6px;
+            border-radius: 3px;
+            margin-left: 6px;
+            vertical-align: middle;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+        footer.site-footer {
+            background: var(--charcoal);
+            color: var(--cream);
+            padding: 48px 24px 24px;
+            text-align: center;
+            font-family: 'Helvetica', sans-serif;
+            font-size: 0.85rem;
+        }
+        footer.site-footer a { color: var(--cream); text-decoration: none; margin: 0 16px; }
+        footer.site-footer .fcopy { color: #7a756f; margin-top: 12px; font-size: 0.75rem; }
+        .mock-note {
+            position: fixed; top: 10px; right: 10px;
+            background: #fff7d6; border: 1px solid #e3bf3d;
+            padding: 8px 12px; font-family: monospace; font-size: 0.75rem;
+            color: #6b5500; border-radius: 4px; max-width: 280px; z-index: 1000;
+        }
+        @media (max-width: 720px) {
+            main { grid-template-columns: 1fr; gap: 48px; }
+            header.site-header { flex-direction: column; gap: 16px; }
+            nav.site-nav ul { gap: 16px; font-size: 0.75rem; }
+        }
+    </style>
+</head>
+<body>
+    <div class="mock-note">Mock — Issue #45 — Hours &amp; Location</div>
+    <div class="site-banner">Last orders daily at 2:10 PM &amp; 9:10 PM</div>
+
+    <header class="site-header">
+        <div>
+            <div class="brand-name">Shri Krishna Bhavan</div>
+            <div class="brand-tag">South Indian · Bellevue</div>
+        </div>
+        <nav class="site-nav" aria-label="Primary navigation">
+            <ul>
+                <li><a href="45-home.html">Home</a></li>
+                <li><a href="45-menu.html">Menu</a></li>
+                <li><a href="45-about.html">About</a></li>
+                <li><a href="45-hours-location.html" aria-current="page">Hours &amp; Location</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <div class="page-hero">
+        <h1>Hours &amp; Location</h1>
+        <p>Easy to find, easy to park — and you can join the waitlist from your phone before you arrive.</p>
+    </div>
+
+    <main>
+        <section>
+            <h2>Hours <span class="owner-flag">needs owner confirm</span></h2>
+            <table class="hours-table">
+                <tbody>
+                    <tr><td>Monday</td><td>11:30 AM – 2:30 PM · 5:30 PM – 9:30 PM</td></tr>
+                    <tr><td>Tuesday</td><td>11:30 AM – 2:30 PM · 5:30 PM – 9:30 PM</td></tr>
+                    <tr><td>Wednesday</td><td>11:30 AM – 2:30 PM · 5:30 PM – 9:30 PM</td></tr>
+                    <tr><td>Thursday</td><td>11:30 AM – 2:30 PM · 5:30 PM – 9:30 PM</td></tr>
+                    <tr><td>Friday</td><td>11:30 AM – 2:30 PM · 5:30 PM – 9:30 PM</td></tr>
+                    <tr><td>Saturday</td><td>11:30 AM – 2:30 PM · 5:30 PM – 9:30 PM</td></tr>
+                    <tr><td>Sunday</td><td>11:30 AM – 2:30 PM · 5:30 PM – 9:30 PM</td></tr>
+                </tbody>
+            </table>
+            <div class="last-order">
+                <strong>Last orders:</strong> 2:10 PM for lunch, 9:10 PM for dinner — every day.
+            </div>
+        </section>
+
+        <section>
+            <h2>Find Us</h2>
+            <div class="map-block" role="img" aria-label="Map showing Shri Krishna Bhavan at 12 Bellevue Way SE"></div>
+            <a class="map-cta" href="https://www.google.com/maps/search/?api=1&amp;query=12+Bellevue+Way+SE+Bellevue+WA+98004">Open in Google Maps</a>
+
+            <div class="address-block" style="margin-top: 24px;">
+                <div class="line"><strong>Shri Krishna Bhavan</strong></div>
+                <div class="line">12 Bellevue Way SE</div>
+                <div class="line">Bellevue, WA 98004</div>
+                <div class="line muted" style="margin-top: 8px;">(253) 656-5478 · skb.bellevue@gmail.com</div>
+            </div>
+
+            <div class="parking-block">
+                <h3>Parking <span class="owner-flag">needs owner confirm</span></h3>
+                <p>Complimentary parking is available in the lot at our building. Overflow street parking on Bellevue Way SE.</p>
+            </div>
+        </section>
+    </main>
+
+    <footer class="site-footer">
+        <div style="margin-bottom: 16px;">
+            <a href="45-home.html">Home</a>
+            <a href="45-menu.html">Menu</a>
+            <a href="45-about.html">About</a>
+            <a href="45-hours-location.html">Hours &amp; Location</a>
+            <a href="/privacy">Privacy</a>
+        </div>
+        <div>12 Bellevue Way SE, Bellevue WA 98004 · (253) 656-5478 · skb.bellevue@gmail.com</div>
+        <div class="fcopy">© 2026 Shri Krishna Bhavan · All rights reserved</div>
+    </footer>
+</body>
+</html>

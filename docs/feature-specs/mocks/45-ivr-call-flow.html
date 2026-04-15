@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Issue #45 — New IVR Call Flow</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Fira Sans', sans-serif;
+            background: #000;
+            color: #fff;
+            padding: 24px;
+            max-width: 880px;
+            margin: 0 auto;
+        }
+        h1 {
+            font-size: 1.6rem;
+            color: #e3bf3d;
+            margin-bottom: 8px;
+        }
+        .subtitle {
+            font-size: 0.9rem;
+            color: #999;
+            margin-bottom: 32px;
+        }
+        h2 {
+            font-size: 1.1rem;
+            color: #e3bf3d;
+            margin: 48px 0 16px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #333;
+        }
+        .flow-step {
+            background: #111;
+            border: 1px solid #333;
+            border-radius: 8px;
+            padding: 16px 20px;
+            margin-bottom: 12px;
+            position: relative;
+        }
+        .flow-step.new {
+            border-color: #4a4;
+            background: #001a00;
+        }
+        .flow-step.existing {
+            border-left: 4px solid #555;
+        }
+        .flow-step.transfer {
+            border-color: #46a;
+            background: #001522;
+        }
+        .flow-step.error {
+            border-color: #c44;
+            background: #1a0000;
+        }
+        .step-label {
+            font-size: 0.72rem;
+            color: #e3bf3d;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 6px;
+            display: flex;
+            justify-content: space-between;
+        }
+        .step-label .tag {
+            background: #333;
+            color: #aaa;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 0.65rem;
+        }
+        .step-label .tag.new { background: #064; color: #afa; }
+        .step-label .tag.existing { background: #333; color: #aaa; }
+        .step-label .tag.transfer { background: #246; color: #acf; }
+        .step-script {
+            font-style: italic;
+            color: #eee;
+            line-height: 1.55;
+            margin-bottom: 10px;
+            font-size: 0.95rem;
+        }
+        .step-action {
+            font-size: 0.8rem;
+            color: #888;
+        }
+        .step-action code {
+            background: #222;
+            padding: 2px 6px;
+            border-radius: 3px;
+            color: #e3bf3d;
+            font-size: 0.78rem;
+        }
+        .connector {
+            text-align: center;
+            color: #555;
+            font-size: 1.2rem;
+            margin: 4px 0;
+        }
+        .branch {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+        .branch > div { flex: 1; min-width: 0; }
+        .branch-label {
+            text-align: center;
+            font-size: 0.85rem;
+            color: #e3bf3d;
+            margin-bottom: 8px;
+            font-weight: bold;
+        }
+        .legend {
+            display: flex;
+            gap: 20px;
+            margin: 16px 0 32px;
+            font-size: 0.8rem;
+            color: #999;
+            flex-wrap: wrap;
+        }
+        .legend-dot {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 3px;
+            margin-right: 6px;
+            vertical-align: middle;
+        }
+        .flag {
+            display: inline-block;
+            background: #3a3000;
+            color: #ffca5c;
+            border: 1px dashed #8a7000;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 0.68rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            margin-left: 8px;
+            vertical-align: middle;
+        }
+    </style>
+</head>
+<body>
+    <h1>Issue #45 — New IVR Call Flow</h1>
+    <p class="subtitle">
+        Adds <strong>menu</strong>, <strong>hours &amp; location</strong>, and <strong>front-desk transfer</strong> options to the existing waitlist IVR.
+        Existing branches (press 1, press 2) are preserved unchanged.
+    </p>
+
+    <div class="legend">
+        <span><span class="legend-dot" style="background: #064; border: 1px solid #4a4;"></span>New branch (this spec)</span>
+        <span><span class="legend-dot" style="background: #111; border-left: 4px solid #555;"></span>Existing branch (unchanged)</span>
+        <span><span class="legend-dot" style="background: #001522; border: 1px solid #46a;"></span>Front-desk transfer</span>
+        <span><span class="legend-dot" style="background: #1a0000; border: 1px solid #c44;"></span>Error / timeout</span>
+    </div>
+
+    <h2>Root greeting — press X</h2>
+
+    <div class="flow-step">
+        <div class="step-label">Step 1 — /voice/incoming <span class="tag">updated</span></div>
+        <div class="step-script">
+            "Hello, and thank you for calling Shri Krishna Bhavan! There are currently 5 parties ahead of you,
+            with an estimated wait of about 40 minutes. To join the waitlist, press 1. To hear the wait time again, press 2.
+            For our menu, press 3. For hours and location, press 4. To speak with someone at the restaurant, press 0."
+        </div>
+        <div class="step-action">
+            <code>&lt;Gather input="dtmf" numDigits="1" timeout="10" action="/voice/menu-choice"&gt;</code>
+            — reads live queue state from <code>getQueueState(loc)</code>
+        </div>
+    </div>
+
+    <div class="connector">↓</div>
+
+    <h2>Branch routing — /voice/menu-choice</h2>
+
+    <div class="branch">
+        <div>
+            <div class="branch-label">Press 1</div>
+            <div class="flow-step existing">
+                <div class="step-label">Join Waitlist <span class="tag existing">existing</span></div>
+                <div class="step-script">"Please say your full name." → party size → phone confirm → join.</div>
+                <div class="step-action">
+                    <code>&lt;Redirect&gt;/voice/ask-name&lt;/Redirect&gt;</code>
+                    — unchanged from today's implementation
+                </div>
+            </div>
+        </div>
+        <div>
+            <div class="branch-label">Press 2</div>
+            <div class="flow-step existing">
+                <div class="step-label">Repeat Wait <span class="tag existing">existing</span></div>
+                <div class="step-script">Replays the greeting with current queue state.</div>
+                <div class="step-action">
+                    <code>&lt;Redirect&gt;/voice/incoming&lt;/Redirect&gt;</code>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="branch">
+        <div>
+            <div class="branch-label">Press 3</div>
+            <div class="flow-step new">
+                <div class="step-label">Menu <span class="tag new">new</span></div>
+                <div class="step-script">See "Branch: Menu" below.</div>
+                <div class="step-action">
+                    <code>&lt;Redirect&gt;/voice/menu-info&lt;/Redirect&gt;</code>
+                </div>
+            </div>
+        </div>
+        <div>
+            <div class="branch-label">Press 4</div>
+            <div class="flow-step new">
+                <div class="step-label">Hours &amp; Location <span class="tag new">new</span></div>
+                <div class="step-script">See "Branch: Hours &amp; Location" below.</div>
+                <div class="step-action">
+                    <code>&lt;Redirect&gt;/voice/hours-info&lt;/Redirect&gt;</code>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="flow-step transfer" style="margin-top: 16px;">
+        <div class="step-label">Press 0 — Transfer to Front Desk <span class="tag transfer">new</span></div>
+        <div class="step-script">"Connecting you to our host. Please hold."</div>
+        <div class="step-action">
+            <code>&lt;Dial&gt;+1{frontDeskPhone}&lt;/Dial&gt;</code>
+            — uses same pattern as the existing large-party transfer in <code>/voice/got-size</code>.
+            If <code>frontDeskPhone</code> is unset, falls back to: "Our host is currently unavailable. To join the waitlist, press 1..."
+        </div>
+    </div>
+
+    <h2>Branch: Menu — /voice/menu-info <span class="flag">new</span></h2>
+
+    <div class="flow-step new">
+        <div class="step-label">Menu overview <span class="tag new">new</span></div>
+        <div class="step-script">
+            "We serve authentic South Indian cuisine. Our menu includes breakfast favorites like idly, vada, and pongal;
+            more than twenty varieties of dosa including the classic masala dosa, spicy Mysore masala dosa, and our
+            house-special paper roast; uthappams; rice dishes and biryanis; thalis; and a full range of beverages and
+            desserts. You can see the full menu with prices at skbbellevue dot com slash menu.
+            Last orders for lunch are at 2:10 PM and last orders for dinner are at 9:10 PM.
+            To return to the main menu, press star. To join the waitlist, press 1."
+        </div>
+        <div class="step-action">
+            <code>&lt;Gather input="dtmf" numDigits="1" timeout="8" action="/voice/menu-choice"&gt;</code>
+            — same menu-choice router so <code>*</code> returns to <code>/voice/incoming</code> and <code>1</code> short-circuits to join
+        </div>
+    </div>
+
+    <div class="connector">↓ (on timeout)</div>
+
+    <div class="flow-step error">
+        <div class="step-label">Timeout fallback</div>
+        <div class="step-script">"Thank you for calling. Goodbye." → hangup.</div>
+    </div>
+
+    <h2>Branch: Hours &amp; Location — /voice/hours-info <span class="flag">new</span></h2>
+
+    <div class="flow-step new">
+        <div class="step-label">Hours &amp; location <span class="tag new">new</span></div>
+        <div class="step-script">
+            "Shri Krishna Bhavan is located at 12 Bellevue Way SE in Bellevue, Washington.
+            We're open seven days a week. Lunch service is from 11:30 AM to 2:30 PM, with last orders at 2:10 PM.
+            Dinner service is from 5:30 PM to 9:30 PM, with last orders at 9:10 PM.
+            Complimentary parking is available in the lot at our building.
+            To return to the main menu, press star. To join the waitlist, press 1."
+            <span class="flag">hours &amp; parking need owner confirm</span>
+        </div>
+        <div class="step-action">
+            <code>&lt;Gather input="dtmf" numDigits="1" timeout="8" action="/voice/menu-choice"&gt;</code>
+            — same <code>*</code> / <code>1</code> shortcuts as the menu branch
+        </div>
+    </div>
+
+    <div class="connector">↓ (on timeout)</div>
+
+    <div class="flow-step error">
+        <div class="step-label">Timeout fallback</div>
+        <div class="step-script">"Thank you for calling. Goodbye." → hangup.</div>
+    </div>
+
+    <h2>Non-goals for this issue</h2>
+    <div class="flow-step" style="opacity: 0.75;">
+        <div class="step-label">Intentionally not in scope</div>
+        <div class="step-script" style="font-style: normal; color: #ccc;">
+            · No call recording — continues to comply with SKB's no-record policy<br>
+            · No conversational AI (Slang.ai / Goodcall / PopMenu) — deferred to a later spec<br>
+            · No per-day hours logic in the IVR — "seven days a week" is a single static string<br>
+            · Menu branch does not read individual items — directs to the website for item-level detail<br>
+            · No multi-language support — English only for this release
+        </div>
+    </div>
+</body>
+</html>

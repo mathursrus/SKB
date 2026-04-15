@@ -167,6 +167,85 @@
                 </div>
             </section>
         </section>
+
+        <section class="admin-card">
+            <div class="admin-card-head">
+                <h2>Restaurant Site</h2>
+                <p>Address, weekly hours, and the public host (e.g. skbbellevue.com) used by the diner-facing website and the IVR hours / location branch.</p>
+            </div>
+
+            <h4 class="visit-subhead">Address <span class="visit-sub-help">— shown on home, hours, contact pages + IVR press-4 script + Google Maps embed</span></h4>
+            <div class="visit-address-grid">
+                <label class="visit-field visit-field-full">
+                    <span class="visit-label">Street</span>
+                    <input type="text" id="admin-site-street" placeholder="12 Bellevue Way SE" maxlength="120" />
+                </label>
+                <label class="visit-field">
+                    <span class="visit-label">City</span>
+                    <input type="text" id="admin-site-city" placeholder="Bellevue" maxlength="80" />
+                </label>
+                <label class="visit-field visit-field-small">
+                    <span class="visit-label">State</span>
+                    <input type="text" id="admin-site-state" placeholder="WA" maxlength="2" pattern="[A-Za-z]{2}" />
+                </label>
+                <label class="visit-field visit-field-small">
+                    <span class="visit-label">ZIP</span>
+                    <input type="text" id="admin-site-zip" placeholder="98004" maxlength="10" pattern="\d{5}(-\d{4})?" />
+                </label>
+            </div>
+
+            <h4 class="visit-subhead">Weekly Hours <span class="visit-sub-help">— shown on home + hours pages and read by the IVR</span></h4>
+            <div class="visit-hours-grid">
+                <div class="visit-hours-row"><div class="visit-hours-day">Monday</div>
+                    <label class="visit-hours-closed-label"><input type="checkbox" id="admin-site-mon-closed"> Closed</label>
+                    <div class="visit-hours-window"><span>Lunch</span><input type="time" id="admin-site-mon-lunch-open"> – <input type="time" id="admin-site-mon-lunch-close"></div>
+                    <div class="visit-hours-window"><span>Dinner</span><input type="time" id="admin-site-mon-dinner-open"> – <input type="time" id="admin-site-mon-dinner-close"></div>
+                </div>
+                <div class="visit-hours-row"><div class="visit-hours-day">Tuesday</div>
+                    <label class="visit-hours-closed-label"><input type="checkbox" id="admin-site-tue-closed"> Closed</label>
+                    <div class="visit-hours-window"><span>Lunch</span><input type="time" id="admin-site-tue-lunch-open"> – <input type="time" id="admin-site-tue-lunch-close"></div>
+                    <div class="visit-hours-window"><span>Dinner</span><input type="time" id="admin-site-tue-dinner-open"> – <input type="time" id="admin-site-tue-dinner-close"></div>
+                </div>
+                <div class="visit-hours-row"><div class="visit-hours-day">Wednesday</div>
+                    <label class="visit-hours-closed-label"><input type="checkbox" id="admin-site-wed-closed"> Closed</label>
+                    <div class="visit-hours-window"><span>Lunch</span><input type="time" id="admin-site-wed-lunch-open"> – <input type="time" id="admin-site-wed-lunch-close"></div>
+                    <div class="visit-hours-window"><span>Dinner</span><input type="time" id="admin-site-wed-dinner-open"> – <input type="time" id="admin-site-wed-dinner-close"></div>
+                </div>
+                <div class="visit-hours-row"><div class="visit-hours-day">Thursday</div>
+                    <label class="visit-hours-closed-label"><input type="checkbox" id="admin-site-thu-closed"> Closed</label>
+                    <div class="visit-hours-window"><span>Lunch</span><input type="time" id="admin-site-thu-lunch-open"> – <input type="time" id="admin-site-thu-lunch-close"></div>
+                    <div class="visit-hours-window"><span>Dinner</span><input type="time" id="admin-site-thu-dinner-open"> – <input type="time" id="admin-site-thu-dinner-close"></div>
+                </div>
+                <div class="visit-hours-row"><div class="visit-hours-day">Friday</div>
+                    <label class="visit-hours-closed-label"><input type="checkbox" id="admin-site-fri-closed"> Closed</label>
+                    <div class="visit-hours-window"><span>Lunch</span><input type="time" id="admin-site-fri-lunch-open"> – <input type="time" id="admin-site-fri-lunch-close"></div>
+                    <div class="visit-hours-window"><span>Dinner</span><input type="time" id="admin-site-fri-dinner-open"> – <input type="time" id="admin-site-fri-dinner-close"></div>
+                </div>
+                <div class="visit-hours-row"><div class="visit-hours-day">Saturday</div>
+                    <label class="visit-hours-closed-label"><input type="checkbox" id="admin-site-sat-closed"> Closed</label>
+                    <div class="visit-hours-window"><span>Lunch</span><input type="time" id="admin-site-sat-lunch-open"> – <input type="time" id="admin-site-sat-lunch-close"></div>
+                    <div class="visit-hours-window"><span>Dinner</span><input type="time" id="admin-site-sat-dinner-open"> – <input type="time" id="admin-site-sat-dinner-close"></div>
+                </div>
+                <div class="visit-hours-row"><div class="visit-hours-day">Sunday</div>
+                    <label class="visit-hours-closed-label"><input type="checkbox" id="admin-site-sun-closed"> Closed</label>
+                    <div class="visit-hours-window"><span>Lunch</span><input type="time" id="admin-site-sun-lunch-open"> – <input type="time" id="admin-site-sun-lunch-close"></div>
+                    <div class="visit-hours-window"><span>Dinner</span><input type="time" id="admin-site-sun-dinner-open"> – <input type="time" id="admin-site-sun-dinner-close"></div>
+                </div>
+            </div>
+
+            <h4 class="visit-subhead">Public Host <span class="visit-sub-help">— when set, requests to this domain are rewritten to this location's pages</span></h4>
+            <div class="visit-grid">
+                <label class="visit-field visit-field-full">
+                    <span class="visit-label">Public host</span>
+                    <input type="text" id="admin-site-public-host" placeholder="skbbellevue.com" maxlength="120" />
+                </label>
+            </div>
+
+            <div class="visit-actions admin-actions-row">
+                <span class="visit-status" id="admin-site-status"></span>
+                <button type="button" id="admin-site-save" class="primary">Save Site Settings</button>
+            </div>
+        </section>
     </main>
 </div>
 

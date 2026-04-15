@@ -25,6 +25,69 @@
     const largePartyThreshold = $('admin-large-party-threshold');
     const voiceStatus = $('admin-voice-status');
     const voiceSave = $('admin-voice-save');
+
+    // Site config (issue #45)
+    const siteStreet = $('admin-site-street');
+    const siteCity = $('admin-site-city');
+    const siteState = $('admin-site-state');
+    const siteZip = $('admin-site-zip');
+    const sitePublicHost = $('admin-site-public-host');
+    const siteStatus = $('admin-site-status');
+    const siteSave = $('admin-site-save');
+    const SITE_DAY_KEYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
+    function siteDayEl(day) {
+        return {
+            closed: $(`admin-site-${day}-closed`),
+            lunchOpen: $(`admin-site-${day}-lunch-open`),
+            lunchClose: $(`admin-site-${day}-lunch-close`),
+            dinnerOpen: $(`admin-site-${day}-dinner-open`),
+            dinnerClose: $(`admin-site-${day}-dinner-close`),
+        };
+    }
+    function siteApplyClosedToggle(day) {
+        const els = siteDayEl(day);
+        if (!els.closed) return;
+        const closed = els.closed.checked;
+        [els.lunchOpen, els.lunchClose, els.dinnerOpen, els.dinnerClose].forEach(el => { if (el) el.disabled = closed; });
+    }
+    SITE_DAY_KEYS.forEach(day => {
+        const els = siteDayEl(day);
+        if (els.closed) els.closed.addEventListener('change', () => siteApplyClosedToggle(day));
+    });
+    function siteLoadHoursIntoForm(hours) {
+        SITE_DAY_KEYS.forEach(day => {
+            const els = siteDayEl(day);
+            if (!els.closed) return;
+            const entry = (hours || {})[day];
+            if (entry === 'closed' || entry === undefined) {
+                els.closed.checked = true;
+                if (els.lunchOpen) els.lunchOpen.value = '';
+                if (els.lunchClose) els.lunchClose.value = '';
+                if (els.dinnerOpen) els.dinnerOpen.value = '';
+                if (els.dinnerClose) els.dinnerClose.value = '';
+            } else {
+                els.closed.checked = false;
+                if (els.lunchOpen) els.lunchOpen.value = entry.lunch?.open || '';
+                if (els.lunchClose) els.lunchClose.value = entry.lunch?.close || '';
+                if (els.dinnerOpen) els.dinnerOpen.value = entry.dinner?.open || '';
+                if (els.dinnerClose) els.dinnerClose.value = entry.dinner?.close || '';
+            }
+            siteApplyClosedToggle(day);
+        });
+    }
+    function siteReadHoursFromForm() {
+        const hours = {};
+        SITE_DAY_KEYS.forEach(day => {
+            const els = siteDayEl(day);
+            if (!els.closed) return;
+            if (els.closed.checked) { hours[day] = 'closed'; return; }
+            const entry = {};
+            if (els.lunchOpen?.value && els.lunchClose?.value) entry.lunch = { open: els.lunchOpen.value, close: els.lunchClose.value };
+            if (els.dinnerOpen?.value && els.dinnerClose?.value) entry.dinner = { open: els.dinnerOpen.value, close: els.dinnerClose.value };
+            hours[day] = Object.keys(entry).length === 0 ? 'closed' : entry;
+        });
+        return hours;
+    }
     const WORKSPACE_KEY_PREFIX = 'skb:lastWorkspace:';
     let pollTimer = null;
 
@@ -209,6 +272,52 @@
         }
     });
 
+    async function loadSiteConfig() {
+        try {
+            const r = await fetch('api/host/site-config');
+            if (r.status === 401) return;
+            if (!r.ok) return;
+            const data = await r.json();
+            if (siteStreet) siteStreet.value = data.address?.street || '';
+            if (siteCity) siteCity.value = data.address?.city || '';
+            if (siteState) siteState.value = data.address?.state || '';
+            if (siteZip) siteZip.value = data.address?.zip || '';
+            if (sitePublicHost) sitePublicHost.value = data.publicHost || '';
+            siteLoadHoursIntoForm(data.hours);
+        } catch {
+            // non-blocking
+        }
+    }
+
+    siteSave.addEventListener('click', async () => {
+        setStatus(siteStatus, '', '');
+        const street = siteStreet?.value.trim() || '';
+        const city = siteCity?.value.trim() || '';
+        const state = siteState?.value.trim().toUpperCase() || '';
+        const zip = siteZip?.value.trim() || '';
+        const anyAddressField = street || city || state || zip;
+        const addressPayload = anyAddressField ? { street, city, state, zip } : null;
+        try {
+            const r = await fetch('api/host/site-config', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    address: addressPayload,
+                    hours: siteReadHoursFromForm(),
+                    publicHost: (sitePublicHost?.value || '').trim().toLowerCase() || null,
+                }),
+            });
+            const data = await r.json().catch(() => ({}));
+            if (!r.ok) {
+                setStatus(siteStatus, data.error || 'Save failed', 'error');
+                return;
+            }
+            setStatus(siteStatus, 'Saved \u2713', 'success');
+        } catch {
+            setStatus(siteStatus, 'Network error', 'error');
+        }
+    });
+
     [rangeSelect, partySizeSelect, startStageSelect, endStageSelect].forEach((el) => {
         el.addEventListener('change', loadAnalytics);
     });
@@ -235,7 +344,7 @@
 
     async function refreshAll() {
         rememberWorkspace();
-        await Promise.all([loadStats(), loadAnalytics(), loadVisitConfig(), loadVoiceConfig()]);
+        await Promise.all([loadStats(), loadAnalytics(), loadVisitConfig(), loadVoiceConfig(), loadSiteConfig()]);
     }
 
     function showLogin() {

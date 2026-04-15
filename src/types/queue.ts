@@ -2,17 +2,49 @@
 // SKB - Queue types (domain + API DTOs)
 // ============================================================================
 
+// Structured address — so the IVR script, web page, and maps embed all
+// render from the same source. `street` is the single most load-bearing
+// field; city/state/zip are US-shaped.
+export interface LocationAddress {
+    street: string; // "12 Bellevue Way SE"
+    city: string;   // "Bellevue"
+    state: string;  // "WA" — 2-letter US state code
+    zip: string;    // "98004" or "98004-1234"
+}
+
+// Weekly hours with closed-day support. A day is either the literal string
+// "closed" or a DayHours object with optional lunch and dinner windows.
+// Times are HH:mm in 24h format (e.g., "11:30", "21:30").
+export interface ServiceWindow {
+    open: string;  // HH:mm 24h
+    close: string; // HH:mm 24h
+}
+
+export interface DayHours {
+    lunch?: ServiceWindow;
+    dinner?: ServiceWindow;
+}
+
+export type DayOfWeek = 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun';
+
+export type WeeklyHours = {
+    [K in DayOfWeek]?: DayHours | 'closed';
+};
+
 // Multi-tenant: each restaurant is a "location" identified by a slug.
 export interface Location {
     _id: string;         // slug, e.g., "skb", "skb-demo"
     name: string;        // display name, e.g., "Shri Krishna Bhavan"
     pin: string;         // host-stand PIN for this location
-    frontDeskPhone?: string; // 10-digit phone for IVR transfer (large parties)
+    frontDeskPhone?: string; // 10-digit phone for IVR transfer (large parties + press-0 transfer)
     voiceEnabled?: boolean;   // location-level intent to expose IVR entry
     voiceLargePartyThreshold?: number; // override for IVR transfer threshold
     createdAt: Date;
     publicUrl?: string;       // public HTTPS base URL, e.g., "https://skb.azurewebsites.net"
+    publicHost?: string;      // custom public host for host-header routing, e.g., "skbbellevue.com" (no scheme, no trailing slash)
     googlePlaceId?: string;   // Google Maps Place ID, e.g., "ChIJ..."
+    address?: LocationAddress; // admin-configurable street/city/state/zip (issue #45)
+    hours?: WeeklyHours;       // admin-configurable weekly hours with closed-day support (issue #45)
     // Visit-page routing: a single stable URL `/r/:loc/visit` that decides at
     // request time what to serve, so the printed door QR never has to change.
     // - 'auto'   (default): show the queue if anyone is waiting, otherwise
@@ -23,6 +55,17 @@ export interface Location {
     visitMode?: 'auto' | 'queue' | 'menu' | 'closed';
     menuUrl?: string;         // external URL to redirect to in 'menu' mode
     closedMessage?: string;   // shown to scanners in 'closed' mode
+}
+
+// A safe projection of Location suitable for exposure via the public config
+// endpoint. Excludes `pin` and any operational internals. Used by the new
+// diner-facing website pages to render the address, hours, and phone.
+export interface PublicLocation {
+    name: string;
+    address?: LocationAddress;
+    hours?: WeeklyHours;
+    frontDeskPhone?: string;
+    publicUrl?: string;
 }
 
 export type VisitMode = 'auto' | 'queue' | 'menu' | 'closed';

@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Menu — Shri Krishna Bhavan</title>
+    <link rel="stylesheet" href="site.css">
+</head>
+<body class="site">
+    <div class="site-banner">Last orders daily at 2:10 PM &amp; 9:10 PM</div>
+
+    <header class="site-header">
+        <div>
+            <div class="brand-name" id="brand-name">Shri Krishna Bhavan</div>
+            <div class="brand-tag">South Indian · Bellevue</div>
+        </div>
+        <nav class="site-nav" aria-label="Primary navigation">
+            <ul>
+                <li><a href="./">Home</a></li>
+                <li><a href="./menu" aria-current="page">Menu</a></li>
+                <li><a href="./about">About</a></li>
+                <li><a href="./hours">Hours &amp; Location</a></li>
+                <li><a href="./contact">Contact</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <div class="page-hero">
+        <h1>Our Menu</h1>
+        <p>Every dish prepared fresh to order. Last orders at 2:10 PM for lunch and 9:10 PM for dinner.</p>
+    </div>
+
+    <nav class="menu-category-strip" id="menu-category-strip" aria-label="Menu categories">
+        <span class="loading">Loading categories…</span>
+    </nav>
+
+    <main class="menu-main" id="menu-main">
+        <div class="loading">Loading menu…</div>
+    </main>
+
+    <footer class="site-footer">
+        <div class="fnav">
+            <a href="./">Home</a>
+            <a href="./menu">Menu</a>
+            <a href="./about">About</a>
+            <a href="./hours">Hours &amp; Location</a>
+            <a href="./contact">Contact</a>
+            <a href="./privacy.html">Privacy</a>
+        </div>
+        <div id="footer-contact">12 Bellevue Way SE, Bellevue WA 98004 · skb.bellevue@gmail.com</div>
+        <div class="fcopy">© 2026 Shri Krishna Bhavan · All rights reserved</div>
+    </footer>
+
+    <script src="site-config.js"></script>
+    <script>
+    (async function () {
+        var main = document.getElementById('menu-main');
+        var strip = document.getElementById('menu-category-strip');
+        try {
+            var res = await fetch('menu.json');
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            var data = await res.json();
+            var items = data.items || [];
+            var categoryOrder = [];
+            var byCategory = {};
+            for (var i = 0; i < items.length; i++) {
+                var it = items[i];
+                var cat = it.category || 'Other';
+                if (!byCategory[cat]) { byCategory[cat] = []; categoryOrder.push(cat); }
+                byCategory[cat].push(it);
+            }
+
+            strip.innerHTML = '';
+            categoryOrder.forEach(function (cat) {
+                var a = document.createElement('a');
+                a.href = '#cat-' + cat.replace(/\s+/g, '-').toLowerCase();
+                a.textContent = cat + ' (' + byCategory[cat].length + ')';
+                strip.appendChild(a);
+            });
+
+            main.innerHTML = '';
+            categoryOrder.forEach(function (cat) {
+                var section = document.createElement('section');
+                section.className = 'menu-category';
+                section.id = 'cat-' + cat.replace(/\s+/g, '-').toLowerCase();
+                var h2 = document.createElement('h2');
+                h2.textContent = cat;
+                var count = document.createElement('div');
+                count.className = 'menu-category-count';
+                count.textContent = byCategory[cat].length + ' dish' + (byCategory[cat].length === 1 ? '' : 'es');
+                var grid = document.createElement('div');
+                grid.className = 'menu-items';
+                byCategory[cat].forEach(function (it) {
+                    var row = document.createElement('div');
+                    row.className = 'menu-item';
+                    var name = document.createElement('div');
+                    name.className = 'menu-item-name';
+                    var cleanName = it.name
+                        .toLowerCase()
+                        .replace(/\b\w/g, function (c) { return c.toUpperCase(); })
+                        .replace(/\(Non-Vegan\)/gi, '')
+                        .replace(/\(\s*\)/g, '')
+                        .trim();
+                    name.textContent = cleanName;
+                    if (/non-vegan/i.test(it.name)) {
+                        var t = document.createElement('span');
+                        t.className = 'menu-item-tag non-vegan';
+                        t.textContent = 'non-vegan';
+                        name.appendChild(t);
+                    }
+                    var price = document.createElement('div');
+                    price.className = 'menu-item-price';
+                    price.textContent = (it.price || '').replace(/\s+/g, ' ').trim();
+                    row.appendChild(name);
+                    row.appendChild(price);
+                    grid.appendChild(row);
+                });
+                section.appendChild(h2);
+                section.appendChild(count);
+                section.appendChild(grid);
+                main.appendChild(section);
+            });
+        } catch (err) {
+            main.innerHTML = '<div class="loading">Could not load menu: ' + err.message + '</div>';
+            strip.innerHTML = '';
+        }
+    })();
+    </script>
+</body>
+</html>

@@ -38,6 +38,62 @@ const app = express();
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: false }));  // Twilio sends form-encoded webhooks
 
+// ─── Host-header rewrite for per-location public websites (issue #45) ────
+// If a request arrives with a Host header matching a per-location
+// `publicHost` field (e.g. Host: skbbellevue.com), rewrite the URL to
+// prepend `/r/:loc/` so it hits the normal per-location route. This is
+// what lets `skbbellevue.com/menu` serve the new menu page without a
+// separate reverse proxy. The middleware is early in the chain so it
+// runs before any static-file matching.
+//
+// Idempotent: requests that already start with /r/, /api, /mcp,
+// /health, or the backward-compat /queue routes are left alone.
+//
+// The location lookup is cached in-memory for 60 seconds so every
+// request doesn't hit the DB; this keeps the fast path fast.
+const hostRewriteCache = new Map<string, { loc: string | null; expiresAt: number }>();
+app.use(async (req: Request, _res: Response, next: () => void) => {
+    const hostHeader = String(req.headers.host ?? '').toLowerCase().split(':')[0];
+    if (!hostHeader) { next(); return; }
+    // Leave already-prefixed and API/system paths alone.
+    if (
+        req.url.startsWith('/r/')
+        || req.url.startsWith('/api')
+        || req.url.startsWith('/mcp')
+        || req.url.startsWith('/health')
+        || req.url === '/queue'
+        || req.url === '/queue.html'
+        || req.url === '/'
+    ) {
+        // Note: '/' itself is handled below so it can be rewritten on the
+        // specific host. Fall through to the cache check.
+        if (req.url !== '/') { next(); return; }
+    }
+    try {
+        const now = Date.now();
+        let cached = hostRewriteCache.get(hostHeader);
+        if (!cached || cached.expiresAt < now) {
+            const all = await listLocations();
+            const match = all.find(l => (l.publicHost ?? '').toLowerCase() === hostHeader);
+            cached = { loc: match ? match._id : null, expiresAt: now + 60_000 };
+            hostRewriteCache.set(hostHeader, cached);
+        }
+        if (cached.loc) {
+            const prefix = `/r/${cached.loc}`;
+            if (req.url === '/') {
+                req.url = `${prefix}/home.html`;
+            } else if (!req.url.startsWith(prefix)) {
+                req.url = `${prefix}${req.url}`;
+            }
+        }
+    } catch {
+        // DB unavailable — fall through without rewriting. Home / menu / etc.
+        // will 404 through the static middleware, which is the right
+        // degraded-mode behavior.
+    }
+    next();
+});
+
 // Global health
 app.use(healthRouter(SERVER_NAME));
 
@@ -97,6 +153,26 @@ app.get('/r/:loc/visit', async (req: Request, res: Response) => {
         res.status(503).send('Service temporarily unavailable');
     }
 });
+
+// ─── Per-location public website routes (issue #45) ───────────────────
+// Friendly URLs for the replacement skbbellevue.com pages. `/r/:loc/` is
+// the home page; `/r/:loc/menu` is the menu page (served from the
+// `menu-page.html` file — `menu.html` would collide with the existing
+// menu-page static asset used as visitMode=menu fallback in PR #42).
+const SITE_PAGE_MAP: Record<string, string> = {
+    '': 'home.html',
+    'menu': 'menu-page.html',
+    'about': 'about.html',
+    'hours': 'hours-location.html',
+    'contact': 'contact.html',
+};
+const servePage = (relPath: string) => (_req: Request, res: Response) => {
+    res.sendFile(path.join(publicDir, relPath));
+};
+for (const [route, file] of Object.entries(SITE_PAGE_MAP)) {
+    const url = route ? `/r/:loc/${route}` : '/r/:loc';
+    app.get(url, servePage(file));
+}
 
 // Static assets — served under /r/:loc/ so JS fetch() calls use relative paths
 app.use('/r/:loc', express.static(publicDir));

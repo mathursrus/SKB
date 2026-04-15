@@ -10,7 +10,7 @@ import express from 'express';
 import http from 'http';
 import { voiceRouter } from '../../src/routes/voice.js';
 import { queueRouter } from '../../src/routes/queue.js';
-import { ensureLocation } from '../../src/services/locations.js';
+import { ensureLocation, updateLocationSiteConfig, updateLocationVoiceConfig } from '../../src/services/locations.js';
 import { closeDb, getDb, queueEntries } from '../../src/core/db/mongo.js';
 
 const app = express();
@@ -43,6 +43,21 @@ const server = app.listen(0, async () => {
     const db = await getDb();
     await queueEntries(db).deleteMany({});
     await ensureLocation('test', 'Test Restaurant', '1234');
+    // Seed address + hours via site-config, and frontDeskPhone via voice-config,
+    // for issue #45 IVR branches.
+    await updateLocationSiteConfig('test', {
+        address: { street: '12 Bellevue Way SE', city: 'Bellevue', state: 'WA', zip: '98004' },
+        hours: {
+            mon: 'closed',
+            tue: { lunch: { open: '11:30', close: '14:30' }, dinner: { open: '17:30', close: '21:30' } },
+            wed: { lunch: { open: '11:30', close: '14:30' }, dinner: { open: '17:30', close: '21:30' } },
+            thu: { lunch: { open: '11:30', close: '14:30' }, dinner: { open: '17:30', close: '21:30' } },
+            fri: { lunch: { open: '11:30', close: '14:30' }, dinner: { open: '17:30', close: '21:30' } },
+            sat: { lunch: { open: '11:30', close: '14:30' }, dinner: { open: '17:30', close: '21:30' } },
+            sun: { lunch: { open: '11:30', close: '14:30' }, dinner: { open: '17:30', close: '21:30' } },
+        },
+    });
+    await updateLocationVoiceConfig('test', { frontDeskPhone: '2065551234' });
 
     const CALL = { From: '+12025550199', To: '+18449172762', CallSid: 'CAdebug' };
     let pass = 0, fail = 0;
@@ -57,6 +72,10 @@ const server = app.listen(0, async () => {
     check('Greeting 200', r1.status === 200);
     check('Greeting has Response', r1.body.includes('<Response>'));
     check('Greeting has 0 parties', r1.body.includes('0 parties'), `body: ${r1.body.substring(0, 150)}`);
+    // Issue #45: greeting advertises the new options 3/4/0
+    check('Greeting advertises press 3 for menu', /For our menu, press 3/i.test(r1.body));
+    check('Greeting advertises press 4 for hours and location', /For hours and location, press 4/i.test(r1.body));
+    check('Greeting advertises press 0 for front desk', /press 0/i.test(r1.body));
 
     // 2. Press 1
     const a1 = extractAction(r1.body);
@@ -161,6 +180,66 @@ const server = app.listen(0, async () => {
     // Bad input — non-10-digit → re-prompt
     const rBad = await post(port, newPhoneEntryUrl, { ...CALL, Digits: '12345' });
     check('NewPhone bad input re-prompts', rBad.body.includes('valid 10 digit'));
+
+    // ── Issue #45: new branches ──────────────────────────────────────────
+    // Helper: fresh greeting for each branch test
+    async function greet() { return post(port, '/r/test/api/voice/incoming', CALL); }
+
+    // Press 3 → menu info redirect → menu-info speaks the overview
+    const gMenu = await greet();
+    const mcAction = extractAction(gMenu.body);
+    const r3menu = await post(port, mcAction, { ...CALL, Digits: '3' });
+    check('Press 3 redirects to menu-info', r3menu.body.includes('menu-info'));
+    const menuInfoUrl = extractAction(r3menu.body);
+    const rMenuInfo = await post(port, menuInfoUrl, CALL);
+    check('Menu-info mentions dosa varieties', rMenuInfo.body.includes('more than twenty varieties of dosa'));
+    check('Menu-info points to skbbellevue.com', rMenuInfo.body.includes('skbbellevue dot com slash menu'));
+    check('Menu-info prompts for star or 1', /return to the main menu, press star/i.test(rMenuInfo.body) && /join the waitlist, press 1/i.test(rMenuInfo.body));
+    check('Menu-info has no recording', !/<Record/.test(rMenuInfo.body) && !/record="/.test(rMenuInfo.body));
+
+    // Press 4 → hours info redirect → hours-info speaks the seeded hours+address
+    const gHours = await greet();
+    const hcAction = extractAction(gHours.body);
+    const r4hours = await post(port, hcAction, { ...CALL, Digits: '4' });
+    check('Press 4 redirects to hours-info', r4hours.body.includes('hours-info'));
+    const hoursInfoUrl = extractAction(r4hours.body);
+    const rHoursInfo = await post(port, hoursInfoUrl, CALL);
+    check('Hours-info contains seeded street', rHoursInfo.body.includes('12 Bellevue Way SE'));
+    check('Hours-info mentions Bellevue', rHoursInfo.body.includes('Bellevue'));
+    check('Hours-info mentions closed Mondays', /closed on Mondays/i.test(rHoursInfo.body));
+    check('Hours-info mentions Tuesday through Sunday', /Tuesday through Sunday/i.test(rHoursInfo.body));
+    check('Hours-info mentions lunch 11:30', rHoursInfo.body.includes('11:30 AM'));
+    check('Hours-info mentions dinner 5:30', rHoursInfo.body.includes('5:30 PM'));
+    check('Hours-info mentions parking', rHoursInfo.body.includes('Complimentary parking'));
+    check('Hours-info has no recording', !/<Record/.test(rHoursInfo.body) && !/record="/.test(rHoursInfo.body));
+
+    // Press 0 → front-desk transfer Dial with seeded frontDeskPhone
+    const gFront = await greet();
+    const fcAction = extractAction(gFront.body);
+    const r0front = await post(port, fcAction, { ...CALL, Digits: '0' });
+    check('Press 0 redirects to front-desk', r0front.body.includes('front-desk'));
+    const frontDeskUrl = extractAction(r0front.body);
+    const rFrontDesk = await post(port, frontDeskUrl, CALL);
+    check('Front-desk Dials seeded number', rFrontDesk.body.includes('<Dial>+12065551234</Dial>'));
+    check('Front-desk announces connecting', /Connecting you to our host/i.test(rFrontDesk.body));
+
+    // Press 0 fallback when frontDeskPhone is unset — clear it and re-test
+    await updateLocationVoiceConfig('test', { frontDeskPhone: null });
+    const rFrontDeskUnset = await post(port, frontDeskUrl, CALL);
+    check('Front-desk unset announces unavailable', /Our host is currently unavailable/i.test(rFrontDeskUnset.body));
+    check('Front-desk unset does NOT emit Dial', !rFrontDeskUnset.body.includes('<Dial>'));
+    // Restore the seeded phone for subsequent tests
+    await updateLocationVoiceConfig('test', { frontDeskPhone: '2065551234' });
+
+    // Hours-info fallback: clear address + hours, hours-info should use the static script
+    await updateLocationSiteConfig('test', { address: null, hours: null });
+    const rHoursFallback = await post(port, hoursInfoUrl, CALL);
+    check('Hours-info fallback still mentions Bellevue Way', rHoursFallback.body.includes('12 Bellevue Way SE'));
+    check('Hours-info fallback still says closed Mondays', /closed on Mondays/i.test(rHoursFallback.body));
+
+    // Menu-choice with star ('*') returns to main menu
+    const rStar = await post(port, mcAction, { ...CALL, Digits: '*' });
+    check('Star returns to incoming', rStar.body.includes('incoming'));
 
     console.log(`\n${pass} passed, ${fail} failed`);
     server.close();

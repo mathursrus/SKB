@@ -753,14 +753,17 @@ body.queue-boot::before {
     opacity: 0.35;
     cursor: not-allowed;
 }
-@media (max-width: 720px) {
+@media (max-width: 900px) {
     .visit-address-grid { grid-template-columns: 1fr 1fr; }
     .visit-hours-row {
-        grid-template-columns: 1fr 1fr;
-        row-gap: 4px;
+        grid-template-columns: 1fr;
+        row-gap: 6px;
     }
-    .visit-hours-day { grid-column: 1 / -1; }
-    .visit-hours-closed-label { grid-column: 1 / -1; }
+    .visit-hours-day { grid-column: 1; }
+    .visit-hours-closed-label { grid-column: 1; }
+    .visit-hours-window { flex-wrap: wrap; }
+    .visit-hours-window input[type="time"] { width: 72px; }
+    .visit-hours-window span { width: 40px; }
 }
 
 /* ---------- Diner: seated terminal card ---------- */

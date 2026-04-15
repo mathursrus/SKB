@@ -54,6 +54,26 @@
         const els = siteDayEl(day);
         if (els.closed) els.closed.addEventListener('change', () => siteApplyClosedToggle(day));
     });
+    // Accessibility: the weekly-hours time inputs live inside a visual
+    // `<span>Lunch</span>` row which is not a proper <label>. Inject
+    // descriptive aria-labels so screen readers can distinguish each input.
+    (function siteAddAriaLabels() {
+        const DAY_LABELS = { mon: 'Monday', tue: 'Tuesday', wed: 'Wednesday', thu: 'Thursday', fri: 'Friday', sat: 'Saturday', sun: 'Sunday' };
+        SITE_DAY_KEYS.forEach(day => {
+            const dayLabel = DAY_LABELS[day];
+            const pairs = [
+                ['lunchOpen', `${dayLabel} lunch opens`],
+                ['lunchClose', `${dayLabel} lunch closes`],
+                ['dinnerOpen', `${dayLabel} dinner opens`],
+                ['dinnerClose', `${dayLabel} dinner closes`],
+            ];
+            const els = siteDayEl(day);
+            pairs.forEach(([key, label]) => {
+                if (els[key]) els[key].setAttribute('aria-label', label);
+            });
+            if (els.closed) els.closed.setAttribute('aria-label', `${dayLabel} closed all day`);
+        });
+    })();
     function siteLoadHoursIntoForm(hours) {
         SITE_DAY_KEYS.forEach(day => {
             const els = siteDayEl(day);

@@ -16,9 +16,7 @@ import type {
     WeeklyHours,
     DayHours,
     DayOfWeek,
-    ServiceWindow,
 } from '../types/queue.js';
-import { escXml } from './voiceTemplates.js';
 
 const DAY_ORDER: DayOfWeek[] = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
 
@@ -68,20 +66,6 @@ export function formatAddressForSpeech(address: LocationAddress | undefined | nu
     if (!street || !city) return '';
     if (!stateFull) return `${street} in ${city}`;
     return `${street} in ${city}, ${stateFull}`;
-}
-
-/**
- * Render an address for a web page as multi-line HTML. HTML-escaped via
- * `escXml` (same escape table, works for both XML and HTML body content).
- */
-export function formatAddressForWeb(address: LocationAddress | undefined | null): string {
-    if (!address) return '';
-    const street = escXml((address.street ?? '').trim());
-    const city = escXml((address.city ?? '').trim());
-    const state = escXml((address.state ?? '').trim().toUpperCase());
-    const zip = escXml((address.zip ?? '').trim());
-    if (!street || !city || !state) return '';
-    return `${street}<br>${city}, ${state}${zip ? ' ' + zip : ''}`;
 }
 
 /**
@@ -150,30 +134,6 @@ export function formatWeeklyHoursForSpeech(hours: WeeklyHours | undefined | null
         : '';
 
     return `We're open ${openPhrase}.${closedPhrase}${lunchPhrase}${dinnerPhrase}`.trim();
-}
-
-/**
- * Render the weekly hours as HTML table rows (without the surrounding
- * `<table>` / `<tbody>`). Each row is `<tr><td>Day</td><td>hours</td></tr>`.
- * Closed days render "Closed" in italic. HTML-escaped via `escXml`.
- */
-export function formatWeeklyHoursForWeb(hours: WeeklyHours | undefined | null): string {
-    if (!hours) return '';
-    const rows: string[] = [];
-    for (const day of DAY_ORDER) {
-        const label = DAY_LABEL[day];
-        const entry = hours[day];
-        if (entry === 'closed' || entry === undefined) {
-            rows.push(`<tr><td>${label}</td><td class="hours-closed">Closed</td></tr>`);
-            continue;
-        }
-        const parts: string[] = [];
-        if (entry.lunch) parts.push(`${formatTimeForWeb(entry.lunch.open)} – ${formatTimeForWeb(entry.lunch.close)}`);
-        if (entry.dinner) parts.push(`${formatTimeForWeb(entry.dinner.open)} – ${formatTimeForWeb(entry.dinner.close)}`);
-        const text = parts.length === 0 ? 'Closed' : parts.join(' &middot; ');
-        rows.push(`<tr><td>${label}</td><td>${text}</td></tr>`);
-    }
-    return rows.join('\n');
 }
 
 // ---------------------------------------------------------------------------

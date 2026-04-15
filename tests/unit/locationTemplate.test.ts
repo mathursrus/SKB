@@ -2,10 +2,8 @@
 import { runTests } from '../test-utils.js';
 import {
     formatAddressForSpeech,
-    formatAddressForWeb,
     buildGoogleMapsEmbedUrl,
     formatWeeklyHoursForSpeech,
-    formatWeeklyHoursForWeb,
     formatTimeForWeb,
     MENU_OVERVIEW_SCRIPT,
     HOURS_LOCATION_FALLBACK_SCRIPT,
@@ -74,31 +72,6 @@ const cases: T[] = [
         testFn: async () => formatAddressForSpeech({ street: '1 Main St', city: 'Springfield', state: 'ZZ', zip: '00000' }) === '1 Main St in Springfield, ZZ',
     },
 
-    // formatAddressForWeb
-    {
-        name: 'formatAddressForWeb produces br-separated HTML',
-        tags: ['unit', 'location'],
-        testFn: async () => formatAddressForWeb(SKB_ADDRESS) === '12 Bellevue Way SE<br>Bellevue, WA 98004',
-    },
-    {
-        name: 'formatAddressForWeb HTML-escapes street',
-        tags: ['unit', 'location'],
-        testFn: async () => {
-            const addr: LocationAddress = { street: 'A & B <Co>', city: 'Bellevue', state: 'WA', zip: '98004' };
-            return formatAddressForWeb(addr) === 'A &amp; B &lt;Co&gt;<br>Bellevue, WA 98004';
-        },
-    },
-    {
-        name: 'formatAddressForWeb returns empty for undefined',
-        tags: ['unit', 'location'],
-        testFn: async () => formatAddressForWeb(undefined) === '',
-    },
-    {
-        name: 'formatAddressForWeb drops zip if absent',
-        tags: ['unit', 'location'],
-        testFn: async () => formatAddressForWeb({ street: '1 Main', city: 'Bellevue', state: 'WA', zip: '' }) === '1 Main<br>Bellevue, WA',
-    },
-
     // buildGoogleMapsEmbedUrl
     {
         name: 'buildGoogleMapsEmbedUrl URL-encodes the address',
@@ -156,32 +129,7 @@ const cases: T[] = [
         },
     },
 
-    // formatWeeklyHoursForWeb
-    {
-        name: 'formatWeeklyHoursForWeb renders 7 rows',
-        tags: ['unit', 'location'],
-        testFn: async () => {
-            const out = formatWeeklyHoursForWeb(SKB_HOURS);
-            return (out.match(/<tr>/g) || []).length === 7;
-        },
-    },
-    {
-        name: 'formatWeeklyHoursForWeb marks Monday Closed',
-        tags: ['unit', 'location'],
-        testFn: async () => formatWeeklyHoursForWeb(SKB_HOURS).includes('<tr><td>Monday</td><td class="hours-closed">Closed</td></tr>'),
-    },
-    {
-        name: 'formatWeeklyHoursForWeb shows lunch + dinner separated by middot',
-        tags: ['unit', 'location'],
-        testFn: async () => formatWeeklyHoursForWeb(SKB_HOURS).includes('11:30 AM – 2:30 PM &middot; 5:30 PM – 9:30 PM'),
-    },
-    {
-        name: 'formatWeeklyHoursForWeb returns empty for undefined',
-        tags: ['unit', 'location'],
-        testFn: async () => formatWeeklyHoursForWeb(undefined) === '',
-    },
-
-    // formatTimeForWeb — 12-hour conversion
+    // formatTimeForWeb — 12-hour conversion (also used by formatTimeForSpeech)
     {
         name: 'formatTimeForWeb: 11:30 → 11:30 AM',
         tags: ['unit', 'location'],

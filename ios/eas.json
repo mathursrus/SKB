@@ -11,7 +11,8 @@
       },
       "env": {
         "EXPO_PUBLIC_API_BASE_URL": "https://skb-waitlist.azurewebsites.net"
-      }
+      },
+      "channel": "base"
     },
     "development": {
       "extends": "base",
@@ -35,7 +36,7 @@
       },
       "channel": "preview",
       "env": {
-        "EXPO_PUBLIC_API_BASE_URL": "https://skb-waitlist-staging.azurewebsites.net"
+        "EXPO_PUBLIC_API_BASE_URL": "https://skb-waitlist.azurewebsites.net"
       }
     },
     "production": {

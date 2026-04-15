@@ -50,6 +50,9 @@
             ]
           }
         ]
+      },
+      "runtimeVersion": {
+        "policy": "appVersion"
       }
     },
     "plugins": [
@@ -83,6 +86,9 @@
         "projectId": "daea0683-3bd3-4e56-8b49-0bda8be60ddf"
       }
     },
-    "owner": "smathur97"
+    "owner": "smathur97",
+    "updates": {
+      "url": "https://u.expo.dev/daea0683-3bd3-4e56-8b49-0bda8be60ddf"
+    }
   }
 }

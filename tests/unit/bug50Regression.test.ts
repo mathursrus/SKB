@@ -128,6 +128,43 @@ const cases: BaseTestCase[] = [
             || /qrImg\.src\s*=\s*['"`]api\/host\/visit-qr\.svg\?t=/.test(adminJs),
     },
 
+    // ---------- Bug 5 follow-up: Stage-Based Analytics histograms need CSS ----------
+    // The admin.js renderHistogram() emits .hist-card / .vbar-* markup. If the
+    // corresponding CSS is missing from styles.css, the histograms render as
+    // full-width unstyled divs ("looks like crap"). Guard against that regressing.
+    {
+        name: 'bug50 analytics: styles.css has .admin-histograms grid layout',
+        tags: ['unit', 'bug50', 'analytics', 'css'],
+        testFn: async () =>
+            /\.admin-histograms\s*\{[^}]*display:\s*grid/.test(stylesCss)
+            && /\.admin-histograms\s*\{[^}]*grid-template-columns/.test(stylesCss),
+    },
+    {
+        name: 'bug50 analytics: styles.css has .hist-card + .hist-empty rules',
+        tags: ['unit', 'bug50', 'analytics', 'css'],
+        testFn: async () =>
+            /\.hist-card\s*\{/.test(stylesCss)
+            && /\.hist-empty\s*\{/.test(stylesCss),
+    },
+    {
+        name: 'bug50 analytics: styles.css has vbar chart styling (track + fill + bars)',
+        tags: ['unit', 'bug50', 'analytics', 'css'],
+        testFn: async () =>
+            /\.vbar-chart\s*\{/.test(stylesCss)
+            && /\.vbar-bars\s*\{[^}]*align-items:\s*flex-end/.test(stylesCss)
+            && /\.vbar-track\s*\{[^}]*position:\s*relative/.test(stylesCss)
+            && /\.vbar-fill\s*\{/.test(stylesCss),
+    },
+    {
+        name: 'bug50 analytics: styles.css has vbar axis labels (x, y, value)',
+        tags: ['unit', 'bug50', 'analytics', 'css'],
+        testFn: async () =>
+            /\.vbar-x-label\s*\{/.test(stylesCss)
+            && /\.vbar-y-label\s*\{/.test(stylesCss)
+            && /\.vbar-value\s*\{/.test(stylesCss)
+            && /\.vbar-label\s*\{/.test(stylesCss),
+    },
+
     // ---------- Bug 1: diner chat wiring ----------
     {
         name: 'bug50 #1: queue.html has the chat card with thread + input + send button',

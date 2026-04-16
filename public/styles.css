@@ -204,71 +204,94 @@ button.primary:disabled { opacity: 0.5; cursor: not-allowed; }
 /* Diner chat card — compact, only visible after the host initiates. */
 .chat-card {
     margin-top: 12px;
-    padding: 12px 14px;
+    padding: 14px 14px 12px;
     border-color: var(--accent, #e3bf3d);
 }
 .chat-head {
-    margin-bottom: 6px;
-    font-size: 13px;
-    color: var(--fg);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+    font-size: 12px;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    color: var(--muted);
 }
-.chat-head strong { font-size: 14px; }
+.chat-head::before {
+    content: "";
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 0 3px rgba(224, 138, 46, 0.15);
+}
+.chat-head strong { font-size: 12px; font-weight: 600; }
 .chat-thread {
     display: flex;
     flex-direction: column;
-    gap: 6px;
-    max-height: 200px;
+    gap: 14px;
+    max-height: 240px;
     overflow-y: auto;
-    padding: 8px 0;
+    padding: 4px 2px 8px;
 }
-.chat-row { display: flex; }
-.chat-row.from-host { justify-content: flex-start; }
-.chat-row.from-me { justify-content: flex-end; }
+.chat-row { display: flex; flex-direction: column; max-width: 82%; }
+.chat-row.from-host { align-self: flex-start; align-items: flex-start; }
+.chat-row.from-me { align-self: flex-end; align-items: flex-end; }
 .chat-bubble {
-    max-width: 82%;
-    padding: 8px 12px;
-    border-radius: 14px;
+    padding: 10px 14px;
+    border-radius: 18px;
     font-size: 14px;
     line-height: 1.4;
     word-wrap: break-word;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.04);
 }
 .chat-row.from-host .chat-bubble {
-    background: #f3f2ef;
-    color: var(--fg);
-    border-bottom-left-radius: 4px;
+    background: #fbf5e6;
+    color: #2a2305;
+    border: 1px solid #f0e3b8;
+    border-bottom-left-radius: 6px;
 }
 .chat-row.from-me .chat-bubble {
     background: var(--accent, #e3bf3d);
     color: var(--accent-fg);
-    border-bottom-right-radius: 4px;
+    border-bottom-right-radius: 6px;
+    box-shadow: 0 2px 6px rgba(224, 138, 46, 0.25);
 }
 .chat-who { display: none; }
 .chat-body { white-space: pre-wrap; }
 .chat-meta {
     font-size: 10px;
     color: var(--muted);
-    margin-top: 2px;
-    text-align: right;
+    margin-top: 4px;
+    padding: 0 6px;
+    letter-spacing: 0.2px;
 }
-.chat-row.from-me .chat-meta { color: #5a4a05; }
+.chat-row.from-me .chat-meta { text-align: right; }
+.chat-row.from-host .chat-meta { text-align: left; }
 .chat-form {
     display: flex;
-    gap: 6px;
+    gap: 8px;
     align-items: stretch;
-    margin-top: 8px;
+    margin-top: 12px;
+    padding-top: 12px;
     border-top: 1px solid var(--border);
-    padding-top: 8px;
 }
 .chat-form input[type="text"] {
     flex: 1;
-    padding: 10px 12px;
+    padding: 12px 16px;
     font-family: inherit;
-    font-size: 14px;
+    font-size: 15px;
     border: 1px solid var(--border);
-    border-radius: 20px;
-    background: #fff;
+    border-radius: 24px;
+    background: var(--bg, #fff);
     color: var(--fg);
-    min-height: 40px;
+    min-height: 44px;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.chat-form input[type="text"]:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(224, 138, 46, 0.18);
 }
 .chat-form button {
     /* The diner Send button has class="primary" which forces width:100% + margin-top:20px
@@ -1848,17 +1871,32 @@ a#custom-call-confirm[aria-disabled="true"] {
 .theme-dark button.primary { background: var(--accent); color: var(--accent-fg); }
 .theme-dark button.primary:hover { background: var(--accent-dark); }
 
-/* Chat bubbles */
+/* Chat bubbles — warmer palette so the host bubble doesn't disappear into
+   the card bg. Soft warm-neutral for host (brand-tinted), saffron glow for me. */
 .theme-dark .chat-row.from-host .chat-bubble {
-    background: #27272a;
-    color: var(--fg);
+    background: #3d3630;
+    color: #f5ead1;
+    border-color: #4f463d;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.3);
 }
 .theme-dark .chat-row.from-me .chat-bubble {
     background: var(--accent);
     color: var(--accent-fg);
+    box-shadow: 0 2px 8px rgba(244, 207, 75, 0.25);
 }
-.theme-dark .chat-row.from-me .chat-meta { color: #3d2f05; }
-.theme-dark .chat-thread { background: var(--surface-alt); }
+.theme-dark .chat-row.from-me .chat-meta { color: #b8a57f; }
+.theme-dark .chat-row.from-host .chat-meta { color: var(--muted); }
+.theme-dark .chat-thread { background: transparent; }
+.theme-dark .chat-head { color: var(--muted); }
+.theme-dark .chat-form input[type="text"] {
+    background: var(--surface-alt);
+    border-color: var(--border);
+    color: var(--fg);
+}
+.theme-dark .chat-form input[type="text"]:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(244, 207, 75, 0.22);
+}
 
 /* Renotify banner stays vivid in dark mode */
 .theme-dark .renotify-banner { color: #fff; }

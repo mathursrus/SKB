@@ -66,8 +66,8 @@
             const who = m.direction === 'outbound' ? 'Host' : 'You';
             return `<div class="chat-row ${side}">`
                 + `<div class="chat-bubble"><div class="chat-who">${who}</div>`
-                + `<div class="chat-body">${escHtml(m.body)}</div>`
-                + `<div class="chat-meta">${formatChatTime(m.at)}</div></div></div>`;
+                + `<div class="chat-body">${escHtml(m.body)}</div></div>`
+                + `<div class="chat-meta">${formatChatTime(m.at)}</div></div>`;
         });
         thread.innerHTML = rows.join('');
         thread.scrollTop = thread.scrollHeight;

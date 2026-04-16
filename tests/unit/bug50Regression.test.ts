@@ -21,6 +21,8 @@ const adminHtml = loadFile('admin.html');
 const adminJs = loadFile('admin.js');
 const queueHtml = loadFile('queue.html');
 const queueJs = loadFile('queue.js');
+const hostHtml = loadFile('host.html');
+const themeJs = loadFile('theme.js');
 
 const cases: BaseTestCase[] = [
     // ---------- Bug 2/4/6: scoped label rule ----------
@@ -193,6 +195,49 @@ const cases: BaseTestCase[] = [
             /\.chat-card/.test(stylesCss)
             && /\.chat-row\.from-host/.test(stylesCss)
             && /\.chat-row\.from-me/.test(stylesCss),
+    },
+
+    // ---------- Complete tab column rename: "To Check" / "To Depart" ----------
+    // Users read the labels as state names; "To Check" isn't a state. Column
+    // labels describe the duration window instead ("Dining" = served→checkout,
+    // "Paying" = checkout→departed).
+    {
+        name: 'post-bug50: host.html Complete tab uses "Dining" and "Paying" (not "To Check"/"To Depart")',
+        tags: ['unit', 'polish', 'host', 'html'],
+        testFn: async () =>
+            hostHtml.includes('>Dining<')
+            && hostHtml.includes('>Paying<')
+            && !hostHtml.includes('>To Check<')
+            && !hostHtml.includes('>To Depart<'),
+    },
+
+    // ---------- Dark/Light mode wiring ----------
+    {
+        name: 'theme: theme.js exists and toggles `theme-dark` class on <html>',
+        tags: ['unit', 'polish', 'theme'],
+        testFn: async () =>
+            /classList\.toggle\(['"]theme-dark['"]/.test(themeJs)
+            && /skbToggleTheme/.test(themeJs)
+            && /prefers-color-scheme/.test(themeJs),
+    },
+    {
+        name: 'theme: styles.css has .theme-dark token overrides',
+        tags: ['unit', 'polish', 'theme', 'css'],
+        testFn: async () =>
+            /\.theme-dark\s*\{[^}]*color-scheme:\s*dark/.test(stylesCss)
+            && /\.theme-dark\s*\{[^}]*--bg:/.test(stylesCss)
+            && /\.theme-dark\s*\{[^}]*--fg:/.test(stylesCss),
+    },
+    {
+        name: 'theme: all three pages load theme.js from <head> and expose #theme-toggle',
+        tags: ['unit', 'polish', 'theme'],
+        testFn: async () =>
+            queueHtml.includes('theme.js')
+            && hostHtml.includes('theme.js')
+            && adminHtml.includes('theme.js')
+            && /id=["']theme-toggle["']/.test(queueHtml)
+            && /id=["']theme-toggle["']/.test(hostHtml)
+            && /id=["']theme-toggle["']/.test(adminHtml),
     },
 ];
 

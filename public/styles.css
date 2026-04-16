@@ -1710,3 +1710,180 @@ a#custom-call-confirm[aria-disabled="true"] {
 @media (max-width: 640px) {
     .chat-drawer { width: 100vw; }
 }
+
+/* ============================================================================
+   Theme toggle button — appears in topbars / diner header.
+   ============================================================================ */
+.theme-toggle-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--fg);
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    font-size: 16px;
+    line-height: 1;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+    padding: 0;
+}
+.theme-toggle-btn:hover {
+    background: var(--surface-alt);
+    border-color: var(--accent);
+}
+.diner header .theme-toggle-btn {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    background: rgba(255,255,255,0.08);
+    border-color: rgba(255,255,255,0.3);
+    color: #fff;
+}
+.diner header .theme-toggle-btn:hover {
+    background: rgba(255,255,255,0.18);
+    border-color: var(--accent);
+    color: var(--accent);
+}
+.diner header { position: relative; }
+
+/* ============================================================================
+   Dark mode — activated by `.theme-dark` class on <html>.
+   theme.js handles prefers-color-scheme + manual toggle + localStorage.
+   ============================================================================ */
+.theme-dark {
+    color-scheme: dark;
+    --bg: #0b0b0c;
+    --fg: #e7e5e4;
+    --muted: #a1a1aa;
+    --accent: #f4cf4b;
+    --accent-dark: #e3bf3d;
+    --accent-fg: #111111;
+    --card: #18181b;
+    --border: #2a2a2f;
+    --divider: #1f1f23;
+    --surface-alt: #111113;
+    --ok: #4ade80;
+    --danger: #f87171;
+    --row-hover: #1f1f23;
+    --shadow-sm: 0 1px 3px rgba(0,0,0,.5);
+    --shadow-md: 0 8px 24px rgba(0,0,0,.7);
+}
+
+/* Diner header: keep dark-on-dark with slightly warmer black */
+.theme-dark .diner { background: var(--bg); }
+.theme-dark .diner header {
+    background: #000;
+    color: #fff;
+}
+.theme-dark .diner header .sub { color: #8a857a; }
+.theme-dark .card {
+    background: var(--card);
+    border-color: var(--border);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+}
+.theme-dark .status .line-len { color: var(--fg); }
+.theme-dark .card .line-len,
+.theme-dark .card h1,
+.theme-dark .card h2,
+.theme-dark .card h3 { color: var(--fg); }
+.theme-dark input,
+.theme-dark textarea,
+.theme-dark select {
+    background: var(--surface-alt);
+    color: var(--fg);
+    border-color: var(--border);
+}
+.theme-dark input::placeholder,
+.theme-dark textarea::placeholder { color: var(--muted); }
+.theme-dark button.primary { background: var(--accent); color: var(--accent-fg); }
+.theme-dark button.primary:hover { background: var(--accent-dark); }
+
+/* Chat bubbles */
+.theme-dark .chat-row.from-host .chat-bubble {
+    background: #27272a;
+    color: var(--fg);
+}
+.theme-dark .chat-row.from-me .chat-bubble {
+    background: var(--accent);
+    color: var(--accent-fg);
+}
+.theme-dark .chat-row.from-me .chat-meta { color: #3d2f05; }
+.theme-dark .chat-thread { background: var(--surface-alt); }
+
+/* Renotify banner stays vivid in dark mode */
+.theme-dark .renotify-banner { color: #fff; }
+
+/* Host stand */
+.theme-dark.host,
+.theme-dark .host { background: var(--bg); }
+.theme-dark .topbar {
+    background: var(--card);
+    border-bottom-color: var(--border);
+    color: var(--fg);
+}
+.theme-dark .host .turn select { background: var(--surface-alt); color: var(--fg); border-color: var(--border); }
+.theme-dark .tabs { background: var(--card); border-color: var(--border); }
+.theme-dark .tab { color: var(--muted); }
+.theme-dark .tab.active { color: var(--fg); }
+.theme-dark .tab.active .tab-badge { background: var(--accent); color: var(--accent-fg); }
+.theme-dark main,
+.theme-dark .tab-content { color: var(--fg); }
+.theme-dark table { background: var(--card); color: var(--fg); }
+.theme-dark th { background: var(--surface-alt); color: var(--muted); border-color: var(--border); }
+.theme-dark td { border-color: var(--border); }
+.theme-dark tr.row-called td { background: #3a3012; }
+.theme-dark tr:hover td { background: var(--row-hover); }
+
+/* State badges */
+.theme-dark .state-seated { background: #1e3a8a; color: #dbeafe; }
+.theme-dark .state-ordered { background: #854d0e; color: #fef3c7; }
+.theme-dark .state-served { background: #065f46; color: #d1fae5; }
+.theme-dark .state-checkout { background: #5b21b6; color: #ede9fe; }
+.theme-dark .state-departed { background: #27272a; color: #a1a1aa; }
+.theme-dark .state-no_show { background: #7f1d1d; color: #fee2e2; }
+
+/* Buttons */
+.theme-dark button.call-btn { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
+.theme-dark button.call-btn:hover { background: var(--accent-dark); }
+.theme-dark button.advance-btn { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
+.theme-dark button.advance-btn:hover { background: var(--accent-dark); }
+.theme-dark button.remove { background: var(--surface-alt); color: var(--danger); border-color: var(--border); }
+.theme-dark button.remove:hover { background: var(--danger); color: var(--card); }
+
+/* Seat + SMS + Call dialogs */
+.theme-dark .seat-dialog,
+.theme-dark .custom-sms-dialog,
+.theme-dark .custom-call-dialog { background: var(--card); color: var(--fg); border-color: var(--border); }
+.theme-dark .seat-dialog-footer button,
+.theme-dark .custom-sms-dialog .seat-dialog-footer button,
+.theme-dark .custom-call-dialog .seat-dialog-footer button {
+    background: var(--surface-alt); color: var(--fg); border-color: var(--border);
+}
+.theme-dark .seat-dialog-footer button.primary { background: var(--accent); color: var(--accent-fg); }
+.theme-dark .seat-dialog-chips .chip { background: var(--surface-alt); color: var(--fg); border-color: var(--border); }
+.theme-dark .seat-dialog-chips .chip:hover,
+.theme-dark .seat-dialog-chips .chip.selected { border-color: var(--accent); color: var(--accent); }
+.theme-dark a#custom-call-confirm.primary { background: var(--accent); color: var(--accent-fg); }
+
+/* Chat drawer */
+.theme-dark .chat-drawer { background: var(--card); border-color: var(--border); }
+.theme-dark .chat-drawer-header { border-bottom-color: var(--border); }
+.theme-dark .chat-drawer-thread { background: var(--surface-alt); }
+.theme-dark .chat-drawer-composer input { background: var(--surface-alt); color: var(--fg); border-color: var(--border); }
+
+/* Analytics histograms */
+.theme-dark .hist-card { background: var(--card); border-color: var(--border); }
+.theme-dark .hist-empty { color: var(--muted); }
+.theme-dark .vbar-track { background: var(--surface-alt); }
+.theme-dark .vbar-fill { background: var(--accent); }
+.theme-dark .vbar-value,
+.theme-dark .vbar-x-label,
+.theme-dark .vbar-y-label,
+.theme-dark .vbar-label { color: var(--muted); }
+
+/* Login card */
+.theme-dark .login-card { background: var(--card); border-color: var(--border); }
+

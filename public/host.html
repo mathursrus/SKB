@@ -47,6 +47,7 @@
             </label>
             <span id="turn-info" class="turn-info" style="display:none"></span>
         </div>
+        <button type="button" class="primary topbar-add-btn" id="add-party-btn" aria-label="Add walk-in to waitlist">+ Add party</button>
         <a href="admin.html" class="logout" id="open-admin-link" style="text-decoration:none;text-align:center">Open Admin</a>
         <button type="button" id="theme-toggle" class="theme-toggle-btn" aria-label="Toggle theme">&#9728;</button>
         <button class="logout" id="logout-btn">Log out</button>
@@ -107,6 +108,29 @@
             </table>
         </div>
     </main>
+
+    <!-- Host-initiated add for walk-ins. Host types name/size/phone and
+         drops the party straight into the waitlist (no confirmation SMS
+         since the host is face-to-face with them). -->
+    <dialog id="add-party-dialog" class="seat-dialog" aria-labelledby="add-party-dialog-title">
+        <form method="dialog" id="add-party-form">
+            <header class="seat-dialog-header">
+                <h2 id="add-party-dialog-title">Add party</h2>
+                <button type="button" class="seat-dialog-close" id="add-party-dialog-close" aria-label="Close">&times;</button>
+            </header>
+            <label for="add-party-name" class="seat-dialog-label">Name</label>
+            <input type="text" id="add-party-name" maxlength="60" required autocomplete="off" class="seat-dialog-input" />
+            <label for="add-party-size" class="seat-dialog-label">Party size</label>
+            <input type="number" id="add-party-size" min="1" max="10" value="2" required class="seat-dialog-input" />
+            <label for="add-party-phone" class="seat-dialog-label">Phone</label>
+            <input type="tel" id="add-party-phone" inputmode="numeric" maxlength="10" placeholder="2065551234" required class="seat-dialog-input" />
+            <div class="seat-dialog-alert" id="add-party-alert" role="alert" style="display:none"></div>
+            <footer class="seat-dialog-footer">
+                <button type="button" id="add-party-cancel">Cancel</button>
+                <button type="submit" id="add-party-confirm" class="primary">Add to waitlist</button>
+            </footer>
+        </form>
+    </dialog>
 
     <!-- R14: Seat Party dialog. Native <dialog> for built-in a11y + focus-trap. -->
     <dialog id="seat-dialog" class="seat-dialog" aria-labelledby="seat-dialog-title">

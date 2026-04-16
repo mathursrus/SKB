@@ -98,6 +98,7 @@ export async function joinQueue(
             name: req.name,
             partySize: req.partySize,
             phone: req.phone,
+            smsConsent: req.smsConsent === true,
             state: 'waiting',
             joinedAt: now,
             promisedEtaAt,
@@ -375,12 +376,15 @@ export async function callParty(
     const entry = await queueEntries(db).findOne({ _id, state: { $in: ACTIVE_STATES } });
     if (!entry) return { ok: false, smsStatus: 'not_configured' };
 
-    // 2. Send SMS
+    // 2. Send SMS — but only if the diner opted in to messaging (TFV 30513).
+    // For non-consenting diners the host must signal in person or call.
     const callCount = (entry.calls?.length ?? 0) + 1;
     const message = callCount === 1
         ? firstCallMessage(entry.code)
         : repeatCallMessage(entry.code, callCount);
-    const smsResult = await sendSms(entry.phone, message);
+    const smsResult = entry.smsConsent === true
+        ? await sendSms(entry.phone, message)
+        : { successful: false, status: 'not_configured' as const, messageId: '' };
 
     // 3. Update state + push CallRecord (SMS failure does NOT block this)
     const callRecord: CallRecord = {

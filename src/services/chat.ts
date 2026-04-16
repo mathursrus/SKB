@@ -37,7 +37,13 @@ export async function sendChatMessage(
     if (!entry) return { ok: false };
     if (!entry.phone) return { ok: false };
 
-    const smsResult = await sendSms(entry.phone, body);
+    // TFV 30513: only text diners who explicitly opted in. Non-consenting
+    // parties still have a chat thread (stored + visible in the host UI)
+    // but the outbound leg doesn't go over SMS — the host must speak to
+    // them in person.
+    const smsResult = entry.smsConsent === true
+        ? await sendSms(entry.phone, body)
+        : { successful: false, status: 'not_configured' as const, messageId: '' };
     const msg: ChatMessage = {
         locationId: entry.locationId,
         entryCode: entry.code,

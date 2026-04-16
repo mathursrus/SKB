@@ -512,6 +512,7 @@
         const name = $('name').value.trim();
         const partySize = Number($('size').value);
         const phone = $('phone').value.trim();
+        const smsConsent = !!($('sms-consent') && $('sms-consent').checked);
         if (!/^\d{10}$/.test(phone)) {
             joinError.textContent = 'Please enter a valid 10-digit phone number.';
             joinError.style.display = '';
@@ -522,7 +523,7 @@
             const res = await fetch('api/queue/join', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name, partySize, phone }),
+                body: JSON.stringify({ name, partySize, phone, smsConsent }),
             });
             if (!res.ok) {
                 const body = await res.json().catch(() => ({}));

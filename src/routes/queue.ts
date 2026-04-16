@@ -69,10 +69,12 @@ export function queueRouter(): Router {
             }
             try {
                 const phone = String(body.phone).trim();
+                const smsConsent = (body as { smsConsent?: unknown }).smsConsent === true;
                 const result = await joinQueue(loc(req), {
                     name: String(body.name).trim(),
                     partySize: Number(body.partySize),
                     phone,
+                    smsConsent,
                 });
                 console.log(
                     JSON.stringify({
@@ -83,14 +85,19 @@ export function queueRouter(): Router {
                         code: result.code,
                         partySize: Number(body.partySize),
                         position: result.position,
+                        smsConsent,
                     }),
                 );
-                // Fire-and-forget confirmation SMS
-                const proto = req.headers['x-forwarded-proto'] ?? req.protocol ?? 'https';
-                const host = req.headers['x-forwarded-host'] ?? req.headers.host ?? '';
-                const statusUrl = `${proto}://${host}/r/${loc(req)}/queue?code=${result.code}`;
-                sendSms(phone, joinConfirmationMessage(result.code, statusUrl))
-                    .catch(e => console.log(JSON.stringify({ t: new Date().toISOString(), level: 'error', msg: 'sms.join_confirm_failed', error: e instanceof Error ? e.message : String(e) })));
+                // Fire-and-forget confirmation SMS — only when the diner
+                // explicitly opted in (TFV 30513). Diners who don't opt in
+                // watch the status card on /queue?code=... instead.
+                if (smsConsent) {
+                    const proto = req.headers['x-forwarded-proto'] ?? req.protocol ?? 'https';
+                    const host = req.headers['x-forwarded-host'] ?? req.headers.host ?? '';
+                    const statusUrl = `${proto}://${host}/r/${loc(req)}/queue?code=${result.code}`;
+                    sendSms(phone, joinConfirmationMessage(result.code, statusUrl))
+                        .catch(e => console.log(JSON.stringify({ t: new Date().toISOString(), level: 'error', msg: 'sms.join_confirm_failed', error: e instanceof Error ? e.message : String(e) })));
+                }
                 res.json(result);
             } catch (e) {
                 handleDbError(res, e);

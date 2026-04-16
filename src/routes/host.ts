@@ -141,8 +141,14 @@ export function hostRouter(): Router {
             res.status(400).json({ error: 'phone must be exactly 10 digits', field: 'phone' });
             return;
         }
+        // Host-added parties consented verbally in-person when they
+        // handed the host their info. Verbal consent is a valid opt-in
+        // type; the host has the social signal to ask whether the party
+        // wants SMS updates. Default true; allow the host UI to override
+        // via body.smsConsent if they want a no-SMS entry.
+        const smsConsent = (req.body as { smsConsent?: unknown }).smsConsent !== false;
         try {
-            const result = await joinQueue(loc(req), { name, partySize: size, phone });
+            const result = await joinQueue(loc(req), { name, partySize: size, phone, smsConsent });
             console.log(JSON.stringify({
                 t: new Date().toISOString(),
                 level: 'info',
@@ -151,6 +157,7 @@ export function hostRouter(): Router {
                 code: result.code,
                 partySize: size,
                 position: result.position,
+                smsConsent,
             }));
             res.json(result);
         } catch (err) {

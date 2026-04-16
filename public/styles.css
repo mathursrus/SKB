@@ -1809,29 +1809,51 @@ a#custom-call-confirm[aria-disabled="true"] {
 }
 .diner header { position: relative; }
 
-/* SMS consent block under the join form — required language for Twilio's
-   toll-free verification. Visible to diners before they tap "Join the line". */
-.sms-consent {
+/* SMS consent checkbox under the join form — Twilio TFV 30513 requires
+   that SMS consent NOT be a prerequisite for the waitlist service. The
+   checkbox is unchecked by default and optional; diners can still join
+   without opting in and use the live-updating status card. */
+.sms-consent-checkbox {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
     font-size: 12px;
     line-height: 1.5;
     color: #4d4c4c;
-    margin-top: 8px;
+    margin-top: 10px;
     padding: 10px 12px;
     background: #faf5e8;
     border: 1px solid #eadfbf;
     border-radius: 6px;
+    cursor: pointer;
 }
-.sms-consent strong { font-weight: 700; color: #2a2a2a; }
-.sms-consent a {
+.sms-consent-checkbox input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    margin: 0;
+    flex-shrink: 0;
+    accent-color: var(--accent-dark, #b45309);
+    cursor: pointer;
+}
+.sms-consent-checkbox strong { font-weight: 700; color: #2a2a2a; }
+.sms-consent-checkbox a {
     color: var(--accent-dark, #b45309);
     text-decoration: underline;
 }
-.theme-dark .sms-consent {
+.sms-consent-note {
+    font-size: 11px;
+    color: #6d6660;
+    margin-top: 6px;
+    line-height: 1.4;
+    font-style: italic;
+}
+.theme-dark .sms-consent-checkbox {
     background: rgba(244, 207, 75, 0.06);
     border-color: rgba(244, 207, 75, 0.25);
     color: var(--muted);
 }
-.theme-dark .sms-consent strong { color: var(--fg); }
+.theme-dark .sms-consent-checkbox strong { color: var(--fg); }
+.theme-dark .sms-consent-note { color: var(--muted); }
 
 /* Host login-view toggle — floats top-right of the full-bleed login view
    (there's no topbar until after authentication). */

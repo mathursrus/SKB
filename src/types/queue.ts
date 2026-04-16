@@ -85,6 +85,10 @@ export interface QueueEntry {
     name: string;
     partySize: number; // 1..10
     phone: string; // full 10-digit US phone, e.g., "2065551234"
+    // SMS consent — TFV 30513 requires that signing up for the service
+    // NOT bundle SMS consent as a prerequisite. Missing / false means
+    // skip all SMS (join confirmation, notify, chat) for this party.
+    smsConsent?: boolean;
     state: PartyState;
     joinedAt: Date;
     promisedEtaAt: Date; // fixed at join time; never changes — the original commitment
@@ -131,6 +135,7 @@ export interface JoinRequestDTO {
     name: string;
     partySize: number;
     phone: string; // required, 10 digits
+    smsConsent?: boolean; // explicit opt-in; missing/false = no SMS at all
 }
 
 export interface JoinResponseDTO {

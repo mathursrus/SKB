@@ -15,22 +15,11 @@ import type {
 const BUCKET_SIZE_MINUTES = 5;
 const MAX_BUCKET_MINUTES = 120; // 2h cap
 
-interface PhaseConfig {
-    phase: string;
-    label: string;
-    startField: keyof QueueEntry;
-    endField: keyof QueueEntry;
-    requiredEndState?: string[]; // only include entries that reached at least this state
-}
-
-const PHASES: PhaseConfig[] = [
-    { phase: 'wait', label: 'Wait Time (join → seated)', startField: 'joinedAt', endField: 'seatedAt' },
-    { phase: 'order', label: 'Order Time (seated → ordered)', startField: 'seatedAt', endField: 'orderedAt' },
-    { phase: 'kitchen', label: 'Kitchen Time (ordered → served)', startField: 'orderedAt', endField: 'servedAt' },
-    { phase: 'eating', label: 'Eating Time (served → checkout)', startField: 'servedAt', endField: 'checkoutAt' },
-    { phase: 'checkout', label: 'Checkout Time (checkout → departed)', startField: 'checkoutAt', endField: 'departedAt' },
-    { phase: 'table', label: 'Total Table Occupancy (seated → departed)', startField: 'seatedAt', endField: 'departedAt' },
-];
+// Default stage pair when the admin UI first loads — full lifecycle from
+// the moment a party joined the waitlist to the moment they paid. This is
+// what the owner actually wants to see on page load (issue #50 follow-up).
+const DEFAULT_START_STAGE: AnalyticsStage = 'joined';
+const DEFAULT_END_STAGE: AnalyticsStage = 'checkout';
 
 const ANALYTICS_STAGE_ORDER: AnalyticsStage[] = ['joined', 'seated', 'ordered', 'served', 'checkout', 'departed'];
 
@@ -107,6 +96,15 @@ export async function getAnalytics(
     startStage?: AnalyticsStage,
     endStage?: AnalyticsStage,
 ): Promise<AnalyticsDTO> {
+    // Default to the full-lifecycle pair when either side is unset. This lets
+    // the admin UI open with a meaningful chart on page load and keeps legacy
+    // callers (which didn't pass stage params at all) working.
+    const effectiveStart: AnalyticsStage = startStage ?? DEFAULT_START_STAGE;
+    const effectiveEnd: AnalyticsStage = endStage ?? DEFAULT_END_STAGE;
+    if (!isValidAnalyticsStagePair(effectiveStart, effectiveEnd)) {
+        throw new Error('invalid analytics stage range');
+    }
+
     const db = await getDb();
     const days = dateRangeToDays(rangeDays);
     const now = new Date();
@@ -118,7 +116,10 @@ export async function getAnalytics(
         serviceDays.push(serviceDay(d));
     }
 
-    // Query all entries for the date range that have been seated (have lifecycle data)
+    // Query all entries for the date range that have lifecycle data. The
+    // minimum bar for "participates in analytics at all" is that they were
+    // at least seated — everything earlier (just joined) doesn't have a
+    // meaningful time range to measure.
     const filter: Record<string, unknown> = {
         locationId,
         serviceDay: { $in: serviceDays },
@@ -135,72 +136,40 @@ export async function getAnalytics(
         ? docs
         : docs.filter((d) => partySizeBucket(d.partySize) === partySizeFilter);
 
-    // Build histograms for each phase
-    const histograms: PhaseHistogram[] = PHASES.map((cfg) => {
-        const values: number[] = [];
-        for (const d of filtered) {
-            const start = d[cfg.startField] as Date | undefined;
-            const end = d[cfg.endField] as Date | undefined;
-            if (start && end) {
-                values.push(minutesBetween(start, end));
-            }
+    // Build one histogram for the selected stage pair.
+    const startField = STAGE_FIELDS[effectiveStart];
+    const endField = STAGE_FIELDS[effectiveEnd];
+    const values: number[] = [];
+    for (const d of filtered) {
+        const start = d[startField] as Date | undefined;
+        const end = d[endField] as Date | undefined;
+        if (start && end) {
+            values.push(minutesBetween(start, end));
         }
-
-        const avg = values.length > 0
-            ? Math.round(values.reduce((a, b) => a + b, 0) / values.length)
-            : null;
-
-        return {
-            phase: cfg.phase,
-            label: cfg.label,
-            buckets: buildHistogram(values),
-            avg,
-            total: values.length,
-        };
-    });
-
-    let selectedRange: AnalyticsDTO['selectedRange'];
-    if (startStage && endStage) {
-        if (!isValidAnalyticsStagePair(startStage, endStage)) {
-            throw new Error('invalid analytics stage range');
-        }
-
-        const startField = STAGE_FIELDS[startStage];
-        const endField = STAGE_FIELDS[endStage];
-        const values: number[] = [];
-        for (const d of filtered) {
-            const start = d[startField] as Date | undefined;
-            const end = d[endField] as Date | undefined;
-            if (start && end) {
-                values.push(minutesBetween(start, end));
-            }
-        }
-
-        const rangeHistogram: PhaseHistogram = {
-            phase: `${startStage}-${endStage}`,
-            label: `${buildRangeLabel(startStage, endStage)} Time`,
-            buckets: buildHistogram(values),
-            avg: values.length > 0
-                ? Math.round(values.reduce((a, b) => a + b, 0) / values.length)
-                : null,
-            total: values.length,
-        };
-        histograms.unshift(rangeHistogram);
-        selectedRange = {
-            startStage,
-            endStage,
-            label: buildRangeLabel(startStage, endStage),
-        };
     }
+
+    const rangeHistogram: PhaseHistogram = {
+        phase: `${effectiveStart}-${effectiveEnd}`,
+        label: `${buildRangeLabel(effectiveStart, effectiveEnd)} Time`,
+        buckets: buildHistogram(values),
+        avg: values.length > 0
+            ? Math.round(values.reduce((a, b) => a + b, 0) / values.length)
+            : null,
+        total: values.length,
+    };
 
     const from = serviceDays[serviceDays.length - 1];
     const to = serviceDays[0];
 
     return {
-        histograms,
+        histograms: [rangeHistogram],
         dateRange: { from, to },
         partySizeFilter,
         totalParties: filtered.length,
-        selectedRange,
+        selectedRange: {
+            startStage: effectiveStart,
+            endStage: effectiveEnd,
+            label: buildRangeLabel(effectiveStart, effectiveEnd),
+        },
     };
 }

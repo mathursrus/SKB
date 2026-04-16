@@ -180,13 +180,22 @@
 
     async function loadAnalytics() {
         histograms.innerHTML = '<div class="hist-empty">Loading...</div>';
+        // Always send both stage params — the defaults (joined → checkout)
+        // are set in admin.html as `selected` on the <option> elements.
         const params = new URLSearchParams({
             range: rangeSelect.value,
             partySize: partySizeSelect.value,
+            startStage: startStageSelect.value,
+            endStage: endStageSelect.value,
         });
-        if (startStageSelect.value && endStageSelect.value) {
-            params.set('startStage', startStageSelect.value);
-            params.set('endStage', endStageSelect.value);
+        // Guard against invalid pairs (end must be strictly later than start).
+        // Server rejects with 400, but surface it locally too for snappier feedback.
+        const ORDER = ['joined', 'seated', 'ordered', 'served', 'checkout', 'departed'];
+        const si = ORDER.indexOf(startStageSelect.value);
+        const ei = ORDER.indexOf(endStageSelect.value);
+        if (si < 0 || ei < 0 || ei <= si) {
+            histograms.innerHTML = '<div class="hist-empty">Pick an end stage that comes after the start stage.</div>';
+            return;
         }
         try {
             const r = await fetch(`api/host/analytics?${params.toString()}`);
@@ -199,13 +208,13 @@
             if (totalParties) totalParties.textContent = String(data.totalParties || 0);
             if (selectedRange) selectedRange.textContent = data.selectedRange?.label || 'Default';
             if (!data.totalParties) {
-                histograms.innerHTML = '<div class="hist-empty">No data for this filter. Walk a party through the full lifecycle (join → seat → order → serve → checkout → depart) to populate the histograms.</div>';
+                histograms.innerHTML = '<div class="hist-empty">No data for this filter. Walk a party through the lifecycle (join → seat → order → serve → checkout → depart) to populate the histogram.</div>';
                 return;
             }
+            // The server returns a single histogram for the selected stage pair.
             histograms.innerHTML = '';
-            for (const hist of data.histograms || []) {
-                histograms.appendChild(renderHistogram(hist));
-            }
+            const hist = data.histograms?.[0];
+            if (hist) histograms.appendChild(renderHistogram(hist));
         } catch (err) {
             // Log the real cause so bugs like missing DOM ids don't hide behind "Failed to load"
             console.error('analytics load failed:', err);

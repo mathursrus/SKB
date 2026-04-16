@@ -227,6 +227,14 @@ function validateJoin(body: {
     if (name.length < 1 || name.length > 60) {
         return { error: 'name must be 1..60 chars', field: 'name' };
     }
+    // Defense in depth: reject names containing HTML/script metacharacters.
+    // Client renderers escapeHtml when inserting names into the DOM, so no
+    // XSS is actually possible today — but a stored `<script>` payload still
+    // pollutes the DB, host-stand SMS bodies, and any future integration
+    // that trusts the stored name. Legitimate names don't contain <, >, or \.
+    if (/[<>\\]/.test(name)) {
+        return { error: 'name contains unsupported characters', field: 'name' };
+    }
     const size = Number(body.partySize);
     if (!Number.isInteger(size) || size < 1 || size > 10) {
         return { error: 'partySize must be 1..10', field: 'partySize' };

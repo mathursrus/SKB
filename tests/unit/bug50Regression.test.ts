@@ -23,6 +23,10 @@ const queueHtml = loadFile('queue.html');
 const queueJs = loadFile('queue.js');
 const hostHtml = loadFile('host.html');
 const themeJs = loadFile('theme.js');
+const queueRoute = fs.readFileSync(
+    path.resolve(__dirname, '..', '..', 'src', 'routes', 'queue.ts'),
+    'utf-8',
+);
 
 const cases: BaseTestCase[] = [
     // ---------- Bug 2/4/6: scoped label rule ----------
@@ -295,6 +299,13 @@ const cases: BaseTestCase[] = [
             const themeWiresAll = /querySelectorAll\([^)]*theme-toggle/.test(themeJs);
             return hasLoginToggle && themeWiresAll;
         },
+    },
+    {
+        name: 'bugbash: validateJoin rejects names with HTML metacharacters (defense-in-depth)',
+        tags: ['unit', 'bugbash', 'security'],
+        testFn: async () =>
+            queueRoute.includes('/[<>\\\\]/.test(name)')
+            && queueRoute.includes('name contains unsupported characters'),
     },
 ];
 

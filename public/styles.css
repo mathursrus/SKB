@@ -1809,6 +1809,30 @@ a#custom-call-confirm[aria-disabled="true"] {
 }
 .diner header { position: relative; }
 
+/* SMS consent block under the join form — required language for Twilio's
+   toll-free verification. Visible to diners before they tap "Join the line". */
+.sms-consent {
+    font-size: 12px;
+    line-height: 1.5;
+    color: #4d4c4c;
+    margin-top: 8px;
+    padding: 10px 12px;
+    background: #faf5e8;
+    border: 1px solid #eadfbf;
+    border-radius: 6px;
+}
+.sms-consent strong { font-weight: 700; color: #2a2a2a; }
+.sms-consent a {
+    color: var(--accent-dark, #b45309);
+    text-decoration: underline;
+}
+.theme-dark .sms-consent {
+    background: rgba(244, 207, 75, 0.06);
+    border-color: rgba(244, 207, 75, 0.25);
+    color: var(--muted);
+}
+.theme-dark .sms-consent strong { color: var(--fg); }
+
 /* Host login-view toggle — floats top-right of the full-bleed login view
    (there's no topbar until after authentication). */
 #login-view { position: relative; }

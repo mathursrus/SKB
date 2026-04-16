@@ -38,9 +38,25 @@ function PartyRowImpl(props: Props) {
         <Text style={styles.positionText}>{party.position}</Text>
       </View>
       <View style={styles.main}>
-        <Text style={styles.name}>{party.name}</Text>
+        <View style={styles.nameRow}>
+          <Text style={styles.name} numberOfLines={1}>
+            {party.name}
+          </Text>
+          {party.state === 'called' && (
+            <View style={[styles.badge, styles.badgeCalled]}>
+              <Text style={styles.badgeCalledText}>CALLED</Text>
+            </View>
+          )}
+          {party.onMyWayAt !== null && (
+            <View style={[styles.badge, styles.badgeOnTheWay]}>
+              <Text style={styles.badgeOnTheWayText}>ON THE WAY</Text>
+            </View>
+          )}
+        </View>
         <Text style={styles.meta}>
           {party.partySize} · {party.phoneMasked}
+          {party.calls[0] &&
+            ` · ${party.calls.length === 1 ? 'called' : `${party.calls.length}×`} ${party.calls[0].minutesAgo}m ago`}
         </Text>
       </View>
       <View style={styles.times}>
@@ -84,7 +100,9 @@ export const PartyRow = memo(PartyRowImpl, (prev, next) => {
     a.etaAt === b.etaAt &&
     a.joinedAt === b.joinedAt &&
     a.waitingMinutes === b.waitingMinutes &&
-    a.unreadChat === b.unreadChat
+    a.unreadChat === b.unreadChat &&
+    a.onMyWayAt === b.onMyWayAt &&
+    a.calls.length === b.calls.length
   );
 });
 
@@ -117,10 +135,36 @@ const styles = StyleSheet.create({
     flex: 1,
     minWidth: 140,
   },
+  nameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.space.xs,
+    flexWrap: 'wrap',
+  },
   name: {
     color: theme.color.text,
     fontSize: 15,
     fontWeight: '600',
+    flexShrink: 1,
+  },
+  badge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  badgeCalled: { backgroundColor: theme.color.accent },
+  badgeCalledText: {
+    color: theme.color.accentFg,
+    fontSize: 9,
+    fontWeight: '800',
+    letterSpacing: 0.6,
+  },
+  badgeOnTheWay: { backgroundColor: theme.color.ok },
+  badgeOnTheWayText: {
+    color: theme.color.surface,
+    fontSize: 9,
+    fontWeight: '800',
+    letterSpacing: 0.6,
   },
   meta: {
     color: theme.color.textMuted,

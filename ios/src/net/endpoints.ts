@@ -104,12 +104,15 @@ export const calls = {
     request<{ ok: true; smsStatus: string }>(`/host/queue/${id}/call`, { method: 'POST' }),
 };
 
+export interface HostSettings {
+  avgTurnTimeMinutes: number;
+  etaMode: 'manual' | 'dynamic';
+  effectiveMinutes: number;
+}
+
 export const stats = {
   getStats: () => request<Record<string, unknown>>('/host/stats'),
-  getSettings: () =>
-    request<{
-      avgTurnTimeMinutes: number;
-      etaMode: 'manual' | 'dynamic';
-      effectiveMinutes: number;
-    }>('/host/settings'),
+  getSettings: () => request<HostSettings>('/host/settings'),
+  saveSettings: (body: { avgTurnTimeMinutes?: number; etaMode?: 'manual' | 'dynamic' }) =>
+    request<HostSettings>('/host/settings', { method: 'POST', body }),
 };

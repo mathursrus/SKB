@@ -45,7 +45,12 @@ export function RowActions({
       }}
     >
       <Button label="Seat" variant="primary" onPress={onSeat} />
-      <Button label="Notify" onPress={onNotify} disabled={!phoneOk} />
+      <Button
+        label={party.state === 'called' ? 'Re-notify' : 'Notify'}
+        onPress={onNotify}
+        disabled={!phoneOk}
+        variant={party.state === 'called' ? 'primary' : undefined}
+      />
       <Button
         label="Chat"
         newFeature

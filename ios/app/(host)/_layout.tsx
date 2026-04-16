@@ -70,6 +70,7 @@ export default function HostLayout() {
     >
       <Tabs.Screen name="waiting" options={{ title: 'Waiting' }} />
       <Tabs.Screen name="seated" options={{ title: 'Seated' }} />
+      <Tabs.Screen name="complete" options={{ title: 'Complete' }} />
       <Tabs.Screen name="settings" options={{ title: 'Settings' }} />
     </Tabs>
   );

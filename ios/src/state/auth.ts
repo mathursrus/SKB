@@ -1,11 +1,8 @@
-import * as SecureStore from 'expo-secure-store';
 import { create } from 'zustand';
 
 import { events, logger } from '@/core/logger';
-import { ApiError, getCookie, setCookie } from '@/net/client';
-import { auth as authApi } from '@/net/endpoints';
-
-const COOKIE_KEY = 'skb_host_cookie_v1';
+import { ApiError } from '@/net/client';
+import { auth as authApi, waitlist as waitlistApi } from '@/net/endpoints';
 
 export type AuthStatus = 'unknown' | 'loggedOut' | 'loggedIn' | 'loggingIn';
 
@@ -17,17 +14,26 @@ interface AuthState {
   logout: () => Promise<void>;
 }
 
+// Session lives in iOS NSHTTPCookieStorage / Android CookieJar — both persist
+// across app launches by default. Hydrate probes with a lightweight authed
+// endpoint (GET /host/queue, already used by the waiting tab) to decide
+// whether the platform still holds a valid session cookie.
 export const useAuthStore = create<AuthState>((set) => ({
   status: 'unknown',
   error: null,
 
   hydrate: async () => {
-    const saved = await SecureStore.getItemAsync(COOKIE_KEY);
-    if (saved) {
-      setCookie(saved);
+    try {
+      await waitlistApi.listWaiting();
       set({ status: 'loggedIn', error: null });
-    } else {
-      set({ status: 'loggedOut', error: null });
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 401) {
+        set({ status: 'loggedOut', error: null });
+      } else {
+        // Network/other — default to loggedOut so the user sees the PIN
+        // screen rather than an empty waiting tab with a silent fetch error.
+        set({ status: 'loggedOut', error: null });
+      }
     }
   },
 
@@ -36,8 +42,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     set({ status: 'loggingIn', error: null });
     try {
       await authApi.login(pin);
-      const cookie = getCookie();
-      if (cookie) await SecureStore.setItemAsync(COOKIE_KEY, cookie);
+      // Cookie stored by the platform; nothing for us to persist.
       logger.info(events.authLoginSuccess);
       set({ status: 'loggedIn', error: null });
     } catch (err) {
@@ -57,10 +62,10 @@ export const useAuthStore = create<AuthState>((set) => ({
     try {
       await authApi.logout();
     } catch {
-      // ignore — we clear local state regardless
+      // Server may be unreachable — we still reset local state so the user
+      // sees the PIN screen. The cookie will expire on its own or get
+      // overwritten on next successful login.
     }
-    setCookie(null);
-    await SecureStore.deleteItemAsync(COOKIE_KEY);
     set({ status: 'loggedOut', error: null });
   },
 }));

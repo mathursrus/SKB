@@ -2,6 +2,8 @@ import type {
   ChatMessage,
   ChatTemplates,
   ChatThread,
+  CompletedParty,
+  CompletedSummary,
   PartyId,
   SeatedParty,
   WaitingParty,
@@ -29,6 +31,10 @@ export interface HostDiningResponse {
   diningCount: number;
 }
 
+export interface HostCompletedResponse extends CompletedSummary {
+  parties: CompletedParty[];
+}
+
 export interface SeatResponse {
   ok: true;
 }
@@ -42,6 +48,7 @@ export interface SeatConflictError {
 export const waitlist = {
   listWaiting: () => request<HostQueueResponse>('/host/queue'),
   listSeated: () => request<HostDiningResponse>('/host/dining'),
+  listCompleted: () => request<HostCompletedResponse>('/host/completed'),
 
   /**
    * Issue #30 R14–R17 seat action. The backend exposes seating as a "remove"

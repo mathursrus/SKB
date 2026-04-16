@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 
 import { events, logger } from '@/core/logger';
-import type { PartyId, SeatedParty, WaitingParty } from '@/core/party';
+import type { CompletedParty, CompletedSummary, PartyId, SeatedParty, WaitingParty } from '@/core/party';
 import { sortByPosition } from '@/core/waitlist';
 import { ApiError } from '@/net/client';
 import { waitlist as waitlistApi } from '@/net/endpoints';
@@ -9,12 +9,15 @@ import { waitlist as waitlistApi } from '@/net/endpoints';
 interface WaitlistState {
   waiting: WaitingParty[];
   seated: SeatedParty[];
+  completed: CompletedParty[];
+  completedSummary: CompletedSummary;
   oldestWaitMinutes: number;
   avgTurnTimeMinutes: number;
   lastPolledAt: number | null;
   error: string | null;
   isPolling: boolean;
   poll: () => Promise<void>;
+  pollCompleted: () => Promise<void>;
   seatParty: (
     id: PartyId,
     tableNumber: number,
@@ -26,6 +29,13 @@ interface WaitlistState {
 export const useWaitlistStore = create<WaitlistState>((set, get) => ({
   waiting: [],
   seated: [],
+  completed: [],
+  completedSummary: {
+    totalServed: 0,
+    totalNoShows: 0,
+    avgWaitMinutes: null,
+    avgTableOccupancyMinutes: null,
+  },
   oldestWaitMinutes: 0,
   avgTurnTimeMinutes: 0,
   lastPolledAt: null,
@@ -57,6 +67,24 @@ export const useWaitlistStore = create<WaitlistState>((set, get) => ({
       const msg = (err as Error).message;
       logger.warn(events.waitlistPollError, { msg });
       set({ error: msg, isPolling: false });
+    }
+  },
+
+  pollCompleted: async () => {
+    try {
+      const resp = await waitlistApi.listCompleted();
+      set({
+        completed: resp.parties,
+        completedSummary: {
+          totalServed: resp.totalServed,
+          totalNoShows: resp.totalNoShows,
+          avgWaitMinutes: resp.avgWaitMinutes,
+          avgTableOccupancyMinutes: resp.avgTableOccupancyMinutes,
+        },
+      });
+    } catch (err) {
+      const msg = (err as Error).message;
+      logger.warn(events.waitlistPollError, { msg });
     }
   },
 

@@ -82,8 +82,10 @@ a { color: var(--saffron-dark); }
 /* Hero */
 .site-hero {
   background:
-    linear-gradient(rgba(42, 42, 42, 0.45), rgba(42, 42, 42, 0.55)),
+    linear-gradient(rgba(42, 42, 42, 0.45), rgba(42, 42, 42, 0.6)),
+    url("./assets/hero.webp") center / cover no-repeat,
     radial-gradient(ellipse at center, #8a5a2a 0%, #4a2a10 100%);
+  background-color: #4a2a10; /* fallback while image loads */
   color: #fff;
   text-align: center;
   padding: 90px 24px 100px;
@@ -160,17 +162,14 @@ a { color: var(--saffron-dark); }
 }
 .dish { text-align: center; }
 .dish-img {
-  background: var(--cream-warm);
-  border: 1px solid var(--line);
+  display: block;
+  width: 100%;
   height: 220px;
+  object-fit: cover;
+  border: 1px solid var(--line);
   border-radius: 6px;
   margin-bottom: 16px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--muted);
-  font-size: 0.85rem;
-  font-style: italic;
+  background: var(--cream-warm); /* fallback while image loads */
 }
 .dish h3 {
   font-size: 1.25rem;
@@ -349,19 +348,15 @@ a { color: var(--saffron-dark); }
   gap: 16px;
   margin: 40px 0;
 }
+.dish-strip img,
 .dish-strip div {
   background: var(--cream-warm);
   border: 1px solid var(--line);
   aspect-ratio: 1 / 1;
+  width: 100%;
+  object-fit: cover;
   border-radius: 6px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--muted);
-  font-size: 0.8rem;
-  font-style: italic;
-  text-align: center;
-  padding: 12px;
+  display: block;
 }
 
 /* Hours & Location */

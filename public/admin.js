@@ -10,8 +10,6 @@
     const startStageSelect = $('admin-start-stage');
     const endStageSelect = $('admin-end-stage');
     const histograms = $('admin-histograms');
-    const totalParties = $('admin-total-parties');
-    const selectedRange = $('admin-selected-range');
     const statsEmpty = $('admin-stats-empty');
     const statsGrid = $('admin-stats-grid');
     const visitMode = $('admin-visit-mode');
@@ -205,8 +203,8 @@
                 histograms.innerHTML = `<div class="hist-empty">${esc(data.error || 'Failed to load analytics.')}</div>`;
                 return;
             }
-            if (totalParties) totalParties.textContent = String(data.totalParties || 0);
-            if (selectedRange) selectedRange.textContent = data.selectedRange?.label || 'Default';
+            // totalParties + selectedRange moved out of topbar in favour of
+            // the histogram card's own hist-meta subtitle (shows N parties + avg).
             if (!data.totalParties) {
                 histograms.innerHTML = '<div class="hist-empty">No data for this filter. Walk a party through the lifecycle (join → seat → order → serve → checkout → depart) to populate the histogram.</div>';
                 return;
@@ -406,11 +404,13 @@
         loginView.style.display = 'none';
         adminView.style.display = '';
         refreshAll();
+        // Stats refresh on a timer (lightweight — just counters). Analytics
+        // does NOT auto-refresh because (a) it re-renders the histogram
+        // causing a visible flash, (b) the data only changes when parties
+        // complete lifecycle stages, not every 10 seconds, and (c) the user
+        // can trigger a refresh by changing the filter dropdowns.
         if (pollTimer) clearInterval(pollTimer);
-        pollTimer = setInterval(() => {
-            loadStats();
-            loadAnalytics();
-        }, 10000);
+        pollTimer = setInterval(loadStats, 30000);
     }
 
     (async function boot() {

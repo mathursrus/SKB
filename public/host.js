@@ -197,7 +197,7 @@
                 '<span>Avg Wait: <strong>' + (data.avgWaitMinutes != null ? data.avgWaitMinutes + 'm' : '\u2014') + '</strong></span>' +
                 '<span>Avg Table: <strong>' + (data.avgTableOccupancyMinutes != null ? data.avgTableOccupancyMinutes + 'm' : '\u2014') + '</strong></span>';
             if (data.parties.length === 0) {
-                completedRows.innerHTML = '<tr><td colspan="10" class="empty">No completed parties.</td></tr>';
+                completedRows.innerHTML = '<tr><td colspan="9" class="empty">No completed parties.</td></tr>';
                 return;
             }
             let html = '';
@@ -214,11 +214,10 @@
                     transitCell(p.toServeMinutes) +
                     transitCell(p.toCheckoutMinutes) +
                     transitCell(p.toDepartMinutes) +
-                    '<td>' + (p.tableTimeMinutes != null ? p.tableTimeMinutes + 'm' : '\u2014') + '</td>' +
                     '<td>' + p.totalTimeMinutes + 'm</td>' +
                     '</tr>';
                 if (expandedTimelineId === p.id) {
-                    html += '<tr class="timeline-row" data-timeline-for="' + p.id + '"><td colspan="10"><div class="timeline-detail" id="timeline-' + p.id + '">Loading...</div></td></tr>';
+                    html += '<tr class="timeline-row" data-timeline-for="' + p.id + '"><td colspan="9"><div class="timeline-detail" id="timeline-' + p.id + '">Loading...</div></td></tr>';
                 }
             }
             completedRows.innerHTML = html;
@@ -586,6 +585,11 @@
                 });
             } catch { /* non-blocking */ }
             await loadChatThread(chatOpenId);
+            // Mark any inbound messages as read + refresh the host list
+            // so the unread dot badge clears immediately after the host
+            // sends their reply — not on the next 30s poll.
+            await markChatRead(chatOpenId);
+            await refreshWaiting();
         });
     }
 

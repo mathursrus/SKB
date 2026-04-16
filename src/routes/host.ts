@@ -99,12 +99,12 @@ export function hostRouter(): Router {
         }
 
         const cookie = mintCookie(new Date(), key);
-        res.setHeader('Set-Cookie', `${COOKIE_NAME}=${cookie}; Path=/; HttpOnly; SameSite=Strict; Max-Age=${COOKIE_MAX_AGE_SECONDS}`);
+        res.setHeader('Set-Cookie', `${COOKIE_NAME}=${cookie}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${COOKIE_MAX_AGE_SECONDS}`);
         res.json({ ok: true });
     });
 
     r.post('/host/logout', (_req: Request, res: Response) => {
-        res.setHeader('Set-Cookie', `${COOKIE_NAME}=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0`);
+        res.setHeader('Set-Cookie', `${COOKIE_NAME}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0`);
         res.json({ ok: true });
     });
 

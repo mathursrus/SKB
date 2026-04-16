@@ -91,11 +91,11 @@ const cases: BaseTestCase[] = [
             && /catch\s*\(\s*err\s*\)/.test(adminJs),
     },
     {
-        name: 'bug50 #5: admin.js guards against missing DOM elements in loadAnalytics',
+        name: 'bug50 #5: admin.js loadAnalytics renders single histogram from data.histograms[0]',
         tags: ['unit', 'bug50', 'analytics'],
         testFn: async () =>
-            /if\s*\(\s*totalParties\s*\)\s*totalParties\.textContent/.test(adminJs)
-            && /if\s*\(\s*selectedRange\s*\)\s*selectedRange\.textContent/.test(adminJs),
+            /data\.histograms\?\.\[0\]/.test(adminJs)
+            || /data\.histograms\[0\]/.test(adminJs),
     },
 
     // ---------- Bug 7: door QR display + clearer title ----------

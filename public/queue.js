@@ -82,9 +82,16 @@
             if (!res.ok) return;
             const data = await res.json();
             const messages = data.messages || [];
+            // Only show the chat card if the host has sent at least one
+            // message (direction === 'outbound'). Until then the diner
+            // shouldn't be able to initiate — it would just be noise for
+            // the host who hasn't started a conversation yet.
+            const hostHasSent = messages.some((m) => m.direction === 'outbound');
+            if (!hostHasSent) {
+                if (chatCard()) chatCard().style.display = 'none';
+                return;
+            }
             const latestAt = messages.length ? messages[messages.length - 1].at : null;
-            // Only re-render when something changed so we don't stomp on the
-            // scroll position mid-conversation.
             if (latestAt !== lastChatAtIso) {
                 renderChatThread(messages);
                 lastChatAtIso = latestAt;
@@ -330,7 +337,7 @@
                 document.getElementById('conf-eta-line').style.display = 'none';
                 document.getElementById('conf-hint').style.display = 'none';
                 document.getElementById('seated-caption').style.display = '';
-                document.getElementById('refresh-btn').style.display = 'none';
+                // refresh-btn was removed (page auto-polls)
                 calledCallout.style.display = 'none';
                 if (waitElapsed) waitElapsed.style.display = 'none';
                 renderPublicList([]);
@@ -535,11 +542,9 @@
     }
 
     joinForm.addEventListener('submit', onJoin);
-    $('refresh-btn').addEventListener('click', async () => {
-        const code = localStorage.getItem(STORAGE_KEY);
-        const needStateLoad = code ? await loadStatus(code) : true;
-        if (needStateLoad) await loadState();
-    });
+    // "Check now" button removed — the page auto-polls every 10s. The
+    // button was a leftover from before polling was added and confused
+    // diners into thinking the page doesn't update itself.
     if (ackBtn) ackBtn.addEventListener('click', onAcknowledge);
 
     // Boot

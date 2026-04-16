@@ -1934,6 +1934,49 @@ a#custom-call-confirm[aria-disabled="true"] {
    warm tone without washing out the row text. */
 .theme-dark tr.row-called td { background: rgba(244, 207, 75, 0.10); }
 
+/* Admin panel surfaces — many admin rules hard-code `background: #fff`.
+   Re-map them to the dark card token so panels aren't white on black. */
+.theme-dark .admin-card,
+.theme-dark .stats-card,
+.theme-dark .qr-preview,
+.theme-dark button.depart-btn {
+    background: var(--card);
+    border-color: var(--border);
+    color: var(--fg);
+}
+.theme-dark .admin-card-head h2,
+.theme-dark .admin-card-head h3,
+.theme-dark .admin-card-head h4 { color: var(--fg); }
+.theme-dark .admin-card-head p { color: var(--muted); }
+
+/* QR preview must stay white so the SVG's dark modules remain visible.
+   The SVG uses black on white internally — if we darken the host box,
+   the QR reads as low contrast. Keep it white but add a subtle frame. */
+.theme-dark .qr-preview {
+    background: #ffffff;
+    border-color: var(--border);
+    padding: 4px;
+}
+
+/* Admin filter selects, URL display boxes, misc inputs that use `#fff` directly */
+.theme-dark .admin-filters select,
+.theme-dark .admin-filters input,
+.theme-dark code.url-display,
+.theme-dark .site-config input,
+.theme-dark .site-config textarea {
+    background: var(--surface-alt);
+    color: var(--fg);
+    border-color: var(--border);
+}
+
+/* Stats tiles inside the Service Debrief card */
+.theme-dark .stat-item {
+    background: var(--surface-alt);
+    border-color: var(--border);
+}
+.theme-dark .stat-value { color: var(--fg); }
+.theme-dark .stat-label { color: var(--muted); }
+
 /* Seat + SMS + Call dialogs */
 .theme-dark .seat-dialog,
 .theme-dark .custom-sms-dialog,

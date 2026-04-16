@@ -1,6 +1,17 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useState } from 'react';
-import { Alert, Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import {
+  Alert,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 
 import { waitlist as waitlistApi } from '@/net/endpoints';
 import { useWaitlistStore } from '@/state/waitlist';
@@ -63,74 +74,98 @@ export function AddPartySheet({ visible, onClose }: { visible: boolean; onClose:
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <Pressable style={styles.backdrop} onPress={onClose} accessibilityLabel="Dismiss">
-        <Pressable style={styles.card} onPress={(e) => e.stopPropagation()}>
-          <View style={styles.header}>
-            <Text style={styles.title}>Add party</Text>
-            <Pressable onPress={onClose} accessibilityLabel="Close" hitSlop={8}>
-              <Ionicons name="close" size={24} color={theme.color.textMuted} />
-            </Pressable>
-          </View>
+      {/* KeyboardAvoidingView wraps the whole modal so the sheet slides up
+          when the keyboard appears — without this the submit button sits
+          behind the keyboard on iPhone and the form can't be completed. */}
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.keyboardAvoid}
+      >
+        <Pressable style={styles.backdrop} onPress={onClose} accessibilityLabel="Dismiss">
+          <Pressable style={styles.card} onPress={(e) => e.stopPropagation()}>
+            <View style={styles.header}>
+              <Text style={styles.title}>Add party</Text>
+              <Pressable
+                onPress={onClose}
+                accessibilityLabel="Close"
+                hitSlop={12}
+                style={styles.closeButton}
+              >
+                <Ionicons name="close" size={22} color={theme.color.text} />
+              </Pressable>
+            </View>
 
-          <Text style={styles.label}>Name</Text>
-          <TextInput
-            value={name}
-            onChangeText={setName}
-            placeholder="Party name"
-            placeholderTextColor={theme.color.textMuted}
-            style={styles.input}
-            maxLength={60}
-            autoCapitalize="words"
-            accessibilityLabel="Party name"
-            autoFocus
-          />
-
-          <Text style={styles.label}>Party size</Text>
-          <TextInput
-            value={size}
-            onChangeText={(v) => setSize(v.replace(/[^\d]/g, ''))}
-            keyboardType="number-pad"
-            style={[styles.input, styles.narrow]}
-            maxLength={2}
-            accessibilityLabel="Party size"
-          />
-
-          <Text style={styles.label}>Phone</Text>
-          <TextInput
-            value={phone}
-            onChangeText={setPhone}
-            keyboardType="phone-pad"
-            placeholder="2065551234"
-            placeholderTextColor={theme.color.textMuted}
-            style={styles.input}
-            maxLength={14}
-            accessibilityLabel="Phone number"
-          />
-          <Text style={styles.hint}>10 digits. We'll text the status code to this number.</Text>
-
-          {error !== null && <Text style={styles.error}>{error}</Text>}
-
-          <View style={styles.footer}>
-            <Pressable onPress={onClose} style={styles.cancel} accessibilityRole="button">
-              <Text style={styles.cancelText}>Cancel</Text>
-            </Pressable>
-            <Pressable
-              onPress={() => void handleSubmit()}
-              disabled={!canSubmit}
-              style={[styles.submit, !canSubmit && styles.submitDisabled]}
-              accessibilityRole="button"
-              accessibilityLabel="Add to waitlist"
+            <ScrollView
+              keyboardShouldPersistTaps="handled"
+              contentContainerStyle={styles.scrollContent}
+              showsVerticalScrollIndicator={false}
             >
-              <Text style={styles.submitText}>{submitting ? 'Adding…' : 'Add to waitlist'}</Text>
-            </Pressable>
-          </View>
+              <Text style={styles.label}>Name</Text>
+              <TextInput
+                value={name}
+                onChangeText={setName}
+                placeholder="Party name"
+                placeholderTextColor={theme.color.textMuted}
+                style={styles.input}
+                maxLength={60}
+                autoCapitalize="words"
+                accessibilityLabel="Party name"
+                autoFocus
+                returnKeyType="next"
+              />
+
+              <Text style={styles.label}>Party size</Text>
+              <TextInput
+                value={size}
+                onChangeText={(v) => setSize(v.replace(/[^\d]/g, ''))}
+                keyboardType="number-pad"
+                style={[styles.input, styles.narrow]}
+                maxLength={2}
+                accessibilityLabel="Party size"
+                returnKeyType="next"
+              />
+
+              <Text style={styles.label}>Phone</Text>
+              <TextInput
+                value={phone}
+                onChangeText={setPhone}
+                keyboardType="phone-pad"
+                placeholder="2065551234"
+                placeholderTextColor={theme.color.textMuted}
+                style={styles.input}
+                maxLength={14}
+                accessibilityLabel="Phone number"
+                returnKeyType="done"
+                onSubmitEditing={() => { if (canSubmit) void handleSubmit(); }}
+              />
+              <Text style={styles.hint}>10 digits. We'll text the status code to this number.</Text>
+
+              {error !== null && <Text style={styles.error}>{error}</Text>}
+
+              <View style={styles.footer}>
+                <Pressable onPress={onClose} style={styles.cancel} accessibilityRole="button">
+                  <Text style={styles.cancelText}>Cancel</Text>
+                </Pressable>
+                <Pressable
+                  onPress={() => void handleSubmit()}
+                  disabled={!canSubmit}
+                  style={[styles.submit, !canSubmit && styles.submitDisabled]}
+                  accessibilityRole="button"
+                  accessibilityLabel="Add to waitlist"
+                >
+                  <Text style={styles.submitText}>{submitting ? 'Adding…' : 'Add to waitlist'}</Text>
+                </Pressable>
+              </View>
+            </ScrollView>
+          </Pressable>
         </Pressable>
-      </Pressable>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
+  keyboardAvoid: { flex: 1 },
   backdrop: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.55)',
@@ -140,16 +175,30 @@ const styles = StyleSheet.create({
     backgroundColor: theme.color.surface,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
-    padding: theme.space.lg,
-    paddingBottom: theme.space.xxl,
+    paddingTop: theme.space.lg,
+    paddingHorizontal: theme.space.lg,
     borderTopWidth: 1,
     borderTopColor: theme.color.line,
+    maxHeight: '90%',
+  },
+  scrollContent: {
+    paddingBottom: theme.space.xxl,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: theme.space.lg,
+    marginBottom: theme.space.md,
+  },
+  closeButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: theme.color.surfaceRaised,
+    borderWidth: 1,
+    borderColor: theme.color.line,
   },
   title: { color: theme.color.text, fontSize: 20, fontWeight: '700' },
   label: {

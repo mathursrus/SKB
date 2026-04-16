@@ -1762,18 +1762,18 @@ a#custom-call-confirm[aria-disabled="true"] {
 .theme-dark {
     color-scheme: dark;
     --bg: #0b0b0c;
-    --fg: #e7e5e4;
-    --muted: #a1a1aa;
+    --fg: #f4f4f5;
+    --muted: #b4b4bb;
     --accent: #f4cf4b;
     --accent-dark: #e3bf3d;
     --accent-fg: #111111;
-    --card: #18181b;
-    --border: #2a2a2f;
-    --divider: #1f1f23;
-    --surface-alt: #111113;
+    --card: #1e1e24;
+    --border: #3a3a42;
+    --divider: #27272e;
+    --surface-alt: #141418;
     --ok: #4ade80;
     --danger: #f87171;
-    --row-hover: #1f1f23;
+    --row-hover: #26262d;
     --shadow-sm: 0 1px 3px rgba(0,0,0,.5);
     --shadow-md: 0 8px 24px rgba(0,0,0,.7);
 }
@@ -1851,13 +1851,88 @@ a#custom-call-confirm[aria-disabled="true"] {
 .theme-dark .state-departed { background: #27272a; color: #a1a1aa; }
 .theme-dark .state-no_show { background: #7f1d1d; color: #fee2e2; }
 
-/* Buttons */
-.theme-dark button.call-btn { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
-.theme-dark button.call-btn:hover { background: var(--accent-dark); }
-.theme-dark button.advance-btn { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
-.theme-dark button.advance-btn:hover { background: var(--accent-dark); }
-.theme-dark button.remove { background: var(--surface-alt); color: var(--danger); border-color: var(--border); }
-.theme-dark button.remove:hover { background: var(--danger); color: var(--card); }
+/* Host action buttons — dark mode hierarchy
+   - Primary filled (Seat, Advance, Call): saffron background, dark text
+   - Secondary outlined (Notify, Chat, Re-notify base): surface-alt bg, saffron text
+   - Destructive text (Remove/No-show): transparent, red text (matches light)
+   - Topbar (Log out, Open Admin, theme toggle): fg-color text for legibility */
+.theme-dark .host td.actions button.seat-btn,
+.theme-dark button.call-btn,
+.theme-dark button.advance-btn,
+.theme-dark .host td.actions a.call-dial-btn {
+    background: var(--accent);
+    color: var(--accent-fg);
+    border-color: var(--accent);
+}
+.theme-dark .host td.actions button.seat-btn:hover,
+.theme-dark button.call-btn:hover,
+.theme-dark button.advance-btn:hover,
+.theme-dark .host td.actions a.call-dial-btn:hover {
+    background: var(--accent-dark);
+    border-color: var(--accent-dark);
+}
+
+.theme-dark .host td.actions button.notify-btn,
+.theme-dark .host td.actions button.chat-btn,
+.theme-dark .host td.actions button.more-btn {
+    background: var(--surface-alt);
+    color: var(--accent);
+    border-color: var(--border);
+}
+.theme-dark .host td.actions button.notify-btn:hover,
+.theme-dark .host td.actions button.chat-btn:hover,
+.theme-dark .host td.actions button.more-btn:hover {
+    background: var(--card);
+    border-color: var(--accent);
+    color: var(--accent);
+}
+/* Re-notify (row-called) stays emphasized — filled saffron */
+.theme-dark .host tr.row-called td.actions button.notify-btn {
+    background: var(--accent);
+    color: var(--accent-fg);
+    border-color: var(--accent);
+}
+
+.theme-dark .host td.actions button.remove {
+    background: transparent;
+    color: var(--danger);
+    border-color: transparent;
+}
+.theme-dark .host td.actions button.remove:hover {
+    background: rgba(248, 113, 113, 0.12);
+    border-color: transparent;
+    color: var(--danger);
+}
+
+/* Topbar / logout-style buttons: bump to fg so they're readable, not muted */
+.theme-dark .host .logout,
+.theme-dark .topbar .logout,
+.theme-dark .admin-actions .logout {
+    color: var(--fg);
+    border-color: var(--border);
+    background: var(--surface-alt);
+}
+.theme-dark .host .logout:hover,
+.theme-dark .topbar .logout:hover,
+.theme-dark .admin-actions .logout:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+}
+.theme-dark .theme-toggle-btn {
+    background: var(--surface-alt);
+    color: var(--fg);
+    border-color: var(--border);
+}
+.theme-dark .theme-toggle-btn:hover {
+    background: var(--card);
+    border-color: var(--accent);
+    color: var(--accent);
+}
+
+/* Row-called highlight (a party has been notified but not seated yet) —
+   in light mode it's #fff8e1 (pale yellow). Dark mode needs a visible
+   warm tone without washing out the row text. */
+.theme-dark tr.row-called td { background: rgba(244, 207, 75, 0.10); }
 
 /* Seat + SMS + Call dialogs */
 .theme-dark .seat-dialog,

@@ -1,10 +1,36 @@
 # SKB Bug Bash Report — Issue #50 follow-up
 
-- **Date**: 2026-04-15
+- **Date**: 2026-04-15 (revalidation 2026-04-15 late PM)
 - **Reviewer**: Claude (sid.mathur@gmail.com session)
 - **Scope**: Web (diner queue, host stand, admin) at prod `https://skb-waitlist.azurewebsites.net`. iOS covered by unit tests + device deferred.
 - **Browser**: Chromium via Playwright
 - **Viewports tested**: 375×812, 768×1024, 1280×800
+
+## Update (revalidation round)
+
+All 5 items below have been **fixed, deployed, and re-verified in prod**:
+
+| # | Item | Fix commit | Revalidation evidence |
+| --- | --- | --- | --- |
+| 1 | Host mobile table overflow | `81ca37d` | `docs/evidence/ui-polish/50/host-mobile-375-fixed.png` — scrollWidth=375 = viewport; no horizontal page scroll |
+| 2 | Diner chat 429 storm | `64e9deb` | 3 chat 429s in 30s (was 27+ in 90s pre-fix); exponential backoff verified |
+| 3 | Host login missing theme toggle | `30da020` | `host-login-mobile-with-toggle.png` + `host-login-mobile-dark-toggle.png` — toggle present and functional pre-auth |
+| 4 | Name not server-sanitized | `044976a` | POST `/api/queue/join` with `<script>` returns 400 `name contains unsupported characters` |
+| 5 | `#111` tech debt on saffron | `be7c76f` | All 7 sites migrated to `var(--accent-fg)`; no visual change |
+
+Revalidation also exercised new edge cases not in the original pass:
+- **Emoji name** (`🍛 Curry Family`) → 200, accepted.
+- **120-char name** → 400 `name must be 1..60 chars`.
+- **Whitespace-only name** → 400 (trimmed to empty, treated as missing).
+- **HTML metacharacters** → 400 `name contains unsupported characters` (item 4 fix).
+- **Rapid repeated joins** → 429 `too many requests` (rate limiter working).
+
+**Outcome: PASS.** Zero P0/P1 remaining. No new regressions surfaced.
+
+The historical findings below are retained for traceability.
+
+---
+
 
 ## Summary
 

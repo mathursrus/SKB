@@ -1,5 +1,6 @@
+import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
-import { Alert, FlatList, RefreshControl, StyleSheet, Text, View } from 'react-native';
+import { Alert, FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
 
 import type { WaitingParty } from '@/core/party';
 import { calls } from '@/net/endpoints';
@@ -7,6 +8,7 @@ import { useWaitlistStore } from '@/state/waitlist';
 import { theme } from '@/ui/theme';
 
 import { SeatDialog } from '../seat-dialog/SeatDialog';
+import { AddPartySheet } from './AddPartySheet';
 import { CustomCallDialog } from './CustomCallDialog';
 import { CustomSmsDialog } from './CustomSmsDialog';
 import { PartyRow } from './PartyRow';
@@ -24,6 +26,7 @@ export function WaitingList() {
   const [smsTarget, setSmsTarget] = useState<WaitingParty | null>(null);
   const [callTarget, setCallTarget] = useState<WaitingParty | null>(null);
   const [notifying, setNotifying] = useState<string | null>(null);
+  const [addOpen, setAddOpen] = useState(false);
 
   async function handleRefresh() {
     setRefreshing(true);
@@ -63,9 +66,20 @@ export function WaitingList() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.header}>
-        Waiting · <Text style={styles.count}>{waiting.length}</Text>
-      </Text>
+      <View style={styles.topBar}>
+        <Text style={styles.header}>
+          Waiting · <Text style={styles.count}>{waiting.length}</Text>
+        </Text>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Add walk-in to waitlist"
+          style={styles.addButton}
+          onPress={() => setAddOpen(true)}
+        >
+          <Ionicons name="person-add" size={16} color={theme.color.accentFg} />
+          <Text style={styles.addButtonText}>Add party</Text>
+        </Pressable>
+      </View>
       {error !== null && <Text style={styles.error}>{error}</Text>}
 
       <FlatList
@@ -103,6 +117,7 @@ export function WaitingList() {
       />
       <CustomSmsDialog party={smsTarget} onClose={() => setSmsTarget(null)} />
       <CustomCallDialog party={callTarget} onClose={() => setCallTarget(null)} />
+      <AddPartySheet visible={addOpen} onClose={() => setAddOpen(false)} />
     </View>
   );
 }
@@ -113,11 +128,30 @@ const styles = StyleSheet.create({
     backgroundColor: theme.color.surface,
     padding: theme.space.lg,
   },
+  topBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: theme.space.md,
+  },
   header: {
     color: theme.color.text,
     fontSize: 20,
     fontWeight: '700',
-    marginBottom: theme.space.md,
+  },
+  addButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: theme.color.accent,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: theme.radius.md,
+  },
+  addButtonText: {
+    color: theme.color.accentFg,
+    fontSize: 14,
+    fontWeight: '700',
   },
   count: { color: theme.color.accent },
   error: { color: theme.color.warn, marginBottom: theme.space.md },

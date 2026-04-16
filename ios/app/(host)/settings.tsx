@@ -84,13 +84,11 @@ export default function SettingsScreen() {
       </View>
 
       <View style={styles.section}>
-        <Text style={styles.sectionLabel}>
-          {etaMode === 'manual' ? 'Turn time (minutes per party)' : 'Fallback turn time (minutes)'}
-        </Text>
+        <Text style={styles.sectionLabel}>Turn time (minutes per party)</Text>
         <Text style={styles.sectionHelp}>
           {etaMode === 'manual'
             ? 'Used as the per-party ETA estimate for every new join.'
-            : 'Used only when we have too little seating history to compute a dynamic ETA.'}
+            : 'Locked in Dynamic mode — ETA is computed from recent seating history. Switch to Manual to override.'}
         </Text>
         <TextInput
           value={turnTime}
@@ -100,8 +98,10 @@ export default function SettingsScreen() {
           }}
           keyboardType="number-pad"
           maxLength={2}
-          style={styles.input}
+          editable={etaMode === 'manual'}
+          style={[styles.input, etaMode !== 'manual' && styles.inputDisabled]}
           accessibilityLabel="Turn time minutes"
+          accessibilityState={{ disabled: etaMode !== 'manual' }}
         />
         {effective !== null && (
           <Text style={styles.effective}>
@@ -234,6 +234,10 @@ const styles = StyleSheet.create({
     fontVariant: ['tabular-nums'],
     textAlign: 'center',
     width: 96,
+  },
+  inputDisabled: {
+    opacity: 0.45,
+    color: theme.color.textMuted,
   },
   effective: {
     color: theme.color.textMuted,

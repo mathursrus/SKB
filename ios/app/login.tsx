@@ -1,4 +1,6 @@
+import Constants from 'expo-constants';
 import { router } from 'expo-router';
+import * as Updates from 'expo-updates';
 import { useEffect, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -53,7 +55,30 @@ export default function LoginScreen() {
           {status === 'loggingIn' ? 'Signing in…' : 'Sign in'}
         </Text>
       </Pressable>
+
+      <BuildInfo />
     </SafeAreaView>
+  );
+}
+
+// Small diagnostic strip at the bottom of the login card so we can see, on
+// the actual device, which bundle is loaded — catches the "OTA didn't land"
+// class of bug we hit with the /api buildUrl fix.
+function BuildInfo() {
+  const apiBase =
+    (Constants.expoConfig?.extra as { apiBaseUrl?: string } | undefined)?.apiBaseUrl
+    ?? (process.env as { EXPO_PUBLIC_API_BASE_URL?: string }).EXPO_PUBLIC_API_BASE_URL
+    ?? '(default)';
+  const updateId = Updates.updateId ?? 'embedded';
+  const shortId = updateId === 'embedded' ? 'embedded' : updateId.slice(0, 8);
+  const channel = Updates.channel ?? '—';
+  // Host shown is just the hostname portion; keeps the strip short.
+  let host = apiBase;
+  try { host = new URL(apiBase).host; } catch { /* ignore */ }
+  return (
+    <Text style={{ position: 'absolute', bottom: 8, left: 0, right: 0, textAlign: 'center', fontSize: 10, color: '#8a8a8a' }}>
+      build · {channel} · {shortId} · {host}
+    </Text>
   );
 }
 

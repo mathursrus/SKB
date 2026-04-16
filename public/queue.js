@@ -31,8 +31,10 @@
 
     // Diner chat state (issue #50 bug 1)
     let lastChatAtIso = null;        // last message timestamp we rendered
-    let chatPollTimer = null;
-    const CHAT_POLL_MS = 4000;
+    let chatPollTimer = null;        // setTimeout handle for the next poll
+    const CHAT_POLL_BASE_MS = 4000;  // base poll interval
+    const CHAT_POLL_MAX_MS = 60000;  // cap for backoff on 429
+    let chatPollDelayMs = CHAT_POLL_BASE_MS; // current delay, grows on 429
 
     function chatCard() { return document.getElementById('chat-card'); }
     function chatThreadEl() { return document.getElementById('chat-thread'); }
@@ -76,10 +78,18 @@
             const res = await fetch('api/queue/chat/' + encodeURIComponent(code));
             if (res.status === 404) {
                 if (chatCard()) chatCard().style.display = 'none';
+                chatPollDelayMs = CHAT_POLL_BASE_MS;
                 return;
             }
-            if (res.status === 429) return; // skip cycle
+            if (res.status === 429) {
+                // Server is rate-limiting us — back off exponentially up to
+                // CHAT_POLL_MAX_MS. Bug-bash P1 #2: previously we kept firing
+                // every 4s which produced 20+ 429s/minute in console.
+                chatPollDelayMs = Math.min(chatPollDelayMs * 2, CHAT_POLL_MAX_MS);
+                return;
+            }
             if (!res.ok) return;
+            chatPollDelayMs = CHAT_POLL_BASE_MS; // reset backoff on success
             const data = await res.json();
             const messages = data.messages || [];
             // Only show the chat card if the host has sent at least one
@@ -102,14 +112,25 @@
         }
     }
 
+    function scheduleChatPoll(code) {
+        if (chatPollTimer) clearTimeout(chatPollTimer);
+        chatPollTimer = setTimeout(async () => {
+            await loadChat(code);
+            // Re-arm — chatPollDelayMs may have grown via 429 backoff
+            scheduleChatPoll(code);
+        }, chatPollDelayMs);
+    }
+
     function startChatPoll(code) {
-        if (chatPollTimer) clearInterval(chatPollTimer);
+        if (chatPollTimer) clearTimeout(chatPollTimer);
+        chatPollDelayMs = CHAT_POLL_BASE_MS;
         loadChat(code);
-        chatPollTimer = setInterval(() => loadChat(code), CHAT_POLL_MS);
+        scheduleChatPoll(code);
     }
 
     function stopChatPoll() {
-        if (chatPollTimer) { clearInterval(chatPollTimer); chatPollTimer = null; }
+        if (chatPollTimer) { clearTimeout(chatPollTimer); chatPollTimer = null; }
+        chatPollDelayMs = CHAT_POLL_BASE_MS;
     }
 
     async function sendChat(code, body) {

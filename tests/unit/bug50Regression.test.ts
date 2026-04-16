@@ -254,6 +254,35 @@ const cases: BaseTestCase[] = [
             return inHead(queueHtml) && inHead(hostHtml) && inHead(adminHtml);
         },
     },
+
+    // ---------- Bug-bash fixes (issue #50 follow-up) ----------
+    {
+        name: 'bugbash: queue.js chat poll uses setTimeout backoff (not setInterval) + doubles delay on 429',
+        tags: ['unit', 'bugbash', 'chat'],
+        testFn: async () =>
+            // No setInterval polling the chat endpoint (was the source of 429 storm)
+            !/setInterval\([^)]*loadChat/.test(queueJs)
+            // Exponential backoff sighted
+            && /chatPollDelayMs\s*\*\s*2/.test(queueJs)
+            // Cap on backoff
+            && /CHAT_POLL_MAX_MS/.test(queueJs)
+            // Reset on success
+            && /chatPollDelayMs\s*=\s*CHAT_POLL_BASE_MS/.test(queueJs),
+    },
+    {
+        name: 'bugbash: styles.css hides .more-btn on <900px viewports to fit mobile host table',
+        tags: ['unit', 'bugbash', 'host', 'css'],
+        testFn: async () =>
+            /@media\s*\(\s*max-width:\s*900px\s*\)[^}]*\.host\s+td\.actions\s+button\.more-btn\s*\{\s*display:\s*none/s
+                .test(stylesCss),
+    },
+    {
+        name: 'bugbash: td.actions uses min-width (not fixed width) to avoid forcing page overflow',
+        tags: ['unit', 'bugbash', 'host', 'css'],
+        testFn: async () =>
+            /td\.actions\s*\{[^}]*min-width/.test(stylesCss)
+            && !/td\.actions\s*\{[^}]*\bwidth:\s*460px/.test(stylesCss),
+    },
 ];
 
 void runTests(cases, 'Bug #50 Regression');

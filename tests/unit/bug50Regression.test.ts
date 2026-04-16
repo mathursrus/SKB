@@ -239,6 +239,21 @@ const cases: BaseTestCase[] = [
             && /id=["']theme-toggle["']/.test(hostHtml)
             && /id=["']theme-toggle["']/.test(adminHtml),
     },
+    {
+        name: 'theme: theme.js loads in <head> before <body> to avoid FOUC',
+        tags: ['unit', 'polish', 'theme'],
+        testFn: async () => {
+            // Require the theme.js <script> to appear before the closing </head>
+            // in each HTML — if it slips below <body>, the first paint flashes
+            // the wrong theme before JS can toggle the class.
+            const inHead = (html: string) => {
+                const headClose = html.indexOf('</head>');
+                const scriptIdx = html.indexOf('theme.js');
+                return scriptIdx > -1 && headClose > -1 && scriptIdx < headClose;
+            };
+            return inHead(queueHtml) && inHead(hostHtml) && inHead(adminHtml);
+        },
+    },
 ];
 
 void runTests(cases, 'Bug #50 Regression');

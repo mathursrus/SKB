@@ -38,6 +38,11 @@ export interface Palette {
   text: string;
   textMuted: string;
   accent: string;
+  // Foreground color for text placed on top of `accent` (e.g. button label on
+  // an accent-colored button). Must meet contrast against `accent` in both
+  // palettes — `surface` is NOT safe here in light mode because it's near-white
+  // on medium orange.
+  accentFg: string;
   ok: string;
   warn: string;
 }
@@ -49,6 +54,7 @@ export const darkPalette: Palette = {
   text: '#f4f4f5',
   textMuted: '#9aa3b2',
   accent: '#ffb347',
+  accentFg: '#171a21', // dark navy on light orange — strong contrast
   ok: '#4ade80',
   warn: '#f87171',
 };
@@ -60,6 +66,7 @@ export const lightPalette: Palette = {
   text: '#18181b',
   textMuted: '#52525b',
   accent: '#e08a2e',
+  accentFg: '#18181b', // near-black on medium orange — readable
   ok: '#15803d',
   warn: '#b91c1c',
 };

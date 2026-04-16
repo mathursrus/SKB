@@ -1736,8 +1736,11 @@ a#custom-call-confirm[aria-disabled="true"] {
 }
 .diner header .theme-toggle-btn {
     position: absolute;
-    top: 16px;
-    right: 16px;
+    top: 12px;
+    right: 12px;
+    width: 32px;
+    height: 32px;
+    font-size: 14px;
     background: rgba(255,255,255,0.08);
     border-color: rgba(255,255,255,0.3);
     color: #fff;
@@ -1746,6 +1749,9 @@ a#custom-call-confirm[aria-disabled="true"] {
     background: rgba(255,255,255,0.18);
     border-color: var(--accent);
     color: var(--accent);
+}
+@media (max-width: 360px) {
+    .diner header .theme-toggle-btn { width: 28px; height: 28px; font-size: 12px; }
 }
 .diner header { position: relative; }
 

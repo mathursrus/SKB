@@ -106,7 +106,7 @@ function makeStyles(theme: Theme) {
       opacity: 0.5,
     },
     buttonText: {
-      color: theme.color.surface,
+      color: theme.color.accentFg,
       fontSize: 18,
       fontWeight: '600',
     },

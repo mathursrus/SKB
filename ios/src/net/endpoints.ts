@@ -2,6 +2,8 @@ import type {
   ChatMessage,
   ChatTemplates,
   ChatThread,
+  CompletedParty,
+  CompletedSummary,
   PartyId,
   SeatedParty,
   WaitingParty,
@@ -29,6 +31,10 @@ export interface HostDiningResponse {
   diningCount: number;
 }
 
+export interface HostCompletedResponse extends CompletedSummary {
+  parties: CompletedParty[];
+}
+
 export interface SeatResponse {
   ok: true;
 }
@@ -39,9 +45,21 @@ export interface SeatConflictError {
   occupiedBy: string;
 }
 
+export interface AddPartyResponse {
+  code: string;
+  position: number;
+  etaAt: string;
+  etaMinutes: number;
+}
+
 export const waitlist = {
   listWaiting: () => request<HostQueueResponse>('/host/queue'),
   listSeated: () => request<HostDiningResponse>('/host/dining'),
+  listCompleted: () => request<HostCompletedResponse>('/host/completed'),
+
+  /** Host-initiated add for walk-ins (POST /host/queue/add). */
+  addParty: (body: { name: string; partySize: number; phone: string }) =>
+    request<AddPartyResponse>('/host/queue/add', { method: 'POST', body }),
 
   /**
    * Issue #30 R14–R17 seat action. The backend exposes seating as a "remove"
@@ -97,12 +115,15 @@ export const calls = {
     request<{ ok: true; smsStatus: string }>(`/host/queue/${id}/call`, { method: 'POST' }),
 };
 
+export interface HostSettings {
+  avgTurnTimeMinutes: number;
+  etaMode: 'manual' | 'dynamic';
+  effectiveMinutes: number;
+}
+
 export const stats = {
   getStats: () => request<Record<string, unknown>>('/host/stats'),
-  getSettings: () =>
-    request<{
-      avgTurnTimeMinutes: number;
-      etaMode: 'manual' | 'dynamic';
-      effectiveMinutes: number;
-    }>('/host/settings'),
+  getSettings: () => request<HostSettings>('/host/settings'),
+  saveSettings: (body: { avgTurnTimeMinutes?: number; etaMode?: 'manual' | 'dynamic' }) =>
+    request<HostSettings>('/host/settings', { method: 'POST', body }),
 };

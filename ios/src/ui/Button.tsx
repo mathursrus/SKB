@@ -1,12 +1,15 @@
+import { Ionicons } from '@expo/vector-icons';
 import { forwardRef } from 'react';
 import { Pressable, StyleSheet, Text, View, type GestureResponderEvent } from 'react-native';
 
 import { theme } from './theme';
 
 type Variant = 'default' | 'primary' | 'danger' | 'ghost';
+type IonIconName = React.ComponentProps<typeof Ionicons>['name'];
 
 interface Props {
   label: string;
+  icon?: IonIconName;
   onPress?: (e: GestureResponderEvent) => void;
   variant?: Variant;
   disabled?: boolean;
@@ -18,7 +21,7 @@ interface Props {
 }
 
 export const Button = forwardRef<View, Props>(function Button(
-  { label, onPress, variant = 'default', disabled, badge, accessibilityLabel, compact, newFeature },
+  { label, icon, onPress, variant = 'default', disabled, badge, accessibilityLabel, compact, newFeature },
   ref,
 ) {
   const style = [
@@ -47,6 +50,18 @@ export const Button = forwardRef<View, Props>(function Button(
       onPress={onPress}
       style={({ pressed }) => [...style, pressed && !disabled && styles.pressed]}
     >
+      {icon !== undefined && (
+        <Ionicons
+          name={icon}
+          size={14}
+          color={
+            variant === 'primary' ? '#2a1a00'
+              : variant === 'danger' ? theme.color.warn
+              : variant === 'ghost' ? theme.color.textMuted
+              : theme.color.text
+          }
+        />
+      )}
       <Text style={textStyle} numberOfLines={1}>
         {label}
       </Text>
@@ -64,19 +79,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: '#2a2f3a',
+    backgroundColor: theme.color.surfaceRaised,
     borderWidth: 1,
     borderColor: theme.color.line,
     borderRadius: theme.radius.sm,
     paddingHorizontal: 10,
     paddingVertical: 8,
-    marginLeft: 6,
     position: 'relative',
   },
   compact: {
     paddingHorizontal: 8,
     paddingVertical: 6,
-    marginLeft: 4,
   },
   primary: {
     backgroundColor: theme.color.accent,

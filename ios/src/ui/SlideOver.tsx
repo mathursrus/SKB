@@ -1,6 +1,17 @@
+import { Ionicons } from '@expo/vector-icons';
 import type { ReactNode } from 'react';
 import { useEffect } from 'react';
-import { Dimensions, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import {
+  Dimensions,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -37,28 +48,36 @@ export function SlideOver({ visible, title, subtitle, onClose, children }: Props
       <View style={styles.overlay}>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Dismiss slide-over"
+          accessibilityLabel="Dismiss chat"
           style={StyleSheet.absoluteFill}
           onPress={onClose}
         />
-        <Animated.View
-          style={[
-            styles.drawer,
-            { width },
-            animStyle,
-          ]}
-          accessibilityViewIsModal
-        >
-          <View style={styles.header}>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.title}>{title}</Text>
-              {subtitle !== undefined && <Text style={styles.subtitle}>{subtitle}</Text>}
-            </View>
-            <Pressable accessibilityRole="button" accessibilityLabel="Close chat" onPress={onClose}>
-              <Text style={styles.closeText}>×</Text>
-            </Pressable>
-          </View>
-          {children}
+        <Animated.View style={[styles.drawer, { width }, animStyle]} accessibilityViewIsModal>
+          <SafeAreaView edges={['top', 'bottom']} style={styles.safe}>
+            <KeyboardAvoidingView
+              behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+              style={styles.fill}
+              // Account for the drawer header so the composer lifts cleanly above the keyboard
+              keyboardVerticalOffset={0}
+            >
+              <View style={styles.header}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.title}>{title}</Text>
+                  {subtitle !== undefined && <Text style={styles.subtitle}>{subtitle}</Text>}
+                </View>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Close chat"
+                  onPress={onClose}
+                  hitSlop={12}
+                  style={({ pressed }) => [styles.closeButton, pressed && styles.closeButtonPressed]}
+                >
+                  <Ionicons name="close" size={22} color={theme.color.text} />
+                </Pressable>
+              </View>
+              <View style={styles.body}>{children}</View>
+            </KeyboardAvoidingView>
+          </SafeAreaView>
         </Animated.View>
       </View>
     </Modal>
@@ -78,6 +97,8 @@ const styles = StyleSheet.create({
     borderLeftColor: theme.color.line,
     flexDirection: 'column',
   },
+  safe: { flex: 1 },
+  fill: { flex: 1 },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -95,9 +116,18 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginTop: 2,
   },
-  closeText: {
-    color: theme.color.textMuted,
-    fontSize: 26,
-    paddingHorizontal: theme.space.sm,
+  closeButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: theme.color.surfaceRaised,
+    borderWidth: 1,
+    borderColor: theme.color.line,
   },
+  closeButtonPressed: {
+    opacity: 0.7,
+  },
+  body: { flex: 1 },
 });

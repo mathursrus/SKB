@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import { Redirect, Tabs } from 'expo-router';
 import { useEffect } from 'react';
 import { AppState } from 'react-native';
@@ -68,9 +69,34 @@ export default function HostLayout() {
         headerTitleStyle: { color: theme.color.text },
       }}
     >
-      <Tabs.Screen name="waiting" options={{ title: 'Waiting' }} />
-      <Tabs.Screen name="seated" options={{ title: 'Seated' }} />
-      <Tabs.Screen name="settings" options={{ title: 'Settings' }} />
+      <Tabs.Screen
+        name="waiting"
+        options={{
+          title: 'Waiting',
+          tabBarIcon: ({ color, size }) => <Ionicons name="hourglass-outline" size={size} color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="seated"
+        options={{
+          title: 'Seated',
+          tabBarIcon: ({ color, size }) => <Ionicons name="restaurant-outline" size={size} color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="complete"
+        options={{
+          title: 'Complete',
+          tabBarIcon: ({ color, size }) => <Ionicons name="checkmark-done-outline" size={size} color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="settings"
+        options={{
+          title: 'Settings',
+          tabBarIcon: ({ color, size }) => <Ionicons name="settings-outline" size={size} color={color} />,
+        }}
+      />
     </Tabs>
   );
 }

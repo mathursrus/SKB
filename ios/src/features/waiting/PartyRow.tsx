@@ -29,34 +29,51 @@ function PartyRowImpl(props: Props) {
     <View
       accessibilityRole="summary"
       accessibilityLabel={`Party ${party.position}, ${party.name}, size ${party.partySize}`}
-      style={[
-        styles.row,
-        party.state === 'called' && styles.rowCalled,
-      ]}
+      style={[styles.row, party.state === 'called' && styles.rowCalled]}
     >
-      <View style={styles.position}>
-        <Text style={styles.positionText}>{party.position}</Text>
+      <View style={styles.topLine}>
+        <View style={styles.position}>
+          <Text style={styles.positionText}>#{party.position}</Text>
+        </View>
+        <View style={styles.main}>
+          <View style={styles.nameRow}>
+            <Text style={styles.name} numberOfLines={1}>
+              {party.name}
+            </Text>
+            {party.state === 'called' && (
+              <View style={[styles.badge, styles.badgeCalled]}>
+                <Text style={styles.badgeCalledText}>CALLED</Text>
+              </View>
+            )}
+            {party.onMyWayAt !== null && (
+              <View style={[styles.badge, styles.badgeOnTheWay]}>
+                <Text style={styles.badgeOnTheWayText}>ON THE WAY</Text>
+              </View>
+            )}
+          </View>
+          <Text style={styles.meta} numberOfLines={1}>
+            {party.partySize} · {party.phoneMasked}
+            {party.calls[0] &&
+              ` · ${party.calls.length === 1 ? 'called' : `${party.calls.length}× called`} ${party.calls[0].minutesAgo}m ago`}
+          </Text>
+        </View>
+        <View style={styles.timesBlock}>
+          <View style={styles.timeCol}>
+            <Text style={styles.timeLabel}>ETA</Text>
+            <Text style={styles.timeValue}>{formatClockTime(party.etaAt)}</Text>
+          </View>
+          <View style={styles.timeCol}>
+            <Text style={styles.timeLabel}>Wait</Text>
+            <LiveClock
+              joinedAt={party.joinedAt}
+              baseMinutes={party.waitingMinutes}
+              baseAt={baseAt}
+              style={styles.timeValue}
+            />
+          </View>
+        </View>
       </View>
-      <View style={styles.main}>
-        <Text style={styles.name}>{party.name}</Text>
-        <Text style={styles.meta}>
-          {party.partySize} · {party.phoneMasked}
-        </Text>
-      </View>
-      <View style={styles.times}>
-        <Text style={styles.timeLabel}>ETA</Text>
-        <Text style={styles.timeValue}>{formatClockTime(party.etaAt)}</Text>
-      </View>
-      <View style={styles.times}>
-        <Text style={styles.timeLabel}>Waiting</Text>
-        <LiveClock
-          joinedAt={party.joinedAt}
-          baseMinutes={party.waitingMinutes}
-          baseAt={baseAt}
-          style={styles.timeValue}
-        />
-      </View>
-      <View style={styles.actions}>
+      <View style={styles.actionsRow}>
         <RowActions
           party={party}
           onSeat={() => props.onSeat(party)}
@@ -84,14 +101,14 @@ export const PartyRow = memo(PartyRowImpl, (prev, next) => {
     a.etaAt === b.etaAt &&
     a.joinedAt === b.joinedAt &&
     a.waitingMinutes === b.waitingMinutes &&
-    a.unreadChat === b.unreadChat
+    a.unreadChat === b.unreadChat &&
+    a.onMyWayAt === b.onMyWayAt &&
+    a.calls.length === b.calls.length
   );
 });
 
 const styles = StyleSheet.create({
   row: {
-    flexDirection: 'row',
-    alignItems: 'center',
     backgroundColor: theme.color.surface,
     borderWidth: 1,
     borderColor: theme.color.line,
@@ -100,27 +117,46 @@ const styles = StyleSheet.create({
     marginBottom: theme.space.sm,
     gap: theme.space.md,
   },
-  rowCalled: {
-    borderColor: theme.color.accent,
-  },
-  position: {
-    width: 36,
+  rowCalled: { borderColor: theme.color.accent },
+  topLine: {
+    flexDirection: 'row',
     alignItems: 'center',
+    gap: theme.space.md,
   },
+  position: { minWidth: 34, alignItems: 'flex-start' },
   positionText: {
     color: theme.color.textMuted,
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '700',
     fontVariant: ['tabular-nums'],
   },
-  main: {
-    flex: 1,
-    minWidth: 140,
+  main: { flex: 1, minWidth: 0 },
+  nameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.space.xs,
+    flexWrap: 'wrap',
   },
   name: {
     color: theme.color.text,
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '600',
+    flexShrink: 1,
+  },
+  badge: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
+  badgeCalled: { backgroundColor: theme.color.accent },
+  badgeCalledText: {
+    color: theme.color.accentFg,
+    fontSize: 9,
+    fontWeight: '800',
+    letterSpacing: 0.6,
+  },
+  badgeOnTheWay: { backgroundColor: theme.color.ok },
+  badgeOnTheWayText: {
+    color: theme.color.surface,
+    fontSize: 9,
+    fontWeight: '800',
+    letterSpacing: 0.6,
   },
   meta: {
     color: theme.color.textMuted,
@@ -128,15 +164,16 @@ const styles = StyleSheet.create({
     marginTop: 2,
     fontVariant: ['tabular-nums'],
   },
-  times: {
-    alignItems: 'flex-start',
-    minWidth: 80,
+  timesBlock: {
+    flexDirection: 'row',
+    gap: theme.space.md,
   },
+  timeCol: { alignItems: 'flex-end', minWidth: 44 },
   timeLabel: {
     color: theme.color.textMuted,
-    fontSize: 10,
+    fontSize: 9,
     textTransform: 'uppercase',
-    letterSpacing: 0.8,
+    letterSpacing: 0.6,
   },
   timeValue: {
     color: theme.color.text,
@@ -145,8 +182,5 @@ const styles = StyleSheet.create({
     fontVariant: ['tabular-nums'],
     marginTop: 2,
   },
-  actions: {
-    flexShrink: 1,
-    minWidth: 180,
-  },
+  actionsRow: { marginTop: 2 },
 });

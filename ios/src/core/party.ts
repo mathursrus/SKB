@@ -51,6 +51,34 @@ export interface SeatedParty {
   toCheckoutMinutes: number | null;
 }
 
+/**
+ * Completed row for the host's retrospective view. Matches
+ * HostCompletedPartyDTO returned by GET /r/:loc/host/completed →
+ * { parties: CompletedParty[], totalServed, totalNoShows, avgWaitMinutes,
+ *   avgTableOccupancyMinutes }.
+ */
+export interface CompletedParty {
+  id: PartyId;
+  name: string;
+  partySize: number;
+  state: 'departed' | 'no_show';
+  joinedAt: string;
+  waitTimeMinutes: number;
+  tableTimeMinutes: number | null;
+  totalTimeMinutes: number;
+  toOrderMinutes: number | null;
+  toServeMinutes: number | null;
+  toCheckoutMinutes: number | null; // Served → asking for the check ("Dining" on the web)
+  toDepartMinutes: number | null;   // Asking for check → leaving ("Paying" on the web)
+}
+
+export interface CompletedSummary {
+  totalServed: number;
+  totalNoShows: number;
+  avgWaitMinutes: number | null;
+  avgTableOccupancyMinutes: number | null;
+}
+
 export interface ChatMessage {
   direction: 'inbound' | 'outbound';
   body: string;

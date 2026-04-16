@@ -1,11 +1,16 @@
+import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
-import { Alert, FlatList, RefreshControl, StyleSheet, Text, View } from 'react-native';
+import { Alert, FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
 
 import type { WaitingParty } from '@/core/party';
+import { calls } from '@/net/endpoints';
 import { useWaitlistStore } from '@/state/waitlist';
 import { theme } from '@/ui/theme';
 
 import { SeatDialog } from '../seat-dialog/SeatDialog';
+import { AddPartySheet } from './AddPartySheet';
+import { CustomCallDialog } from './CustomCallDialog';
+import { CustomSmsDialog } from './CustomSmsDialog';
 import { PartyRow } from './PartyRow';
 
 export function WaitingList() {
@@ -18,6 +23,10 @@ export function WaitingList() {
 
   const [refreshing, setRefreshing] = useState(false);
   const [seatTarget, setSeatTarget] = useState<WaitingParty | null>(null);
+  const [smsTarget, setSmsTarget] = useState<WaitingParty | null>(null);
+  const [callTarget, setCallTarget] = useState<WaitingParty | null>(null);
+  const [notifying, setNotifying] = useState<string | null>(null);
+  const [addOpen, setAddOpen] = useState(false);
 
   async function handleRefresh() {
     setRefreshing(true);
@@ -28,7 +37,7 @@ export function WaitingList() {
   function handleRemove(party: WaitingParty) {
     Alert.alert(
       `Remove ${party.name}?`,
-      `Mark this party as a no-show? This cannot be undone.`,
+      'Mark this party as a no-show? This cannot be undone.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -40,16 +49,37 @@ export function WaitingList() {
     );
   }
 
-  function notImplemented(_: WaitingParty) {
-    // Notify / Custom SMS / Custom Call are stubs until follow-up tasks wire
-    // them up. Row buttons remain enabled so the UI shape matches the mock.
+  async function handleNotify(party: WaitingParty) {
+    if (notifying === party.id) return; // prevent double-tap
+    setNotifying(party.id);
+    try {
+      await calls.customCall(party.id);
+      await poll(); // refresh so the "called" state + re-notify UI reflect
+      const action = party.state === 'called' ? 'Re-notified' : 'Notified';
+      Alert.alert('SMS sent', `${action} ${party.name}.`);
+    } catch (err) {
+      Alert.alert('Notify failed', (err as Error).message || 'Could not send SMS.');
+    } finally {
+      setNotifying(null);
+    }
   }
 
   return (
     <View style={styles.container}>
-      <Text style={styles.header}>
-        Waiting · <Text style={styles.count}>{waiting.length}</Text>
-      </Text>
+      <View style={styles.topBar}>
+        <Text style={styles.header}>
+          Waiting · <Text style={styles.count}>{waiting.length}</Text>
+        </Text>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Add walk-in to waitlist"
+          style={styles.addButton}
+          onPress={() => setAddOpen(true)}
+        >
+          <Ionicons name="person-add" size={16} color={theme.color.accentFg} />
+          <Text style={styles.addButtonText}>Add party</Text>
+        </Pressable>
+      </View>
       {error !== null && <Text style={styles.error}>{error}</Text>}
 
       <FlatList
@@ -60,9 +90,9 @@ export function WaitingList() {
             party={item}
             baseAt={lastPolledAt ?? Date.now()}
             onSeat={(party) => setSeatTarget(party)}
-            onNotify={notImplemented}
-            onCustomSms={notImplemented}
-            onCustomCall={notImplemented}
+            onNotify={(party) => void handleNotify(party)}
+            onCustomSms={(party) => setSmsTarget(party)}
+            onCustomCall={(party) => setCallTarget(party)}
             onRemove={handleRemove}
           />
         )}
@@ -85,6 +115,9 @@ export function WaitingList() {
         seated={seated}
         onClose={() => setSeatTarget(null)}
       />
+      <CustomSmsDialog party={smsTarget} onClose={() => setSmsTarget(null)} />
+      <CustomCallDialog party={callTarget} onClose={() => setCallTarget(null)} />
+      <AddPartySheet visible={addOpen} onClose={() => setAddOpen(false)} />
     </View>
   );
 }
@@ -95,19 +128,33 @@ const styles = StyleSheet.create({
     backgroundColor: theme.color.surface,
     padding: theme.space.lg,
   },
+  topBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: theme.space.md,
+  },
   header: {
     color: theme.color.text,
     fontSize: 20,
     fontWeight: '700',
-    marginBottom: theme.space.md,
   },
-  count: {
-    color: theme.color.accent,
+  addButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: theme.color.accent,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: theme.radius.md,
   },
-  error: {
-    color: theme.color.warn,
-    marginBottom: theme.space.md,
+  addButtonText: {
+    color: theme.color.accentFg,
+    fontSize: 14,
+    fontWeight: '700',
   },
+  count: { color: theme.color.accent },
+  error: { color: theme.color.warn, marginBottom: theme.space.md },
   empty: {
     color: theme.color.textMuted,
     textAlign: 'center',

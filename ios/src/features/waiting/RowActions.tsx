@@ -1,4 +1,4 @@
-import { Linking, View } from 'react-native';
+import { Linking, StyleSheet, View } from 'react-native';
 
 import { events, logger } from '@/core/logger';
 import type { WaitingParty } from '@/core/party';
@@ -26,6 +26,7 @@ export function RowActions({
 }: Props) {
   const phoneOk = hasDialablePhone(party);
   const openChat = useChatStore((s) => s.openChat);
+  const isCalled = party.state === 'called';
 
   function handleCall() {
     if (!party.phoneForDial) return;
@@ -36,19 +37,23 @@ export function RowActions({
   }
 
   return (
-    <View
-      style={{
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        justifyContent: 'flex-end',
-        alignItems: 'center',
-      }}
-    >
-      <Button label="Seat" variant="primary" onPress={onSeat} />
-      <Button label="Notify" onPress={onNotify} disabled={!phoneOk} />
+    <View style={styles.container}>
+      <Button
+        label="Seat"
+        icon="people"
+        variant="primary"
+        onPress={onSeat}
+      />
+      <Button
+        label={isCalled ? 'Re-notify' : 'Notify'}
+        icon="notifications"
+        variant={isCalled ? 'primary' : 'default'}
+        onPress={onNotify}
+        disabled={!phoneOk}
+      />
       <Button
         label="Chat"
-        newFeature
+        icon="chatbubble-ellipses"
         disabled={!phoneOk}
         badge={party.unreadChat}
         onPress={() => void openChat(party.id, party.code)}
@@ -56,14 +61,40 @@ export function RowActions({
       />
       <Button
         label="Call"
-        newFeature
+        icon="call"
         disabled={!phoneOk}
         onPress={handleCall}
         accessibilityLabel={`Call ${party.name}`}
       />
-      <Button label="Custom SMS" disabled={!phoneOk} onPress={onCustomSms} />
-      <Button label="Custom Call" disabled={!phoneOk} onPress={onCustomCall} />
-      <Button label="No-show" variant="danger" onPress={onRemove} />
+      <Button
+        label="SMS…"
+        icon="create"
+        disabled={!phoneOk}
+        onPress={onCustomSms}
+        accessibilityLabel="Custom SMS"
+      />
+      <Button
+        label="Dial…"
+        icon="keypad"
+        disabled={!phoneOk}
+        onPress={onCustomCall}
+        accessibilityLabel="Confirm before dial"
+      />
+      <Button
+        label="No-show"
+        icon="close-circle"
+        variant="danger"
+        onPress={onRemove}
+      />
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    rowGap: 8,
+  },
+});

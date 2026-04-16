@@ -4,7 +4,7 @@
 
 import { Router, type Request, type Response } from 'express';
 
-import { callParty, listHostQueue, removeFromQueue, logCallDial } from '../services/queue.js';
+import { callParty, joinQueue, listHostQueue, removeFromQueue, logCallDial } from '../services/queue.js';
 import { sendChatMessage, getChatThread, markThreadRead } from '../services/chat.js';
 import {
     chatAlmostReadyMessage,
@@ -112,6 +112,50 @@ export function hostRouter(): Router {
     r.get('/host/queue', requireHost, async (req: Request, res: Response) => {
         try { res.json(await listHostQueue(loc(req))); }
         catch (err) { dbError(res, err); }
+    });
+
+    // Host-initiated add — for walk-ins who hand the host their info instead
+    // of scanning the QR. Uses the same joinQueue service + validation as the
+    // diner /queue/join endpoint but without rate-limiting (hosts are
+    // authenticated and shouldn't be throttled during a rush) and without the
+    // auto confirmation SMS (the host is physically present — they can hand
+    // the party the code on paper, or tap Notify later).
+    r.post('/host/queue/add', requireHost, async (req: Request, res: Response) => {
+        const body = (req.body ?? {}) as { name?: unknown; partySize?: unknown; phone?: unknown };
+        const name = typeof body.name === 'string' ? body.name.trim() : '';
+        if (name.length < 1 || name.length > 60) {
+            res.status(400).json({ error: 'name must be 1..60 chars', field: 'name' });
+            return;
+        }
+        if (/[<>\\]/.test(name)) {
+            res.status(400).json({ error: 'name contains unsupported characters', field: 'name' });
+            return;
+        }
+        const size = Number(body.partySize);
+        if (!Number.isInteger(size) || size < 1 || size > 10) {
+            res.status(400).json({ error: 'partySize must be 1..10', field: 'partySize' });
+            return;
+        }
+        const phone = typeof body.phone === 'string' ? body.phone.trim() : '';
+        if (!/^\d{10}$/.test(phone)) {
+            res.status(400).json({ error: 'phone must be exactly 10 digits', field: 'phone' });
+            return;
+        }
+        try {
+            const result = await joinQueue(loc(req), { name, partySize: size, phone });
+            console.log(JSON.stringify({
+                t: new Date().toISOString(),
+                level: 'info',
+                msg: 'host.queue.add',
+                loc: loc(req),
+                code: result.code,
+                partySize: size,
+                position: result.position,
+            }));
+            res.json(result);
+        } catch (err) {
+            dbError(res, err);
+        }
     });
 
     r.post('/host/queue/:id/remove', requireHost, async (req: Request, res: Response) => {

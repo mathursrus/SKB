@@ -1997,6 +1997,21 @@ a#custom-call-confirm[aria-disabled="true"] {
     border-color: var(--accent);
     color: var(--accent);
 }
+/* Compact "+ Add party" CTA in the host topbar. Overrides the baseline
+   button.primary full-width styling so it sits nicely between the
+   counts and the admin/logout buttons. */
+.host .topbar-add-btn,
+.host button.primary.topbar-add-btn {
+    display: inline-flex;
+    align-items: center;
+    width: auto;
+    margin: 0;
+    padding: 8px 16px;
+    min-height: 40px;
+    font-size: 14px;
+    border-radius: 8px;
+}
+
 .theme-dark .theme-toggle-btn {
     background: var(--surface-alt);
     color: var(--fg);

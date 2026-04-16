@@ -918,6 +918,61 @@
         await fetch('api/host/logout', { method: 'POST' });
         showLogin();
     });
+
+    // Host-initiated add-party dialog (walk-ins who didn't scan the QR)
+    const addPartyBtn = $('add-party-btn');
+    const addPartyDialog = $('add-party-dialog');
+    const addPartyForm = $('add-party-form');
+    const addPartyName = $('add-party-name');
+    const addPartySize = $('add-party-size');
+    const addPartyPhone = $('add-party-phone');
+    const addPartyAlert = $('add-party-alert');
+    const addPartyCancel = $('add-party-cancel');
+    const addPartyClose = $('add-party-dialog-close');
+    function openAddPartyDialog() {
+        if (!addPartyDialog) return;
+        addPartyName.value = '';
+        addPartySize.value = '2';
+        addPartyPhone.value = '';
+        addPartyAlert.style.display = 'none';
+        addPartyAlert.textContent = '';
+        if (typeof addPartyDialog.showModal === 'function') addPartyDialog.showModal();
+        else addPartyDialog.setAttribute('open', '');
+        setTimeout(() => addPartyName && addPartyName.focus(), 0);
+    }
+    function closeAddPartyDialog() {
+        if (!addPartyDialog) return;
+        if (typeof addPartyDialog.close === 'function') addPartyDialog.close();
+        else addPartyDialog.removeAttribute('open');
+    }
+    if (addPartyBtn) addPartyBtn.addEventListener('click', openAddPartyDialog);
+    if (addPartyCancel) addPartyCancel.addEventListener('click', closeAddPartyDialog);
+    if (addPartyClose) addPartyClose.addEventListener('click', closeAddPartyDialog);
+    if (addPartyForm) addPartyForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const name = (addPartyName.value || '').trim();
+        const size = parseInt(addPartySize.value, 10);
+        const phone = (addPartyPhone.value || '').trim();
+        addPartyAlert.style.display = 'none';
+        try {
+            const r = await fetch('api/host/queue/add', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, partySize: size, phone }),
+            });
+            const data = await r.json().catch(() => ({}));
+            if (!r.ok) {
+                addPartyAlert.textContent = data.error || 'Could not add party.';
+                addPartyAlert.style.display = '';
+                return;
+            }
+            closeAddPartyDialog();
+            await refreshWaiting();
+        } catch (err) {
+            addPartyAlert.textContent = 'Network error — please try again.';
+            addPartyAlert.style.display = '';
+        }
+    });
     if (openAdminLink) {
         openAdminLink.addEventListener('click', () => rememberWorkspace());
     }

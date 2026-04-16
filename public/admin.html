@@ -114,11 +114,14 @@
                     <p>The QR sticker on your front door always points at a single stable URL. What scanners see when they arrive is decided here, live, without reprinting the sticker.</p>
                 </div>
                 <div class="qr-preview-block">
-                    <img id="admin-qr-image" class="qr-preview" alt="Door QR code for this location" src="api/host/visit-qr.svg" />
+                    <a id="admin-qr-test-link" class="qr-preview-link" href="#" target="_blank" rel="noopener" title="Click to open the scanner destination in a new tab">
+                        <img id="admin-qr-image" class="qr-preview" alt="Door QR code for this location" src="api/host/visit-qr.svg" />
+                    </a>
                     <div class="qr-preview-meta">
                         <div class="qr-target-label">Scanners land on:</div>
                         <code id="admin-qr-target-url">loading...</code>
                         <a id="admin-qr-download" href="api/host/visit-qr.svg" download="skb-visit-qr.svg" class="qr-download-link">Download SVG</a>
+                        <div class="qr-preview-hint">Tip: click the QR to preview where scanners land.</div>
                     </div>
                 </div>
                 <div class="visit-grid">

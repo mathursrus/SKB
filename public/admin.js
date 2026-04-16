@@ -236,13 +236,19 @@
         // can verify what scanners will land on without having to scan it.
         // Uses the same logic as the server-side QR endpoint.
         const qrTarget = document.getElementById('admin-qr-target-url');
-        if (qrTarget) {
-            const loc = (window.location.pathname.match(/^\/r\/([^/]+)\//) || [])[1] || 'skb';
-            const publicHost = (sitePublicHost?.value || '').trim();
-            qrTarget.textContent = publicHost
-                ? `https://${publicHost}/visit`
-                : `${window.location.origin}/r/${loc}/visit`;
-        }
+        const qrTestLink = document.getElementById('admin-qr-test-link');
+        const loc = (window.location.pathname.match(/^\/r\/([^/]+)\//) || [])[1] || 'skb';
+        const publicHost = (sitePublicHost?.value || '').trim();
+        // Always use the app-service URL for the "test link" — the publicHost
+        // URL is what ends up on the printed sticker, but that domain may not
+        // resolve in this browser yet (DNS not configured). The /r/:loc/visit
+        // path always works and hits the same redirect logic.
+        const scannerUrl = publicHost
+            ? `https://${publicHost}/visit`
+            : `${window.location.origin}/r/${loc}/visit`;
+        const testableUrl = `${window.location.origin}/r/${loc}/visit`;
+        if (qrTarget) qrTarget.textContent = scannerUrl;
+        if (qrTestLink) qrTestLink.href = testableUrl;
         // Force-refresh the QR image. The <img> fires at page-load time
         // (before host-auth cookie exists) and caches a 401, so we nudge
         // the src with a cache-busting param every time we (re)load the

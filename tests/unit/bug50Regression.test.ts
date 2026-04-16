@@ -22,6 +22,7 @@ const adminJs = loadFile('admin.js');
 const queueHtml = loadFile('queue.html');
 const queueJs = loadFile('queue.js');
 const hostHtml = loadFile('host.html');
+const hostJs = loadFile('host.js');
 const themeJs = loadFile('theme.js');
 const queueRoute = fs.readFileSync(
     path.resolve(__dirname, '..', '..', 'src', 'routes', 'queue.ts'),
@@ -306,6 +307,33 @@ const cases: BaseTestCase[] = [
         testFn: async () =>
             queueRoute.includes('/[<>\\\\]/.test(name)')
             && queueRoute.includes('name contains unsupported characters'),
+    },
+
+    // ---------- Round 2 bug-bash fixes ----------
+    {
+        name: 'bugbash2: host chat drawer polls while open and stops on close',
+        tags: ['unit', 'bugbash2', 'host', 'chat'],
+        testFn: async () =>
+            /scheduleChatDrawerPoll/.test(hostJs)
+            && /stopChatDrawerPoll/.test(hostJs)
+            // openChat arms the poll, closeChat disarms
+            && /scheduleChatDrawerPoll\(id\)/.test(hostJs)
+            && /stopChatDrawerPoll\(\)/.test(hostJs),
+    },
+    {
+        name: 'bugbash2: .chat-form button has width:auto so it does NOT inherit primary width:100%',
+        tags: ['unit', 'bugbash2', 'diner', 'chat', 'css'],
+        testFn: async () =>
+            /\.chat-form\s+button\s*\{[^}]*width:\s*auto/.test(stylesCss)
+            && /\.chat-form\s+button\s*\{[^}]*margin:\s*0/.test(stylesCss),
+    },
+    {
+        name: 'bugbash2: admin QR is wrapped in a test-link anchor for preview',
+        tags: ['unit', 'bugbash2', 'admin'],
+        testFn: async () =>
+            /id=["']admin-qr-test-link["']/.test(adminHtml)
+            && /target=["']_blank["']/.test(adminHtml)
+            && /qrTestLink\.href/.test(adminJs),
     },
 ];
 

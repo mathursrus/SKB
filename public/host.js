@@ -487,6 +487,10 @@
     const chatCloseBtn = document.getElementById('chat-drawer-close');
     let chatOpenId = null;
     let chatOpenCode = null;
+    let chatDrawerPollTimer = null;
+    const CHAT_DRAWER_POLL_BASE_MS = 4000;
+    const CHAT_DRAWER_POLL_MAX_MS = 60000;
+    let chatDrawerPollDelayMs = CHAT_DRAWER_POLL_BASE_MS;
 
     function renderChatThread(messages) {
         if (!chatThread) return;
@@ -508,10 +512,31 @@
     async function loadChatThread(id) {
         try {
             const r = await fetch('api/host/queue/' + encodeURIComponent(id) + '/chat');
+            if (r.status === 429) {
+                // Back off on rate limit so we don't flood the endpoint while
+                // the drawer is open and polling.
+                chatDrawerPollDelayMs = Math.min(chatDrawerPollDelayMs * 2, CHAT_DRAWER_POLL_MAX_MS);
+                return;
+            }
             if (!r.ok) { renderChatThread([]); return; }
+            chatDrawerPollDelayMs = CHAT_DRAWER_POLL_BASE_MS;
             const thread = await r.json();
             renderChatThread(thread.messages || []);
         } catch { renderChatThread([]); }
+    }
+
+    function scheduleChatDrawerPoll(id) {
+        if (chatDrawerPollTimer) clearTimeout(chatDrawerPollTimer);
+        chatDrawerPollTimer = setTimeout(async () => {
+            if (chatOpenId !== id) return; // drawer closed or switched
+            await loadChatThread(id);
+            if (chatOpenId === id) scheduleChatDrawerPoll(id);
+        }, chatDrawerPollDelayMs);
+    }
+
+    function stopChatDrawerPoll() {
+        if (chatDrawerPollTimer) { clearTimeout(chatDrawerPollTimer); chatDrawerPollTimer = null; }
+        chatDrawerPollDelayMs = CHAT_DRAWER_POLL_BASE_MS;
     }
 
     async function markChatRead(id) {
@@ -548,6 +573,10 @@
         if (chatBackdrop) chatBackdrop.classList.add('open');
         loadChatThread(id).then(() => markChatRead(id).then(refreshWaiting));
         loadQuickReplies(code);
+        // Poll for inbound replies while the drawer is open. Without this
+        // the host only sees new messages after they send a reply or
+        // close+reopen the drawer.
+        scheduleChatDrawerPoll(id);
         setTimeout(() => chatInput && chatInput.focus(), 0);
     }
 
@@ -558,6 +587,7 @@
         if (chatBackdrop) chatBackdrop.classList.remove('open');
         chatDrawer.hidden = true;
         chatOpenId = null;
+        stopChatDrawerPoll();
     }
 
     if (chatCloseBtn) chatCloseBtn.addEventListener('click', closeChat);

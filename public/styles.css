@@ -164,7 +164,7 @@ button.primary:disabled { opacity: 0.5; cursor: not-allowed; }
     margin: 6px 0 14px;
     padding: 10px 18px;
     background: var(--accent);
-    color: #111;
+    color: var(--accent-fg);
     border-radius: 6px;
     font-family: ui-monospace, Menlo, Consolas, monospace;
     font-size: 20px;
@@ -185,7 +185,7 @@ button.primary:disabled { opacity: 0.5; cursor: not-allowed; }
 }
 .callout {
     background: var(--accent);
-    color: #111;
+    color: var(--accent-fg);
     padding: 14px 16px;
     border-radius: 8px;
     margin-top: 16px;
@@ -239,7 +239,7 @@ button.primary:disabled { opacity: 0.5; cursor: not-allowed; }
 }
 .chat-row.from-me .chat-bubble {
     background: var(--accent, #e3bf3d);
-    color: #111;
+    color: var(--accent-fg);
     border-bottom-right-radius: 4px;
 }
 .chat-who { display: none; }
@@ -601,7 +601,7 @@ tr.row-called td { background: #fff8e1; }
 .badge-called {
     display: inline-block;
     background: var(--accent);
-    color: #111;
+    color: var(--accent-fg);
     font-size: 10px;
     font-weight: 700;
     letter-spacing: 0.5px;
@@ -757,7 +757,7 @@ button.remove:hover { background: var(--danger); color: #fff; }
     border-radius: 10px;
     margin-left: 4px;
 }
-.tab.active .tab-badge { background: var(--accent); color: #111; }
+.tab.active .tab-badge { background: var(--accent); color: var(--accent-fg); }
 .tab-content { display: none; }
 .tab-content.active { display: block; }
 
@@ -1219,7 +1219,7 @@ body.queue-boot::before {
 .host tr.row-called td.actions button.notify-btn {
     background: var(--accent);
     border-color: var(--accent-dark);
-    color: #111;
+    color: var(--accent-fg);
 }
 
 /* Chat + Call: neutral peers. Chat carries the unread dot; Call is an
@@ -1586,7 +1586,7 @@ a#custom-call-confirm.primary {
     font-weight: 700;
     font-size: 14px;
 }
-a#custom-call-confirm.primary:hover { background: var(--accent-dark); color: #111; }
+a#custom-call-confirm.primary:hover { background: var(--accent-dark); color: var(--accent-fg); }
 a#custom-call-confirm[aria-disabled="true"] {
     opacity: 0.4;
     pointer-events: none;

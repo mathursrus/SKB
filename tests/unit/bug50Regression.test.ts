@@ -283,6 +283,19 @@ const cases: BaseTestCase[] = [
             /td\.actions\s*\{[^}]*min-width/.test(stylesCss)
             && !/td\.actions\s*\{[^}]*\bwidth:\s*460px/.test(stylesCss),
     },
+    {
+        name: 'bugbash: host login-view has a theme toggle (data-theme-toggle) so pre-auth diners can flip',
+        tags: ['unit', 'bugbash', 'theme', 'host'],
+        testFn: async () => {
+            // Require a toggle button inside the login-view and that theme.js
+            // wires up all class='theme-toggle-btn' elements (not just id).
+            const loginView = hostHtml.match(/<div[^>]*id=["']login-view["'][^>]*>[\s\S]*?<\/div>\s*<div[^>]*id=["']queue-view["']/);
+            const loginSlice = loginView ? loginView[0] : '';
+            const hasLoginToggle = /data-theme-toggle/.test(loginSlice) || /class=["'][^"']*theme-toggle-btn/.test(loginSlice);
+            const themeWiresAll = /querySelectorAll\([^)]*theme-toggle/.test(themeJs);
+            return hasLoginToggle && themeWiresAll;
+        },
+    },
 ];
 
 void runTests(cases, 'Bug #50 Regression');

@@ -34,14 +34,20 @@
     }
 
     function updateToggleLabel() {
-        var btn = document.getElementById('theme-toggle');
-        if (!btn) return;
+        // Several pages (host login + topbar, admin, diner) ship a toggle;
+        // update every button that identifies itself as a theme toggle.
+        var buttons = document.querySelectorAll('#theme-toggle, [data-theme-toggle], .theme-toggle-btn');
+        if (!buttons.length) return;
         var m = currentMode();
-        // Show glyph for what's active; tooltip explains next-step.
         var dark = isDark();
-        btn.textContent = m === 'auto' ? (dark ? '\u263D' : '\u2600') : (dark ? '\u263D' : '\u2600');
-        btn.setAttribute('aria-label', 'Theme: ' + m + (m === 'auto' ? ' (' + (dark ? 'dark' : 'light') + ')' : '') + ' — click to change');
-        btn.setAttribute('title', 'Theme: ' + m.charAt(0).toUpperCase() + m.slice(1) + (m === 'auto' ? ' · ' + (dark ? 'dark' : 'light') : '') + ' — click to change');
+        var glyph = dark ? '\u263D' : '\u2600';
+        var aria = 'Theme: ' + m + (m === 'auto' ? ' (' + (dark ? 'dark' : 'light') + ')' : '') + ' — click to change';
+        var title = 'Theme: ' + m.charAt(0).toUpperCase() + m.slice(1) + (m === 'auto' ? ' · ' + (dark ? 'dark' : 'light') : '') + ' — click to change';
+        buttons.forEach(function (btn) {
+            btn.textContent = glyph;
+            btn.setAttribute('aria-label', aria);
+            btn.setAttribute('title', title);
+        });
     }
 
     window.skbToggleTheme = function () {
@@ -65,10 +71,13 @@
         if (mql.addListener) mql.addListener(function () { if (currentMode() === 'auto') apply(); });
     }
 
-    // Wire up toggle button after DOMContentLoaded.
+    // Wire up every toggle button on the page (login card + post-login topbar
+    // on host.html both ship one; diner + admin have their own).
     document.addEventListener('DOMContentLoaded', function () {
-        var btn = document.getElementById('theme-toggle');
-        if (btn) btn.addEventListener('click', window.skbToggleTheme);
+        var buttons = document.querySelectorAll('#theme-toggle, [data-theme-toggle], .theme-toggle-btn');
+        buttons.forEach(function (btn) {
+            btn.addEventListener('click', window.skbToggleTheme);
+        });
         updateToggleLabel();
     });
 })();

@@ -1769,6 +1769,16 @@ a#custom-call-confirm[aria-disabled="true"] {
 }
 .diner header { position: relative; }
 
+/* Host login-view toggle — floats top-right of the full-bleed login view
+   (there's no topbar until after authentication). */
+#login-view { position: relative; }
+.login-theme-toggle {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    z-index: 1;
+}
+
 /* ============================================================================
    Dark mode — activated by `.theme-dark` class on <html>.
    theme.js handles prefers-color-scheme + manual toggle + localStorage.

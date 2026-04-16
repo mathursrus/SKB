@@ -1,6 +1,7 @@
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
+import { useColorScheme } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
@@ -10,10 +11,12 @@ import {
   registerPushTokenWithBackend,
 } from '@/net/push';
 import { useAuthStore } from '@/state/auth';
-import { theme } from '@/ui/theme';
+import { useTheme } from '@/ui/theme';
 
 export default function RootLayout() {
   const hydrate = useAuthStore((s) => s.hydrate);
+  const theme = useTheme();
+  const scheme = useColorScheme();
 
   useEffect(() => {
     void hydrate();
@@ -36,7 +39,7 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: theme.color.surface }}>
       <SafeAreaProvider>
-        <StatusBar style="light" />
+        <StatusBar style={scheme === 'light' ? 'dark' : 'light'} />
         <Stack
           screenOptions={{
             headerStyle: { backgroundColor: theme.color.surface },

@@ -38,11 +38,14 @@ function locationId(): string {
   return process.env.EXPO_PUBLIC_LOCATION_ID ?? 'skb';
 }
 
-function buildUrl(path: string): string {
+// Exported for unit tests — don't rely on this in application code.
+export function buildUrl(path: string): string {
   const base = apiBaseUrl();
   const loc = locationId();
   const suffix = path.startsWith('/') ? path : `/${path}`;
-  return `${base}/r/${loc}${suffix}`;
+  // Server mounts host API at /r/:loc/api/host/* (see src/mcp-server.ts).
+  // Earlier builds omitted /api, so every call 404'd — that's the PIN 1234 bug.
+  return `${base}/r/${loc}/api${suffix}`;
 }
 
 interface RequestOptions {

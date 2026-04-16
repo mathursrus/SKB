@@ -582,7 +582,21 @@ td.size { text-align: center; width: 60px; }
 td.phone { font-family: ui-monospace, Menlo, Consolas, monospace; color: var(--muted); width: 80px; }
 td.eta { width: 100px; font-weight: 600; }
 td.wait { width: 90px; color: var(--muted); }
-td.actions { width: 460px; text-align: right; white-space: nowrap; }
+td.actions { min-width: 340px; text-align: right; white-space: nowrap; }
+/* Host waiting-table actions — on narrow viewports (phone + iPad-portrait),
+   hide the icon-only "more" buttons (custom SMS + custom Call). Their
+   functionality overlaps Chat/Call which remain visible. No-show becomes
+   a text-only tertiary so hosts can reach it without scrolling. */
+@media (max-width: 900px) {
+    .host td.actions button.more-btn { display: none; }
+    .host td.actions { min-width: 0; }
+    .host table.waiting-table,
+    .host #tab-waiting table { font-size: 13px; }
+}
+/* Final safety net: if the table is still wider than its container at any
+   breakpoint, let the tab-content container scroll horizontally rather than
+   force the whole page to scroll. */
+.host .tab-content { overflow-x: auto; }
 tr.row-called td { background: #fff8e1; }
 .badge-called {
     display: inline-block;

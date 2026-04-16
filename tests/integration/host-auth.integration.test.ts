@@ -278,6 +278,128 @@ const cases: BaseTestCase[] = [
             return res.status === 401;
         },
     },
+    // ---------- POST /host/queue/add (host-initiated walk-in add) ----------
+    {
+        name: 'host-add: no cookie → 401',
+        tags: ['integration', 'auth', 'add-party'],
+        testFn: async () => {
+            const res = await fetch(`${getTestServerUrl()}/api/host/queue/add`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name: 'Walkin', partySize: 2, phone: '2065550001' }),
+            });
+            return res.status === 401;
+        },
+    },
+    {
+        name: 'host-add: valid body with cookie → 200 + code returned',
+        tags: ['integration', 'auth', 'add-party', 'waitlist-path'],
+        testFn: async () => {
+            const loginRes = await fetch(`${getTestServerUrl()}/api/host/login`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ pin: '1234' }),
+            });
+            const cookieValue = (loginRes.headers.get('set-cookie') ?? '').split(';')[0];
+            const res = await fetch(`${getTestServerUrl()}/api/host/queue/add`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', Cookie: cookieValue },
+                body: JSON.stringify({ name: 'WalkIn', partySize: 3, phone: '2065550002' }),
+            });
+            if (!res.ok) return false;
+            const body = await res.json() as { code?: string; position?: number };
+            return typeof body.code === 'string' && /^SKB-[A-Z2-9]{3}$/.test(body.code) && typeof body.position === 'number';
+        },
+    },
+    {
+        name: 'host-add: name with HTML metacharacters → 400',
+        tags: ['integration', 'auth', 'add-party', 'security'],
+        testFn: async () => {
+            const loginRes = await fetch(`${getTestServerUrl()}/api/host/login`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ pin: '1234' }),
+            });
+            const cookieValue = (loginRes.headers.get('set-cookie') ?? '').split(';')[0];
+            const res = await fetch(`${getTestServerUrl()}/api/host/queue/add`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', Cookie: cookieValue },
+                body: JSON.stringify({ name: '<script>alert(1)</script>', partySize: 2, phone: '2065550003' }),
+            });
+            if (res.status !== 400) return false;
+            const body = await res.json() as { error?: string };
+            return typeof body.error === 'string' && body.error.includes('unsupported characters');
+        },
+    },
+    {
+        name: 'host-add: invalid phone → 400 with field hint',
+        tags: ['integration', 'auth', 'add-party'],
+        testFn: async () => {
+            const loginRes = await fetch(`${getTestServerUrl()}/api/host/login`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ pin: '1234' }),
+            });
+            const cookieValue = (loginRes.headers.get('set-cookie') ?? '').split(';')[0];
+            const res = await fetch(`${getTestServerUrl()}/api/host/queue/add`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', Cookie: cookieValue },
+                body: JSON.stringify({ name: 'Short', partySize: 2, phone: '555' }),
+            });
+            if (res.status !== 400) return false;
+            const body = await res.json() as { field?: string };
+            return body.field === 'phone';
+        },
+    },
+    {
+        name: 'host-add: out-of-range party size → 400 with field hint',
+        tags: ['integration', 'auth', 'add-party'],
+        testFn: async () => {
+            const loginRes = await fetch(`${getTestServerUrl()}/api/host/login`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ pin: '1234' }),
+            });
+            const cookieValue = (loginRes.headers.get('set-cookie') ?? '').split(';')[0];
+            const res = await fetch(`${getTestServerUrl()}/api/host/queue/add`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', Cookie: cookieValue },
+                body: JSON.stringify({ name: 'TooBig', partySize: 99, phone: '2065550004' }),
+            });
+            if (res.status !== 400) return false;
+            const body = await res.json() as { field?: string };
+            return body.field === 'partySize';
+        },
+    },
+
+    // ---------- Public /queue/join propagates smsConsent to the wire ----------
+    {
+        name: 'queue/join: smsConsent=true accepted; 200 returned with a code',
+        tags: ['integration', 'queue', 'sms-consent', 'waitlist-path'],
+        testFn: async () => {
+            const res = await fetch(`${getTestServerUrl()}/api/queue/join`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name: 'OptInWire', partySize: 2, phone: '2065550101', smsConsent: true }),
+            });
+            if (!res.ok) return false;
+            const body = await res.json() as { code?: string };
+            return typeof body.code === 'string' && /^SKB-[A-Z2-9]{3}$/.test(body.code);
+        },
+    },
+    {
+        name: 'queue/join: omitted smsConsent still joins (defaults to false)',
+        tags: ['integration', 'queue', 'sms-consent'],
+        testFn: async () => {
+            const res = await fetch(`${getTestServerUrl()}/api/queue/join`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name: 'Silent', partySize: 2, phone: '2065550102' }),
+            });
+            return res.ok;
+        },
+    },
+
     {
         name: 'host-auth: teardown',
         tags: ['integration', 'auth'],

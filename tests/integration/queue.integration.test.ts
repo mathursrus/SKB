@@ -369,6 +369,68 @@ const cases: BaseTestCase[] = [
             return completed.totalNoShows === 1 && completed.totalServed === 0;
         },
     },
+    // ---------- TFV 30513: SMS consent is optional, not a prereq ----------
+    // Diners who don't opt in still join but receive NO SMS. The opt-in
+    // flag propagates from join → queue entry → callParty → sendChatMessage.
+    {
+        name: 'join: smsConsent=true is persisted on the queue entry',
+        tags: ['integration', 'queue', 'sms-consent'],
+        testFn: async () => {
+            await resetDb();
+            const t0 = new Date('2026-04-05T20:00:00Z');
+            await joinQueue('test', { name: 'OptIn', partySize: 2, phone: '2065551234', smsConsent: true }, t0);
+            const db = await getDb();
+            const doc = await queueEntries(db).findOne({ name: 'OptIn' });
+            return doc?.smsConsent === true;
+        },
+    },
+    {
+        name: 'join: smsConsent=false is persisted on the queue entry',
+        tags: ['integration', 'queue', 'sms-consent'],
+        testFn: async () => {
+            await resetDb();
+            const t0 = new Date('2026-04-05T20:00:00Z');
+            await joinQueue('test', { name: 'NoSms', partySize: 2, phone: '2065551234', smsConsent: false }, t0);
+            const db = await getDb();
+            const doc = await queueEntries(db).findOne({ name: 'NoSms' });
+            return doc?.smsConsent === false;
+        },
+    },
+    {
+        name: 'join: smsConsent defaults to false when omitted (safe-by-default)',
+        tags: ['integration', 'queue', 'sms-consent'],
+        testFn: async () => {
+            await resetDb();
+            const t0 = new Date('2026-04-05T20:00:00Z');
+            // Note: callers that don't set smsConsent get false — required
+            // for TFV 30513 (consent must be explicit + opt-in).
+            await joinQueue('test', { name: 'Default', partySize: 2, phone: '2065551234' }, t0);
+            const db = await getDb();
+            const doc = await queueEntries(db).findOne({ name: 'Default' });
+            return doc?.smsConsent === false;
+        },
+    },
+    {
+        name: 'callParty: non-consenting diner → state flips to called, smsStatus=not_configured',
+        tags: ['integration', 'queue', 'call', 'sms-consent', 'waitlist-path'],
+        testFn: async () => {
+            await resetDb();
+            const t0 = new Date('2026-04-05T20:00:00Z');
+            await joinQueue('test', { name: 'NoSms', partySize: 2, phone: '2065551234', smsConsent: false }, t0);
+            const list = await listHostQueue('test', t0);
+            const id = list.parties[0]?.id ?? '';
+            const t5 = new Date(t0.getTime() + 5 * 60_000);
+            const result = await callParty(id, t5);
+            const db = await getDb();
+            const doc = await queueEntries(db).findOne({ name: 'NoSms' });
+            // State still advances (host needs the "called" marker even without SMS)
+            // but smsStatus reports not_configured so the host knows the text didn't go
+            return result.ok === true
+                && result.smsStatus === 'not_configured'
+                && doc?.state === 'called'
+                && (doc?.calls?.[0]?.smsStatus === 'not_configured');
+        },
+    },
     {
         name: 'teardown',
         tags: ['integration', 'queue'],

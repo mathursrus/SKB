@@ -28,6 +28,10 @@ const queueRoute = fs.readFileSync(
     path.resolve(__dirname, '..', '..', 'src', 'routes', 'queue.ts'),
     'utf-8',
 );
+const hostRoute = fs.readFileSync(
+    path.resolve(__dirname, '..', '..', 'src', 'routes', 'host.ts'),
+    'utf-8',
+);
 
 const cases: BaseTestCase[] = [
     // ---------- Bug 2/4/6: scoped label rule ----------
@@ -307,6 +311,188 @@ const cases: BaseTestCase[] = [
         testFn: async () =>
             queueRoute.includes('/[<>\\\\]/.test(name)')
             && queueRoute.includes('name contains unsupported characters'),
+    },
+
+    // ---------- TFV compliance: explicit, optional SMS opt-in ----------
+    // Twilio 30513 requires that SMS consent NOT be a prerequisite for
+    // the service. These guards keep the checkbox on the join form and
+    // the `smsConsent` flag flowing client → server.
+    {
+        name: 'tfv: queue.html renders an unchecked SMS consent checkbox (not a pre-checked disclaimer)',
+        tags: ['unit', 'tfv', 'sms-consent'],
+        testFn: async () =>
+            /<input[^>]*type=["']checkbox["'][^>]*id=["']sms-consent["']/.test(queueHtml)
+            // Must be unchecked by default — no `checked` attribute
+            && !/<input[^>]*id=["']sms-consent["'][^>]*\bchecked\b/.test(queueHtml),
+    },
+    {
+        name: 'tfv: queue.html has the "Consent is optional" reassurance so users know they can skip SMS',
+        tags: ['unit', 'tfv', 'sms-consent'],
+        testFn: async () =>
+            queueHtml.includes('Consent is optional')
+            && /sms-consent-note/.test(queueHtml),
+    },
+    {
+        name: 'tfv: queue.html includes STOP + HELP keywords + msg&data rates language near the checkbox',
+        tags: ['unit', 'tfv', 'sms-consent'],
+        testFn: async () =>
+            /STOP/.test(queueHtml)
+            && /HELP/.test(queueHtml)
+            && /data rates/i.test(queueHtml)
+            && /Privacy Policy/.test(queueHtml)
+            && /SMS Terms/.test(queueHtml),
+    },
+    {
+        name: 'tfv: queue.js sends smsConsent boolean with the join POST body',
+        tags: ['unit', 'tfv', 'sms-consent'],
+        testFn: async () =>
+            /const\s+smsConsent\s*=/.test(queueJs)
+            && /sms-consent.*checked/.test(queueJs)
+            && /JSON\.stringify\(\s*\{[^}]*smsConsent/.test(queueJs),
+    },
+    {
+        name: 'tfv: opt-in screenshot lives on the public app-service path (not private GitHub raw)',
+        tags: ['unit', 'tfv', 'assets'],
+        testFn: async () => {
+            const imgPath = path.resolve(__dirname, '..', '..', 'public', 'assets', 'sms-optin-form.png');
+            try {
+                const s = fs.statSync(imgPath);
+                return s.isFile() && s.size > 0;
+            } catch { return false; }
+        },
+    },
+
+    // ---------- Host-initiated add-party path (walk-ins) ----------
+    {
+        name: 'host-add: host.html has "+ Add party" button and add-party-dialog',
+        tags: ['unit', 'host', 'add-party'],
+        testFn: async () =>
+            /id=["']add-party-btn["']/.test(hostHtml)
+            && /id=["']add-party-dialog["']/.test(hostHtml)
+            && /id=["']add-party-form["']/.test(hostHtml)
+            && /id=["']add-party-name["']/.test(hostHtml)
+            && /id=["']add-party-size["']/.test(hostHtml)
+            && /id=["']add-party-phone["']/.test(hostHtml),
+    },
+    {
+        name: 'host-add: host.js wires the form to POST /host/queue/add',
+        tags: ['unit', 'host', 'add-party'],
+        testFn: async () => {
+            const hostJs = loadFile('host.js');
+            return /api\/host\/queue\/add/.test(hostJs)
+                && /openAddPartyDialog/.test(hostJs)
+                && /closeAddPartyDialog/.test(hostJs);
+        },
+    },
+    {
+        name: 'host-add: server route exists under requireHost guard',
+        tags: ['unit', 'host', 'add-party', 'security'],
+        testFn: async () =>
+            /r\.post\(['"]\/host\/queue\/add['"]\s*,\s*requireHost/.test(hostRoute),
+    },
+
+    // ---------- iOS parity guards (read from the iOS source tree) ----------
+    // Only checks that the code shape the user sees is present; runtime behavior
+    // is covered by the iOS jest suite in ios/src.
+    {
+        name: 'ios: client.ts no longer maintains a manual cookieJar (relies on platform cookie store)',
+        tags: ['unit', 'ios', 'cookies'],
+        testFn: async () => {
+            const iosClient = fs.readFileSync(
+                path.resolve(__dirname, '..', '..', 'ios', 'src', 'net', 'client.ts'),
+                'utf-8',
+            );
+            // The new client explicitly uses credentials:'include' and must not
+            // set a Cookie header from a JS-maintained string.
+            return /credentials:\s*['"]include['"]/.test(iosClient)
+                && !/headers\[['"]Cookie['"]\]\s*=\s*cookieJar/.test(iosClient);
+        },
+    },
+    {
+        name: 'ios: buildUrl inserts /api into the per-location path (PIN 404 regression)',
+        tags: ['unit', 'ios', 'auth'],
+        testFn: async () => {
+            const iosClient = fs.readFileSync(
+                path.resolve(__dirname, '..', '..', 'ios', 'src', 'net', 'client.ts'),
+                'utf-8',
+            );
+            return iosClient.includes('/r/${loc}/api${suffix}');
+        },
+    },
+    {
+        name: 'ios: has AddPartySheet + CustomSmsDialog + CustomCallDialog components',
+        tags: ['unit', 'ios', 'host-parity'],
+        testFn: async () => {
+            const base = path.resolve(__dirname, '..', '..', 'ios', 'src', 'features', 'waiting');
+            return fs.existsSync(path.join(base, 'AddPartySheet.tsx'))
+                && fs.existsSync(path.join(base, 'CustomSmsDialog.tsx'))
+                && fs.existsSync(path.join(base, 'CustomCallDialog.tsx'));
+        },
+    },
+    {
+        name: 'ios: Complete tab screen + list + row exist',
+        tags: ['unit', 'ios', 'host-parity'],
+        testFn: async () => {
+            const app = path.resolve(__dirname, '..', '..', 'ios', 'app', '(host)', 'complete.tsx');
+            const listDir = path.resolve(__dirname, '..', '..', 'ios', 'src', 'features', 'completed');
+            return fs.existsSync(app)
+                && fs.existsSync(path.join(listDir, 'CompletedList.tsx'))
+                && fs.existsSync(path.join(listDir, 'CompletedRow.tsx'));
+        },
+    },
+    {
+        name: 'ios: settings screen locks turn-time input when etaMode is dynamic',
+        tags: ['unit', 'ios', 'settings'],
+        testFn: async () => {
+            const settings = fs.readFileSync(
+                path.resolve(__dirname, '..', '..', 'ios', 'app', '(host)', 'settings.tsx'),
+                'utf-8',
+            );
+            // editable={etaMode === 'manual'} + conditional disabled style
+            return /editable=\{etaMode\s*===\s*['"]manual['"]\}/.test(settings)
+                && /etaMode\s*!==\s*['"]manual['"].*inputDisabled/.test(settings);
+        },
+    },
+    {
+        name: 'ios: chat drawer has a visible close button (Ionicons close inside styled circle)',
+        tags: ['unit', 'ios', 'chat'],
+        testFn: async () => {
+            const slideOver = fs.readFileSync(
+                path.resolve(__dirname, '..', '..', 'ios', 'src', 'ui', 'SlideOver.tsx'),
+                'utf-8',
+            );
+            return /Ionicons/.test(slideOver)
+                && /name=['"]close['"]/.test(slideOver)
+                && /SafeAreaView/.test(slideOver)
+                && /KeyboardAvoidingView/.test(slideOver);
+        },
+    },
+    {
+        name: 'ios: add-party sheet wraps in KeyboardAvoidingView (keyboard-overlap fix)',
+        tags: ['unit', 'ios', 'add-party'],
+        testFn: async () => {
+            const sheet = fs.readFileSync(
+                path.resolve(__dirname, '..', '..', 'ios', 'src', 'features', 'waiting', 'AddPartySheet.tsx'),
+                'utf-8',
+            );
+            return /KeyboardAvoidingView/.test(sheet)
+                && /ScrollView/.test(sheet)
+                && /keyboardShouldPersistTaps=['"]handled['"]/.test(sheet);
+        },
+    },
+    {
+        name: 'ios: tab bar has Ionicons on all four tabs',
+        tags: ['unit', 'ios', 'icons'],
+        testFn: async () => {
+            const tabs = fs.readFileSync(
+                path.resolve(__dirname, '..', '..', 'ios', 'app', '(host)', '_layout.tsx'),
+                'utf-8',
+            );
+            return /tabBarIcon:\s*\(\{[^}]*\}\)\s*=>\s*<Ionicons/.test(tabs)
+                && /name=['"]hourglass-outline['"]/.test(tabs)
+                && /name=['"]restaurant-outline['"]/.test(tabs)
+                && /name=['"]checkmark-done-outline['"]/.test(tabs);
+        },
     },
 
     // ---------- Round 2 bug-bash fixes ----------

@@ -1977,6 +1977,18 @@ a#custom-call-confirm[aria-disabled="true"] {
 .theme-dark .stat-value { color: var(--fg); }
 .theme-dark .stat-label { color: var(--muted); }
 
+/* Diner confirmation card: the big "#N of M" place number and related
+   copy hard-code `color: #111` which disappears on a dark card. */
+.theme-dark .confirmation .pos,
+.theme-dark .confirmation .eta-time,
+.theme-dark .confirmation .eta-time strong,
+.theme-dark .confirmation .wait-elapsed,
+.theme-dark .confirmation .wait-elapsed strong { color: var(--fg); }
+.theme-dark .confirmation .hint,
+.theme-dark .confirmation .pos-label,
+.theme-dark .confirmation .seated-caption { color: var(--muted); }
+.theme-dark .confirmation .eta-mins { color: var(--accent); }
+
 /* Seat + SMS + Call dialogs */
 .theme-dark .seat-dialog,
 .theme-dark .custom-sms-dialog,

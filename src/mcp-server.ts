@@ -201,10 +201,24 @@ app.use(express.static(publicDir));
 // MCP endpoint — streamable HTTP transport, PIN-Bearer auth per request.
 // All tool registration + dispatch lives in src/mcp/server.ts; this file
 // just mounts the handler.
+//
+// Only POST is supported — this is stateless mode, so there is no session
+// for a GET SSE stream to subscribe to and no session for DELETE to tear
+// down. The spec calls for 405 here so clients can fall back cleanly
+// (Anthropic's own SDK example does exactly this). Without the explicit
+// 405, the SDK transport hangs on GET/DELETE and Azure eventually serves
+// an HTML error page, which breaks clients with "Unexpected content type".
 // ----------------------------------------------------------------------------
 app.post('/mcp', handleMcpRequest);
-app.get('/mcp', handleMcpRequest);
-app.delete('/mcp', handleMcpRequest);
+const mcpMethodNotAllowed = (_req: Request, res: Response) => {
+    res.status(405).set('Allow', 'POST').json({
+        jsonrpc: '2.0',
+        error: { code: -32000, message: 'Method not allowed. Use POST.' },
+        id: null,
+    });
+};
+app.get('/mcp', mcpMethodNotAllowed);
+app.delete('/mcp', mcpMethodNotAllowed);
 
 // ----------------------------------------------------------------------------
 // Bootstrap default locations + start

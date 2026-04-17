@@ -187,12 +187,13 @@ const cases: BaseTestCase[] = [
     },
 ];
 
-async function main(): Promise<void> {
-    try {
-        await runTests(cases, 'Visit Route Integration');
-    } finally {
-        await closeDb();
-    }
-}
+// Teardown as the final test case — keeps npm run test:all from hanging.
+// See commit 539b8f7 for context on why main()+finally leaves the Node
+// process stuck after closeDb() resolves.
+cases.push({
+    name: 'teardown',
+    tags: ['integration', 'visit', 'teardown'],
+    testFn: async () => { await closeDb(); return true; },
+});
 
-void main();
+void runTests(cases, 'Visit Route Integration');

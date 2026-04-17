@@ -128,10 +128,12 @@ async function main(): Promise<void> {
         assert(chandraStatus.data.position === 2, `chandra pos=${chandraStatus.data.position} (expected 2)`);
         console.log(`[E2E] PASS: Chandra position shifted 3 → 2 (AC-R6/R7)`);
 
-        // 10. Promised ETAs never changed
+        // 10. Promised ETAs never changed — reuse the earlier poll of Anand's
+        // status (line ~114) instead of re-fetching. /queue/status is rate-
+        // limited to 1 req / 5s per (loc, code), so a back-to-back second
+        // poll returns 429 and .data.etaAt is undefined.
         assert(chandraStatus.data.etaAt === j3EtaAt, `chandra etaAt changed: ${chandraStatus.data.etaAt} !== ${j3EtaAt}`);
-        const anandStatus2 = await get(`/api/queue/status?code=${j1.data.code}`);
-        assert(anandStatus2.data.etaAt === j1EtaAt, `anand etaAt changed`);
+        assert(anandStatus.data.etaAt === j1EtaAt, `anand etaAt changed: join=${j1EtaAt} status=${anandStatus.data.etaAt}`);
         console.log(`[E2E] PASS: promised ETAs unchanged after removal`);
 
         // 11. Bhavya status is 'seated'
@@ -166,6 +168,10 @@ async function main(): Promise<void> {
         console.log(`[E2E] PASS: state endpoint reflects reduced count after seating (auto-refresh contract)`);
 
         // 15. Repeated status calls return consistent fresh data (polling contract)
+        // /queue/status is rate-limited to 1 req / 5s per (loc, code). The real
+        // diner UI polls every 10s, so this is non-issue in prod; here we sleep
+        // past the window so the second poll returns data rather than 429.
+        await new Promise((resolve) => setTimeout(resolve, 5100));
         const chandraStatus2 = await get(`/api/queue/status?code=${j3.data.code}`);
         assert(chandraStatus2.data.position === chandraStatus.data.position,
             `chandra position inconsistent on repeat poll: ${chandraStatus2.data.position} vs ${chandraStatus.data.position}`);

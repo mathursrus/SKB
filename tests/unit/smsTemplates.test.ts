@@ -4,6 +4,9 @@ import {
     joinConfirmationMessage,
     firstCallMessage,
     repeatCallMessage,
+    chatAlmostReadyMessage,
+    chatNeedMoreTimeMessage,
+    chatLostYouMessage,
 } from '../../src/services/smsTemplates.js';
 
 const cases = [
@@ -49,6 +52,40 @@ const cases = [
         testFn: async () => {
             const msg = repeatCallMessage('SKB-AAA', 2);
             return msg.includes('2 times');
+        },
+    },
+    // --- Chat quick-reply templates (R10) ---
+    {
+        name: 'chatAlmostReadyMessage includes code and "almost ready"',
+        tags: ['unit', 'sms', 'chat'],
+        testFn: async () => {
+            const msg = chatAlmostReadyMessage('SKB-ALM');
+            return msg.startsWith('SKB:')
+                && msg.includes('SKB-ALM')
+                && /almost ready/i.test(msg)
+                && /5 more minutes/i.test(msg);
+        },
+    },
+    {
+        name: 'chatNeedMoreTimeMessage includes code and YES-reply ask',
+        tags: ['unit', 'sms', 'chat'],
+        testFn: async () => {
+            const msg = chatNeedMoreTimeMessage('SKB-NMT');
+            return msg.startsWith('SKB:')
+                && msg.includes('SKB-NMT')
+                && /more minutes/i.test(msg)
+                && /Reply YES/.test(msg);
+        },
+    },
+    {
+        name: 'chatLostYouMessage includes code and YES-reply ask',
+        tags: ['unit', 'sms', 'chat'],
+        testFn: async () => {
+            const msg = chatLostYouMessage('SKB-LST');
+            return msg.startsWith('SKB:')
+                && msg.includes('SKB-LST')
+                && /didn't see you/i.test(msg)
+                && /Reply YES/.test(msg);
         },
     },
 ];

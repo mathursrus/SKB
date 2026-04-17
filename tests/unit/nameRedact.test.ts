@@ -64,6 +64,33 @@ const cases = [
             return out === 'Jonathan S.' && !out.includes('mithsonian');
         },
     },
+    // Coverage: "comma form with empty-before-comma" branch returns just the first name
+    {
+        name: 'redactName "comma, First" returns just the capitalized first name',
+        tags: ['unit', 'waitlist', 'redact', 'coverage'],
+        testFn: async () => redactName(', priya') === 'Priya',
+    },
+    // Coverage: "comma form with both halves blank" → Guest
+    {
+        name: 'redactName bare-comma string falls back to Guest',
+        tags: ['unit', 'waitlist', 'redact', 'coverage'],
+        testFn: async () => redactName(', ') === 'Guest',
+    },
+    {
+        name: 'redactName whitespace-only raw falls back to Guest',
+        tags: ['unit', 'waitlist', 'redact', 'coverage'],
+        testFn: async () => redactName('   ') === 'Guest',
+    },
+    {
+        name: 'redactName null falls back to Guest',
+        tags: ['unit', 'waitlist', 'redact', 'coverage'],
+        testFn: async () => redactName(null) === 'Guest',
+    },
+    {
+        name: 'redactName undefined falls back to Guest',
+        tags: ['unit', 'waitlist', 'redact', 'coverage'],
+        testFn: async () => redactName(undefined) === 'Guest',
+    },
 ];
 
 void runTests(cases, 'nameRedact');

@@ -328,12 +328,15 @@ const cases: BaseTestCase[] = [
     },
 ];
 
-async function main(): Promise<void> {
-    try {
-        await runTests(cases, 'Waitlist Transparency Integration');
-    } finally {
-        await closeDb();
-    }
-}
+// Append teardown as the final test case. Matches the pattern used by the
+// other integration suites (queue / dining-transitions / chat). The old
+// try/finally + main() wrapper left the Node process hung after closeDb()
+// resolved — the node:test summary never printed and npm run test:all
+// blocked at this file indefinitely.
+cases.push({
+    name: 'teardown',
+    tags: ['integration', 'queue', 'teardown'],
+    testFn: async () => { await resetDb(); await closeDb(); return true; },
+});
 
-void main();
+void runTests(cases, 'Waitlist Transparency Integration');

@@ -4,6 +4,7 @@
 
 import { Router, type Request, type Response } from 'express';
 
+import { buildQueueStatusUrl } from '../core/utils/url.js';
 import { getBoardEntries, getQueueState, joinQueue, getStatusByCode, acknowledgeOnMyWay } from '../services/queue.js';
 import { rateLimit } from '../middleware/rateLimit.js';
 import { sendSms } from '../services/sms.js';
@@ -90,11 +91,11 @@ export function queueRouter(): Router {
                 );
                 // Fire-and-forget confirmation SMS — only when the diner
                 // explicitly opted in (TFV 30513). Diners who don't opt in
-                // watch the status card on /queue?code=... instead.
+                // watch the status card on /queue.html?code=... instead.
                 if (smsConsent) {
                     const proto = req.headers['x-forwarded-proto'] ?? req.protocol ?? 'https';
                     const host = req.headers['x-forwarded-host'] ?? req.headers.host ?? '';
-                    const statusUrl = `${proto}://${host}/r/${loc(req)}/queue?code=${result.code}`;
+                    const statusUrl = buildQueueStatusUrl(`${proto}://${host}`, loc(req), result.code);
                     sendSms(phone, joinConfirmationMessage(result.code, statusUrl))
                         .catch(e => console.log(JSON.stringify({ t: new Date().toISOString(), level: 'error', msg: 'sms.join_confirm_failed', error: e instanceof Error ? e.message : String(e) })));
                 }

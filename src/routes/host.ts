@@ -51,10 +51,15 @@ function cookieSecret(): string | null {
 
 // Alias so the host-only routes read as `requireHost(...)` at each
 // route-registration site while the underlying middleware enforces
-// tenant binding. This is issue #52's one-line replacement: every
-// protected host endpoint now rejects a cookie minted at a different
-// tenant (403 wrong_tenant).
-const requireHost = requireRole('host');
+// tenant binding. Issue #52 introduced tenant-binding; issue #53
+// widens the accepted role set to include `admin` and `owner` so
+// named staff with elevated roles can use the host tablet surface
+// (owners and admins routinely work the floor at small restaurants).
+//
+// The PIN-anonymous skb_host cookie always reads as role='host'; the
+// named skb_session cookie carries whichever role the user has at
+// this location. All three roles pass this gate.
+const requireHost = requireRole('host', 'admin', 'owner');
 
 export function hostRouter(): Router {
     const r = Router({ mergeParams: true });

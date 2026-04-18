@@ -23,6 +23,7 @@ import { hostRouter } from './routes/host.js';
 import { healthRouter } from './routes/health.js';
 import { voiceRouter } from './routes/voice.js';
 import { smsRouter, smsStatusRouter } from './routes/sms.js';
+import { authRouter } from './routes/auth.js';
 import { renderQueuePage } from './services/queue-template.js';
 import { resolveVisit } from './services/visit-page.js';
 import { listLocations, ensureLocation, getLocation } from './services/locations.js';
@@ -96,6 +97,22 @@ app.use(async (req: Request, _res: Response, next: () => void) => {
 
 // Global health
 app.use(healthRouter(SERVER_NAME));
+
+// Platform-level auth (issue #53): unified named-user login, logout,
+// whoami, password reset. Lives at /api/* (no :loc prefix) because the
+// login URL is shared across tenants — the cookie it mints IS
+// tenant-scoped (encodes `lid`), the URL is not.
+app.use('/api', authRouter());
+
+// Friendly URLs for the public auth pages — /login and /reset-password
+// without `.html`. Spec §6.4: the marketing domain entry point is
+// `app.example.com/login`.
+app.get('/login', (_req: Request, res: Response) => {
+    res.sendFile(path.join(publicDir, 'login.html'));
+});
+app.get('/reset-password', (_req: Request, res: Response) => {
+    res.sendFile(path.join(publicDir, 'reset-password.html'));
+});
 
 // Landing page — list locations
 app.get('/', async (_req: Request, res: Response) => {

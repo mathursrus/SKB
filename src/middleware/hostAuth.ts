@@ -1,29 +1,41 @@
 // ============================================================================
-// SKB - Host auth (PIN login + HMAC-signed cookie, tenant-scoped)
+// SKB - Host + session auth (HMAC-signed cookies, tenant + role scoped)
 // ============================================================================
 //
-// Cookie format — Issue #52 introduces tenant binding.
+// Two cookies, one verifier:
 //
-//   Legacy (pre-#52):  <exp>.<mac>           where mac = HMAC(secret, String(exp))
-//   Current:           <lid>.<exp>.<mac>     where mac = HMAC(secret, '<lid>.<exp>')
+//   skb_host    — PIN-gated anonymous shared-device session (#52).
+//                 Issued by POST /r/:loc/api/host/login. Role is always 'host'.
+//                 Format: <lid>.<exp>.<mac>   mac = HMAC(secret, '<lid>.<exp>')
+//                 Legacy (pre-#52): <exp>.<mac>   mac = HMAC(secret, String(exp))
+//                 (accepted during deprecation window).
 //
-// Both formats verify successfully for two releases (the deprecation window
-// defined in spec §8.4). `verifyCookieDetailed` reports which format the
-// caller saw, so route handlers can emit `auth.legacy-cookie.accept` when
-// the legacy format is used.
+//   skb_session — Named-user session (#53).
+//                 Issued by POST /api/login (email+password).
+//                 Payload encodes uid/lid/role. The MAC covers the whole
+//                 payload so tampering with role or lid invalidates the
+//                 cookie.
+//                 Format: <payload-b64url>.<mac>
+//                          payload = base64url(JSON.stringify({uid,lid,role,exp}))
+//                          mac = HMAC(secret, payload-b64url)
 //
-// Cross-tenant binding: `requireRole` extracts the `lid` from a new-format
-// cookie and compares it to `req.params.loc`. A mismatch is 403 (not 401 —
-// the caller IS authenticated, they just aren't authorized for THIS
-// tenant). Legacy cookies carry no `lid`, so during the deprecation window
-// they are accepted against any tenant and we log the event; this is the
-// known-and-temporary softening.
+// Request resolution order inside `requireRole`:
+//   1. skb_session present → verify + decode → check role + lid → allow/deny
+//   2. skb_host present → verify (new or legacy format) → infer role='host'
+//   3. Neither → 401
+//
+// When a request has BOTH cookies (e.g. a staff member who also PINed
+// in on the shared tablet), skb_session wins — named identity is always
+// more specific than anonymous PIN access.
 // ============================================================================
 
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import type { Request, Response, NextFunction } from 'express';
 
+import type { Role, SessionPayload } from '../types/identity.js';
+
 const COOKIE_NAME = 'skb_host';
+const SESSION_COOKIE_NAME = 'skb_session';
 const COOKIE_MAX_AGE_SECONDS = 12 * 60 * 60; // 12h
 
 function secret(): string | null {
@@ -122,28 +134,130 @@ export function verifyCookie(value: string, key: string, now: Date = new Date())
     return verifyCookieDetailed(value, key, now).ok;
 }
 
-/** Extract the `skb_host` cookie value from a raw `Cookie:` header. */
-export function readCookie(header: string | undefined): string | null {
+/** Extract a named cookie value from a raw `Cookie:` header. */
+function readNamedCookie(header: string | undefined, cookieName: string): string | null {
     if (!header) return null;
     for (const part of header.split(';')) {
         const eq = part.indexOf('=');
         if (eq < 0) continue;
         const name = part.slice(0, eq).trim();
-        if (name === COOKIE_NAME) return part.slice(eq + 1).trim();
+        if (name === cookieName) return part.slice(eq + 1).trim();
     }
     return null;
 }
 
+/** Extract the `skb_host` cookie value from a raw `Cookie:` header. */
+export function readCookie(header: string | undefined): string | null {
+    return readNamedCookie(header, COOKIE_NAME);
+}
+
+/** Extract the `skb_session` cookie value from a raw `Cookie:` header. */
+export function readSessionCookie(header: string | undefined): string | null {
+    return readNamedCookie(header, SESSION_COOKIE_NAME);
+}
+
+// ----------------------------------------------------------------------------
+// skb_session (named user) cookie format
+//
+//   <payload-b64url>.<mac>
+//   payload = base64url(JSON.stringify({ uid, lid, role, exp }))
+//   mac     = hex HMAC-SHA256(secret, payload-b64url)
+//
+// Keeping the payload base64url-encoded JSON (rather than signed JWTs)
+// lets us reuse the existing HMAC + timingSafeEqual infrastructure, avoid
+// adding a dependency for a token we only sign ourselves, and keep the
+// parse/verify logic one file deep. A real JWT would get us nothing the
+// codebase uses today (no asymmetric keys, no federated verifiers).
+// ----------------------------------------------------------------------------
+
+const VALID_ROLES: readonly Role[] = ['owner', 'admin', 'host'] as const;
+
+function isRole(value: unknown): value is Role {
+    return typeof value === 'string' && (VALID_ROLES as readonly string[]).includes(value);
+}
+
+/**
+ * Build a session cookie value from a payload. The caller is responsible
+ * for setting `exp` — this function just signs and encodes.
+ */
+export function mintSessionCookie(payload: SessionPayload, key: string): string {
+    const json = JSON.stringify(payload);
+    const encoded = Buffer.from(json, 'utf8').toString('base64url');
+    const mac = sign(encoded, key);
+    return `${encoded}.${mac}`;
+}
+
+export interface SessionVerifyResult {
+    ok: boolean;
+    payload?: SessionPayload;
+}
+
+/**
+ * Verify and decode a session cookie. Returns `ok: true` with the
+ * payload on success, `ok: false` on any failure (bad MAC, bad JSON,
+ * missing fields, expired, unknown role).
+ */
+export function verifySessionCookie(
+    value: string,
+    key: string,
+    now: Date = new Date(),
+): SessionVerifyResult {
+    if (typeof value !== 'string' || value.length === 0) return { ok: false };
+    const dot = value.lastIndexOf('.');
+    if (dot <= 0 || dot === value.length - 1) return { ok: false };
+    const encoded = value.slice(0, dot);
+    const got = value.slice(dot + 1);
+    if (got.length !== 64) return { ok: false };
+    let macOk = false;
+    try {
+        macOk = timingSafeEqual(Buffer.from(got, 'hex'), Buffer.from(sign(encoded, key), 'hex'));
+    } catch {
+        return { ok: false };
+    }
+    if (!macOk) return { ok: false };
+    let raw: string;
+    try {
+        raw = Buffer.from(encoded, 'base64url').toString('utf8');
+    } catch {
+        return { ok: false };
+    }
+    let parsed: unknown;
+    try {
+        parsed = JSON.parse(raw);
+    } catch {
+        return { ok: false };
+    }
+    if (!parsed || typeof parsed !== 'object') return { ok: false };
+    const p = parsed as Record<string, unknown>;
+    const uid = p.uid, lid = p.lid, role = p.role, exp = p.exp;
+    if (typeof uid !== 'string' || typeof lid !== 'string' || !isRole(role) || typeof exp !== 'number') {
+        return { ok: false };
+    }
+    if (exp * 1000 <= now.getTime()) return { ok: false };
+    return { ok: true, payload: { uid, lid, role, exp } };
+}
+
+export const SESSION_COOKIE_MAX_AGE_SECONDS = COOKIE_MAX_AGE_SECONDS;
+export { SESSION_COOKIE_NAME };
+
 /**
  * Auth context attached to `req` once a cookie has verified. Route handlers
- * can read `req.auth.lid` (present unless the caller presented a legacy
- * cookie) and `req.auth.legacy` (true during the deprecation window).
+ * can read `req.hostAuth.lid` (present unless the caller presented a legacy
+ * cookie) and `req.hostAuth.legacy` (true during the deprecation window).
+ *
+ * `uid` is present only when a named-user `skb_session` cookie was used;
+ * PIN-anonymous host sessions don't carry a user id. Handlers that
+ * attribute actions to a specific person (e.g. future audit logs) should
+ * check `uid` before persisting.
  */
 export interface HostAuthContext {
     lid?: string;
+    uid?: string;
     legacy: boolean;
-    /** Informational: which role the middleware gate allowed. */
-    role: string;
+    /** Which role the cookie actually claimed (session) or implied (PIN host). */
+    role: Role;
+    /** Which cookie the request presented. */
+    source: 'session' | 'host';
 }
 
 // Augment express Request with optional host-auth context (ambient, no
@@ -162,52 +276,118 @@ function emitLog(obj: Record<string, unknown>): void {
 }
 
 /**
- * Middleware factory: gate a route on host authentication AND tenant binding.
+ * Middleware factory: gate a route on authentication AND tenant binding
+ * AND role membership.
+ *
+ * Resolves `skb_session` (named user) first, then falls back to the
+ * PIN-anonymous `skb_host` cookie. The first cookie that verifies wins —
+ * the other is ignored. Behavior:
  *
  *   - 503 if `SKB_COOKIE_SECRET` is not set.
- *   - 401 if no cookie, or the cookie fails HMAC verification / is expired /
- *         malformed.
- *   - 403 if the cookie is a valid new-format cookie for tenant X but
- *         `req.params.loc` is tenant Y. Body: `{ error: 'wrong_tenant' }`.
- *   - Otherwise attaches `req.auth = { lid, legacy, role }` and calls next().
+ *   - 401 if no recognizable cookie, or the best cookie fails HMAC /
+ *         expiry / decode.
+ *   - 403 if the cookie is valid but for a different tenant than
+ *         `req.params.loc`. Body: `{ error: 'wrong_tenant' }`.
+ *   - 403 if the cookie's role is not in the allowed set.
+ *         Body: `{ error: 'forbidden' }`.
+ *   - Otherwise attaches `req.hostAuth` and calls next().
  *
- * Legacy cookies (2-segment format) are accepted against any tenant during
- * the deprecation window and logged as `auth.legacy-cookie.accept`. They
- * will be rejected once the window closes; spec §8.4.
- *
- * The `role` parameter is informational today — a cookie does not yet
- * carry a role claim, so every authenticated host passes every role check.
- * The signature is future-proof for `skb_session` cookies (issue #53+),
- * which will add role enforcement.
+ * Legacy 2-segment `skb_host` cookies carry no tenant binding and
+ * imply role='host'; they are accepted during the deprecation window
+ * and logged as `auth.legacy-cookie.accept`. The caller's role must
+ * still include 'host' for them to pass.
  */
-export function requireRole(...roles: string[]) {
+export function requireRole(...roles: Role[]) {
     if (roles.length === 0) throw new Error('requireRole: at least one role required');
+    const allowed = new Set<Role>(roles);
     return function middleware(req: Request, res: Response, next: NextFunction): void {
         const key = secret();
         if (!key) {
             res.status(503).json({ error: 'host auth not configured' });
             return;
         }
-        const raw = readCookie(req.headers.cookie);
-        if (!raw) {
+        const paramLoc = typeof req.params?.loc === 'string' ? req.params.loc : undefined;
+
+        // 1) skb_session — named user.
+        const sessionRaw = readSessionCookie(req.headers.cookie);
+        if (sessionRaw) {
+            const sv = verifySessionCookie(sessionRaw, key);
+            if (!sv.ok || !sv.payload) {
+                res.status(401).json({ error: 'unauthorized' });
+                return;
+            }
+            if (paramLoc && sv.payload.lid !== paramLoc) {
+                emitLog({
+                    level: 'warn',
+                    msg: 'auth.wrong-tenant',
+                    source: 'session',
+                    cookieLid: sv.payload.lid,
+                    paramLoc,
+                    uid: sv.payload.uid,
+                    ip: req.ip,
+                });
+                res.status(403).json({ error: 'wrong_tenant' });
+                return;
+            }
+            if (!allowed.has(sv.payload.role)) {
+                emitLog({
+                    level: 'warn',
+                    msg: 'auth.forbidden-role',
+                    source: 'session',
+                    role: sv.payload.role,
+                    required: roles,
+                    uid: sv.payload.uid,
+                    loc: paramLoc,
+                    ip: req.ip,
+                });
+                res.status(403).json({ error: 'forbidden' });
+                return;
+            }
+            req.hostAuth = {
+                lid: sv.payload.lid,
+                uid: sv.payload.uid,
+                legacy: false,
+                role: sv.payload.role,
+                source: 'session',
+            };
+            next();
+            return;
+        }
+
+        // 2) skb_host — PIN-anonymous, role always 'host'.
+        const hostRaw = readCookie(req.headers.cookie);
+        if (!hostRaw) {
             res.status(401).json({ error: 'unauthorized' });
             return;
         }
-        const result = verifyCookieDetailed(raw, key);
+        const result = verifyCookieDetailed(hostRaw, key);
         if (!result.ok) {
             res.status(401).json({ error: 'unauthorized' });
             return;
         }
-        const paramLoc = typeof req.params?.loc === 'string' ? req.params.loc : undefined;
         if (!result.legacy && result.lid && paramLoc && result.lid !== paramLoc) {
             emitLog({
                 level: 'warn',
                 msg: 'auth.wrong-tenant',
+                source: 'host',
                 cookieLid: result.lid,
                 paramLoc,
                 ip: req.ip,
             });
             res.status(403).json({ error: 'wrong_tenant' });
+            return;
+        }
+        if (!allowed.has('host')) {
+            emitLog({
+                level: 'warn',
+                msg: 'auth.forbidden-role',
+                source: 'host',
+                role: 'host',
+                required: roles,
+                loc: paramLoc,
+                ip: req.ip,
+            });
+            res.status(403).json({ error: 'forbidden' });
             return;
         }
         if (result.legacy) {
@@ -218,7 +398,12 @@ export function requireRole(...roles: string[]) {
                 ip: req.ip,
             });
         }
-        req.hostAuth = { lid: result.lid, legacy: result.legacy, role: roles[0] };
+        req.hostAuth = {
+            lid: result.lid,
+            legacy: result.legacy,
+            role: 'host',
+            source: 'host',
+        };
         next();
     };
 }

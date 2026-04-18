@@ -1,6 +1,7 @@
 // Unit tests for HMAC-signed host cookie verification + legacy middleware handlers
 import { runTests } from '../test-utils.js';
-import { verifyCookie, verifyCookieDetailed, __test__, loginHandler, logoutHandler, requireHost, requireRole } from '../../src/middleware/hostAuth.js';
+import { verifyCookie, verifyCookieDetailed, __test__, loginHandler, logoutHandler, requireHost, requireRole, mintSessionCookie, verifySessionCookie, SESSION_COOKIE_NAME } from '../../src/middleware/hostAuth.js';
+import type { SessionPayload } from '../../src/types/identity.js';
 import type { Request, Response } from 'express';
 
 interface T { name: string; description?: string; tags?: string[]; testFn?: () => Promise<boolean>; }
@@ -364,6 +365,189 @@ const cases: T[] = [
                     () => { nextState.called = true; },
                 );
                 return state.status === 503 && !nextState.called;
+            });
+        },
+    },
+
+    // ---------- Issue #53: skb_session (named-user) cookie ----------
+    {
+        name: 'mintSessionCookie + verifySessionCookie: round-trips payload exactly',
+        tags: ['unit', 'auth', 'session'],
+        testFn: async () => {
+            const exp = Math.floor(Date.now() / 1000) + 3600;
+            const payload: SessionPayload = { uid: 'u1', lid: 'loc-a', role: 'owner', exp };
+            const cookie = mintSessionCookie(payload, KEY);
+            const v = verifySessionCookie(cookie, KEY);
+            return v.ok === true
+                && v.payload?.uid === 'u1'
+                && v.payload?.lid === 'loc-a'
+                && v.payload?.role === 'owner'
+                && v.payload?.exp === exp;
+        },
+    },
+    {
+        name: 'verifySessionCookie: wrong key → not ok',
+        tags: ['unit', 'auth', 'session'],
+        testFn: async () => {
+            const payload: SessionPayload = { uid: 'u', lid: 'a', role: 'host', exp: Math.floor(Date.now() / 1000) + 3600 };
+            const cookie = mintSessionCookie(payload, KEY);
+            return !verifySessionCookie(cookie, 'wrong-key').ok;
+        },
+    },
+    {
+        name: 'verifySessionCookie: expired → not ok',
+        tags: ['unit', 'auth', 'session'],
+        testFn: async () => {
+            const payload: SessionPayload = { uid: 'u', lid: 'a', role: 'host', exp: Math.floor(Date.now() / 1000) - 10 };
+            const cookie = mintSessionCookie(payload, KEY);
+            return !verifySessionCookie(cookie, KEY).ok;
+        },
+    },
+    {
+        name: 'verifySessionCookie: tampered role (re-signed with wrong key) → not ok',
+        tags: ['unit', 'auth', 'session'],
+        testFn: async () => {
+            const payload: SessionPayload = { uid: 'u', lid: 'a', role: 'host', exp: Math.floor(Date.now() / 1000) + 3600 };
+            const cookie = mintSessionCookie(payload, KEY);
+            // Forge a new payload saying 'owner' — but keep the original MAC.
+            const [ , mac] = cookie.split('.');
+            const forgedPayload = Buffer.from(JSON.stringify({ ...payload, role: 'owner' }), 'utf8').toString('base64url');
+            return !verifySessionCookie(`${forgedPayload}.${mac}`, KEY).ok;
+        },
+    },
+    {
+        name: 'verifySessionCookie: unknown role → not ok',
+        tags: ['unit', 'auth', 'session'],
+        testFn: async () => {
+            // Forge a cookie with a role the app doesn't recognize.
+            const raw = Buffer.from(JSON.stringify({ uid: 'u', lid: 'a', role: 'hacker', exp: Math.floor(Date.now() / 1000) + 3600 }), 'utf8').toString('base64url');
+            const { createHmac } = await import('node:crypto');
+            const mac = createHmac('sha256', KEY).update(raw).digest('hex');
+            return !verifySessionCookie(`${raw}.${mac}`, KEY).ok;
+        },
+    },
+    {
+        name: 'verifySessionCookie: malformed input → not ok',
+        tags: ['unit', 'auth', 'session'],
+        testFn: async () => {
+            return !verifySessionCookie('', KEY).ok
+                && !verifySessionCookie('nodot', KEY).ok
+                && !verifySessionCookie('.short', KEY).ok
+                && !verifySessionCookie('abc.def', KEY).ok; // mac not 64 hex chars
+        },
+    },
+
+    // ---------- Issue #53: requireRole with session cookie ----------
+    {
+        name: 'requireRole: session cookie with matching lid + role passes, attaches uid',
+        tags: ['unit', 'auth', 'session', 'requireRole'],
+        testFn: async () => {
+            return withEnv({ SKB_COOKIE_SECRET: KEY }, () => {
+                const exp = Math.floor(Date.now() / 1000) + 3600;
+                const payload: SessionPayload = { uid: 'user-1', lid: 'loc-a', role: 'owner', exp };
+                const cookie = mintSessionCookie(payload, KEY);
+                const { res, state } = makeRes();
+                const nextState = { called: false };
+                const req = {
+                    headers: { cookie: `${SESSION_COOKIE_NAME}=${cookie}` },
+                    params: { loc: 'loc-a' },
+                } as unknown as Request & { hostAuth?: { uid?: string; role: string; source: string } };
+                requireRole('owner', 'admin')(req, res, () => { nextState.called = true; });
+                return nextState.called && state.status === 200
+                    && req.hostAuth?.uid === 'user-1'
+                    && req.hostAuth?.role === 'owner'
+                    && req.hostAuth?.source === 'session';
+            });
+        },
+    },
+    {
+        name: 'requireRole: session cookie with mismatched lid → 403 wrong_tenant',
+        tags: ['unit', 'auth', 'session', 'requireRole'],
+        testFn: async () => {
+            return withEnv({ SKB_COOKIE_SECRET: KEY }, () => {
+                const payload: SessionPayload = { uid: 'u', lid: 'loc-a', role: 'owner', exp: Math.floor(Date.now() / 1000) + 3600 };
+                const cookie = mintSessionCookie(payload, KEY);
+                const { res, state } = makeRes();
+                const nextState = { called: false };
+                requireRole('owner')(
+                    { headers: { cookie: `${SESSION_COOKIE_NAME}=${cookie}` }, params: { loc: 'loc-b' } } as unknown as Request,
+                    res,
+                    () => { nextState.called = true; },
+                );
+                const body = state.body as { error?: string } | undefined;
+                return state.status === 403 && body?.error === 'wrong_tenant' && !nextState.called;
+            });
+        },
+    },
+    {
+        name: 'requireRole: session cookie with role not in allowed set → 403 forbidden',
+        tags: ['unit', 'auth', 'session', 'requireRole'],
+        testFn: async () => {
+            return withEnv({ SKB_COOKIE_SECRET: KEY }, () => {
+                const payload: SessionPayload = { uid: 'u', lid: 'loc-a', role: 'host', exp: Math.floor(Date.now() / 1000) + 3600 };
+                const cookie = mintSessionCookie(payload, KEY);
+                const { res, state } = makeRes();
+                const nextState = { called: false };
+                requireRole('owner', 'admin')(
+                    { headers: { cookie: `${SESSION_COOKIE_NAME}=${cookie}` }, params: { loc: 'loc-a' } } as unknown as Request,
+                    res,
+                    () => { nextState.called = true; },
+                );
+                const body = state.body as { error?: string } | undefined;
+                return state.status === 403 && body?.error === 'forbidden' && !nextState.called;
+            });
+        },
+    },
+    {
+        name: 'requireRole: host-PIN cookie rejected when only "owner" role allowed',
+        tags: ['unit', 'auth', 'session', 'requireRole'],
+        testFn: async () => {
+            return withEnv({ SKB_COOKIE_SECRET: KEY }, () => {
+                const cookie = __test__.mintLocationCookie(new Date(), KEY, 'loc-a');
+                const { res, state } = makeRes();
+                const nextState = { called: false };
+                requireRole('owner')(
+                    { headers: { cookie: `skb_host=${cookie}` }, params: { loc: 'loc-a' } } as unknown as Request,
+                    res,
+                    () => { nextState.called = true; },
+                );
+                const body = state.body as { error?: string } | undefined;
+                return state.status === 403 && body?.error === 'forbidden' && !nextState.called;
+            });
+        },
+    },
+    {
+        name: 'requireRole: session cookie takes precedence over host cookie when both present',
+        tags: ['unit', 'auth', 'session', 'requireRole'],
+        testFn: async () => {
+            return withEnv({ SKB_COOKIE_SECRET: KEY }, () => {
+                const session = mintSessionCookie({ uid: 'u', lid: 'loc-a', role: 'owner', exp: Math.floor(Date.now() / 1000) + 3600 }, KEY);
+                const host = __test__.mintLocationCookie(new Date(), KEY, 'loc-a');
+                const { res, state } = makeRes();
+                const nextState = { called: false };
+                const req = {
+                    headers: { cookie: `${SESSION_COOKIE_NAME}=${session}; skb_host=${host}` },
+                    params: { loc: 'loc-a' },
+                } as unknown as Request & { hostAuth?: { source?: string; role?: string } };
+                requireRole('owner')(req, res, () => { nextState.called = true; });
+                return nextState.called && req.hostAuth?.source === 'session' && req.hostAuth?.role === 'owner';
+            });
+        },
+    },
+    {
+        name: 'requireRole: invalid session cookie → 401 (does not fall through to host cookie)',
+        tags: ['unit', 'auth', 'session', 'requireRole'],
+        testFn: async () => {
+            return withEnv({ SKB_COOKIE_SECRET: KEY }, () => {
+                const host = __test__.mintLocationCookie(new Date(), KEY, 'loc-a');
+                const { res, state } = makeRes();
+                const nextState = { called: false };
+                requireRole('host')(
+                    { headers: { cookie: `${SESSION_COOKIE_NAME}=garbage.deadbeef; skb_host=${host}` }, params: { loc: 'loc-a' } } as unknown as Request,
+                    res,
+                    () => { nextState.called = true; },
+                );
+                return state.status === 401 && !nextState.called;
             });
         },
     },

@@ -1,0 +1,226 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Sign in — SKB Platform</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+  :root { color-scheme: light dark; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: 'IBM Plex Sans', system-ui, sans-serif;
+    background: linear-gradient(160deg, #fff7ec 0%, #f3faf7 100%);
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    color: #1c1917;
+  }
+  @media (prefers-color-scheme: dark) {
+    body { background: linear-gradient(160deg, #1c1917 0%, #0f1a17 100%); color: #f5f5f4; }
+    .card { background: #27211d; color: #f5f5f4; }
+    input { background: #1c1917; color: #f5f5f4; border-color: #44403c; }
+    .muted { color: #a8a29e; }
+    a { color: #d97706; }
+  }
+  .wrap { width: 100%; max-width: 420px; }
+  .brand { text-align: center; margin-bottom: 28px; font-family: 'Archivo', sans-serif; font-weight: 700; font-size: 22px; letter-spacing: 0.5px; }
+  .card { background: #ffffff; border-radius: 18px; padding: 32px 28px; box-shadow: 0 10px 40px rgba(17, 24, 28, 0.08); }
+  h1 { margin: 0 0 6px; font-family: 'Archivo', sans-serif; font-weight: 600; font-size: 26px; }
+  p.muted { margin: 0 0 24px; color: #78716c; font-size: 14px; }
+  label { display: block; font-size: 13px; font-weight: 500; margin-bottom: 6px; }
+  input {
+    width: 100%; font-size: 16px; padding: 11px 12px; border: 1px solid #d6d3d1;
+    border-radius: 10px; margin-bottom: 16px; font-family: inherit;
+  }
+  input:focus { outline: 2px solid #1f6a5d; outline-offset: 1px; border-color: #1f6a5d; }
+  button.primary {
+    width: 100%; font-family: 'Archivo', sans-serif; font-size: 15px; font-weight: 600; letter-spacing: 0.3px;
+    padding: 13px 16px; border: 0; border-radius: 10px; background: #1f6a5d; color: white; cursor: pointer;
+  }
+  button.primary:hover { background: #175049; }
+  button.primary:disabled { opacity: 0.6; cursor: wait; }
+  .error { background: #fee2e2; color: #991b1b; padding: 10px 12px; border-radius: 8px; font-size: 14px; margin-bottom: 16px; display: none; }
+  .error.visible { display: block; }
+  .footer { text-align: center; font-size: 13px; margin-top: 20px; color: #78716c; }
+  .footer a { color: #cb6a34; text-decoration: none; font-weight: 500; }
+  .footer a:hover { text-decoration: underline; }
+  .picker { margin-top: 10px; }
+  .picker button {
+    width: 100%; text-align: left; background: #fef9f4; border: 1px solid #f5e3ca; color: #1c1917;
+    font-family: inherit; font-size: 15px; padding: 12px 14px; border-radius: 10px;
+    margin-bottom: 10px; cursor: pointer; display: flex; justify-content: space-between; align-items: center;
+  }
+  .picker button:hover { background: #fbe7c6; }
+  .picker .role { font-size: 12px; color: #78716c; text-transform: uppercase; letter-spacing: 0.5px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="brand">SKB Platform</div>
+  <div class="card">
+    <div id="login-step">
+      <h1>Sign in</h1>
+      <p class="muted">Use your email and password to access your restaurant's workspace.</p>
+      <div class="error" id="err"></div>
+      <form id="login-form">
+        <label for="email">Email</label>
+        <input type="email" id="email" name="email" required autocomplete="email" autofocus />
+        <label for="password">Password</label>
+        <input type="password" id="password" name="password" required autocomplete="current-password" minlength="10" />
+        <button type="submit" class="primary" id="submit-btn">Sign in</button>
+      </form>
+      <div class="footer">
+        <a href="#" id="forgot-link">Forgot your password?</a>
+      </div>
+    </div>
+
+    <div id="picker-step" style="display:none">
+      <h1>Which restaurant?</h1>
+      <p class="muted">You have access to more than one restaurant. Choose where to sign in.</p>
+      <div class="picker" id="picker"></div>
+      <div class="footer"><a href="#" id="back-to-login">Back to sign in</a></div>
+    </div>
+
+    <div id="forgot-step" style="display:none">
+      <h1>Reset your password</h1>
+      <p class="muted">Enter your email. We'll send a link to set a new password.</p>
+      <div class="error" id="forgot-err"></div>
+      <form id="forgot-form">
+        <label for="forgot-email">Email</label>
+        <input type="email" id="forgot-email" required autocomplete="email" />
+        <button type="submit" class="primary">Send reset link</button>
+      </form>
+      <div class="footer"><a href="#" id="back-to-login-2">Back to sign in</a></div>
+    </div>
+
+    <div id="forgot-sent-step" style="display:none">
+      <h1>Check your email</h1>
+      <p class="muted">If that email matches an account, a reset link is on its way. The link expires in one hour.</p>
+      <div class="footer"><a href="/login">Back to sign in</a></div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  var loginStep = document.getElementById('login-step');
+  var pickerStep = document.getElementById('picker-step');
+  var forgotStep = document.getElementById('forgot-step');
+  var forgotSent = document.getElementById('forgot-sent-step');
+  var err = document.getElementById('err');
+  var forgotErr = document.getElementById('forgot-err');
+
+  function show(step) {
+    [loginStep, pickerStep, forgotStep, forgotSent].forEach(function (s) { s.style.display = 'none'; });
+    step.style.display = '';
+  }
+
+  function showError(el, msg) {
+    el.textContent = msg;
+    el.classList.add('visible');
+  }
+  function clearError(el) { el.classList.remove('visible'); }
+
+  function landingFor(role, loc) {
+    if (role === 'host') return '/r/' + encodeURIComponent(loc) + '/host.html';
+    return '/r/' + encodeURIComponent(loc) + '/admin.html';
+  }
+
+  async function submitLogin(email, password, locationId) {
+    var body = { email: email, password: password };
+    if (locationId) body.locationId = locationId;
+    var res = await fetch('/api/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify(body),
+    });
+    if (res.status === 429) {
+      showError(err, 'Too many attempts. Try again in 15 minutes.');
+      return;
+    }
+    var data = null;
+    try { data = await res.json(); } catch (e) { /* fall through */ }
+    if (!res.ok) {
+      if (res.status === 403 && data && data.error === 'no membership') {
+        showError(err, 'This account has no active restaurant yet. Contact the owner who invited you.');
+      } else {
+        showError(err, (data && data.error) || 'Sign-in failed.');
+      }
+      return;
+    }
+    if (data && data.pickLocation) {
+      renderPicker(email, password, data.memberships || []);
+      show(pickerStep);
+      return;
+    }
+    window.location = landingFor(data.role, data.locationId);
+  }
+
+  function renderPicker(email, password, memberships) {
+    var picker = document.getElementById('picker');
+    picker.innerHTML = '';
+    memberships.forEach(function (m) {
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.innerHTML = '<span>' + escapeHtml(m.locationId) + '</span><span class="role">' + escapeHtml(m.role) + '</span>';
+      b.addEventListener('click', function () { submitLogin(email, password, m.locationId); });
+      picker.appendChild(b);
+    });
+  }
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]);
+    });
+  }
+
+  document.getElementById('login-form').addEventListener('submit', function (e) {
+    e.preventDefault();
+    clearError(err);
+    var email = document.getElementById('email').value.trim();
+    var password = document.getElementById('password').value;
+    if (!email || !password) return;
+    submitLogin(email, password, null);
+  });
+
+  document.getElementById('forgot-link').addEventListener('click', function (e) {
+    e.preventDefault();
+    clearError(forgotErr);
+    show(forgotStep);
+  });
+  document.getElementById('back-to-login').addEventListener('click', function (e) {
+    e.preventDefault();
+    show(loginStep);
+  });
+  document.getElementById('back-to-login-2').addEventListener('click', function (e) {
+    e.preventDefault();
+    show(loginStep);
+  });
+
+  document.getElementById('forgot-form').addEventListener('submit', async function (e) {
+    e.preventDefault();
+    clearError(forgotErr);
+    var email = document.getElementById('forgot-email').value.trim();
+    if (!email) return;
+    try {
+      await fetch('/api/password-reset/request', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email }),
+      });
+      show(forgotSent);
+    } catch (ex) {
+      showError(forgotErr, 'Could not reach server. Try again.');
+    }
+  });
+})();
+</script>
+</body>
+</html>

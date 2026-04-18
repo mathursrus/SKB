@@ -1,7 +1,9 @@
-# Demo Script: Onboarding a New Restaurant (ABCD)
+# Demo Script: Onboarding a New Restaurant to OSH (ABCD)
 
-**Audience**: A restaurant owner who has never seen the platform.
-**Goal**: Take them from "I've heard about this thing" to "my waitlist is live and a guest just joined" in ~12 minutes.
+**Platform**: OSH — the operating system for your restaurant. Working name; final brand research is a separate sub-task (spec §5).
+**Audience**: A restaurant owner who has never seen OSH.
+**Goal**: Take them from "I've heard about this thing" to "my front-of-house runs itself and a guest just joined" in ~12 minutes.
+**Thesis to sell** (don't say it literally; let the product say it): *OSH runs the mechanics — waitlist, website, staff logins, hours, menu, phone — so the owner can run the night.*
 **Prerequisites**: Dev server running on `localhost:3000` (or the staging URL). MongoDB up. If you've rehearsed this before, run `node scripts/demo-reset-abcd.mjs` to wipe any prior ABCD state.
 **Verified**: Walked end-to-end 2026-04-18 by supervisor; bugs surfaced during the demo walk are tracked in §"Demo-driven fixes" at the end.
 
@@ -23,7 +25,11 @@
 
 **Surface**: `http://localhost:3000/`
 
-> "This is the marketing page. Pretend you're a restaurant owner who just heard about us. The pitch is on screen — no app, no sales call, no POS to replace. One button: **Start free**. Let's click it."
+> "This is OSH. The headline on the page is *'Run the night, not the mechanics.'* The idea is that you opened a restaurant because you love the guests and the food — but somebody still has to run the waitlist, build the website, handle the phone, manage the staff logins, update the hours when you close for Thanksgiving. OSH is the operating system for everything-else. You keep doing the guest-facing work. We keep doing the software."
+
+Point at the three cards below the hero: **the front of house handled, your website built for you, your team with real logins.** Then the single CTA.
+
+> "One button: **Start free**. Let's click it."
 
 Click **Start free**.
 
@@ -75,7 +81,7 @@ The onboarding wizard modal is open. Walk them through it:
 
 > "This wizard is optional. If you want to put a QR on your door tonight and skip the polish, click **Dismiss for now** — you're still live. These are polish steps."
 
-Close the modal (click ✕). Give them 10 seconds to look at the admin layout: topbar says "SKB Platform · Admin — ABCD", two tabs (**Operations** / **Staff**), empty analytics, empty dining, the QR code for the front door (visible lower on the page), IVR voice settings, Restaurant Site form, Website template picker.
+Close the modal (click ✕). Give them 10 seconds to look at the admin layout: topbar says **"OSH · Admin — ABCD"**, two tabs (**Operations** / **Staff**), empty analytics, empty dining, the QR code for the front door (visible lower on the page), IVR voice settings, Restaurant Site form, Website template picker. The scope of "everything else" is on-screen — point at the QR, the IVR settings, the site form, the template picker and say: *"All of this is yours. You'll never touch most of it after setup — but you own the switches."*
 
 ---
 
@@ -193,7 +199,43 @@ The row moves to the **Seated** tab. If the guest's phone is still open, within 
 
 ---
 
-## Part 10 · Cross-tenant safety (30 seconds)
+## Part 10 · Ask OSH anything (AI / MCP) (1 minute)
+
+**Surface**: `/r/abcd/admin.html` → scroll down to the **Ask OSH** card (MCP / AI).
+
+This is the line in the demo that makes owners' eyes light up. Point at the six example prompts in italics:
+
+- *"Who's waiting right now?"*
+- *"How many covers last Friday between 7 and 9?"*
+- *"What's our average turn time this month?"*
+- *"Text Patel — we're five minutes out."*
+- *"Set our turn time to 45 minutes."*
+- *"Summarize how tonight went."*
+
+> "OSH speaks MCP — the open protocol Claude, ChatGPT, and a growing list of AI clients all use to connect to real tools. Every operation your host can do on the tablet, the AI can do for you. Every number in your analytics, the AI can read. You ask in plain English."
+
+Scroll to the **Your connection** block. Point at the three fields:
+- **Endpoint URL**: `https://<your-platform-domain>/mcp`
+- **X-SKB-Location**: `abcd`
+- **Bearer token**: the same 4-digit host PIN they wrote down in Part 2.
+
+> "One connection. Three values. Paste them into Claude or ChatGPT once; then for the rest of your restaurant's life you just talk to it. The setup tabs below have a ready-made command for Claude Code, a JSON blob for Claude Desktop, and instructions for a ChatGPT Custom GPT."
+
+Click the **Claude Code (CLI)** tab. Hit **Copy** on the snippet. Open a terminal, paste, hit enter. Then in Claude Code:
+
+```
+What's on my OSH waitlist right now?
+```
+
+Watch Claude call `list_waiting` under the hood and return **Jamie K., party of 3, waiting 5m** in natural language. Close the loop for the owner:
+
+> "That's the whole point of OSH in one screen: you have a guest in front of you. You ask your phone a question. You get the answer. You go back to the guest."
+
+**Safety aside**: Call out the yellow safety note on the card. The bearer token is the host PIN — if it leaks, anyone can operate the waitlist. Rotate it from Settings → Device PIN. (Per-owner API keys are a future sub-task.)
+
+---
+
+## Part 11 · Cross-tenant safety (30 seconds)
 
 (Optional, only if the owner asks "so my data is separate from everyone else's?")
 
@@ -201,23 +243,27 @@ Back to the left window. Change the URL bar to `http://localhost:3000/r/skb/host
 
 Result: **Invalid PIN** (because SKB's PIN is different).
 
-> "The same PIN that unlocks ABCD can't unlock SKB — and more importantly, ABCD's host cookie, if somehow stolen, would be rejected at `/r/skb/...` with 403 Wrong Tenant. Every query we make to the database includes your restaurant ID; you literally cannot see another restaurant's data."
+> "The same PIN that unlocks ABCD can't unlock SKB — and more importantly, ABCD's host cookie, if somehow stolen, would be rejected at `/r/skb/...` with 403 Wrong Tenant. Every query we make to the database includes your restaurant ID; you literally cannot see another restaurant's data. And every MCP request includes your `X-SKB-Location` header — Claude can only see *your* restaurant, ever."
 
 ---
 
-## Part 11 · Wrap (30 seconds)
+## Part 12 · Wrap (30 seconds)
 
-> "What you have now:
-> - A public website at `/r/abcd/` that you control — address, hours, menu link, photos.
-> - A host tablet URL `/r/abcd/host.html` with a PIN.
-> - An owner admin at `/r/abcd/admin.html` where you configure settings and invite staff.
-> - A QR sticker for your door.
-> - Cross-tenant data isolation — your guests are yours.
-> - Free while we're in beta. Pricing lands with a 30-day advance notice when we leave beta.
+> "In about ten minutes — from a cold marketing page — you got:
 >
-> When you're ready, I'll send you an email to your owner address with a welcome note and the host PIN."
+> - **A public website** at `/r/abcd/` you control. Address, hours, menu link, photos, template.
+> - **A waitlist** at your door, on every guest's phone, with live place-in-line and SMS when the table is ready.
+> - **A phone IVR** that reads your current wait-time when a guest calls, transfers large parties to your line, routes press-0 to your front desk.
+> - **A host tablet** at `/r/abcd/host.html` with its own PIN — seats, notifies, chats, calls, no-shows.
+> - **An owner admin** at `/r/abcd/admin.html` for settings, staff, analytics, the QR, the template.
+> - **Named staff logins** with roles. Hosts see the floor. Admins see settings. You fire someone, you revoke them, their cookie dies at the next request.
+> - **AI on-call** — Claude, ChatGPT, any MCP client — answers *any* question about your restaurant in plain English.
+> - **Cross-tenant isolation** — your guests' data is yours. Nobody else on OSH can see ABCD.
+> - **Free** while we're in beta. Pricing lands with 30 days of advance notice when we leave beta.
+>
+> None of that needed a salesperson. None of it needed an engineer. You fill out one form, and OSH does the rest of the operating-system work so you can do the only thing that matters — the guest in front of you."
 
-Leave them the URL, the host PIN on a card, and your email.
+Hand them a card with: `/r/abcd/`, the host PIN, and your email for follow-up.
 
 ---
 

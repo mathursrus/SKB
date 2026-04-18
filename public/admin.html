@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>SKB Platform — Admin</title>
+<title>OSH — Admin</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Fira+Sans:wght@400;600;700&display=swap" rel="stylesheet" />
@@ -13,7 +13,7 @@
 <body class="host admin-page">
 <div id="admin-login-view">
     <div class="card login-card">
-        <h2 style="margin-top:0">SKB Platform · Admin</h2>
+        <h2 style="margin-top:0">OSH · Admin</h2>
         <p style="color:#78716c;font-size:14px">Enter device PIN to open the admin workspace.</p>
         <form id="admin-login-form">
             <label for="admin-pin">PIN</label>
@@ -97,9 +97,9 @@
             <!-- Platform placeholder brand (spec §5, issue #57). The
                  restaurant name is injected by admin.js from the
                  site-config endpoint once the admin view unlocks, so
-                 owners see "SKB Platform · Admin — Their Restaurant"
+                 owners see "OSH · Admin — Their Restaurant"
                  instead of the bare platform label. -->
-            <div class="brand">SKB Platform &middot; Admin<span id="admin-restaurant-name-sep" style="display:none"> &mdash; </span><span id="admin-restaurant-name"></span></div>
+            <div class="brand">OSH &middot; Admin<span id="admin-restaurant-name-sep" style="display:none"> &mdash; </span><span id="admin-restaurant-name"></span></div>
             <div class="admin-subhead">Post-shift debrief, analytics, and guest-entry system settings.</div>
         </div>
         <div class="counts admin-counts admin-counts-compact">
@@ -393,6 +393,76 @@
                 <a id="admin-website-preview" class="admin-website-preview" href="./" target="_blank" rel="noopener">Preview ↗</a>
                 <button type="button" id="admin-website-save" class="primary">Save Website</button>
             </div>
+        </section>
+
+        <!-- ────────────────────────────────────────────────────────────
+             Ask OSH (MCP) — let owners connect Claude / ChatGPT / any
+             MCP-speaking AI to THIS restaurant's operating data. The
+             config is per-tenant: the Bearer token is the restaurant's
+             host PIN, the X-SKB-Location header is the tenant slug.
+             ──────────────────────────────────────────────────────────── -->
+        <section class="admin-card" id="admin-mcp-card">
+            <div class="admin-card-head">
+                <h2>Ask OSH <span class="admin-card-tag">MCP / AI</span></h2>
+                <p>Plug your restaurant into Claude, ChatGPT, or any AI that speaks <a href="https://modelcontextprotocol.io" target="_blank" rel="noopener">MCP</a>. Then just ask — no dashboards to learn.</p>
+            </div>
+
+            <div class="mcp-ask-samples">
+                <div class="mcp-ask-sample">"Who's waiting right now?"</div>
+                <div class="mcp-ask-sample">"How many covers last Friday between 7 and 9?"</div>
+                <div class="mcp-ask-sample">"What's our average turn time this month?"</div>
+                <div class="mcp-ask-sample">"Text Patel — we're five minutes out."</div>
+                <div class="mcp-ask-sample">"Set our turn time to 45 minutes."</div>
+                <div class="mcp-ask-sample">"Summarize how tonight went."</div>
+            </div>
+
+            <h4 class="visit-subhead">Your connection <span class="visit-sub-help">— paste into your AI client; the PIN is also on your door-poster PDF</span></h4>
+            <div class="mcp-config-grid">
+                <label class="mcp-config-field">
+                    <span class="visit-label">Endpoint URL</span>
+                    <div class="mcp-config-input-row">
+                        <input type="text" id="mcp-endpoint" readonly />
+                        <button type="button" class="mcp-copy-btn" data-copy-target="mcp-endpoint">Copy</button>
+                    </div>
+                </label>
+                <label class="mcp-config-field">
+                    <span class="visit-label">Header: <code>X-SKB-Location</code></span>
+                    <div class="mcp-config-input-row">
+                        <input type="text" id="mcp-location-header" readonly />
+                        <button type="button" class="mcp-copy-btn" data-copy-target="mcp-location-header">Copy</button>
+                    </div>
+                </label>
+                <label class="mcp-config-field">
+                    <span class="visit-label">Bearer token <span class="visit-sub-help">(your host PIN — same as the tablet)</span></span>
+                    <div class="mcp-config-input-row">
+                        <input type="password" id="mcp-bearer" readonly />
+                        <button type="button" class="mcp-copy-btn" data-copy-target="mcp-bearer">Copy</button>
+                        <button type="button" class="mcp-reveal-btn" id="mcp-bearer-reveal" aria-label="Show / hide token">👁</button>
+                    </div>
+                </label>
+            </div>
+
+            <div class="mcp-setup-tabs" role="tablist">
+                <button type="button" class="mcp-tab-btn is-selected" data-mcp-tab="claude-code" role="tab">Claude Code (CLI)</button>
+                <button type="button" class="mcp-tab-btn" data-mcp-tab="claude-desktop" role="tab">Claude Desktop (JSON)</button>
+                <button type="button" class="mcp-tab-btn" data-mcp-tab="chatgpt" role="tab">ChatGPT Custom GPT</button>
+            </div>
+
+            <div class="mcp-tab-panel is-selected" data-mcp-tab-panel="claude-code">
+                <p class="mcp-panel-blurb">One command in your terminal. Claude remembers the connection for every future chat.</p>
+                <pre class="mcp-snippet"><code id="mcp-snippet-claude-code"></code><button type="button" class="mcp-copy-btn mcp-snippet-copy" data-copy-target="mcp-snippet-claude-code">Copy</button></pre>
+                <p class="mcp-panel-followup">Open Claude Code and ask <em>"What's on my OSH waitlist right now?"</em></p>
+            </div>
+            <div class="mcp-tab-panel" data-mcp-tab-panel="claude-desktop">
+                <p class="mcp-panel-blurb">Paste into <code>claude_desktop_config.json</code> (Settings → Developer → Edit Config) and restart Claude Desktop.</p>
+                <pre class="mcp-snippet"><code id="mcp-snippet-claude-desktop"></code><button type="button" class="mcp-copy-btn mcp-snippet-copy" data-copy-target="mcp-snippet-claude-desktop">Copy</button></pre>
+            </div>
+            <div class="mcp-tab-panel" data-mcp-tab-panel="chatgpt">
+                <p class="mcp-panel-blurb">In ChatGPT, create a Custom GPT and add a Connector. Paste the endpoint URL above; under "Authentication" choose <em>Custom header</em> and add both headers from this card. (ChatGPT MCP support is rolling out — some accounts see this option under Tools → Actions.)</p>
+                <p class="mcp-panel-followup">Working <em>very close</em> to home? You can also run Claude Code on your phone and point it at OSH from anywhere on the floor.</p>
+            </div>
+
+            <p class="mcp-safety"><strong>Safety note:</strong> the bearer token above is your host PIN. Anyone with it can operate your waitlist. Rotate it from Settings → Device PIN if you think it's leaked.</p>
         </section>
     </main>
 

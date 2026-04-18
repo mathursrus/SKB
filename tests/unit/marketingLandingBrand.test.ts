@@ -4,8 +4,12 @@
 // Covers the static-file layer of §57 acceptance:
 //   R1 — public/landing.html exists, has a "Start free" CTA linking to /signup
 //   R4 — admin.html + host.html brand-block + titles use the platform
-//        placeholder `SKB Platform` (admin is platform-scoped) or the
-//        restaurant name slot (host stand is restaurant-scoped).
+//        placeholder `OSH` (admin is platform-scoped) or the restaurant
+//        name slot (host stand is restaurant-scoped).
+//
+// Spec §5 status: working name is OSH ("OS for Hospitality"); full naming
+// deferred to a future sub-task. These tests pin the current placeholder —
+// update them whenever the wordmark lands.
 //
 // The HTML-level checks here are deliberately string-based: these files are
 // served as static assets with no template engine, so a simple presence
@@ -48,11 +52,11 @@ const cases: BaseTestCase[] = [
         },
     },
     {
-        name: 'landing.html uses the SKB Platform placeholder (spec §5)',
+        name: 'landing.html uses the OSH placeholder (spec §5)',
         tags: ['unit', 'issue-57', 'landing', 'brand'],
         testFn: async () => {
             const html = loadPage('landing.html');
-            return html.includes('SKB Platform');
+            return html.includes('OSH');
         },
     },
     {
@@ -66,32 +70,31 @@ const cases: BaseTestCase[] = [
 
     // ── R4: admin.html brand-block → platform placeholder ─────────────
     {
-        name: 'admin.html title uses SKB Platform (platform-scoped surface)',
+        name: 'admin.html title uses OSH (platform-scoped surface)',
         tags: ['unit', 'issue-57', 'brand', 'admin'],
         testFn: async () => {
             const html = loadPage('admin.html');
-            // <title>SKB Platform — Admin</title> (em-dash ok, hyphen ok)
-            return /<title>[^<]*SKB\s+Platform[^<]*Admin[^<]*<\/title>/i.test(html);
+            // <title>OSH — Admin</title> (em-dash ok, hyphen ok)
+            return /<title>[^<]*\bOSH\b[^<]*Admin[^<]*<\/title>/i.test(html);
         },
     },
     {
-        name: 'admin.html topbar brand text is SKB Platform · Admin',
+        name: 'admin.html topbar brand text is OSH · Admin',
         tags: ['unit', 'issue-57', 'brand', 'admin'],
         testFn: async () => {
             const html = loadPage('admin.html');
-            // Accept either middle-dot (U+00B7, &middot;, &#183;) or a
-            // plain hyphen as the separator. Entity form is what the HTML
-            // actually ships with (HTML escape is load-bearing — the file
-            // has no explicit charset meta tag dependency).
-            return /class=["']brand["'][^>]*>\s*SKB\s+Platform\s*(?:&middot;|&#183;|[·\-–—])\s*Admin/i.test(html);
+            // Accept middle-dot (U+00B7, &middot;, &#183;) or a plain
+            // hyphen as the separator. Entity form is what the HTML
+            // actually ships with.
+            return /class=["']brand["'][^>]*>\s*OSH\s*(?:&middot;|&#183;|[·\-–—])\s*Admin/i.test(html);
         },
     },
     {
-        name: 'admin.html login card heading uses SKB Platform',
+        name: 'admin.html login card heading uses OSH',
         tags: ['unit', 'issue-57', 'brand', 'admin'],
         testFn: async () => {
             const html = loadPage('admin.html');
-            return /<h2[^>]*>\s*SKB\s+Platform\s*[·\-–—]\s*Admin/i.test(html);
+            return /<h2[^>]*>\s*OSH\s*[·\-–—]\s*Admin/i.test(html);
         },
     },
     {
@@ -109,11 +112,10 @@ const cases: BaseTestCase[] = [
         tags: ['unit', 'issue-57', 'brand', 'admin'],
         testFn: async () => {
             const html = loadPage('admin.html');
-            // "SKB · Admin" (with no "Platform") must not appear as a visible
-            // brand string. The separator can be "·" or "-"; the test
-            // matches the form that the spec said to replace.
-            // Match 'SKB' NOT followed by ' Platform'.
-            return !/\bSKB(?!\s+Platform)\s*[·\-–—]\s*Admin/i.test(html);
+            // "SKB · Admin" must not appear as a visible brand string. The
+            // separator can be "·" or "-"; the test matches the form the
+            // spec said to replace.
+            return !/\bSKB\s*[·\-–—]\s*Admin/i.test(html);
         },
     },
 
@@ -145,28 +147,26 @@ const cases: BaseTestCase[] = [
         testFn: async () => {
             const html = loadPage('host.html');
             // The PIN-login card h2 should use the restaurant-name slot too.
-            // A second id for the login-view copy keeps the slot-filling
-            // logic uniform.
             return /id=["']host-login-restaurant-name["']/.test(html);
         },
     },
 
     // ── Signup page brand touches ─────────────────────────────────────
     {
-        name: 'signup.html brand uses SKB Platform (platform-scoped surface)',
+        name: 'signup.html brand uses OSH (platform-scoped surface)',
         tags: ['unit', 'issue-57', 'brand', 'signup'],
         testFn: async () => {
             const html = loadPage('signup.html');
-            // <div class="brand">SKB Platform</div>
-            return /class=["']brand["'][^>]*>\s*SKB\s+Platform\s*</i.test(html);
+            // <div class="brand">OSH</div>
+            return /class=["']brand["'][^>]*>\s*OSH\s*</i.test(html);
         },
     },
     {
-        name: 'signup.html title uses SKB Platform',
+        name: 'signup.html title uses OSH',
         tags: ['unit', 'issue-57', 'brand', 'signup'],
         testFn: async () => {
             const html = loadPage('signup.html');
-            return /<title>[^<]*SKB\s+Platform[^<]*<\/title>/i.test(html);
+            return /<title>[^<]*\bOSH\b[^<]*<\/title>/i.test(html);
         },
     },
 ];

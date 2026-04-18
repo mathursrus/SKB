@@ -102,10 +102,10 @@ const cases: BaseTestCase[] = [
             if (!res.ok) return false;
             const html = await res.text();
             // The marketing landing is identified by the Start-free CTA to
-            // /signup and the platform placeholder brand.
+            // /signup and the platform placeholder brand (OSH per spec §5).
             return /Start\s+free/i.test(html)
                 && /href\s*=\s*["']\/signup["']/i.test(html)
-                && html.includes('SKB Platform');
+                && html.includes('OSH');
         },
     },
     {

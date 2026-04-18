@@ -374,7 +374,7 @@
             if (sitePublicHost) sitePublicHost.value = data.publicHost || '';
             siteLoadHoursIntoForm(data.hours);
             // Issue #57: surface the restaurant name in the admin topbar
-            // brand block so owners see "SKB Platform · Admin — {name}".
+            // brand block so owners see "OSH · Admin — {name}".
             // Platform label is hardcoded in the HTML; only the name slot
             // is data-driven.
             const nameEl = document.getElementById('admin-restaurant-name');
@@ -529,8 +529,89 @@
 
     async function refreshAll() {
         rememberWorkspace();
-        await Promise.all([loadStats(), loadAnalytics(), loadVisitConfig(), loadVoiceConfig(), loadSiteConfig(), loadWebsiteConfig()]);
+        await Promise.all([loadStats(), loadAnalytics(), loadVisitConfig(), loadVoiceConfig(), loadSiteConfig(), loadWebsiteConfig(), loadMcpConfig()]);
     }
+
+    // ------------------------------------------------------------------
+    // MCP (AI) setup card — populate per-tenant endpoint, headers, and
+    // the Claude Code / Claude Desktop snippets. Works entirely client-
+    // side from data the page already has; no new API call needed.
+    // ------------------------------------------------------------------
+    async function loadMcpConfig() {
+        const endpoint = document.getElementById('mcp-endpoint');
+        const locHeader = document.getElementById('mcp-location-header');
+        const bearer = document.getElementById('mcp-bearer');
+        const claudeCode = document.getElementById('mcp-snippet-claude-code');
+        const claudeDesktop = document.getElementById('mcp-snippet-claude-desktop');
+        if (!endpoint || !locHeader || !bearer || !claudeCode || !claudeDesktop) return;
+
+        const mcpUrl = `${window.location.origin}/mcp`;
+        const locationId = (window.location.pathname.match(/^\/r\/([^/]+)\//) || [])[1] || 'skb';
+        // The PIN is never returned by any owner-facing API (correctly).
+        // Render a placeholder the owner replaces from the signup success
+        // card / door-poster PDF. If we ever add a "reveal / rotate PIN"
+        // flow, this is where we'd read it from the new endpoint.
+        const pin = '<your host PIN>';
+
+        endpoint.value = mcpUrl;
+        locHeader.value = locationId;
+        bearer.value = pin;
+        bearer.type = 'password';
+
+        const name = `osh-${locationId}`;
+        claudeCode.textContent =
+            `claude mcp add ${name} \\\n` +
+            `  --transport http \\\n` +
+            `  --url "${mcpUrl}" \\\n` +
+            `  --header "Authorization: Bearer ${pin}" \\\n` +
+            `  --header "X-SKB-Location: ${locationId}"`;
+        claudeDesktop.textContent = JSON.stringify({
+            mcpServers: {
+                [name]: {
+                    transport: 'http',
+                    url: mcpUrl,
+                    headers: {
+                        Authorization: `Bearer ${pin}`,
+                        'X-SKB-Location': locationId,
+                    },
+                },
+            },
+        }, null, 2);
+    }
+
+    // Reveal/hide the bearer token.
+    document.addEventListener('click', (e) => {
+        const target = e.target instanceof Element ? e.target : null;
+        if (!target) return;
+        if (target.id === 'mcp-bearer-reveal') {
+            const input = $('mcp-bearer');
+            if (!input) return;
+            input.type = input.type === 'password' ? 'text' : 'password';
+            target.textContent = input.type === 'password' ? '👁' : '🙈';
+            return;
+        }
+        if (target.classList.contains('mcp-copy-btn')) {
+            const id = target.getAttribute('data-copy-target');
+            if (!id) return;
+            const el = document.getElementById(id);
+            if (!el) return;
+            const text = el.value !== undefined ? el.value : el.textContent || '';
+            navigator.clipboard?.writeText(text).then(() => {
+                const original = target.textContent;
+                target.textContent = '✓ Copied';
+                setTimeout(() => { target.textContent = original; }, 1400);
+            });
+            return;
+        }
+        if (target.classList.contains('mcp-tab-btn')) {
+            const tab = target.getAttribute('data-mcp-tab');
+            if (!tab) return;
+            document.querySelectorAll('.mcp-tab-btn').forEach(b => b.classList.toggle('is-selected', b === target));
+            document.querySelectorAll('.mcp-tab-panel').forEach(p => {
+                p.classList.toggle('is-selected', p.getAttribute('data-mcp-tab-panel') === tab);
+            });
+        }
+    });
 
     // ------------------------------------------------------------------
     // Issue #55: Staff tab

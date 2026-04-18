@@ -81,29 +81,46 @@ Independent restaurants don't adopt modern front-of-house software because every
 
 ---
 
-## 5. Product name: deferred to a dedicated naming sub-task
+## 5. Product name: working name **OSH** (OS for Hospitality)
 
-Our first-pass working name was **Mise** (from *mise en place* — "everything in its place"), which captures the soup-to-nuts restaurant framing well. A post-draft name-availability check surfaced multiple incumbents already using the name in the restaurant/hospitality space:
+Final naming is still deferred to a dedicated sub-task. The current **working placeholder is "OSH"** — *Operating System for Hospitality* — used across user-facing platform surfaces while naming research continues. This is the third round of working names for this spec:
 
-- **app.trymise.com** — all-in-one restaurant software (POS, catering, recipes, marketplace). Direct category overlap.
-- **mise.digital** — AI hospitality agency.
-- **getmeez.com** — recipe-management software; phonetically identical ("meez").
-- **misenplace.ai** — supply-chain intelligence for hospitality.
-- **discovermise.com** — restaurant recipe-management tool.
-- **mep-hospitality.com** — restaurant consulting.
+- **Round 1 — "Mise"** (from *mise en place*) was rejected after the name-availability check surfaced multiple restaurant-SaaS incumbents: [app.trymise.com](https://app.trymise.com/), [mise.digital](https://mise.digital/), [getmeez.com](https://www.getmeez.com/), [misenplace.ai](https://misenplace.ai/), [discovermise.com](https://discovermise.com/), [mep-hospitality.com](https://www.mep-hospitality.com/).
+- **Round 2 — "SKB Platform"** (literal placeholder while naming research continued).
+- **Round 3 — "OSH"** (current). A deliberate non-brand placeholder that describes what the product *is* (an OS for hospitality) rather than reaching for a poetic wordmark. Keeps the surface functional while real naming continues as its own sub-task.
 
-These have been added to `fraim/config.json` as competitive references. Because "Mise" is crowded and the load-bearing content of this spec (auth, onboarding, templates, staff roles) does not depend on the brand, **naming is deferred to a dedicated sub-task** that should evaluate (a) domain availability across `.com`, `.app`, `.restaurant`, (b) USPTO trademark search in IC 042 / IC 009, (c) phonetic near-misses, (d) App Store / Play Store name conflicts, and (e) pronunciation.
+### Why a placeholder and not a real brand yet
 
-For the remainder of this spec and all downstream implementation work, the platform is referred to as **"the platform"** (lowercase, descriptive). The `SKB` codebase slug, the `skb` location, the `SKB_HOST_PIN` env var, and the `skb_host` cookie name all stay — `SKB` remains the code-level name of the implementation.
+Rounds 1–6 of name brainstorming (Mise → ADB/Atithi Devo Bhava → Sofra → E3 → Neev → Ropes → Salt & Pepper) revealed a consistent pattern: every memorable hospitality-native English/Hindi/Sanskrit word is **already claimed** — either by a restaurant-SaaS competitor ([sofra.restaurant](https://sofra.restaurant/), [mysofra.com](https://mysofra.com/), [Atithi Spinfocom](https://spinfocom.co.in/Products/Atithi.html), [Aatithya HMS / Dataman](https://hotel-software.dataman.in/)), an adjacent software category (Ropes AI, Neev Technologies), a multi-decade restaurant chain (Sofra London, Hotel ADB Rajkot), or a generic/unownable phrase (Salt & Pepper, E3). The brand search is a land-rush that finished 10+ years ago.
 
-Rebranded surfaces (whatever the chosen name becomes) will include:
-- The marketing landing page at the naked domain (currently `/` renders "SKB Waitlist — list of locations"; becomes a marketing page for the platform).
-- The signup pages.
-- The unified staff login page (`<platform-domain>/login`).
-- The `<title>` and header brand block on the admin UI (currently "SKB · Admin"; becomes "{platform} · Admin — {restaurant name}").
-- Email subject lines and system-generated SMS signatures that are not restaurant-specific.
+**The path forward for naming** (future sub-task, not this spec):
+1. Accept that any word-we-reach-for-first is claimed. Invent a new word, compose a compound, or budget to acquire a squatted name.
+2. Focus on candidates with a clean registrar path (`.com` + `.app` available) and a USPTO path (IC 042 + IC 009 + IC 043 clear).
+3. Pronunciation test against US restaurant owners (the tip-of-the-spear ICP).
 
-The **host stand** branding stays restaurant-specific (currently "SKB · Host"; becomes "{restaurant name} · Host") — a front-desk operator should see their own restaurant's name, not the platform's.
+Until that sub-task completes, **OSH** is the working placeholder. `SKB` remains the code-level name of the implementation — slug `skb`, env var `SKB_HOST_PIN`, cookie `skb_host`, env flag `SKB_OPERATOR_CONSOLE`, etc. are all preserved.
+
+### Surfaces where "OSH" appears (rebranded)
+
+- Marketing landing at naked `/` — title, header, footer.
+- Signup page `/signup` — title, topbar brand, "Already on OSH? Log in" copy.
+- Unified staff login at `/login` — title, topbar brand.
+- Password reset page `/reset-password` — title.
+- Admin topbar `/r/<slug>/admin.html` — "OSH · Admin — {restaurant name}".
+- Operator console (env-gated) at `/admin/locations` — title "OSH — Operator Console".
+- iOS host-stand app name (`ios/app.json`) — "OSH Host Stand".
+
+### Surfaces that stay restaurant-branded (not rebranded)
+
+- Diner-facing queue at `/r/<slug>/queue.html` — the restaurant's own name.
+- Per-restaurant public website `/r/<slug>/` — the restaurant's own name + template content.
+- Host-stand at `/r/<slug>/host.html` — "{restaurant name} · Host Stand".
+- Party codes (`ABCD-FFW`, `SKB-XYZ`) — tenant prefix.
+- SMS sender-id copy — the restaurant's own name.
+
+### Surfaces intentionally left at legacy naming (out of scope)
+
+- `public/privacy.html` and `public/terms.html` still reference "SKB Waitlist" and "Wellness At Work LLC" (the SMS sender-of-record). These are legal copy operated platform-wide; changing the brand wordmark here needs a separate legal-review pass.
 
 ---
 

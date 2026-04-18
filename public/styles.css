@@ -2473,3 +2473,148 @@ a#custom-call-confirm[aria-disabled="true"] {
     background: rgba(31, 106, 93, 0.06);
 }
 .role-radio-option:has(input:checked) strong { color: #1f6a5d; }
+
+/* ============================================================================
+ * "Ask OSH" MCP setup card (admin)
+ * Purpose: give owners a copy-paste setup path for plugging Claude / ChatGPT
+ * into their restaurant's MCP endpoint. Visual language matches admin cards.
+ * ============================================================================ */
+#admin-mcp-card .admin-card-tag {
+    display: inline-block;
+    margin-left: 8px;
+    padding: 2px 8px;
+    font-size: 11px;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    color: #1f6a5d;
+    background: rgba(31,106,93,.12);
+    border-radius: 999px;
+    vertical-align: middle;
+    font-weight: 700;
+}
+.mcp-ask-samples {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 8px;
+    margin: 14px 0 20px;
+}
+.mcp-ask-sample {
+    background: #fffdf8;
+    border: 1px solid #ede4d1;
+    border-radius: 10px;
+    padding: 10px 14px;
+    color: #4a4238;
+    font-style: italic;
+    font-size: 13px;
+}
+.mcp-config-grid {
+    display: grid;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+.mcp-config-field .visit-label code {
+    background: rgba(31,106,93,.08);
+    border-radius: 4px;
+    padding: 1px 5px;
+    font-size: 12px;
+}
+.mcp-config-input-row {
+    display: flex;
+    gap: 6px;
+}
+.mcp-config-input-row input {
+    flex: 1;
+    padding: 10px 12px;
+    border-radius: 10px;
+    border: 1px solid var(--border, #dfd6c6);
+    font-family: 'IBM Plex Mono', ui-monospace, monospace;
+    font-size: 13px;
+    background: #fffdf8;
+}
+.mcp-copy-btn,
+.mcp-reveal-btn {
+    padding: 0 14px;
+    border-radius: 10px;
+    border: 1px solid var(--border, #dfd6c6);
+    background: #fff;
+    font-size: 13px;
+    font-weight: 600;
+    color: #1f6a5d;
+    cursor: pointer;
+    white-space: nowrap;
+}
+.mcp-copy-btn:hover,
+.mcp-reveal-btn:hover { background: rgba(31,106,93,.06); }
+.mcp-setup-tabs {
+    display: flex;
+    gap: 4px;
+    margin: 8px 0 14px;
+    border-bottom: 1px solid #ede4d1;
+    padding-bottom: 0;
+}
+.mcp-tab-btn {
+    border: none;
+    background: transparent;
+    padding: 10px 16px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #78716c;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+}
+.mcp-tab-btn:hover { color: #1f6a5d; }
+.mcp-tab-btn.is-selected {
+    color: #1f6a5d;
+    border-bottom-color: #1f6a5d;
+}
+.mcp-tab-panel { display: none; }
+.mcp-tab-panel.is-selected { display: block; }
+.mcp-panel-blurb,
+.mcp-panel-followup {
+    color: #4a4238;
+    font-size: 14px;
+    margin: 4px 0 10px;
+}
+.mcp-panel-followup em { color: #1f6a5d; }
+.mcp-snippet {
+    position: relative;
+    background: #1d1b19;
+    color: #f7f1e8;
+    border-radius: 12px;
+    padding: 14px 16px;
+    margin: 10px 0;
+    font-family: 'IBM Plex Mono', ui-monospace, monospace;
+    font-size: 13px;
+    line-height: 1.55;
+    overflow-x: auto;
+    white-space: pre;
+}
+.mcp-snippet code {
+    display: block;
+    white-space: pre;
+    font: inherit;
+    color: inherit;
+    background: none;
+    padding: 0;
+}
+.mcp-snippet-copy {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    padding: 4px 10px;
+    font-size: 12px;
+    background: rgba(255,255,255,.08);
+    color: #f7f1e8;
+    border-color: rgba(255,255,255,.2);
+}
+.mcp-snippet-copy:hover { background: rgba(255,255,255,.16); }
+.mcp-safety {
+    margin-top: 14px;
+    padding: 10px 14px;
+    background: #fff7ec;
+    border: 1px solid #f4d8a4;
+    border-radius: 10px;
+    font-size: 13px;
+    color: #6e4f10;
+}

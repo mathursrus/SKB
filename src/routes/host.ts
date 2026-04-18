@@ -565,6 +565,12 @@ export function hostRouter(): Router {
         try {
             const location = await getLocation(loc(req));
             res.json({
+                // Read-only display field (issue #57): admin topbar reads
+                // this to render "SKB Platform · Admin — {restaurant.name}"
+                // without adding a second fetch. The name is already the
+                // document's _id-display value; updating it is a separate
+                // concern (no write path exposed here).
+                name: location?.name ?? '',
                 address: location?.address ?? null,
                 hours: location?.hours ?? null,
                 publicHost: location?.publicHost ?? '',

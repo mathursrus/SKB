@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>SKB — Admin</title>
+<title>SKB Platform — Admin</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Fira+Sans:wght@400;600;700&display=swap" rel="stylesheet" />
@@ -13,7 +13,7 @@
 <body class="host admin-page">
 <div id="admin-login-view">
     <div class="card login-card">
-        <h2 style="margin-top:0">SKB · Admin</h2>
+        <h2 style="margin-top:0">SKB Platform · Admin</h2>
         <p style="color:#78716c;font-size:14px">Enter device PIN to open the admin workspace.</p>
         <form id="admin-login-form">
             <label for="admin-pin">PIN</label>
@@ -94,7 +94,12 @@
 
     <div class="topbar admin-topbar">
         <div class="admin-brand-block">
-            <div class="brand">SKB · Admin</div>
+            <!-- Platform placeholder brand (spec §5, issue #57). The
+                 restaurant name is injected by admin.js from the
+                 site-config endpoint once the admin view unlocks, so
+                 owners see "SKB Platform · Admin — Their Restaurant"
+                 instead of the bare platform label. -->
+            <div class="brand">SKB Platform &middot; Admin<span id="admin-restaurant-name-sep" style="display:none"> &mdash; </span><span id="admin-restaurant-name"></span></div>
             <div class="admin-subhead">Post-shift debrief, analytics, and guest-entry system settings.</div>
         </div>
         <div class="counts admin-counts admin-counts-compact">

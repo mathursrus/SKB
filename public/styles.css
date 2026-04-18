@@ -364,6 +364,10 @@ footer {
 .host .logout { background: none; border: 1px solid var(--border); border-radius: 6px; padding: 10px 14px; min-height: 44px; cursor: pointer; color: var(--muted); font-size: 13px; }
 .host main { padding: 20px 24px; }
 .admin-main { padding: 20px 24px; display: grid; gap: 20px; }
+.admin-tabs { display: flex; gap: 4px; margin: 16px 24px 0; padding: 4px; background: var(--surface-alt, #faf6ee); border: 1px solid var(--border); border-radius: 10px; width: fit-content; }
+.admin-tab { background: transparent; border: none; padding: 8px 16px; border-radius: 8px; font-weight: 600; font-size: 13px; color: var(--muted); cursor: pointer; }
+.admin-tab.active { background: var(--accent, #1f6a5d); color: #fff; }
+.admin-tab:focus-visible { outline: 2px solid var(--accent, #1f6a5d); outline-offset: 2px; }
 .admin-topbar { align-items: flex-start; }
 .admin-brand-block { display: flex; flex-direction: column; gap: 4px; min-width: 240px; }
 .admin-subhead { color: var(--muted); font-size: 13px; max-width: 360px; }

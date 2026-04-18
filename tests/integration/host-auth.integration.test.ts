@@ -160,9 +160,14 @@ const cases: BaseTestCase[] = [
         },
     },
     {
-        name: 'host-auth: /api/host/voice-config rejects invalid update',
+        name: 'host-auth: POST /api/host/voice-config requires admin+ (host PIN → 403 per #55)',
         tags: ['integration', 'auth', 'voice'],
         testFn: async () => {
+            // Since issue #55 config/settings POSTs are gated to
+            // owner+admin roles; a PIN-only host cookie (role='host')
+            // is rejected with 403 before validation runs. Input-shape
+            // validation itself is covered in unit tests for
+            // src/services/locations.ts.
             const loginRes = await fetch(`${getTestServerUrl()}/api/host/login`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -178,7 +183,7 @@ const cases: BaseTestCase[] = [
                 },
                 body: JSON.stringify({ frontDeskPhone: '123', voiceLargePartyThreshold: 2 }),
             });
-            return voiceRes.status === 400;
+            return voiceRes.status === 403;
         },
     },
     // ---------- Issue #50 bug 7: door QR endpoint ----------

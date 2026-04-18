@@ -2246,3 +2246,166 @@ a#custom-call-confirm[aria-disabled="true"] {
     .website-template-grid { grid-template-columns: 1fr; }
 }
 
+
+/* ============================================================================
+ * Owner onboarding wizard (issue #54, spec §6.2)
+ * Overlay modal + Setup pill. Designed to coexist with the existing admin
+ * shell; sits above the admin topbar via position: fixed + high z-index.
+ * ============================================================================ */
+.onboarding-overlay {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    z-index: 90;
+    padding: 40px 20px;
+    overflow-y: auto;
+}
+.onboarding-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(24, 20, 14, 0.42);
+    backdrop-filter: blur(4px);
+    z-index: -1;
+}
+.onboarding-modal {
+    background: #fffdf8;
+    color: #1d1b19;
+    border: 1px solid #dfd6c6;
+    border-radius: 28px;
+    padding: 28px;
+    box-shadow: 0 22px 60px rgba(37, 26, 15, 0.18);
+    max-width: 640px;
+    width: 100%;
+    font-family: 'Fira Sans', 'IBM Plex Sans', sans-serif;
+}
+.onboarding-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 16px;
+    margin-bottom: 20px;
+}
+.onboarding-head h2 {
+    margin: 0 0 6px;
+    font: 700 22px/1.2 'Archivo SemiCondensed', 'Fira Sans', sans-serif;
+}
+.onboarding-head p {
+    color: #6a6258;
+    font-size: 14px;
+    margin: 0;
+}
+.onboarding-dismiss {
+    background: none;
+    border: none;
+    color: #6a6258;
+    font-size: 22px;
+    line-height: 1;
+    cursor: pointer;
+    padding: 4px 8px;
+}
+.onboarding-steps {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+.onboarding-step {
+    display: flex;
+    gap: 14px;
+    padding: 14px;
+    border-radius: 16px;
+    border: 1px solid #ede4d1;
+    margin-bottom: 10px;
+    background: #fffdf8;
+}
+.onboarding-step.done {
+    background: #eef8f2;
+    border-color: #bae1cd;
+}
+.onboarding-badge {
+    flex-shrink: 0;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: #efe8da;
+    color: #6a6258;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 14px;
+}
+.onboarding-step.done .onboarding-badge {
+    background: #1f8f5f;
+    color: #fff;
+}
+.onboarding-step.done .onboarding-badge::after { content: '\2713'; }
+.onboarding-step.done .onboarding-badge { font-size: 16px; }
+.onboarding-step.done .onboarding-badge-number { display: none; }
+.onboarding-step-body { flex: 1; }
+.onboarding-step h4 {
+    margin: 0 0 4px;
+    font: 600 16px 'IBM Plex Sans', 'Fira Sans', sans-serif;
+}
+.onboarding-step p {
+    margin: 0;
+    color: #6a6258;
+    font-size: 13px;
+}
+.onboarding-step-actions {
+    margin-top: 10px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+.onboarding-jump {
+    color: #1f6a5d;
+    font-weight: 600;
+    font-size: 13px;
+    text-decoration: none;
+}
+.onboarding-jump:hover { text-decoration: underline; }
+.onboarding-done {
+    background: #1f6a5d;
+    color: #fff;
+    border: none;
+    padding: 8px 14px;
+    border-radius: 10px;
+    font: 600 13px 'IBM Plex Sans', 'Fira Sans', sans-serif;
+    cursor: pointer;
+}
+.onboarding-done:hover { background: #185246; }
+.onboarding-done:disabled {
+    background: #b5c8c3;
+    cursor: default;
+}
+.onboarding-foot {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 16px;
+    color: #6a6258;
+    font-size: 13px;
+}
+.onboarding-dismiss-inline {
+    background: transparent;
+    border: none;
+    color: #6a6258;
+    font-size: 13px;
+    font-family: inherit;
+    cursor: pointer;
+    text-decoration: underline;
+}
+.onboarding-pill {
+    background: rgba(31, 106, 93, 0.12);
+    color: #1f6a5d;
+    border: 1px solid rgba(31, 106, 93, 0.3);
+    padding: 6px 14px;
+    border-radius: 999px;
+    font: 600 13px 'IBM Plex Sans', 'Fira Sans', sans-serif;
+    cursor: pointer;
+}
+.onboarding-pill:hover {
+    background: rgba(31, 106, 93, 0.2);
+}

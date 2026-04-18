@@ -60,6 +60,11 @@ export interface Location {
     // fields fall back to template defaults.
     websiteTemplate?: WebsiteTemplateKey;
     content?: LocationContent;
+
+    // Owner-onboarding wizard state (issue #54, spec §6.2). Each completed
+    // step ID is pushed in. Wizard is hidden client-side once all four are
+    // present. Possible values: 'basics', 'template', 'menu', 'staff'.
+    onboardingSteps?: string[];
 }
 
 // Website template key + structured editable content (issue #56). The owner

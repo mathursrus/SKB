@@ -24,6 +24,8 @@ import { healthRouter } from './routes/health.js';
 import { voiceRouter } from './routes/voice.js';
 import { smsRouter, smsStatusRouter } from './routes/sms.js';
 import { authRouter } from './routes/auth.js';
+import { signupRouter } from './routes/signup.js';
+import { onboardingRouter } from './routes/onboarding.js';
 import { renderQueuePage } from './services/queue-template.js';
 import { resolveVisit } from './services/visit-page.js';
 import { listLocations, ensureLocation, getLocation } from './services/locations.js';
@@ -103,6 +105,11 @@ app.use(healthRouter(SERVER_NAME));
 // login URL is shared across tenants — the cookie it mints IS
 // tenant-scoped (encodes `lid`), the URL is not.
 app.use('/api', authRouter());
+app.use('/api', signupRouter());
+
+// Per-location onboarding endpoints (issue #54). Mounted at /r/:loc/api/
+// so requireRole can extract the `loc` param and enforce tenant scoping.
+app.use('/r/:loc/api', onboardingRouter());
 
 // Friendly URLs for the public auth pages — /login and /reset-password
 // without `.html`. Spec §6.4: the marketing domain entry point is
@@ -112,6 +119,9 @@ app.get('/login', (_req: Request, res: Response) => {
 });
 app.get('/reset-password', (_req: Request, res: Response) => {
     res.sendFile(path.join(publicDir, 'reset-password.html'));
+});
+app.get('/signup', (_req: Request, res: Response) => {
+    res.sendFile(path.join(publicDir, 'signup.html'));
 });
 
 // Landing page — list locations

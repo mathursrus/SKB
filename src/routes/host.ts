@@ -679,14 +679,13 @@ export function hostRouter(): Router {
     // Website tab in admin owns a different capability area — the template
     // renderer and content editor.
     //
-    // The spec (#51 §8.5) specifies `POST /r/:loc/api/config/website` as
-    // the canonical endpoint and reserves it for owner/admin roles that
-    // don't exist yet (those ship in sub-issue 51b). In the interim we
-    // expose `/host/website-config` which piggybacks on the existing
-    // shared-PIN cookie; when 51b adds named roles, the handler below
-    // can be mounted at both paths with the stricter role check.
+    // Canonical endpoint per spec #51 §8.5: `GET/POST /r/:loc/api/config/website`
+    // gated to owner/admin (same role-check as other settings POSTs).
+    // `/host/website-config` is preserved as a backward-compat alias wired
+    // to the same handlers so existing clients keep working (#56 introduced
+    // the alias before role-scoped middleware existed).
     // ----------------------------------------------------------------------
-    r.get('/host/website-config', requireHost, async (req: Request, res: Response) => {
+    const getWebsiteConfigHandler = async (req: Request, res: Response) => {
         try {
             const location = await getLocation(loc(req));
             res.json({
@@ -694,9 +693,11 @@ export function hostRouter(): Router {
                 content: location?.content ?? null,
             });
         } catch (err) { dbError(res, err); }
-    });
+    };
+    r.get('/config/website', requireAdmin, getWebsiteConfigHandler);
+    r.get('/host/website-config', requireHost, getWebsiteConfigHandler);
 
-    r.post('/host/website-config', requireHost, async (req: Request, res: Response) => {
+    const postWebsiteConfigHandler = async (req: Request, res: Response) => {
         const body = (req.body ?? {}) as {
             websiteTemplate?: unknown;
             content?: unknown;
@@ -756,7 +757,9 @@ export function hostRouter(): Router {
             }
             dbError(res, err);
         }
-    });
+    };
+    r.post('/config/website', requireAdmin, postWebsiteConfigHandler);
+    r.post('/host/website-config', requireHost, postWebsiteConfigHandler);
 
     // Public (unauthenticated) subset of the location config for the new
     // diner-facing website pages (issue #45). Excludes `pin` and internal

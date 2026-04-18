@@ -123,6 +123,17 @@ app.get('/reset-password', (_req: Request, res: Response) => {
 app.get('/signup', (_req: Request, res: Response) => {
     res.sendFile(path.join(publicDir, 'signup.html'));
 });
+
+// Static JSON catalog of available website templates — spec #51 §8.5.
+// Public (no auth): just a hint surface for the admin template picker and
+// future clients. Keys map to the site-renderer's TemplateKey union.
+const TEMPLATE_CATALOG = [
+    { key: 'saffron', name: 'Saffron', fit: 'Warm, casual, neighborhood-spot energy.' },
+    { key: 'slate', name: 'Slate', fit: 'Modern, considered, cocktail-forward.' },
+];
+app.get('/templates', (_req: Request, res: Response) => {
+    res.json({ templates: TEMPLATE_CATALOG });
+});
 // Issue #55: accept-invite landing page — clicked from an emailed link.
 app.get('/accept-invite', (_req: Request, res: Response) => {
     res.sendFile(path.join(publicDir, 'accept-invite.html'));

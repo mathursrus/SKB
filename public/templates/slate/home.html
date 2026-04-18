@@ -36,6 +36,20 @@
     </section>
 
     <section class="slate-section">
+        <h2>What we're known for</h2>
+        <div class="slate-dishes" id="known-for-grid">
+            {{#each knownFor}}
+            <div class="slate-dish">
+                {{#if image}}<img src="{{image}}" alt="{{title}}" class="slate-dish-img" loading="lazy" />{{/if}}
+                {{#unless image}}<div class="slate-dish-swatch" aria-hidden="true"></div>{{/unless}}
+                <h3>{{title}}</h3>
+                <p>{{desc}}</p>
+            </div>
+            {{/each}}
+        </div>
+    </section>
+
+    <section class="slate-section">
         <h2>Find Us</h2>
         <div class="slate-info-grid">
             <div class="slate-info-block">

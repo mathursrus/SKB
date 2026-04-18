@@ -36,21 +36,14 @@
         <h2>What We're Known For</h2>
         <p class="lead">A few favorites from the kitchen — the full menu has plenty more.</p>
         <div class="saffron-dishes" id="known-for-grid">
+            {{#each knownFor}}
             <div class="saffron-dish">
-                <div class="saffron-dish-swatch" aria-hidden="true"></div>
-                <h3>Signature Dish</h3>
-                <p>Add a short description from the website editor.</p>
+                {{#if image}}<img src="{{image}}" alt="{{title}}" class="saffron-dish-img" loading="lazy" />{{/if}}
+                {{#unless image}}<div class="saffron-dish-swatch" aria-hidden="true"></div>{{/unless}}
+                <h3>{{title}}</h3>
+                <p>{{desc}}</p>
             </div>
-            <div class="saffron-dish">
-                <div class="saffron-dish-swatch" aria-hidden="true"></div>
-                <h3>House Specialty</h3>
-                <p>Add a short description from the website editor.</p>
-            </div>
-            <div class="saffron-dish">
-                <div class="saffron-dish-swatch" aria-hidden="true"></div>
-                <h3>Crowd Favorite</h3>
-                <p>Add a short description from the website editor.</p>
-            </div>
+            {{/each}}
         </div>
     </section>
 

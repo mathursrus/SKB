@@ -145,13 +145,16 @@ a { color: var(--slate-accent); }
     grid-template-columns: repeat(3, 1fr);
     gap: 18px;
 }
-.slate-dish .swatch {
+.slate-dish { text-align: left; }
+.slate-dish .swatch,
+.slate-dish-swatch {
     height: 140px;
     border-radius: 6px;
     margin-bottom: 10px;
     background: linear-gradient(135deg, #dde4e0, var(--slate-accent));
 }
-.slate-dish img {
+.slate-dish img,
+.slate-dish-img {
     width: 100%;
     height: 140px;
     object-fit: cover;

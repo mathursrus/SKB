@@ -160,6 +160,103 @@ const cases: BaseTestCase[] = [
             return resolved !== null && resolved.endsWith(path.join('templates', 'slate', 'home.html'));
         },
     },
+
+    // ─── knownFor block iteration (signature dishes) ─────────────────────
+    {
+        name: 'knownFor empty → renders 3 default fallback cards (swatch, no img)',
+        tags: ['unit', 'site-renderer', 'known-for'],
+        testFn: async () => {
+            const tpl = '<div>{{#each knownFor}}<p>{{title}}</p>{{/each}}</div>';
+            const out = renderTemplate(tpl, baseLocation);
+            return out === '<div><p>Signature Dish</p><p>House Specialty</p><p>Crowd Favorite</p></div>';
+        },
+    },
+    {
+        name: 'knownFor with 1 item pads to 3 using defaults',
+        tags: ['unit', 'site-renderer', 'known-for'],
+        testFn: async () => {
+            const tpl = '<div>{{#each knownFor}}<p>{{title}}</p>{{/each}}</div>';
+            const loc = { ...baseLocation, content: { knownFor: [{ title: 'Tonkotsu', desc: '36-hour', image: '' }] } };
+            const out = renderTemplate(tpl, loc);
+            return out === '<div><p>Tonkotsu</p><p>House Specialty</p><p>Crowd Favorite</p></div>';
+        },
+    },
+    {
+        name: 'knownFor with 4 items clamps to 3',
+        tags: ['unit', 'site-renderer', 'known-for'],
+        testFn: async () => {
+            const tpl = '<div>{{#each knownFor}}<p>{{title}}</p>{{/each}}</div>';
+            const loc = { ...baseLocation, content: { knownFor: [
+                { title: 'A', desc: '', image: '' },
+                { title: 'B', desc: '', image: '' },
+                { title: 'C', desc: '', image: '' },
+                { title: 'D', desc: '', image: '' },
+            ] } };
+            return renderTemplate(tpl, loc) === '<div><p>A</p><p>B</p><p>C</p></div>';
+        },
+    },
+    {
+        name: 'knownFor: {{#if image}} block renders only when image present',
+        tags: ['unit', 'site-renderer', 'known-for'],
+        testFn: async () => {
+            const tpl = '{{#each knownFor}}[{{#if image}}IMG:{{image}}{{/if}}{{#unless image}}SWATCH{{/unless}}]{{/each}}';
+            const loc = { ...baseLocation, content: { knownFor: [
+                { title: 'A', desc: '', image: '/assets/a.jpg' },
+                { title: 'B', desc: '', image: '' },
+                { title: 'C', desc: '', image: '' },
+            ] } };
+            return renderTemplate(tpl, loc) === '[IMG:/assets/a.jpg][SWATCH][SWATCH]';
+        },
+    },
+    {
+        name: 'knownFor: values are HTML-escaped to defend against stored XSS',
+        tags: ['unit', 'site-renderer', 'known-for', 'security'],
+        testFn: async () => {
+            const tpl = '{{#each knownFor}}<p>{{title}}:{{desc}}</p>{{/each}}';
+            const loc = { ...baseLocation, content: { knownFor: [
+                { title: '<script>', desc: 'A "quote" & <b>', image: '' },
+                { title: 'B', desc: '', image: '' },
+                { title: 'C', desc: '', image: '' },
+            ] } };
+            const out = renderTemplate(tpl, loc);
+            return out.includes('&lt;script&gt;')
+                && out.includes('&quot;quote&quot;')
+                && out.includes('&amp;')
+                && !out.includes('<script>')
+                && !out.includes('<b>');
+        },
+    },
+    {
+        name: 'knownFor: scalar tokens inside each block resolve per-item, not location-level',
+        tags: ['unit', 'site-renderer', 'known-for'],
+        testFn: async () => {
+            // {{title}} inside #each should be per-item; outside should NOT resolve
+            // (title isn't in PLACEHOLDER_KEYS, so it passes through unchanged).
+            const tpl = 'outer:{{title}}|{{#each knownFor}}[{{title}}]{{/each}}';
+            const loc = { ...baseLocation, content: { knownFor: [
+                { title: 'A', desc: '', image: '' },
+                { title: 'B', desc: '', image: '' },
+                { title: 'C', desc: '', image: '' },
+            ] } };
+            return renderTemplate(tpl, loc) === 'outer:{{title}}|[A][B][C]';
+        },
+    },
+    {
+        name: 'knownFor + scalar placeholders coexist (heroHeadline still resolves)',
+        tags: ['unit', 'site-renderer', 'known-for'],
+        testFn: async () => {
+            const tpl = '{{heroHeadline}}|{{#each knownFor}}{{title}},{{/each}}';
+            const loc = { ...baseLocation, content: {
+                heroHeadline: 'Hello',
+                knownFor: [
+                    { title: 'A', desc: '', image: '' },
+                    { title: 'B', desc: '', image: '' },
+                    { title: 'C', desc: '', image: '' },
+                ],
+            } };
+            return renderTemplate(tpl, loc) === 'Hello|A,B,C,';
+        },
+    },
 ];
 
 void runTests(cases, 'Site renderer');

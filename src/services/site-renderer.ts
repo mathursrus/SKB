@@ -100,11 +100,64 @@ function buildPlaceholderValues(location: Pick<Location, 'name' | 'content'>): R
 }
 
 /**
+ * Three default "known for" entries used when a tenant hasn't configured
+ * their own. Keeps the home page looking intentional on day one.
+ */
+const DEFAULT_KNOWN_FOR: ReadonlyArray<{ title: string; desc: string; image: string }> = [
+    { title: 'Signature Dish', desc: 'Add a short description from the website editor.', image: '' },
+    { title: 'House Specialty', desc: 'Add a short description from the website editor.', image: '' },
+    { title: 'Crowd Favorite', desc: 'Add a short description from the website editor.', image: '' },
+];
+
+/**
+ * Render the `{{#each knownFor}}...{{/each}}` block. Inside each iteration,
+ * the inner template can reference `{{title}}`, `{{desc}}`, `{{image}}`, and
+ * use `{{#if image}}...{{/if}}` / `{{#unless image}}...{{/unless}}` to
+ * conditionally render an <img> vs a swatch placeholder.
+ *
+ * If the location has no knownFor items (or fewer than 3), the array is
+ * padded with DEFAULT_KNOWN_FOR so the home page always renders three cards.
+ */
+function renderKnownForBlocks(html: string, location: Pick<Location, 'content'>): string {
+    const items = [...(location.content?.knownFor ?? [])];
+    // Pad up to three cards with defaults so the page looks complete on day one.
+    while (items.length < DEFAULT_KNOWN_FOR.length) {
+        const fallback = DEFAULT_KNOWN_FOR[items.length];
+        items.push({ title: fallback.title, desc: fallback.desc, image: fallback.image });
+    }
+    // Trim to max 3 — spec §7 says up to 3 cards; the template is fixed-size.
+    const trimmed = items.slice(0, 3);
+
+    return html.replace(/\{\{#each\s+knownFor\s*\}\}([\s\S]*?)\{\{\/each\}\}/g, (_full, inner: string) => {
+        return trimmed.map((item) => expandKnownForItem(inner, item)).join('');
+    });
+}
+
+function expandKnownForItem(inner: string, item: { title: string; desc: string; image: string }): string {
+    // Process {{#if KEY}}...{{/if}} and {{#unless KEY}}...{{/unless}} conditional
+    // blocks against this item's truthy-string fields. Then substitute scalars.
+    let out = inner;
+    for (const key of ['image', 'title', 'desc'] as const) {
+        const truthy = !!(item[key] && String(item[key]).trim());
+        const ifRe = new RegExp(`\\{\\{#if\\s+${key}\\s*\\}\\}([\\s\\S]*?)\\{\\{/if\\}\\}`, 'g');
+        const unlessRe = new RegExp(`\\{\\{#unless\\s+${key}\\s*\\}\\}([\\s\\S]*?)\\{\\{/unless\\}\\}`, 'g');
+        out = out.replace(ifRe, (_m, body: string) => truthy ? body : '');
+        out = out.replace(unlessRe, (_m, body: string) => truthy ? '' : body);
+    }
+    return out.replace(/\{\{\s*(title|desc|image)\s*\}\}/g, (_m, key: string) => {
+        return escHtml(String(item[key as 'title' | 'desc' | 'image'] ?? ''));
+    });
+}
+
+/**
  * Replace `{{placeholderName}}` tokens in `html` with the corresponding
  * values from the location. All substituted values are HTML-escaped to
  * defend against stored-XSS via the admin editor. Unknown placeholders are
  * passed through unchanged so authors can stage new content without breaking
  * the render.
+ *
+ * Also expands `{{#each knownFor}}...{{/each}}` blocks for signature-dish
+ * cards — see renderKnownForBlocks.
  *
  * Exported for unit testing.
  */
@@ -112,8 +165,11 @@ export function renderTemplate(
     html: string,
     location: Pick<Location, 'name' | 'content'>,
 ): string {
+    // 1. Expand array-iteration blocks before scalar substitution so tokens
+    //    inside the block get their own per-item context.
+    const withBlocks = renderKnownForBlocks(html, location);
     const values = buildPlaceholderValues(location);
-    return html.replace(/\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g, (match, key: string) => {
+    return withBlocks.replace(/\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g, (match, key: string) => {
         if (!(PLACEHOLDER_KEYS as readonly string[]).includes(key)) return match;
         return escHtml(values[key as PlaceholderKey]);
     });

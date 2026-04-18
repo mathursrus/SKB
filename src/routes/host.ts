@@ -31,6 +31,11 @@ import {
     DEFAULT_WEBSITE_TEMPLATE,
     type WebsiteConfigUpdate,
 } from '../services/locations.js';
+import { processKnownForImages } from '../services/siteAssets.js';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const publicDirForAssets = path.resolve(__dirname, '..', '..', 'public');
 import type { AnalyticsStage, LocationAddress, WeeklyHours, LocationContent, WebsiteTemplateKey } from '../types/queue.js';
 import {
     requireRole,
@@ -724,6 +729,11 @@ export function hostRouter(): Router {
             }
         }
         try {
+            // If the client uploaded inline base64 images via content.knownFor[*].image,
+            // persist them to disk first and swap the values for URL paths.
+            if (update.content && typeof update.content === 'object') {
+                await processKnownForImages(publicDirForAssets, loc(req), update.content);
+            }
             const updated = await updateLocationWebsiteConfig(loc(req), update);
             console.log(JSON.stringify({
                 t: new Date().toISOString(),

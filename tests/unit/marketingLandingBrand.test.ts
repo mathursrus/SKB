@@ -83,10 +83,12 @@ const cases: BaseTestCase[] = [
         tags: ['unit', 'issue-57', 'brand', 'admin'],
         testFn: async () => {
             const html = loadPage('admin.html');
-            // Accept middle-dot (U+00B7, &middot;, &#183;) or a plain
-            // hyphen as the separator. Entity form is what the HTML
-            // actually ships with.
-            return /class=["']brand["'][^>]*>\s*OSH\s*(?:&middot;|&#183;|[·\-–—])\s*Admin/i.test(html);
+            // The brand block may wrap OSH in a brand-mark span (when the
+            // expanded "OS for Hospitality" subtitle is inline) or carry
+            // it as bare text. Accept either shape. Separator can be
+            // middle-dot entity or a hyphen.
+            const withSpan = /class=["']brand["'][^>]*>\s*(?:<[^>]+>\s*)?OSH\s*(?:<\/[^>]+>)?\s*(?:<[^>]+>[^<]*<\/[^>]+>)?\s*(?:&nbsp;)?\s*(?:&middot;|&#183;|[·\-–—])\s*Admin/i;
+            return withSpan.test(html);
         },
     },
     {

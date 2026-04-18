@@ -64,6 +64,7 @@ app.use(async (req: Request, _res: Response, next: () => void) => {
         || req.url.startsWith('/api')
         || req.url.startsWith('/mcp')
         || req.url.startsWith('/health')
+        || req.url.startsWith('/assets/')
         || req.url === '/queue'
         || req.url === '/queue.html'
         || req.url === '/'
@@ -99,6 +100,16 @@ app.use(async (req: Request, _res: Response, next: () => void) => {
 
 // Global health
 app.use(healthRouter(SERVER_NAME));
+
+// Per-tenant site assets (signature dish photos, hero images) — mounted at a
+// tenant-agnostic root so URLs work under host-rewritten domains and under
+// the platform domain alike. Files live under public/assets/<slug>/<kind>/…
+// and are written by the website-config POST handler.
+app.use('/assets', express.static(path.join(publicDir, 'assets'), {
+    maxAge: '7d',
+    immutable: true,
+    fallthrough: false,
+}));
 
 // Platform-level auth (issue #53): unified named-user login, logout,
 // whoami, password reset. Lives at /api/* (no :loc prefix) because the

@@ -468,9 +468,191 @@
             if (websiteContactEmail) websiteContactEmail.value = c.contactEmail || '';
             if (websiteInstagram) websiteInstagram.value = c.instagramHandle || '';
             if (websiteReservations) websiteReservations.value = c.reservationsNote || '';
+            sigLoadFromContent(c.knownFor);
         } catch {
             // non-blocking
         }
+    }
+
+    // ─── Menu tab (Phase B: placeholder with menuUrl quick-edit) ─────────
+    // The full menu JSON editor is out of scope for Phase B. This field
+    // shares the same persistence as the Settings → QR card's menuUrl so
+    // owners only have to maintain one value.
+    async function loadMenuUrl() {
+        const input = $('admin-menu-url');
+        if (!input) return;
+        try {
+            const r = await fetch('api/host/visit-config');
+            if (!r.ok) return;
+            const data = await r.json();
+            input.value = data.menuUrl || '';
+        } catch {
+            // non-blocking
+        }
+    }
+
+    const menuSave = $('admin-menu-save');
+    if (menuSave) {
+        menuSave.addEventListener('click', async () => {
+            const status = $('admin-menu-status');
+            setStatus(status, '', '');
+            const url = ($('admin-menu-url')?.value || '').trim() || null;
+            try {
+                // Fetch current visit-config first so we don't clobber visitMode/closedMessage.
+                const cur = await fetch('api/host/visit-config').then(r => r.ok ? r.json() : {}).catch(() => ({}));
+                const r = await fetch('api/host/visit-config', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        visitMode: cur.visitMode || 'auto',
+                        menuUrl: url,
+                        closedMessage: cur.closedMessage || null,
+                    }),
+                });
+                const data = await r.json().catch(() => ({}));
+                if (!r.ok) {
+                    setStatus(status, data.error || 'Save failed', 'error');
+                    return;
+                }
+                setStatus(status, 'Saved \u2713', 'success');
+                // Keep the Settings QR-card input in sync so switching tabs
+                // doesn't show stale data.
+                if (visitMenuUrl) visitMenuUrl.value = url || '';
+            } catch {
+                setStatus(status, 'Network error', 'error');
+            }
+        });
+    }
+
+    // ─── Device PIN regen stub (Phase B: button wired, endpoint deferred) ─
+    // Spec says the rotate-PIN endpoint is a TODO; the UI shows the button
+    // and emits a visible "coming soon" toast so owners know the feature
+    // exists but isn't wired yet. Post returns 501 or 404 today — we treat
+    // any non-200 as "coming soon" for now.
+    function showToast(text, kind) {
+        const el = $('admin-toast');
+        if (!el) { alert(text); return; }
+        el.textContent = text;
+        el.className = 'admin-toast' + (kind ? ' admin-toast-' + kind : '');
+        el.style.display = '';
+        setTimeout(() => { el.style.display = 'none'; }, 3200);
+    }
+    const devicePinRegen = $('admin-device-pin-regen');
+    if (devicePinRegen) {
+        devicePinRegen.addEventListener('click', async () => {
+            try {
+                const r = await fetch('api/host/regenerate-pin', { method: 'POST' });
+                if (r.ok) {
+                    const data = await r.json().catch(() => ({}));
+                    showToast('New PIN: ' + (data.pin || '(saved)'), 'success');
+                    return;
+                }
+                // 404 / 501 / anything else — treat as deferred.
+                showToast('Regenerate PIN — coming soon', 'info');
+            } catch {
+                showToast('Regenerate PIN — coming soon', 'info');
+            }
+        });
+    }
+
+    // ─── Signature-dish editor (Phase B of issue #51) ────────────────────
+    // Each of the 3 rows tracks its own in-memory state:
+    //   - `existingUrl`: URL string loaded from the server (unchanged on save)
+    //   - `pendingUpload`: { mime, data } object when the user picks a new file
+    //   - `cleared`: true when the user clicks Clear and we want to drop the image
+    // Save builds knownFor[*].image as either existingUrl (string), an upload
+    // object, or "" (empty). Phase-A backend handles both shapes.
+    const SIG_ROWS = 3;
+    const sigState = Array.from({ length: SIG_ROWS }, () => ({
+        existingUrl: '',
+        pendingUpload: null,
+        cleared: false,
+    }));
+
+    function sigRowEl(idx) { return document.querySelector(`.signature-dish-row[data-sig-index="${idx}"]`); }
+    function sigPreviewEl(idx) { return sigRowEl(idx)?.querySelector('[data-sig-preview]'); }
+    function sigPlaceholderEl(idx) { return sigRowEl(idx)?.querySelector('[data-sig-placeholder]'); }
+    function sigClearBtn(idx) { return sigRowEl(idx)?.querySelector('[data-sig-clear]'); }
+    function sigTitleEl(idx) { return sigRowEl(idx)?.querySelector('.signature-dish-title'); }
+    function sigDescEl(idx) { return sigRowEl(idx)?.querySelector('.signature-dish-desc'); }
+    function sigFileEl(idx) { return sigRowEl(idx)?.querySelector('.signature-dish-file'); }
+
+    function sigRenderPreview(idx, src) {
+        const img = sigPreviewEl(idx);
+        const ph = sigPlaceholderEl(idx);
+        const clearBtn = sigClearBtn(idx);
+        if (src) {
+            if (img) { img.src = src; img.style.display = ''; }
+            if (ph) ph.style.display = 'none';
+            if (clearBtn) clearBtn.style.display = '';
+        } else {
+            if (img) { img.removeAttribute('src'); img.style.display = 'none'; }
+            if (ph) ph.style.display = '';
+            if (clearBtn) clearBtn.style.display = 'none';
+        }
+    }
+
+    function sigLoadFromContent(items) {
+        const list = Array.isArray(items) ? items : [];
+        for (let i = 0; i < SIG_ROWS; i++) {
+            const it = list[i] || { title: '', desc: '', image: '' };
+            const title = sigTitleEl(i); if (title) title.value = it.title || '';
+            const desc = sigDescEl(i); if (desc) desc.value = it.desc || '';
+            sigState[i] = { existingUrl: typeof it.image === 'string' ? it.image : '', pendingUpload: null, cleared: false };
+            sigRenderPreview(i, sigState[i].existingUrl);
+        }
+    }
+
+    function wireSignatureDishRows() {
+        for (let i = 0; i < SIG_ROWS; i++) {
+            const file = sigFileEl(i);
+            const clearBtn = sigClearBtn(i);
+            if (file) {
+                file.addEventListener('change', () => {
+                    const f = file.files?.[0];
+                    if (!f) return;
+                    const reader = new FileReader();
+                    reader.onload = () => {
+                        const result = String(reader.result || '');
+                        // result is a data URL like "data:image/png;base64,AAAA"
+                        const match = /^data:([^;]+);base64,(.+)$/.exec(result);
+                        if (!match) return;
+                        const [, mime, data] = match;
+                        sigState[i].pendingUpload = { mime, data };
+                        sigState[i].cleared = false;
+                        sigRenderPreview(i, result);
+                    };
+                    reader.readAsDataURL(f);
+                });
+            }
+            if (clearBtn) {
+                clearBtn.addEventListener('click', () => {
+                    sigState[i].pendingUpload = null;
+                    sigState[i].cleared = true;
+                    const fileInput = sigFileEl(i);
+                    if (fileInput) fileInput.value = '';
+                    sigRenderPreview(i, '');
+                });
+            }
+        }
+    }
+
+    function buildKnownForPayload() {
+        const items = [];
+        for (let i = 0; i < SIG_ROWS; i++) {
+            const title = (sigTitleEl(i)?.value || '').trim();
+            const desc = (sigDescEl(i)?.value || '').trim();
+            const state = sigState[i];
+            let image;
+            if (state.pendingUpload) image = state.pendingUpload;
+            else if (state.cleared) image = '';
+            else image = state.existingUrl || '';
+            // Only include rows that have something meaningful. A completely
+            // blank row is dropped so the server doesn't validate empty cards.
+            if (!title && !desc && !image) continue;
+            items.push({ title, desc, image });
+        }
+        return items;
     }
 
     if (websiteSave) {
@@ -483,6 +665,7 @@
                 contactEmail: websiteContactEmail?.value.trim() || '',
                 instagramHandle: websiteInstagram?.value.trim() || '',
                 reservationsNote: websiteReservations?.value.trim() || '',
+                knownFor: buildKnownForPayload(),
             };
             try {
                 const r = await fetch('api/host/website-config', {
@@ -495,6 +678,9 @@
                     setStatus(websiteStatus, data.error || 'Save failed', 'error');
                     return;
                 }
+                // Server returns the persisted content — reload so the row
+                // state reflects any URL substitutions the uploader did.
+                if (data?.content?.knownFor) sigLoadFromContent(data.content.knownFor);
                 websiteSavedAt = Date.now();
                 updateSavedAgo();
             } catch {
@@ -529,7 +715,13 @@
 
     async function refreshAll() {
         rememberWorkspace();
-        await Promise.all([loadStats(), loadAnalytics(), loadVisitConfig(), loadVoiceConfig(), loadSiteConfig(), loadWebsiteConfig(), loadMcpConfig()]);
+        // With the 7-tab workspace, each tab lazy-loads its own data when
+        // activated. We still eagerly load site-config here because the
+        // admin topbar restaurant-name ("OSH · Admin — <name>") depends
+        // on it and the topbar is visible across every tab.
+        await loadSiteConfig();
+        // Mark the site tab as already loaded so activating it doesn't refetch.
+        loadedPanels.add('site');
     }
 
     // ------------------------------------------------------------------
@@ -801,23 +993,79 @@
         });
     }
 
+    // ------------------------------------------------------------------
+    // 7-tab workspace (issue #51 Phase B). Tabs are:
+    //   dashboard · site · website · menu · staff · ai · settings
+    //
+    // Each panel is lazy-loaded via `tabLoaders` on first activation. The
+    // last-active tab is persisted per-location in localStorage under
+    // `skb:adminTab:<loc>` so reloads land the operator back where they
+    // left off. Hidden-by-role tabs (currently just `staff`) fall back to
+    // `dashboard` when the stored key isn't visible.
+    // ------------------------------------------------------------------
+    const TAB_KEYS = ['dashboard', 'site', 'website', 'menu', 'staff', 'ai', 'settings'];
+    const loadedPanels = new Set();
+
+    function adminTabStorageKey() {
+        const loc = (window.location.pathname.match(/^\/r\/([^/]+)\//) || [])[1] || 'skb';
+        return 'skb:adminTab:' + loc;
+    }
+
+    const tabLoaders = {
+        dashboard: async () => { await Promise.all([loadStats(), loadAnalytics()]); },
+        site: async () => { await Promise.all([loadSiteConfig(), loadVoiceConfig()]); },
+        website: async () => { await loadWebsiteConfig(); },
+        menu: async () => { await loadMenuUrl(); },
+        staff: async () => { await loadStaff(); },
+        ai: async () => { await loadMcpConfig(); },
+        settings: async () => { await loadVisitConfig(); },
+    };
+
+    function activateTab(key, opts = {}) {
+        if (!TAB_KEYS.includes(key)) key = 'dashboard';
+        const tabs = document.querySelectorAll('.admin-tab');
+        // If the requested tab is hidden by role, fall back to dashboard.
+        const targetBtn = document.querySelector('.admin-tab[data-tab="' + key + '"]');
+        if (targetBtn && targetBtn.style.display === 'none') key = 'dashboard';
+
+        tabs.forEach(btn => {
+            const isActive = btn.getAttribute('data-tab') === key;
+            btn.classList.toggle('active', isActive);
+            btn.setAttribute('aria-selected', String(isActive));
+        });
+        TAB_KEYS.forEach(k => {
+            const panel = document.getElementById('admin-panel-' + k);
+            if (panel) panel.style.display = (k === key ? '' : 'none');
+        });
+
+        if (!opts.skipLoad && !loadedPanels.has(key)) {
+            loadedPanels.add(key);
+            const loader = tabLoaders[key];
+            if (loader) {
+                Promise.resolve(loader()).catch(err => {
+                    console.error('tab loader failed:', key, err);
+                });
+            }
+        }
+
+        try { localStorage.setItem(adminTabStorageKey(), key); } catch {}
+    }
+
     function wireTabs() {
         const tabs = document.querySelectorAll('.admin-tab');
-        tabs.forEach(t => t.addEventListener('click', () => {
-            tabs.forEach(x => x.classList.remove('active'));
-            t.classList.add('active');
-            const tab = t.getAttribute('data-tab');
-            const opsPanel = $('admin-operations-panel');
-            const staffPanel = $('admin-staff-panel');
-            if (tab === 'staff') {
-                if (opsPanel) opsPanel.style.display = 'none';
-                if (staffPanel) staffPanel.style.display = '';
-                loadStaff();
-            } else {
-                if (opsPanel) opsPanel.style.display = '';
-                if (staffPanel) staffPanel.style.display = 'none';
-            }
+        tabs.forEach(btn => btn.addEventListener('click', () => {
+            const key = btn.getAttribute('data-tab') || 'dashboard';
+            activateTab(key);
         }));
+    }
+
+    function restoreActiveTab() {
+        let key = 'dashboard';
+        try {
+            const saved = localStorage.getItem(adminTabStorageKey());
+            if (saved && TAB_KEYS.includes(saved)) key = saved;
+        } catch {}
+        activateTab(key);
     }
 
     function applyRoleGates() {
@@ -836,6 +1084,10 @@
         loginView.style.display = 'none';
         adminView.style.display = '';
         refreshAll();
+        // Restore whichever tab the operator was last on (per-location key);
+        // this triggers lazy-loading of that tab's data. Runs AFTER refreshAll
+        // so site-config has already populated the topbar brand.
+        restoreActiveTab();
         // Stats refresh on a timer (lightweight — just counters). Analytics
         // does NOT auto-refresh because (a) it re-renders the histogram
         // causing a visible flash, (b) the data only changes when parties
@@ -848,6 +1100,7 @@
     wireTabs();
     wireInviteForm();
     wireStaffActions();
+    wireSignatureDishRows();
 
     (async function boot() {
         // Load named-user identity first so we can enforce role-gate R2

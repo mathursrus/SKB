@@ -31,3 +31,11 @@ Thumbs.db
 # Bug-bash local runners (issue #51) — kept out of tree; see docs/evidence/51-bug-bash-evidence.md
 bug-bash-*.mjs
 .bug-bash-env.cjs
+
+# Manual verification screenshots (not checked in — reproducible via Playwright)
+admin-tab-*.png
+
+# UI-test ephemeral tenant asset uploads (issue #51 Phase B). The UI test
+# in tests/ui/admin-tabs.ui.test.ts provisions a random tenant each run
+# and uploads a 1x1 PNG to verify the signature-dish pipeline end to end.
+public/assets/ui-tabs-diner-*/

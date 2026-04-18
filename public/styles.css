@@ -2633,3 +2633,137 @@ a#custom-call-confirm[aria-disabled="true"] {
     font-size: 13px;
     color: #6e4f10;
 }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   Admin 7-tab workspace (issue #51 Phase B)
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* Widen the tab row to accommodate 7 labels. On wide screens the flex
+   row fits; at <=640px we switch to a horizontal-scroll strip so the
+   tabs never wrap or truncate. */
+.admin-tabs-workspace {
+    width: auto;
+    max-width: calc(100% - 48px);
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    scrollbar-width: thin;
+    -webkit-overflow-scrolling: touch;
+}
+.admin-tabs-workspace .admin-tab {
+    flex: 0 0 auto;
+    white-space: nowrap;
+}
+
+@media (max-width: 640px) {
+    .admin-tabs-workspace {
+        margin: 12px 12px 0;
+        max-width: calc(100% - 24px);
+        border-radius: 8px;
+    }
+    .admin-tabs-workspace .admin-tab {
+        padding: 8px 12px;
+        font-size: 12px;
+    }
+}
+
+/* Signature-dish editor grid — 3 rows stacked, each row is fields-on-left
+   + media-on-right at >=640px, stacked at <640px. */
+.signature-dish-grid {
+    display: grid;
+    gap: 14px;
+    margin-top: 12px;
+}
+.signature-dish-row {
+    display: grid;
+    grid-template-columns: 1fr 200px;
+    gap: 16px;
+    padding: 14px;
+    border: 1px solid var(--border, #dfd6c6);
+    border-radius: 12px;
+    background: var(--surface-alt, #faf6ee);
+}
+.signature-dish-fields { display: grid; gap: 10px; }
+.signature-dish-media {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+}
+.signature-dish-preview {
+    width: 160px;
+    height: 120px;
+    object-fit: cover;
+    border-radius: 8px;
+    border: 1px solid var(--border, #dfd6c6);
+    background: #fff;
+    align-self: center;
+}
+.signature-dish-preview-placeholder {
+    width: 160px;
+    height: 120px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px dashed var(--border, #dfd6c6);
+    border-radius: 8px;
+    color: var(--muted, #78716c);
+    font-size: 12px;
+    background: #fff;
+    align-self: center;
+}
+.signature-dish-filebtn {
+    display: inline-flex;
+    justify-content: center;
+    padding: 8px 12px;
+    border: 1px solid var(--border, #dfd6c6);
+    border-radius: 8px;
+    background: #fff;
+    font-size: 13px;
+    cursor: pointer;
+    color: var(--fg);
+}
+.signature-dish-filebtn:hover { background: var(--surface-alt, #faf6ee); }
+.signature-dish-filebtn input[type="file"] {
+    position: absolute;
+    opacity: 0;
+    width: 1px; height: 1px;
+    overflow: hidden;
+}
+.signature-dish-clear {
+    background: none;
+    border: none;
+    color: #b42318;
+    font-size: 12px;
+    cursor: pointer;
+    padding: 2px 4px;
+    align-self: center;
+}
+.signature-dish-clear:hover { text-decoration: underline; }
+
+@media (max-width: 640px) {
+    .signature-dish-row { grid-template-columns: 1fr; }
+    .signature-dish-media { flex-direction: row; flex-wrap: wrap; }
+    .signature-dish-preview,
+    .signature-dish-preview-placeholder { width: 140px; height: 106px; }
+}
+
+/* Lightweight toast (Device-PIN "coming soon" and friends). */
+.admin-toast {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 10px 18px;
+    border-radius: 999px;
+    background: #1f2937;
+    color: #f9fafb;
+    font-size: 13px;
+    font-weight: 500;
+    box-shadow: 0 4px 16px rgba(0,0,0,.2);
+    z-index: 2000;
+    max-width: 80vw;
+    text-align: center;
+}
+.admin-toast-success { background: #166534; }
+.admin-toast-info { background: #1f2937; }
+.admin-toast-error { background: #b42318; }

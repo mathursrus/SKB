@@ -28,7 +28,8 @@
     <!-- Owner onboarding wizard (issue #54, spec §6.2). Dismissable modal
          overlay surfaced on first load of admin. Client polls
          /api/onboarding/steps to decide visibility; marking a step
-         complete POSTs back. Hidden entirely for role=host. -->
+         complete POSTs back. Hidden entirely for role=host.
+         Phase C of issue #51 will rebuild this; left untouched here. -->
     <div id="onboarding-overlay" class="onboarding-overlay" style="display:none" role="dialog" aria-modal="true" aria-labelledby="onboarding-title">
         <div class="onboarding-backdrop"></div>
         <div class="onboarding-modal">
@@ -94,11 +95,9 @@
 
     <div class="topbar admin-topbar">
         <div class="admin-brand-block">
-            <!-- Platform placeholder brand (spec §5, issue #57). The
-                 restaurant name is injected by admin.js from the
-                 site-config endpoint once the admin view unlocks, so
-                 owners see "OSH · Admin — Their Restaurant"
-                 instead of the bare platform label. -->
+            <!-- Platform wordmark (spec §5 — "OSH · OS FOR HOSPITALITY").
+                 The restaurant name is injected by admin.js from the
+                 site-config endpoint once the admin view unlocks. -->
             <div class="brand"><span class="brand-mark">OSH</span><span class="brand-expand">OS for Hospitality</span>&nbsp;&middot; Admin<span id="admin-restaurant-name-sep" style="display:none"> &mdash; </span><span id="admin-restaurant-name"></span></div>
             <div class="admin-subhead">Post-shift debrief, analytics, and guest-entry system settings.</div>
         </div>
@@ -113,15 +112,24 @@
         </div>
     </div>
 
-    <!-- Simple tab bar: flips between the existing operations view and
-         the new Staff tab (owner-only). The Staff tab link is shown
-         dynamically based on /api/me; see admin.js loadIdentity(). -->
-    <nav class="admin-tabs" id="admin-tabs" aria-label="Admin sections">
-        <button type="button" class="admin-tab active" data-tab="operations">Operations</button>
-        <button type="button" class="admin-tab" data-tab="staff" id="admin-tab-staff" style="display:none">Staff</button>
+    <!-- Phase B of issue #51: 7-tab admin workspace. Each tab's panel is
+         lazy-loaded by admin.js on first activation; the last-active tab
+         is remembered per location via localStorage. Tabs marked
+         data-role-owner-only are shown only when /api/me reports role=owner. -->
+    <nav class="admin-tabs admin-tabs-workspace" id="admin-tabs" aria-label="Admin sections">
+        <button type="button" class="admin-tab active" data-tab="dashboard">Dashboard</button>
+        <button type="button" class="admin-tab" data-tab="site">Site</button>
+        <button type="button" class="admin-tab" data-tab="website">Website</button>
+        <button type="button" class="admin-tab" data-tab="menu">Menu</button>
+        <button type="button" class="admin-tab" data-tab="staff" id="admin-tab-staff" data-role-owner-only="true" style="display:none">Staff</button>
+        <button type="button" class="admin-tab" data-tab="ai">AI</button>
+        <button type="button" class="admin-tab" data-tab="settings">Settings</button>
     </nav>
 
-    <main class="admin-main" id="admin-operations-panel">
+    <!-- ═══════════════════════════════════════════════════════════════
+         Dashboard tab: Service Debrief + Stage-Based Analytics
+         ═══════════════════════════════════════════════════════════════ -->
+    <main class="admin-main admin-panel" id="admin-panel-dashboard" data-panel="dashboard">
         <section class="admin-card">
             <div class="admin-card-head">
                 <h2>Service Debrief</h2>
@@ -187,78 +195,12 @@
             </div>
             <div id="admin-histograms" class="histograms admin-histograms"><div class="hist-empty">Loading...</div></div>
         </section>
+    </main>
 
-        <section class="admin-grid-2up">
-            <section class="admin-card">
-                <div class="admin-card-head">
-                    <h2>Door QR — where it sends scanners</h2>
-                    <p>The QR sticker on your front door always points at a single stable URL. What scanners see when they arrive is decided here, live, without reprinting the sticker.</p>
-                </div>
-                <div class="qr-preview-block">
-                    <a id="admin-qr-test-link" class="qr-preview-link" href="#" target="_blank" rel="noopener" title="Click to open the scanner destination in a new tab">
-                        <img id="admin-qr-image" class="qr-preview" alt="Door QR code for this location" src="api/host/visit-qr.svg" />
-                    </a>
-                    <div class="qr-preview-meta">
-                        <div class="qr-target-label">Scanners land on:</div>
-                        <code id="admin-qr-target-url">loading...</code>
-                        <a id="admin-qr-download" href="api/host/visit-qr.svg" download="skb-visit-qr.svg" class="qr-download-link">Download SVG</a>
-                        <div class="qr-preview-hint">Tip: click the QR to preview where scanners land.</div>
-                    </div>
-                </div>
-                <div class="visit-grid">
-                    <label class="visit-field">
-                        <span class="visit-label">What to show on scan</span>
-                        <select id="admin-visit-mode">
-                            <option value="auto">Auto — waitlist if anyone is waiting, otherwise menu</option>
-                            <option value="queue">Always show the waitlist page</option>
-                            <option value="menu">Always redirect to the menu URL</option>
-                            <option value="closed">Closed — show "we're closed" page</option>
-                        </select>
-                    </label>
-                    <label class="visit-field">
-                        <span class="visit-label">Menu URL (for menu / auto modes)</span>
-                        <input type="url" id="admin-visit-menu-url" placeholder="https://skb.com/menu" maxlength="500" />
-                    </label>
-                    <label class="visit-field visit-field-full">
-                        <span class="visit-label">Closed message (for closed mode)</span>
-                        <input type="text" id="admin-visit-closed-message" placeholder="We're closed today — back tomorrow at 11am" maxlength="280" />
-                    </label>
-                </div>
-                <div class="visit-actions admin-actions-row">
-                    <span class="visit-status" id="admin-visit-status"></span>
-                    <button type="button" id="admin-visit-save" class="primary">Save QR Routing</button>
-                </div>
-            </section>
-
-            <section class="admin-card">
-                <div class="admin-card-head">
-                    <h2>IVR / Phone Entry</h2>
-                    <p>Configure call-based waitlist behavior and front-desk transfer defaults.</p>
-                </div>
-                <div class="visit-grid">
-                    <label class="visit-field">
-                        <span class="visit-label">IVR enabled</span>
-                        <select id="admin-voice-enabled">
-                            <option value="true">Enabled</option>
-                            <option value="false">Disabled</option>
-                        </select>
-                    </label>
-                    <label class="visit-field">
-                        <span class="visit-label">Front desk phone</span>
-                        <input type="tel" id="admin-front-desk-phone" placeholder="2065551234" maxlength="10" inputmode="numeric" />
-                    </label>
-                    <label class="visit-field visit-field-full">
-                        <span class="visit-label">Large party transfer threshold</span>
-                        <input type="number" id="admin-large-party-threshold" min="6" max="20" />
-                    </label>
-                </div>
-                <div class="visit-actions admin-actions-row">
-                    <span class="visit-status" id="admin-voice-status"></span>
-                    <button type="button" id="admin-voice-save" class="primary">Save IVR Settings</button>
-                </div>
-            </section>
-        </section>
-
+    <!-- ═══════════════════════════════════════════════════════════════
+         Site tab: Address + Phone + Weekly Hours + Public Host + IVR
+         ═══════════════════════════════════════════════════════════════ -->
+    <main class="admin-main admin-panel" id="admin-panel-site" data-panel="site" style="display:none">
         <section class="admin-card">
             <div class="admin-card-head">
                 <h2>Restaurant Site</h2>
@@ -338,6 +280,39 @@
             </div>
         </section>
 
+        <section class="admin-card">
+            <div class="admin-card-head">
+                <h2>IVR / Phone Entry</h2>
+                <p>Configure call-based waitlist behavior and front-desk transfer defaults.</p>
+            </div>
+            <div class="visit-grid">
+                <label class="visit-field">
+                    <span class="visit-label">IVR enabled</span>
+                    <select id="admin-voice-enabled">
+                        <option value="true">Enabled</option>
+                        <option value="false">Disabled</option>
+                    </select>
+                </label>
+                <label class="visit-field">
+                    <span class="visit-label">Front desk phone</span>
+                    <input type="tel" id="admin-front-desk-phone" placeholder="2065551234" maxlength="10" inputmode="numeric" />
+                </label>
+                <label class="visit-field visit-field-full">
+                    <span class="visit-label">Large party transfer threshold</span>
+                    <input type="number" id="admin-large-party-threshold" min="6" max="20" />
+                </label>
+            </div>
+            <div class="visit-actions admin-actions-row">
+                <span class="visit-status" id="admin-voice-status"></span>
+                <button type="button" id="admin-voice-save" class="primary">Save IVR Settings</button>
+            </div>
+        </section>
+    </main>
+
+    <!-- ═══════════════════════════════════════════════════════════════
+         Website tab: Template + Content editor + Signature-dish editor
+         ═══════════════════════════════════════════════════════════════ -->
+    <main class="admin-main admin-panel" id="admin-panel-website" data-panel="website" style="display:none">
         <section class="admin-card" id="admin-website-card">
             <div class="admin-card-head">
                 <h2>Website</h2>
@@ -388,85 +363,116 @@
                 </label>
             </div>
 
+            <!-- Signature-dish editor (issue #51 Phase B). 3 rows. Each row
+                 has a title input, a desc textarea, and a file picker that
+                 reads the chosen image as a DataURL and shows a 160x120
+                 preview. On Save Website, admin.js builds a knownFor
+                 array where each `image` is either (a) the pre-existing
+                 URL string (unchanged) or (b) a { mime, data } object that
+                 the backend (Phase A) persists to /assets/<slug>/dishes/. -->
+            <h4 class="visit-subhead">Signature Dishes <span class="visit-sub-help">— up to three; appears on the home page under "Known For"</span></h4>
+            <div class="signature-dish-grid" id="signature-dish-grid">
+                <div class="signature-dish-row" data-sig-index="0">
+                    <div class="signature-dish-fields">
+                        <label class="visit-field visit-field-full">
+                            <span class="visit-label">Title</span>
+                            <input type="text" class="signature-dish-title" data-sig-field="title" maxlength="60" placeholder="Tonkotsu Shio" />
+                        </label>
+                        <label class="visit-field visit-field-full">
+                            <span class="visit-label">Description</span>
+                            <textarea class="signature-dish-desc" data-sig-field="desc" maxlength="280" rows="2" placeholder="36-hour pork broth."></textarea>
+                        </label>
+                    </div>
+                    <div class="signature-dish-media">
+                        <img class="signature-dish-preview" data-sig-preview alt="" style="display:none" />
+                        <div class="signature-dish-preview-placeholder" data-sig-placeholder>No image yet</div>
+                        <label class="signature-dish-filebtn">
+                            <input type="file" class="signature-dish-file" data-sig-file accept="image/*" />
+                            <span>Pick image</span>
+                        </label>
+                        <button type="button" class="signature-dish-clear" data-sig-clear style="display:none">Clear</button>
+                    </div>
+                </div>
+                <div class="signature-dish-row" data-sig-index="1">
+                    <div class="signature-dish-fields">
+                        <label class="visit-field visit-field-full">
+                            <span class="visit-label">Title</span>
+                            <input type="text" class="signature-dish-title" data-sig-field="title" maxlength="60" placeholder="Masala Dosa" />
+                        </label>
+                        <label class="visit-field visit-field-full">
+                            <span class="visit-label">Description</span>
+                            <textarea class="signature-dish-desc" data-sig-field="desc" maxlength="280" rows="2" placeholder="Crispy crepe, spiced potato."></textarea>
+                        </label>
+                    </div>
+                    <div class="signature-dish-media">
+                        <img class="signature-dish-preview" data-sig-preview alt="" style="display:none" />
+                        <div class="signature-dish-preview-placeholder" data-sig-placeholder>No image yet</div>
+                        <label class="signature-dish-filebtn">
+                            <input type="file" class="signature-dish-file" data-sig-file accept="image/*" />
+                            <span>Pick image</span>
+                        </label>
+                        <button type="button" class="signature-dish-clear" data-sig-clear style="display:none">Clear</button>
+                    </div>
+                </div>
+                <div class="signature-dish-row" data-sig-index="2">
+                    <div class="signature-dish-fields">
+                        <label class="visit-field visit-field-full">
+                            <span class="visit-label">Title</span>
+                            <input type="text" class="signature-dish-title" data-sig-field="title" maxlength="60" placeholder="Filter Coffee" />
+                        </label>
+                        <label class="visit-field visit-field-full">
+                            <span class="visit-label">Description</span>
+                            <textarea class="signature-dish-desc" data-sig-field="desc" maxlength="280" rows="2" placeholder="Strong, milky, unmistakable."></textarea>
+                        </label>
+                    </div>
+                    <div class="signature-dish-media">
+                        <img class="signature-dish-preview" data-sig-preview alt="" style="display:none" />
+                        <div class="signature-dish-preview-placeholder" data-sig-placeholder>No image yet</div>
+                        <label class="signature-dish-filebtn">
+                            <input type="file" class="signature-dish-file" data-sig-file accept="image/*" />
+                            <span>Pick image</span>
+                        </label>
+                        <button type="button" class="signature-dish-clear" data-sig-clear style="display:none">Clear</button>
+                    </div>
+                </div>
+            </div>
+
             <div class="visit-actions admin-actions-row">
                 <span class="visit-status" id="admin-website-status"></span>
                 <a id="admin-website-preview" class="admin-website-preview" href="./" target="_blank" rel="noopener">Preview ↗</a>
                 <button type="button" id="admin-website-save" class="primary">Save Website</button>
             </div>
         </section>
+    </main>
 
-        <!-- ────────────────────────────────────────────────────────────
-             Ask OSH (MCP) — let owners connect Claude / ChatGPT / any
-             MCP-speaking AI to THIS restaurant's operating data. The
-             config is per-tenant: the Bearer token is the restaurant's
-             host PIN, the X-SKB-Location header is the tenant slug.
-             ──────────────────────────────────────────────────────────── -->
-        <section class="admin-card" id="admin-mcp-card">
+    <!-- ═══════════════════════════════════════════════════════════════
+         Menu tab: placeholder — full JSON editor is out of scope for
+         Phase B. Owners can still set `menuUrl` here (same field as the
+         Settings → QR card uses). Kept deliberately minimal.
+         ═══════════════════════════════════════════════════════════════ -->
+    <main class="admin-main admin-panel" id="admin-panel-menu" data-panel="menu" style="display:none">
+        <section class="admin-card" id="admin-menu-card">
             <div class="admin-card-head">
-                <h2>Ask OSH <span class="admin-card-tag">MCP / AI</span></h2>
-                <p>Plug your restaurant into Claude, ChatGPT, or any AI that speaks <a href="https://modelcontextprotocol.io" target="_blank" rel="noopener">MCP</a>. Then just ask — no dashboards to learn.</p>
+                <h2>Menu</h2>
+                <p>Menu editor &mdash; coming soon. For now, link to a hosted PDF or menu page; scanners in "menu" mode will land there.</p>
             </div>
-
-            <div class="mcp-ask-samples">
-                <div class="mcp-ask-sample">"Who's waiting right now?"</div>
-                <div class="mcp-ask-sample">"How many covers last Friday between 7 and 9?"</div>
-                <div class="mcp-ask-sample">"What's our average turn time this month?"</div>
-                <div class="mcp-ask-sample">"Text Patel — we're five minutes out."</div>
-                <div class="mcp-ask-sample">"Set our turn time to 45 minutes."</div>
-                <div class="mcp-ask-sample">"Summarize how tonight went."</div>
-            </div>
-
-            <h4 class="visit-subhead">Your connection <span class="visit-sub-help">— paste into your AI client; the PIN is also on your door-poster PDF</span></h4>
-            <div class="mcp-config-grid">
-                <label class="mcp-config-field">
-                    <span class="visit-label">Endpoint URL</span>
-                    <div class="mcp-config-input-row">
-                        <input type="text" id="mcp-endpoint" readonly />
-                        <button type="button" class="mcp-copy-btn" data-copy-target="mcp-endpoint">Copy</button>
-                    </div>
-                </label>
-                <label class="mcp-config-field">
-                    <span class="visit-label">Header: <code>X-SKB-Location</code></span>
-                    <div class="mcp-config-input-row">
-                        <input type="text" id="mcp-location-header" readonly />
-                        <button type="button" class="mcp-copy-btn" data-copy-target="mcp-location-header">Copy</button>
-                    </div>
-                </label>
-                <label class="mcp-config-field">
-                    <span class="visit-label">Bearer token <span class="visit-sub-help">(your host PIN — same as the tablet)</span></span>
-                    <div class="mcp-config-input-row">
-                        <input type="password" id="mcp-bearer" readonly />
-                        <button type="button" class="mcp-copy-btn" data-copy-target="mcp-bearer">Copy</button>
-                        <button type="button" class="mcp-reveal-btn" id="mcp-bearer-reveal" aria-label="Show / hide token">👁</button>
-                    </div>
+            <div class="visit-grid">
+                <label class="visit-field visit-field-full">
+                    <span class="visit-label">Menu URL</span>
+                    <input type="url" id="admin-menu-url" placeholder="https://skb.com/menu" maxlength="500" />
                 </label>
             </div>
-
-            <div class="mcp-setup-tabs" role="tablist">
-                <button type="button" class="mcp-tab-btn is-selected" data-mcp-tab="claude-code" role="tab">Claude Code (CLI)</button>
-                <button type="button" class="mcp-tab-btn" data-mcp-tab="claude-desktop" role="tab">Claude Desktop (JSON)</button>
-                <button type="button" class="mcp-tab-btn" data-mcp-tab="chatgpt" role="tab">ChatGPT Custom GPT</button>
+            <div class="visit-actions admin-actions-row">
+                <span class="visit-status" id="admin-menu-status"></span>
+                <button type="button" id="admin-menu-save" class="primary">Save Menu URL</button>
             </div>
-
-            <div class="mcp-tab-panel is-selected" data-mcp-tab-panel="claude-code">
-                <p class="mcp-panel-blurb">One command in your terminal. Claude remembers the connection for every future chat.</p>
-                <pre class="mcp-snippet"><code id="mcp-snippet-claude-code"></code><button type="button" class="mcp-copy-btn mcp-snippet-copy" data-copy-target="mcp-snippet-claude-code">Copy</button></pre>
-                <p class="mcp-panel-followup">Open Claude Code and ask <em>"What's on my OSH waitlist right now?"</em></p>
-            </div>
-            <div class="mcp-tab-panel" data-mcp-tab-panel="claude-desktop">
-                <p class="mcp-panel-blurb">Paste into <code>claude_desktop_config.json</code> (Settings → Developer → Edit Config) and restart Claude Desktop.</p>
-                <pre class="mcp-snippet"><code id="mcp-snippet-claude-desktop"></code><button type="button" class="mcp-copy-btn mcp-snippet-copy" data-copy-target="mcp-snippet-claude-desktop">Copy</button></pre>
-            </div>
-            <div class="mcp-tab-panel" data-mcp-tab-panel="chatgpt">
-                <p class="mcp-panel-blurb">In ChatGPT, create a Custom GPT and add a Connector. Paste the endpoint URL above; under "Authentication" choose <em>Custom header</em> and add both headers from this card. (ChatGPT MCP support is rolling out — some accounts see this option under Tools → Actions.)</p>
-                <p class="mcp-panel-followup">Working <em>very close</em> to home? You can also run Claude Code on your phone and point it at OSH from anywhere on the floor.</p>
-            </div>
-
-            <p class="mcp-safety"><strong>Safety note:</strong> the bearer token above is your host PIN. Anyone with it can operate your waitlist. Rotate it from Settings → Device PIN if you think it's leaked.</p>
         </section>
     </main>
 
-    <main class="admin-main" id="admin-staff-panel" style="display:none">
+    <!-- ═══════════════════════════════════════════════════════════════
+         Staff tab: existing staff card (owner-only)
+         ═══════════════════════════════════════════════════════════════ -->
+    <main class="admin-main admin-panel" id="admin-panel-staff" data-panel="staff" style="display:none">
         <section class="admin-card">
             <div class="admin-card-head">
                 <h2>Staff <span style="font-size:13px;color:#78716c;font-weight:500">(owner-only)</span></h2>
@@ -534,7 +540,151 @@
             </table>
         </section>
     </main>
+
+    <!-- ═══════════════════════════════════════════════════════════════
+         AI tab: Ask OSH (MCP) card — moved unchanged from the
+         prior operations panel. Contents kept intact per Phase-B spec.
+         ═══════════════════════════════════════════════════════════════ -->
+    <main class="admin-main admin-panel" id="admin-panel-ai" data-panel="ai" style="display:none">
+        <section class="admin-card" id="admin-mcp-card">
+            <div class="admin-card-head">
+                <h2>Ask OSH <span class="admin-card-tag">MCP / AI</span></h2>
+                <p>Plug your restaurant into Claude, ChatGPT, or any AI that speaks <a href="https://modelcontextprotocol.io" target="_blank" rel="noopener">MCP</a>. Then just ask — no dashboards to learn.</p>
+            </div>
+
+            <div class="mcp-ask-samples">
+                <div class="mcp-ask-sample">"Who's waiting right now?"</div>
+                <div class="mcp-ask-sample">"How many covers last Friday between 7 and 9?"</div>
+                <div class="mcp-ask-sample">"What's our average turn time this month?"</div>
+                <div class="mcp-ask-sample">"Text Patel — we're five minutes out."</div>
+                <div class="mcp-ask-sample">"Set our turn time to 45 minutes."</div>
+                <div class="mcp-ask-sample">"Summarize how tonight went."</div>
+            </div>
+
+            <h4 class="visit-subhead">Your connection <span class="visit-sub-help">— paste into your AI client; the PIN is also on your door-poster PDF</span></h4>
+            <div class="mcp-config-grid">
+                <label class="mcp-config-field">
+                    <span class="visit-label">Endpoint URL</span>
+                    <div class="mcp-config-input-row">
+                        <input type="text" id="mcp-endpoint" readonly />
+                        <button type="button" class="mcp-copy-btn" data-copy-target="mcp-endpoint">Copy</button>
+                    </div>
+                </label>
+                <label class="mcp-config-field">
+                    <span class="visit-label">Header: <code>X-SKB-Location</code></span>
+                    <div class="mcp-config-input-row">
+                        <input type="text" id="mcp-location-header" readonly />
+                        <button type="button" class="mcp-copy-btn" data-copy-target="mcp-location-header">Copy</button>
+                    </div>
+                </label>
+                <label class="mcp-config-field">
+                    <span class="visit-label">Bearer token <span class="visit-sub-help">(your host PIN — same as the tablet)</span></span>
+                    <div class="mcp-config-input-row">
+                        <input type="password" id="mcp-bearer" readonly />
+                        <button type="button" class="mcp-copy-btn" data-copy-target="mcp-bearer">Copy</button>
+                        <button type="button" class="mcp-reveal-btn" id="mcp-bearer-reveal" aria-label="Show / hide token">👁</button>
+                    </div>
+                </label>
+            </div>
+
+            <div class="mcp-setup-tabs" role="tablist">
+                <button type="button" class="mcp-tab-btn is-selected" data-mcp-tab="claude-code" role="tab">Claude Code (CLI)</button>
+                <button type="button" class="mcp-tab-btn" data-mcp-tab="claude-desktop" role="tab">Claude Desktop (JSON)</button>
+                <button type="button" class="mcp-tab-btn" data-mcp-tab="chatgpt" role="tab">ChatGPT Custom GPT</button>
+            </div>
+
+            <div class="mcp-tab-panel is-selected" data-mcp-tab-panel="claude-code">
+                <p class="mcp-panel-blurb">One command in your terminal. Claude remembers the connection for every future chat.</p>
+                <pre class="mcp-snippet"><code id="mcp-snippet-claude-code"></code><button type="button" class="mcp-copy-btn mcp-snippet-copy" data-copy-target="mcp-snippet-claude-code">Copy</button></pre>
+                <p class="mcp-panel-followup">Open Claude Code and ask <em>"What's on my OSH waitlist right now?"</em></p>
+            </div>
+            <div class="mcp-tab-panel" data-mcp-tab-panel="claude-desktop">
+                <p class="mcp-panel-blurb">Paste into <code>claude_desktop_config.json</code> (Settings → Developer → Edit Config) and restart Claude Desktop.</p>
+                <pre class="mcp-snippet"><code id="mcp-snippet-claude-desktop"></code><button type="button" class="mcp-copy-btn mcp-snippet-copy" data-copy-target="mcp-snippet-claude-desktop">Copy</button></pre>
+            </div>
+            <div class="mcp-tab-panel" data-mcp-tab-panel="chatgpt">
+                <p class="mcp-panel-blurb">In ChatGPT, create a Custom GPT and add a Connector. Paste the endpoint URL above; under "Authentication" choose <em>Custom header</em> and add both headers from this card. (ChatGPT MCP support is rolling out — some accounts see this option under Tools → Actions.)</p>
+                <p class="mcp-panel-followup">Working <em>very close</em> to home? You can also run Claude Code on your phone and point it at OSH from anywhere on the floor.</p>
+            </div>
+
+            <p class="mcp-safety"><strong>Safety note:</strong> the bearer token above is your host PIN. Anyone with it can operate your waitlist. Rotate it from Settings → Device PIN if you think it's leaked.</p>
+        </section>
+    </main>
+
+    <!-- ═══════════════════════════════════════════════════════════════
+         Settings tab: Door QR card + Device PIN
+         ═══════════════════════════════════════════════════════════════ -->
+    <main class="admin-main admin-panel" id="admin-panel-settings" data-panel="settings" style="display:none">
+        <section class="admin-card">
+            <div class="admin-card-head">
+                <h2>Door QR — where it sends scanners</h2>
+                <p>The QR sticker on your front door always points at a single stable URL. What scanners see when they arrive is decided here, live, without reprinting the sticker.</p>
+            </div>
+            <div class="qr-preview-block">
+                <a id="admin-qr-test-link" class="qr-preview-link" href="#" target="_blank" rel="noopener" title="Click to open the scanner destination in a new tab">
+                    <img id="admin-qr-image" class="qr-preview" alt="Door QR code for this location" src="api/host/visit-qr.svg" />
+                </a>
+                <div class="qr-preview-meta">
+                    <div class="qr-target-label">Scanners land on:</div>
+                    <code id="admin-qr-target-url">loading...</code>
+                    <a id="admin-qr-download" href="api/host/visit-qr.svg" download="skb-visit-qr.svg" class="qr-download-link">Download SVG</a>
+                    <div class="qr-preview-hint">Tip: click the QR to preview where scanners land.</div>
+                </div>
+            </div>
+            <div class="visit-grid">
+                <label class="visit-field">
+                    <span class="visit-label">What to show on scan</span>
+                    <select id="admin-visit-mode">
+                        <option value="auto">Auto — waitlist if anyone is waiting, otherwise menu</option>
+                        <option value="queue">Always show the waitlist page</option>
+                        <option value="menu">Always redirect to the menu URL</option>
+                        <option value="closed">Closed — show "we're closed" page</option>
+                    </select>
+                </label>
+                <label class="visit-field">
+                    <span class="visit-label">Menu URL (for menu / auto modes)</span>
+                    <input type="url" id="admin-visit-menu-url" placeholder="https://skb.com/menu" maxlength="500" />
+                </label>
+                <label class="visit-field visit-field-full">
+                    <span class="visit-label">Closed message (for closed mode)</span>
+                    <input type="text" id="admin-visit-closed-message" placeholder="We're closed today — back tomorrow at 11am" maxlength="280" />
+                </label>
+            </div>
+            <div class="visit-actions admin-actions-row">
+                <span class="visit-status" id="admin-visit-status"></span>
+                <button type="button" id="admin-visit-save" class="primary">Save QR Routing</button>
+            </div>
+        </section>
+
+        <!-- Device PIN card. The actual PIN is never returned by any API
+             (correctly — treat as a secret). The UI shows a masked
+             placeholder and a "Regenerate PIN" button that hits the
+             (not-yet-implemented) rotate endpoint. Endpoint returns 501
+             for now; the front-end surfaces a "coming soon" toast. -->
+        <section class="admin-card" id="admin-device-pin-card">
+            <div class="admin-card-head">
+                <h2>Device PIN</h2>
+                <p>The 4-digit PIN your hosts type on the tablet to unlock the host stand. The admin workspace uses the same PIN.</p>
+            </div>
+            <div class="visit-grid">
+                <label class="visit-field visit-field-full">
+                    <span class="visit-label">Current PIN</span>
+                    <input type="text" id="admin-device-pin-display" value="••••" readonly aria-label="Current PIN (masked)" />
+                </label>
+            </div>
+            <div class="visit-actions admin-actions-row">
+                <span class="visit-status" id="admin-device-pin-status"></span>
+                <button type="button" id="admin-device-pin-regen" class="primary">Regenerate PIN</button>
+            </div>
+            <p style="margin-top:12px;font-size:12px;color:#78716c">The PIN is shown on your door-poster PDF and never returned by any API after signup. Rotating it invalidates all current host/admin sessions.</p>
+        </section>
+    </main>
 </div>
+
+<!-- Lightweight transient toast, driven by admin.js (e.g. the
+     Regenerate-PIN "coming soon" message). Lives outside #admin-view
+     so it can overlay any panel. -->
+<div id="admin-toast" class="admin-toast" role="status" aria-live="polite" style="display:none"></div>
 
 <script src="admin.js"></script>
 <script src="onboarding.js"></script>

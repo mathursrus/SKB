@@ -130,18 +130,30 @@ async function fileExists(p: string): Promise<boolean> {
 
 /** Resolve the HTML file path to read for a location + page. Searches the
  * active template directory first, then falls back to legacy `public/<file>`
- * for saffron backward-compat, then finally to saffron if the active template
- * happens to be incomplete. Returns `null` when no file is found.
+ * ONLY for the legacy SKB tenant (whose `public/home.html` is the hand-written
+ * Shri Krishna Bhavan site). Other tenants fall through to saffron's template
+ * directory, then to slate, so a new restaurant never inherits SKB's content.
+ *
+ * Returns `null` when no file is found.
+ *
+ * Issue #51 bug-bash fix: previously any saffron tenant fell back to
+ * `public/home.html`, which carries hardcoded "Shri Krishna Bhavan" branding
+ * and has no `{{placeholder}}` substitution points. A new owner signing up
+ * with the default template would therefore see SKB's home page instead of
+ * their own. The `_id === 'skb'` guard preserves G5 (zero observable change
+ * for SKB Bellevue) while fixing the bug.
  */
 export async function resolveTemplateFile(
     publicDir: string,
-    location: Pick<Location, 'websiteTemplate'>,
+    location: Pick<Location, 'websiteTemplate' | '_id'>,
     pageKey: TemplatePageKey,
 ): Promise<string | null> {
     const file = TEMPLATE_PAGE_FILES[pageKey];
     if (!file) return null;
 
     const activeKey = resolveTemplateKey(location);
+    const locationId = (location as { _id?: string })._id;
+    const isSkb = locationId === 'skb';
 
     const candidates = [
         path.join(publicDir, 'templates', activeKey, file),
@@ -157,12 +169,27 @@ export async function resolveTemplateFile(
         contact: 'contact.html',
     };
     if (activeKey === 'saffron') {
-        candidates.push(path.join(publicDir, legacyMap[pageKey]));
+        // For SKB specifically, the legacy flat files under `public/` ARE the
+        // saffron template — fall back to them to preserve the existing site.
+        // For any other tenant, skip the legacy fallback and cascade through
+        // saffron's template dir (if present) then slate, so the tenant gets a
+        // template with working `{{placeholder}}` substitution rather than
+        // SKB's hardcoded copy.
+        if (isSkb) {
+            candidates.push(path.join(publicDir, legacyMap[pageKey]));
+        } else {
+            candidates.push(path.join(publicDir, 'templates', 'slate', file));
+        }
     } else {
         // If the non-default template is missing this page for any reason,
-        // fall back to saffron rather than serving a 404.
+        // fall back to saffron rather than serving a 404. The legacy
+        // SKB-specific files are only consulted for the SKB tenant.
         candidates.push(path.join(publicDir, 'templates', 'saffron', file));
-        candidates.push(path.join(publicDir, legacyMap[pageKey]));
+        if (isSkb) {
+            candidates.push(path.join(publicDir, legacyMap[pageKey]));
+        } else {
+            candidates.push(path.join(publicDir, 'templates', 'slate', file));
+        }
     }
 
     for (const c of candidates) {

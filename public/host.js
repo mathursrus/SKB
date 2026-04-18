@@ -1016,11 +1016,14 @@
     }
 
     // Issue #57: fill the restaurant name into the topbar + document
-    // title. Fails silently — the fallback copy ("Host Stand") is still
-    // correct branding for a restaurant-specific surface.
+    // title. Uses the unauthenticated /public-config endpoint so the
+    // brand appears on the PIN-login card too (before the host has
+    // entered the PIN). Fails silently — the fallback copy ("Host
+    // Stand") is still correct branding for a restaurant-specific
+    // surface.
     async function loadRestaurantBrand() {
         try {
-            const r = await fetch('api/host/site-config');
+            const r = await fetch('api/public-config');
             if (!r.ok) return;
             const data = await r.json();
             const name = (data && data.name) ? String(data.name) : '';
@@ -1038,6 +1041,9 @@
     }
 
     (async function boot() {
+        // Load brand immediately so the PIN-login card shows the
+        // restaurant's name even before the host authenticates.
+        loadRestaurantBrand();
         if (await checkAuth()) showQueue(); else showLogin();
     })();
 })();

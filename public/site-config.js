@@ -132,7 +132,12 @@
         var footerContact = document.getElementById('footer-contact');
         if (footerContact && cfg.address) {
             var a = cfg.address;
-            footerContact.textContent = a.street + ', ' + a.city + ' ' + a.state + ' ' + a.zip + ' · skb.bellevue@gmail.com';
+            var line = a.street + ', ' + a.city + ' ' + a.state + ' ' + a.zip;
+            // Include the contact email only if this tenant has configured one;
+            // a default/hardcoded email leaks across tenants (seen on ABCD demo).
+            var email = cfg.content && cfg.content.contactEmail;
+            if (email) line += ' · ' + email;
+            footerContact.textContent = line;
         }
 
         var phoneLinks = document.querySelectorAll('a[data-front-desk-phone]');

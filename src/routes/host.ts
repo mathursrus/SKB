@@ -38,6 +38,16 @@ import {
     HOST_COOKIE_NAME,
     HOST_COOKIE_MAX_AGE_SECONDS,
 } from '../middleware/hostAuth.js';
+import {
+    createInvite,
+    listPendingInvites,
+    revokeInvite,
+    revokeMembership,
+    listStaffAtLocation,
+    isInvitableRole,
+} from '../services/invites.js';
+import { ObjectId } from 'mongodb';
+import { getDb, memberships as membershipsColl } from '../core/db/mongo.js';
 import { timingSafeEqual } from 'node:crypto';
 import QRCode from 'qrcode';
 
@@ -60,6 +70,15 @@ function cookieSecret(): string | null {
 // named skb_session cookie carries whichever role the user has at
 // this location. All three roles pass this gate.
 const requireHost = requireRole('host', 'admin', 'owner');
+
+// Admin-only (issue #55): settings + config endpoints require a named
+// session with an owner/admin role. The PIN-anonymous skb_host cookie
+// maps to role='host' and does NOT unlock these.
+const requireAdmin = requireRole('admin', 'owner');
+
+// Owner-only (issue #55): staff management — only the restaurant
+// owner can invite or revoke teammates, per spec §6.3.
+const requireOwner = requireRole('owner');
 
 export function hostRouter(): Router {
     const r = Router({ mergeParams: true });
@@ -418,7 +437,7 @@ export function hostRouter(): Router {
         } catch (err) { dbError(res, err); }
     });
 
-    r.post('/host/visit-config', requireHost, async (req: Request, res: Response) => {
+    r.post('/host/visit-config', requireAdmin, async (req: Request, res: Response) => {
         const body = (req.body ?? {}) as {
             visitMode?: unknown;
             menuUrl?: unknown;
@@ -517,7 +536,7 @@ export function hostRouter(): Router {
         } catch (err) { dbError(res, err); }
     });
 
-    r.post('/host/voice-config', requireHost, async (req: Request, res: Response) => {
+    r.post('/host/voice-config', requireAdmin, async (req: Request, res: Response) => {
         const body = (req.body ?? {}) as {
             voiceEnabled?: unknown;
             frontDeskPhone?: unknown;
@@ -575,7 +594,7 @@ export function hostRouter(): Router {
         } catch (err) { dbError(res, err); }
     });
 
-    r.post('/host/site-config', requireHost, async (req: Request, res: Response) => {
+    r.post('/host/site-config', requireAdmin, async (req: Request, res: Response) => {
         const body = (req.body ?? {}) as {
             address?: unknown;
             hours?: unknown;
@@ -747,7 +766,135 @@ export function hostRouter(): Router {
         } catch (err) { dbError(res, err); }
     });
 
-    r.post('/host/settings', requireHost, async (req: Request, res: Response) => {
+    // ----------------------------------------------------------------------
+    // Staff management (issue #55, spec §6.3). All three endpoints are
+    // tenant-scoped via `req.params.loc` which requireRole verifies
+    // against the cookie's `lid`. The create/revoke endpoints are
+    // owner-only; the list endpoint is owner+admin so admins can see
+    // "who's on this team" from their side of the workspace.
+    // ----------------------------------------------------------------------
+    r.get('/staff', requireAdmin, async (req: Request, res: Response) => {
+        try {
+            const [staff, pending] = await Promise.all([
+                listStaffAtLocation(loc(req)),
+                listPendingInvites(loc(req)),
+            ]);
+            res.json({ staff, pending });
+        } catch (err) { dbError(res, err); }
+    });
+
+    r.post('/staff/invite', requireOwner, async (req: Request, res: Response) => {
+        const body = (req.body ?? {}) as { email?: unknown; name?: unknown; role?: unknown };
+        const email = typeof body.email === 'string' ? body.email : '';
+        const name = typeof body.name === 'string' ? body.name : '';
+        const role = typeof body.role === 'string' ? body.role : '';
+        if (!isInvitableRole(role)) {
+            res.status(400).json({ error: 'role must be admin or host', field: 'role' });
+            return;
+        }
+        const uid = req.hostAuth?.uid;
+        if (!uid) {
+            // requireOwner guarantees source='session', so uid must be set.
+            // Double-check to keep TS happy and to fail closed.
+            res.status(401).json({ error: 'unauthorized' });
+            return;
+        }
+        try {
+            const { invite, token } = await createInvite({
+                email,
+                name,
+                role,
+                locationId: loc(req),
+                invitedByUserId: new ObjectId(uid),
+            });
+            // Dev-mode log: the invite link. A real mailer wires in later.
+            const base = process.env.PLATFORM_PUBLIC_URL ?? '';
+            const link = `${base}/accept-invite?t=${encodeURIComponent(token)}`;
+            console.log(JSON.stringify({
+                t: new Date().toISOString(),
+                level: 'info',
+                msg: 'staff.invite.created',
+                loc: loc(req),
+                email: invite.email,
+                role: invite.role,
+                invitedBy: uid,
+                // Log the token in dev so tests + manual walkthroughs can
+                // click through without SMTP. Production should gate this
+                // line off (same trade-off as password resets).
+                token,
+                link,
+            }));
+            res.json({ invite });
+        } catch (err) {
+            if (err instanceof Error) {
+                const msg = err.message;
+                if (msg === 'already a member'
+                    || msg === 'role must be admin or host'
+                    || msg === 'locationId is required'
+                    || msg.startsWith('email')
+                    || msg.startsWith('name')) {
+                    res.status(400).json({ error: msg });
+                    return;
+                }
+            }
+            dbError(res, err);
+        }
+    });
+
+    r.post('/staff/revoke', requireOwner, async (req: Request, res: Response) => {
+        const body = (req.body ?? {}) as { membershipId?: unknown; inviteId?: unknown };
+        const membershipId = typeof body.membershipId === 'string' ? body.membershipId : '';
+        const inviteId = typeof body.inviteId === 'string' ? body.inviteId : '';
+        if (!membershipId && !inviteId) {
+            res.status(400).json({ error: 'membershipId or inviteId required' });
+            return;
+        }
+        try {
+            if (inviteId) {
+                // Cancel a pending invite — no self-revoke concern.
+                const ok = await revokeInvite(loc(req), inviteId);
+                if (!ok) { res.status(404).json({ error: 'invite not found' }); return; }
+                console.log(JSON.stringify({
+                    t: new Date().toISOString(),
+                    level: 'info',
+                    msg: 'staff.invite.revoked',
+                    loc: loc(req),
+                    inviteId,
+                    revokedBy: req.hostAuth?.uid,
+                }));
+                res.json({ ok: true });
+                return;
+            }
+            // Membership revoke — R5: owner cannot revoke self.
+            // We need to look up the membership to compare its userId to
+            // the caller's uid. The service throws its own 404 path
+            // (returns false), so do a soft-check first via the DB.
+            const uid = req.hostAuth?.uid;
+            if (uid) {
+                const db = await getDb();
+                let target;
+                try { target = await membershipsColl(db).findOne({ _id: new ObjectId(membershipId) }); }
+                catch { target = null; }
+                if (target && target.userId.toHexString() === uid) {
+                    res.status(400).json({ error: 'cannot revoke self' });
+                    return;
+                }
+            }
+            const ok = await revokeMembership(loc(req), membershipId);
+            if (!ok) { res.status(404).json({ error: 'membership not found' }); return; }
+            console.log(JSON.stringify({
+                t: new Date().toISOString(),
+                level: 'info',
+                msg: 'staff.membership.revoked',
+                loc: loc(req),
+                membershipId,
+                revokedBy: req.hostAuth?.uid,
+            }));
+            res.json({ ok: true });
+        } catch (err) { dbError(res, err); }
+    });
+
+    r.post('/host/settings', requireAdmin, async (req: Request, res: Response) => {
         const body = req.body ?? {};
         const hasTurn = body.avgTurnTimeMinutes !== undefined && body.avgTurnTimeMinutes !== null;
         const hasMode = body.etaMode !== undefined && body.etaMode !== null;

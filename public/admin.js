@@ -122,6 +122,42 @@
         return r.status !== 401;
     }
 
+    // Identity + role state loaded from /api/me. Host-role users should
+    // be bounced to host.html per issue #55 acceptance R2; owners get
+    // the Staff tab. Admins get operations but no staff management.
+    let currentIdentity = null; // { userId, role } | null
+    async function loadIdentity() {
+        try {
+            const r = await fetch('/api/me', { credentials: 'same-origin' });
+            if (!r.ok) return null;
+            const data = await r.json();
+            currentIdentity = {
+                userId: data.user?.id || null,
+                email: data.user?.email || '',
+                name: data.user?.name || '',
+                role: data.role || null,
+                locationId: data.locationId || null,
+            };
+            return currentIdentity;
+        } catch {
+            return null;
+        }
+    }
+
+    function redirectHostRoleAway() {
+        // Leave a toast in sessionStorage so host.html can surface "you
+        // don't have access" if it wants to. This page doesn't render
+        // anything for hosts.
+        try {
+            sessionStorage.setItem('skb:admin-denied', JSON.stringify({
+                at: Date.now(),
+                reason: 'Admin workspace is owner/admin only. Sending you to the host stand.',
+            }));
+        } catch {}
+        const loc = (window.location.pathname.match(/^\/r\/([^/]+)\//) || [])[1] || 'skb';
+        window.location.replace(`/r/${loc}/host.html`);
+    }
+
     function fmtMinutes(value) {
         return value != null ? value + 'm' : '\u2014';
     }
@@ -486,6 +522,213 @@
         await Promise.all([loadStats(), loadAnalytics(), loadVisitConfig(), loadVoiceConfig(), loadSiteConfig(), loadWebsiteConfig()]);
     }
 
+    // ------------------------------------------------------------------
+    // Issue #55: Staff tab
+    // ------------------------------------------------------------------
+    function roleLabel(role) {
+        if (role === 'owner') return 'Owner';
+        if (role === 'admin') return 'Admin';
+        if (role === 'host') return 'Host';
+        return role || '';
+    }
+    function initials(name, email) {
+        const src = (name || email || '??').trim();
+        const parts = src.split(/\s+|@/).filter(Boolean);
+        if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+        return src.slice(0, 2).toUpperCase();
+    }
+    function relativeTime(iso) {
+        if (!iso) return '';
+        const d = new Date(iso);
+        if (isNaN(d.getTime())) return '';
+        const diff = Date.now() - d.getTime();
+        const mins = Math.round(diff / 60000);
+        if (mins < 1) return 'Just now';
+        if (mins < 60) return mins + 'm ago';
+        const hrs = Math.round(mins / 60);
+        if (hrs < 24) return hrs + 'h ago';
+        const days = Math.round(hrs / 24);
+        return days + 'd ago';
+    }
+
+    async function loadStaff() {
+        const tbody = $('staff-tbody');
+        const pendingTbody = $('pending-tbody');
+        const pendingTable = $('pending-table');
+        const pendingEmpty = $('pending-empty');
+        const staffEmpty = $('staff-empty');
+        const staffTable = $('staff-table');
+        if (!tbody || !pendingTbody) return;
+        try {
+            const r = await fetch('api/staff');
+            if (r.status === 403) {
+                tbody.innerHTML = '<tr><td colspan="5" style="padding:14px;color:#78716c">You do not have permission to view staff.</td></tr>';
+                return;
+            }
+            if (!r.ok) throw new Error('fetch failed: ' + r.status);
+            const data = await r.json();
+            const staff = Array.isArray(data.staff) ? data.staff : [];
+            const pending = Array.isArray(data.pending) ? data.pending : [];
+
+            // Active staff — put current user first with "(you)" tag.
+            const myUid = currentIdentity?.userId;
+            staff.sort((a, b) => {
+                if (a.userId === myUid) return -1;
+                if (b.userId === myUid) return 1;
+                return new Date(a.createdAt) - new Date(b.createdAt);
+            });
+            if (staff.length === 0) {
+                staffTable.style.display = 'none';
+                staffEmpty.style.display = '';
+            } else {
+                staffTable.style.display = '';
+                staffEmpty.style.display = 'none';
+                tbody.innerHTML = staff.map(row => {
+                    const isSelf = row.userId === myUid;
+                    const revokeAttr = isSelf ? 'disabled title="Owners cannot revoke themselves."' : '';
+                    return `<tr>
+                        <td style="padding:14px 12px;border-bottom:1px solid #f0eae0">
+                            <div style="display:flex;align-items:center;gap:10px">
+                                <div style="width:34px;height:34px;border-radius:50%;background:#1f6a5d;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:600;font-size:13px">${esc(initials(row.name, row.email))}</div>
+                                <div>
+                                    <div>${esc(row.name || row.email)}</div>
+                                    ${isSelf ? '<div style="font-size:11px;color:#78716c">(you)</div>' : ''}
+                                </div>
+                            </div>
+                        </td>
+                        <td style="padding:14px 12px;border-bottom:1px solid #f0eae0">${esc(row.email)}</td>
+                        <td style="padding:14px 12px;border-bottom:1px solid #f0eae0">${esc(roleLabel(row.role))}</td>
+                        <td style="padding:14px 12px;border-bottom:1px solid #f0eae0;color:#78716c">${esc(relativeTime(row.createdAt))}</td>
+                        <td style="padding:14px 12px;border-bottom:1px solid #f0eae0">
+                            <button class="staff-action" data-revoke-membership="${esc(row.membershipId)}" ${revokeAttr} style="background:none;border:none;color:#b42318;font-size:13px;font-weight:500;cursor:${isSelf ? 'not-allowed' : 'pointer'};opacity:${isSelf ? '.4' : '1'}">Revoke</button>
+                        </td>
+                    </tr>`;
+                }).join('');
+            }
+
+            // Pending invites
+            if (pending.length === 0) {
+                pendingTable.style.display = 'none';
+                pendingEmpty.style.display = '';
+            } else {
+                pendingTable.style.display = '';
+                pendingEmpty.style.display = 'none';
+                pendingTbody.innerHTML = pending.map(row => `<tr>
+                    <td style="padding:14px 12px;border-bottom:1px solid #f0eae0">${esc(row.name)}</td>
+                    <td style="padding:14px 12px;border-bottom:1px solid #f0eae0">${esc(row.email)}</td>
+                    <td style="padding:14px 12px;border-bottom:1px solid #f0eae0">${esc(roleLabel(row.role))}</td>
+                    <td style="padding:14px 12px;border-bottom:1px solid #f0eae0;color:#78716c">${esc(relativeTime(row.createdAt))}</td>
+                    <td style="padding:14px 12px;border-bottom:1px solid #f0eae0">
+                        <button class="staff-action" data-revoke-invite="${esc(row.id)}" style="background:none;border:none;color:#b42318;font-size:13px;font-weight:500;cursor:pointer">Cancel invite</button>
+                    </td>
+                </tr>`).join('');
+            }
+        } catch (err) {
+            tbody.innerHTML = `<tr><td colspan="5" style="padding:14px;color:#b42318">Failed to load staff: ${esc(err?.message || String(err))}</td></tr>`;
+        }
+    }
+
+    function wireStaffActions() {
+        const staffBody = $('staff-tbody');
+        const pendingBody = $('pending-tbody');
+        const handler = async (e) => {
+            const btn = e.target.closest('button[data-revoke-membership], button[data-revoke-invite]');
+            if (!btn) return;
+            if (btn.disabled) return;
+            const memId = btn.getAttribute('data-revoke-membership');
+            const inviteId = btn.getAttribute('data-revoke-invite');
+            const body = memId ? { membershipId: memId } : { inviteId };
+            const confirmMsg = memId ? 'Revoke this teammate\u2019s access?' : 'Cancel this invite?';
+            if (!window.confirm(confirmMsg)) return;
+            btn.disabled = true;
+            try {
+                const r = await fetch('api/staff/revoke', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body),
+                });
+                const data = await r.json().catch(() => ({}));
+                if (!r.ok) {
+                    window.alert(data.error || 'Revoke failed');
+                    btn.disabled = false;
+                    return;
+                }
+                await loadStaff();
+            } catch {
+                btn.disabled = false;
+                window.alert('Network error');
+            }
+        };
+        if (staffBody) staffBody.addEventListener('click', handler);
+        if (pendingBody) pendingBody.addEventListener('click', handler);
+    }
+
+    function wireInviteForm() {
+        const form = $('invite-form');
+        if (!form) return;
+        const submitBtn = $('invite-submit');
+        const status = $('invite-status');
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            setStatus(status, '', '');
+            const name = $('invite-name').value.trim();
+            const email = $('invite-email').value.trim();
+            const roleInput = document.querySelector('input[name="invite-role"]:checked');
+            const role = roleInput ? roleInput.value : 'host';
+            if (!name || !email) {
+                setStatus(status, 'Name and email required', 'error');
+                return;
+            }
+            submitBtn.disabled = true;
+            try {
+                const r = await fetch('api/staff/invite', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, email, role }),
+                });
+                const data = await r.json().catch(() => ({}));
+                if (!r.ok) {
+                    setStatus(status, data.error || 'Invite failed', 'error');
+                    return;
+                }
+                setStatus(status, 'Invite sent \u2713', 'success');
+                form.reset();
+                const hostRadio = document.querySelector('input[name="invite-role"][value="host"]');
+                if (hostRadio) hostRadio.checked = true;
+                await loadStaff();
+            } catch {
+                setStatus(status, 'Network error', 'error');
+            } finally {
+                submitBtn.disabled = false;
+            }
+        });
+    }
+
+    function wireTabs() {
+        const tabs = document.querySelectorAll('.admin-tab');
+        tabs.forEach(t => t.addEventListener('click', () => {
+            tabs.forEach(x => x.classList.remove('active'));
+            t.classList.add('active');
+            const tab = t.getAttribute('data-tab');
+            const opsPanel = $('admin-operations-panel');
+            const staffPanel = $('admin-staff-panel');
+            if (tab === 'staff') {
+                if (opsPanel) opsPanel.style.display = 'none';
+                if (staffPanel) staffPanel.style.display = '';
+                loadStaff();
+            } else {
+                if (opsPanel) opsPanel.style.display = '';
+                if (staffPanel) staffPanel.style.display = 'none';
+            }
+        }));
+    }
+
+    function applyRoleGates() {
+        // Show Staff tab only for owners. Admins + hosts don't see it.
+        const staffTab = $('admin-tab-staff');
+        if (staffTab) staffTab.style.display = currentIdentity?.role === 'owner' ? '' : 'none';
+    }
+
     function showLogin() {
         if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
         loginView.style.display = '';
@@ -505,7 +748,20 @@
         pollTimer = setInterval(loadStats, 30000);
     }
 
+    wireTabs();
+    wireInviteForm();
+    wireStaffActions();
+
     (async function boot() {
+        // Load named-user identity first so we can enforce role-gate R2
+        // (host-role users land on host.html) and show/hide the Staff
+        // tab. If /api/me 401s, we fall back to the PIN-login view.
+        const identity = await loadIdentity();
+        if (identity && identity.role === 'host') {
+            redirectHostRoleAway();
+            return;
+        }
+        applyRoleGates();
         if (await checkAuth()) showAdmin(); else showLogin();
     })();
 })();

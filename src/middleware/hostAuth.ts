@@ -31,8 +31,10 @@
 
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import type { Request, Response, NextFunction } from 'express';
+import { ObjectId } from 'mongodb';
 
 import type { Role, SessionPayload } from '../types/identity.js';
+import { getDb, memberships as membershipsColl } from '../core/db/mongo.js';
 
 const COOKIE_NAME = 'skb_host';
 const SESSION_COOKIE_NAME = 'skb_session';
@@ -275,6 +277,10 @@ function emitLog(obj: Record<string, unknown>): void {
     console.log(JSON.stringify({ t: new Date().toISOString(), ...obj }));
 }
 
+function safeObjectId(value: string): ObjectId | null {
+    try { return new ObjectId(value); } catch { return null; }
+}
+
 /**
  * Middleware factory: gate a route on authentication AND tenant binding
  * AND role membership.
@@ -300,7 +306,7 @@ function emitLog(obj: Record<string, unknown>): void {
 export function requireRole(...roles: Role[]) {
     if (roles.length === 0) throw new Error('requireRole: at least one role required');
     const allowed = new Set<Role>(roles);
-    return function middleware(req: Request, res: Response, next: NextFunction): void {
+    return async function middleware(req: Request, res: Response, next: NextFunction): Promise<void> {
         const key = secret();
         if (!key) {
             res.status(503).json({ error: 'host auth not configured' });
@@ -341,6 +347,64 @@ export function requireRole(...roles: Role[]) {
                     ip: req.ip,
                 });
                 res.status(403).json({ error: 'forbidden' });
+                return;
+            }
+            // Issue #55 R4: revoked membership fails at next request. The
+            // cookie payload pins {uid, lid, role}; we look up the live
+            // membership and 401 if it's absent or revoked, OR if the
+            // role has since been downgraded and no longer includes the
+            // one in the cookie. This is O(1) per request via the
+            // `user_memberships` index.
+            //
+            // DB-unavailable fail-closed: if the lookup throws, we treat
+            // the session as invalid rather than let a stale cookie
+            // bypass revocation during an outage.
+            try {
+                const uid = safeObjectId(sv.payload.uid);
+                if (!uid) {
+                    res.status(401).json({ error: 'unauthorized' });
+                    return;
+                }
+                const db = await getDb();
+                const live = await membershipsColl(db).findOne({
+                    userId: uid,
+                    locationId: sv.payload.lid,
+                    revokedAt: { $exists: false },
+                });
+                if (!live) {
+                    emitLog({
+                        level: 'warn',
+                        msg: 'auth.membership-revoked',
+                        uid: sv.payload.uid,
+                        loc: sv.payload.lid,
+                        ip: req.ip,
+                    });
+                    res.status(401).json({ error: 'unauthorized' });
+                    return;
+                }
+                if (!allowed.has(live.role)) {
+                    emitLog({
+                        level: 'warn',
+                        msg: 'auth.role-downgraded',
+                        uid: sv.payload.uid,
+                        loc: sv.payload.lid,
+                        cookieRole: sv.payload.role,
+                        liveRole: live.role,
+                        required: roles,
+                        ip: req.ip,
+                    });
+                    res.status(403).json({ error: 'forbidden' });
+                    return;
+                }
+            } catch (err) {
+                emitLog({
+                    level: 'error',
+                    msg: 'auth.membership-lookup.error',
+                    uid: sv.payload.uid,
+                    loc: sv.payload.lid,
+                    err: err instanceof Error ? err.message : String(err),
+                });
+                res.status(503).json({ error: 'temporarily unavailable' });
                 return;
             }
             req.hostAuth = {

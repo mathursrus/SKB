@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>SKB — Accept invite</title>
+<link rel="stylesheet" href="/site.css" />
+<style>
+    body { font-family: 'IBM Plex Sans', 'Fira Sans', system-ui, sans-serif; background: #f7f1e8; color: #1d1b19; margin: 0; }
+    .wrap { max-width: 440px; margin: 60px auto; padding: 32px 24px; background: #fffdf8; border: 1px solid #dfd6c6; border-radius: 18px; box-shadow: 0 12px 32px rgba(37,26,15,.08); }
+    h1 { margin: 0 0 12px; font-size: 24px; }
+    p { color: #6a6258; margin: 0 0 20px; font-size: 14px; line-height: 1.5; }
+    label { display: block; margin: 0 0 4px; font-weight: 500; font-size: 13px; }
+    input { width: 100%; padding: 10px 12px; border-radius: 10px; border: 1px solid #dfd6c6; font-size: 14px; box-sizing: border-box; margin-bottom: 14px; }
+    .primary { background: #1f6a5d; color: #fff; border: none; padding: 12px 20px; border-radius: 12px; font-weight: 600; font-size: 14px; cursor: pointer; width: 100%; }
+    .primary:hover { background: #185246; }
+    .primary:disabled { opacity: .5; cursor: not-allowed; }
+    .error { color: #b42318; font-size: 13px; margin-top: 8px; }
+    .expired, .success { padding: 14px; border-radius: 10px; font-size: 14px; }
+    .expired { background: #fef2f2; color: #b42318; border: 1px solid #fecaca; }
+    .success { background: #ecfdf5; color: #15803d; border: 1px solid #bbf7d0; }
+    .meta { font-size: 13px; color: #6a6258; margin-bottom: 18px; }
+</style>
+</head>
+<body>
+<main class="wrap">
+    <h1>Join your team</h1>
+    <p id="intro" style="display:none">You've been invited to <strong id="loc-name">SKB</strong> as a <strong id="role-label">host</strong>. Set a password to get started.</p>
+    <div id="expired-box" class="expired" style="display:none">This invite has expired — ask your owner to resend.</div>
+    <div id="success-box" class="success" style="display:none">All set. Redirecting you now&hellip;</div>
+    <form id="accept-form" style="display:none" autocomplete="off">
+        <label for="accept-email">Email</label>
+        <input type="email" id="accept-email" readonly />
+        <label for="accept-name">Name</label>
+        <input type="text" id="accept-name" required maxlength="120" />
+        <label for="accept-password">Password (10+ chars)</label>
+        <input type="password" id="accept-password" required minlength="10" maxlength="200" autocomplete="new-password" />
+        <button type="submit" class="primary" id="accept-submit">Create account</button>
+        <div class="error" id="accept-error" style="display:none"></div>
+    </form>
+</main>
+<script>
+(function () {
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get('t') || '';
+    const intro = document.getElementById('intro');
+    const expired = document.getElementById('expired-box');
+    const success = document.getElementById('success-box');
+    const form = document.getElementById('accept-form');
+    const errorBox = document.getElementById('accept-error');
+    const submitBtn = document.getElementById('accept-submit');
+
+    function show(el) { if (el) el.style.display = ''; }
+    function hide(el) { if (el) el.style.display = 'none'; }
+    function showError(msg) {
+        errorBox.textContent = msg;
+        errorBox.style.display = '';
+    }
+
+    async function boot() {
+        if (!token) { show(expired); return; }
+        try {
+            const r = await fetch('/api/accept-invite?t=' + encodeURIComponent(token));
+            if (r.status === 410 || r.status === 400) { show(expired); return; }
+            if (!r.ok) { show(expired); return; }
+            const data = await r.json();
+            document.getElementById('accept-email').value = data.email || '';
+            document.getElementById('accept-name').value = data.name || '';
+            document.getElementById('role-label').textContent = data.role || 'host';
+            document.getElementById('loc-name').textContent = data.locationId || 'your restaurant';
+            show(intro);
+            show(form);
+        } catch {
+            show(expired);
+        }
+    }
+
+    form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        hide(errorBox);
+        submitBtn.disabled = true;
+        const password = document.getElementById('accept-password').value;
+        const name = document.getElementById('accept-name').value.trim();
+        try {
+            const r = await fetch('/api/accept-invite', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ token, password, name }),
+            });
+            const data = await r.json().catch(() => ({}));
+            if (!r.ok) {
+                showError(data.error || 'Could not accept invite');
+                submitBtn.disabled = false;
+                return;
+            }
+            hide(form);
+            show(success);
+            // Role-appropriate landing per spec §6.4:
+            const loc = data.locationId;
+            const role = data.role;
+            const target = role === 'host'
+                ? `/r/${loc}/host.html`
+                : `/r/${loc}/admin.html`;
+            setTimeout(() => { window.location.replace(target); }, 600);
+        } catch {
+            showError('Network error');
+            submitBtn.disabled = false;
+        }
+    });
+
+    boot();
+})();
+</script>
+</body>
+</html>

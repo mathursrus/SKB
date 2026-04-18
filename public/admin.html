@@ -108,7 +108,15 @@
         </div>
     </div>
 
-    <main class="admin-main">
+    <!-- Simple tab bar: flips between the existing operations view and
+         the new Staff tab (owner-only). The Staff tab link is shown
+         dynamically based on /api/me; see admin.js loadIdentity(). -->
+    <nav class="admin-tabs" id="admin-tabs" aria-label="Admin sections">
+        <button type="button" class="admin-tab active" data-tab="operations">Operations</button>
+        <button type="button" class="admin-tab" data-tab="staff" id="admin-tab-staff" style="display:none">Staff</button>
+    </nav>
+
+    <main class="admin-main" id="admin-operations-panel">
         <section class="admin-card">
             <div class="admin-card-head">
                 <h2>Service Debrief</h2>
@@ -380,6 +388,75 @@
                 <a id="admin-website-preview" class="admin-website-preview" href="./" target="_blank" rel="noopener">Preview ↗</a>
                 <button type="button" id="admin-website-save" class="primary">Save Website</button>
             </div>
+        </section>
+    </main>
+
+    <main class="admin-main" id="admin-staff-panel" style="display:none">
+        <section class="admin-card">
+            <div class="admin-card-head">
+                <h2>Staff <span style="font-size:13px;color:#78716c;font-weight:500">(owner-only)</span></h2>
+                <p>Invite your team and pick what they can see. Hosts run the floor. Admins can tune settings and see analytics. You (owner) control everything.</p>
+            </div>
+
+            <div id="staff-empty" class="stats-empty" style="display:none">No staff yet — invite someone below.</div>
+            <table class="staff-table" id="staff-table" style="width:100%;border-collapse:collapse">
+                <thead>
+                    <tr>
+                        <th style="text-align:left;padding:10px 12px;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#78716c;border-bottom:1px solid #dfd6c6">Name</th>
+                        <th style="text-align:left;padding:10px 12px;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#78716c;border-bottom:1px solid #dfd6c6">Email</th>
+                        <th style="text-align:left;padding:10px 12px;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#78716c;border-bottom:1px solid #dfd6c6">Role</th>
+                        <th style="text-align:left;padding:10px 12px;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#78716c;border-bottom:1px solid #dfd6c6">Joined</th>
+                        <th style="border-bottom:1px solid #dfd6c6"></th>
+                    </tr>
+                </thead>
+                <tbody id="staff-tbody"></tbody>
+            </table>
+
+            <div class="invite-form" style="margin-top:22px;padding:18px;border:1px dashed #dfd6c6;border-radius:18px;background:#faf6ee">
+                <h4 style="margin:0 0 12px;font-size:14px;text-transform:uppercase;letter-spacing:.08em;color:#78716c">Invite a teammate</h4>
+                <form id="invite-form" autocomplete="off">
+                    <div class="invite-grid" style="display:grid;grid-template-columns:1fr 1fr auto;gap:12px;align-items:end">
+                        <div>
+                            <label for="invite-name" style="font-size:12px;font-weight:500;color:#78716c;display:block;margin-bottom:4px">Name</label>
+                            <input type="text" id="invite-name" placeholder="Full name" required maxlength="120" style="width:100%;padding:10px 12px;border-radius:10px;border:1px solid #dfd6c6;font-size:14px;background:#fff" />
+                        </div>
+                        <div>
+                            <label for="invite-email" style="font-size:12px;font-weight:500;color:#78716c;display:block;margin-bottom:4px">Email</label>
+                            <input type="email" id="invite-email" placeholder="them@example.com" required maxlength="200" style="width:100%;padding:10px 12px;border-radius:10px;border:1px solid #dfd6c6;font-size:14px;background:#fff" />
+                        </div>
+                        <button type="submit" class="primary" id="invite-submit">Send invite</button>
+                    </div>
+                    <div>
+                        <label style="font-size:12px;color:#78716c;font-weight:500;margin-top:14px;display:block">Role</label>
+                        <div class="role-radio" style="display:flex;gap:6px;margin-top:10px">
+                            <label style="flex:1;padding:8px 10px;border:1.5px solid #dfd6c6;border-radius:10px;cursor:pointer;font-size:13px;text-align:center;font-weight:500;background:#fff">
+                                <input type="radio" name="invite-role" value="admin" />
+                                <span><strong>Admin</strong><br/><span style="color:#78716c;font-size:11px;font-weight:400">Settings + analytics</span></span>
+                            </label>
+                            <label style="flex:1;padding:8px 10px;border:1.5px solid #dfd6c6;border-radius:10px;cursor:pointer;font-size:13px;text-align:center;font-weight:500;background:#fff">
+                                <input type="radio" name="invite-role" value="host" checked />
+                                <span><strong>Host</strong><br/><span style="color:#78716c;font-size:11px;font-weight:400">Run the floor only</span></span>
+                            </label>
+                        </div>
+                    </div>
+                    <div class="visit-status" id="invite-status" style="margin-top:10px"></div>
+                </form>
+            </div>
+
+            <h3 style="margin-top:26px;font-size:14px;text-transform:uppercase;letter-spacing:.08em;color:#78716c">Pending invites</h3>
+            <div id="pending-empty" class="stats-empty" style="display:none;padding:8px 0">No pending invites.</div>
+            <table class="staff-table" id="pending-table" style="width:100%;border-collapse:collapse;display:none">
+                <thead>
+                    <tr>
+                        <th style="text-align:left;padding:10px 12px;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#78716c;border-bottom:1px solid #dfd6c6">Name</th>
+                        <th style="text-align:left;padding:10px 12px;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#78716c;border-bottom:1px solid #dfd6c6">Email</th>
+                        <th style="text-align:left;padding:10px 12px;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#78716c;border-bottom:1px solid #dfd6c6">Role</th>
+                        <th style="text-align:left;padding:10px 12px;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#78716c;border-bottom:1px solid #dfd6c6">Sent</th>
+                        <th style="border-bottom:1px solid #dfd6c6"></th>
+                    </tr>
+                </thead>
+                <tbody id="pending-tbody"></tbody>
+            </table>
         </section>
     </main>
 </div>

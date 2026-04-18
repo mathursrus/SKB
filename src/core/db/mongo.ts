@@ -7,7 +7,7 @@ import { MongoClient, type Db, type Collection } from 'mongodb';
 import { determineDatabaseName } from '../utils/git-utils.js';
 import type { Location, QueueEntry, Settings } from '../../types/queue.js';
 import type { ChatMessage } from '../../types/chat.js';
-import type { User, Membership, PasswordReset } from '../../types/identity.js';
+import type { User, Membership, PasswordReset, Invite } from '../../types/identity.js';
 
 let client: MongoClient | null = null;
 let db: Db | null = null;
@@ -59,6 +59,10 @@ export function memberships(db: Db): Collection<Membership> {
 
 export function passwordResets(db: Db): Collection<PasswordReset> {
     return db.collection<PasswordReset>('password_resets');
+}
+
+export function invites(db: Db): Collection<Invite> {
+    return db.collection<Invite>('invites');
 }
 
 async function bootstrapIndexes(db: Db): Promise<void> {
@@ -154,6 +158,37 @@ async function bootstrapIndexes(db: Db): Promise<void> {
     await passwordResets(db).createIndex(
         { expiresAt: 1 },
         { name: 'ttl_expiresAt', expireAfterSeconds: 0 },
+    );
+
+    // Invites (issue #55):
+    //
+    // - `tokenHash` is unique so POST /api/accept-invite can O(1) consume.
+    // - (locationId, email, acceptedAt, revokedAt) together let us list
+    //   the "active pending" invites for a location without a scan. We
+    //   include acceptedAt + revokedAt as regular index keys — this
+    //   doesn't enforce uniqueness but keeps the common query narrow.
+    // - TTL on expiresAt so stale invites auto-reap after the 7-day
+    //   window. (R3 says owners can resend; resend creates a fresh row,
+    //   and the stale row disappears on TTL tick.)
+    await invites(db).createIndex(
+        { tokenHash: 1 },
+        { name: 'invite_token_unique', unique: true },
+    );
+    await invites(db).createIndex(
+        { locationId: 1, email: 1 },
+        { name: 'invite_loc_email' },
+    );
+    await invites(db).createIndex(
+        { expiresAt: 1 },
+        {
+            name: 'invite_ttl',
+            // TTL reap fires when `expiresAt` is in the past AND the
+            // invite hasn't been consumed. Mongo TTL indexes don't
+            // support conditional reaping directly; we accept that
+            // accepted invites are deleted on consume (see invites.ts)
+            // and only unredeemed invites reach this TTL branch.
+            expireAfterSeconds: 0,
+        },
     );
 }
 

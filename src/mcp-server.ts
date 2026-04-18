@@ -123,6 +123,10 @@ app.get('/reset-password', (_req: Request, res: Response) => {
 app.get('/signup', (_req: Request, res: Response) => {
     res.sendFile(path.join(publicDir, 'signup.html'));
 });
+// Issue #55: accept-invite landing page — clicked from an emailed link.
+app.get('/accept-invite', (_req: Request, res: Response) => {
+    res.sendFile(path.join(publicDir, 'accept-invite.html'));
+});
 
 // Landing page — list locations
 app.get('/', async (_req: Request, res: Response) => {

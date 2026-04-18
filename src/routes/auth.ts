@@ -37,6 +37,10 @@ import {
     logResetEmail,
 } from '../services/passwordResets.js';
 import {
+    acceptInvite,
+    findInviteByToken,
+} from '../services/invites.js';
+import {
     mintSessionCookie,
     SESSION_COOKIE_NAME,
     SESSION_COOKIE_MAX_AGE_SECONDS,
@@ -282,6 +286,96 @@ export function authRouter(): Router {
         await setUserPassword(userId, password);
         emitLog({ level: 'info', msg: 'password_reset.confirm', uid: userId.toHexString(), ip: req.ip });
         res.json({ ok: true });
+    });
+
+    // ------------------------------------------------------------------
+    // Issue #55: accept-invite flow
+    //
+    // GET  /api/accept-invite?t=<token>        — peek at an invite to
+    //                                            pre-fill the accept
+    //                                            form. Returns
+    //                                            { email, name, role, locationId }
+    //                                            or 410 if stale.
+    //
+    // POST /api/accept-invite { token, password, name? }
+    //                                          — provision user +
+    //                                            membership, mint
+    //                                            skb_session.
+    // ------------------------------------------------------------------
+    r.get('/accept-invite', async (req: Request, res: Response) => {
+        const token = typeof req.query.t === 'string' ? req.query.t : '';
+        if (!token) { res.status(400).json({ error: 'token required', field: 't' }); return; }
+        try {
+            const invite = await findInviteByToken(token);
+            if (!invite) {
+                res.status(410).json({ error: 'invalid or expired invite' });
+                return;
+            }
+            res.json({
+                email: invite.email,
+                name: invite.name,
+                role: invite.role,
+                locationId: invite.locationId,
+                expiresAt: invite.expiresAt,
+            });
+        } catch (err) {
+            emitLog({ level: 'error', msg: 'accept_invite.peek.error', detail: err instanceof Error ? err.message : String(err) });
+            res.status(503).json({ error: 'temporarily unavailable' });
+        }
+    });
+
+    r.post('/accept-invite', async (req: Request, res: Response) => {
+        const key = cookieSecret();
+        if (!key) { res.status(503).json({ error: 'auth not configured' }); return; }
+        const body = (req.body ?? {}) as { token?: unknown; password?: unknown; name?: unknown };
+        const token = typeof body.token === 'string' ? body.token : '';
+        const password = typeof body.password === 'string' ? body.password : '';
+        const name = typeof body.name === 'string' ? body.name : undefined;
+        if (!token) { res.status(400).json({ error: 'token required', field: 'token' }); return; }
+        if (!password) { res.status(400).json({ error: 'password required', field: 'password' }); return; }
+        try {
+            const result = await acceptInvite({ token, password, name });
+            const exp = Math.floor(Date.now() / 1000) + SESSION_COOKIE_MAX_AGE_SECONDS;
+            const payload: SessionPayload = {
+                uid: result.user.id,
+                lid: result.locationId,
+                role: result.role,
+                exp,
+            };
+            const cookie = mintSessionCookie(payload, key);
+            setSessionCookieHeader(res, cookie);
+            emitLog({
+                level: 'info',
+                msg: 'invite.accepted',
+                uid: payload.uid,
+                loc: payload.lid,
+                role: payload.role,
+                ip: req.ip,
+            });
+            res.json({
+                ok: true,
+                user: result.user,
+                role: result.role,
+                locationId: result.locationId,
+            });
+        } catch (err) {
+            if (err instanceof Error) {
+                const msg = err.message;
+                if (msg === 'invalid or expired token') {
+                    res.status(401).json({ error: msg });
+                    return;
+                }
+                if (msg === 'token required'
+                    || msg.startsWith('password')
+                    || msg.startsWith('name')
+                    || msg === 'email already registered') {
+                    res.status(400).json({ error: msg });
+                    return;
+                }
+            }
+            emitLog({ level: 'error', msg: 'accept_invite.error', detail: err instanceof Error ? err.message : String(err) });
+            res.status(503).json({ error: 'temporarily unavailable' });
+        }
     });
 
     return r;

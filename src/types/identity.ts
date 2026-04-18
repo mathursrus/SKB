@@ -47,6 +47,43 @@ export interface PasswordReset {
 }
 
 /**
+ * Staff invite (issue #55). An owner invites a teammate by email; the
+ * server emails a one-time token link. On accept, the invitee sets a
+ * password and a user + membership are provisioned atomically-ish
+ * (same best-effort pattern used by createOwnerUser).
+ *
+ * Like PasswordReset, only the SHA-256 hash of the token is stored —
+ * a DB leak doesn't yield valid accept links.
+ */
+export interface Invite {
+    _id: ObjectId;
+    email: string;           // lowercased; matches the User.email we'll create
+    name: string;            // pre-filled in the accept form; invitee can change
+    locationId: string;
+    role: Role;              // 'admin' | 'host' (owners don't invite owners)
+    invitedByUserId: ObjectId;
+    tokenHash: string;       // sha256 hex; token itself never stored
+    createdAt: Date;
+    expiresAt: Date;
+    acceptedAt?: Date;       // set when consumed; doc is also deleted on accept
+    revokedAt?: Date;        // set when the owner cancels a pending invite
+}
+
+/**
+ * Public-safe projection of an Invite. Used by the admin Staff tab to
+ * list pending invites. Never exposes tokenHash.
+ */
+export interface PublicInvite {
+    id: string;
+    email: string;
+    name: string;
+    locationId: string;
+    role: Role;
+    createdAt: Date;
+    expiresAt: Date;
+}
+
+/**
  * The payload encoded inside an `skb_session` cookie.
  * Kept small — short keys because this travels on every request.
  */

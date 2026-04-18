@@ -1,0 +1,334 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>SKB — Admin Website + Staff tabs (Issue #51 mock)</title>
+<link href="https://fonts.googleapis.com/css2?family=Archivo+SemiCondensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+:root {
+    --panel:#fffdf8;
+    --ink:#1d1b19;
+    --muted:#6a6258;
+    --accent:#1f6a5d;
+    --accent-warm:#cb6a34;
+    --line:#dfd6c6;
+    --done:#1f8f5f;
+    --danger:#b42318;
+}
+* { box-sizing:border-box; }
+body {
+    margin:0;
+    font:15px/1.5 'IBM Plex Sans', sans-serif;
+    color:var(--ink);
+    background:
+        radial-gradient(circle at top left, rgba(203,106,52,.1), transparent 28%),
+        radial-gradient(circle at top right, rgba(31,106,93,.14), transparent 26%),
+        linear-gradient(135deg, #f7f1e8 0%, #edf4f2 100%);
+}
+.shell { max-width:1400px; margin:0 auto; padding:20px; }
+.topbar {
+    display:flex; justify-content:space-between; align-items:center;
+    padding:16px 22px; background:rgba(255,253,248,.78);
+    border:1px solid var(--line); border-radius:22px; margin-bottom:16px;
+    backdrop-filter:blur(6px);
+}
+.topbar .brand { font:700 20px/1 'Archivo SemiCondensed', sans-serif; }
+.topbar .brand .accent { color:var(--accent-warm); }
+.topbar .restaurant { color:var(--muted); font-size:14px; margin-left:12px; }
+.topbar .user { display:flex; align-items:center; gap:10px; font-size:13px; color:var(--muted); }
+.topbar .avatar { width:32px; height:32px; border-radius:50%; background:var(--accent); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:600; font-size:13px; }
+
+.grid { display:grid; grid-template-columns:240px 1fr; gap:16px; }
+
+.nav {
+    background:rgba(255,253,248,.86); border:1px solid var(--line); border-radius:22px; padding:16px;
+    align-self:start;
+}
+.nav h3 { margin:4px 0 10px; font:700 12px 'IBM Plex Sans'; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); }
+.nav ul { list-style:none; padding:0; margin:0; }
+.nav li {
+    padding:10px 12px; border-radius:12px; margin-bottom:2px; color:var(--ink);
+    display:flex; justify-content:space-between; align-items:center; cursor:pointer; font-size:14px;
+}
+.nav li:hover { background:rgba(31,106,93,.06); }
+.nav li.active { background:var(--accent); color:#fff; font-weight:600; }
+.nav li.owner-only::after { content:'owner'; font-size:9px; background:#cb6a34; color:#fff; padding:2px 6px; border-radius:999px; font-weight:600; letter-spacing:.02em; }
+
+.main { display:grid; gap:16px; }
+
+.card {
+    background:var(--panel); border:1px solid var(--line); border-radius:28px; padding:26px;
+    box-shadow:0 18px 48px rgba(37,26,15,.08);
+}
+.card-head { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:18px; }
+.card-head h2 { margin:0 0 4px; font:700 22px/1.1 'Archivo SemiCondensed', sans-serif; }
+.card-head p { color:var(--muted); font-size:14px; margin:0; max-width:500px; }
+
+/* Website tab */
+.template-grid { display:grid; grid-template-columns:1fr 1fr; gap:18px; }
+.template-card {
+    border:2px solid var(--line); border-radius:22px; padding:16px; cursor:pointer; position:relative;
+    background:#fff;
+}
+.template-card.selected { border-color:var(--accent); box-shadow:0 0 0 3px rgba(31,106,93,.14); }
+.template-card.selected::after {
+    content:'Current'; position:absolute; top:12px; right:12px; background:var(--accent); color:#fff;
+    font-size:11px; font-weight:700; padding:4px 10px; border-radius:999px;
+}
+.template-card h3 { margin:0 0 4px; font:700 18px 'Archivo SemiCondensed', sans-serif; }
+.template-card .sub { margin:0 0 12px; font-size:12px; color:var(--muted); }
+.template-swatch {
+    height:140px; border-radius:14px; display:flex; align-items:center; justify-content:center;
+    font-family:Georgia, serif; font-size:22px; font-weight:700; margin-bottom:12px;
+}
+.swatch-saffron { background:linear-gradient(135deg, #fef3d9 0%, #e08a2e 100%); color:#2a2a2a; }
+.swatch-slate { background:linear-gradient(135deg, #e4ece9 0%, #1f6a5d 100%); color:#fff; font-family:'Archivo SemiCondensed',sans-serif; letter-spacing:-.01em; }
+.template-card .preview-btn { color:var(--accent); font-weight:600; font-size:13px; background:none; border:none; padding:0; cursor:pointer; }
+
+.content-editor { margin-top:24px; }
+.content-editor h4 { margin:0 0 12px; font:700 14px 'IBM Plex Sans'; text-transform:uppercase; letter-spacing:.08em; color:var(--muted); }
+.content-editor .field { margin-bottom:14px; }
+.content-editor .field label { display:block; font-weight:500; font-size:13px; margin-bottom:4px; }
+.content-editor .field input, .content-editor .field textarea {
+    width:100%; padding:10px 12px; border-radius:10px; border:1px solid var(--line); font:14px 'IBM Plex Sans';
+}
+.content-editor .field textarea { min-height:70px; resize:vertical; }
+.save-row { display:flex; gap:10px; margin-top:16px; align-items:center; }
+.primary {
+    background:var(--accent); color:#fff; border:none; padding:11px 20px; border-radius:12px;
+    font:600 14px 'IBM Plex Sans'; cursor:pointer;
+}
+.primary:hover { background:#185246; }
+.ghost { background:transparent; color:var(--muted); border:1px solid var(--line); padding:11px 16px; border-radius:12px; font:500 14px 'IBM Plex Sans'; cursor:pointer; }
+.saved-flag { color:var(--done); font-size:13px; font-weight:500; }
+
+/* Staff tab */
+.staff-table { width:100%; border-collapse:collapse; }
+.staff-table thead th { text-align:left; padding:10px 12px; font:600 12px 'IBM Plex Sans'; text-transform:uppercase; letter-spacing:.08em; color:var(--muted); border-bottom:1px solid var(--line); }
+.staff-table tbody td { padding:14px 12px; border-bottom:1px solid #f0eae0; font-size:14px; vertical-align:middle; }
+.staff-table tbody tr:last-child td { border-bottom:none; }
+.staff-row-avatar { display:flex; align-items:center; gap:10px; }
+.staff-row-avatar .avatar { width:34px; height:34px; border-radius:50%; background:var(--accent); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:600; font-size:13px; }
+.staff-row-avatar .you-tag { font-size:11px; color:var(--muted); }
+.role-pill {
+    display:inline-block; padding:4px 10px; border-radius:999px; font-size:12px; font-weight:600;
+}
+.role-pill.owner { background:rgba(203,106,52,.16); color:var(--accent-warm); }
+.role-pill.admin { background:rgba(31,106,93,.14); color:var(--accent); }
+.role-pill.host { background:#eee6d4; color:var(--muted); }
+.role-pill.pending { background:#fff2c5; color:#8b6914; }
+.staff-action { background:none; border:none; color:var(--danger); font-size:13px; font-weight:500; cursor:pointer; }
+.staff-action:disabled { color:var(--muted); cursor:not-allowed; opacity:.4; }
+
+.invite-form {
+    margin-top:22px; padding:18px; border:1px dashed var(--line); border-radius:18px; background:#faf6ee;
+}
+.invite-form h4 { margin:0 0 12px; font:700 14px 'IBM Plex Sans'; text-transform:uppercase; letter-spacing:.08em; color:var(--muted); }
+.invite-grid { display:grid; grid-template-columns:1fr 1fr auto; gap:12px; align-items:end; }
+.invite-grid label { font-size:12px; font-weight:500; color:var(--muted); display:block; margin-bottom:4px; }
+.invite-grid input { width:100%; padding:10px 12px; border-radius:10px; border:1px solid var(--line); font:14px 'IBM Plex Sans'; background:#fff; }
+.role-radio { display:flex; gap:6px; margin-top:10px; }
+.role-radio label {
+    flex:1; padding:8px 10px; border:1.5px solid var(--line); border-radius:10px; cursor:pointer;
+    font-size:13px; text-align:center; font-weight:500; background:#fff;
+}
+.role-radio input { display:none; }
+.role-radio input:checked + span { color:var(--accent); font-weight:600; }
+.role-radio label:has(input:checked) { border-color:var(--accent); background:rgba(31,106,93,.06); }
+
+.tabs { display:flex; gap:4px; margin-bottom:16px; padding:4px; background:rgba(255,253,248,.86); border:1px solid var(--line); border-radius:14px; width:fit-content; }
+.tabs button {
+    background:transparent; border:none; padding:8px 16px; border-radius:10px; font:600 13px 'IBM Plex Sans';
+    color:var(--muted); cursor:pointer;
+}
+.tabs button.active { background:var(--accent); color:#fff; }
+</style>
+</head>
+<body>
+
+<div class="shell">
+    <div class="topbar">
+        <div style="display:flex; align-items:center; gap:4px;">
+            <div class="brand">SKB</div>
+            <div class="restaurant">· Admin · <strong style="color:var(--ink)">Ramen Yokocho</strong></div>
+        </div>
+        <div class="user"><div class="avatar">PM</div>Priya Menon (owner)</div>
+    </div>
+
+    <div class="grid">
+        <aside class="nav">
+            <h3>Admin</h3>
+            <ul>
+                <li><span>📊 Analytics</span></li>
+                <li class="active"><span>🌐 Website</span></li>
+                <li class="owner-only"><span>👥 Staff</span></li>
+                <li><span>⚙️ Settings</span></li>
+                <li><span>💳 Billing</span></li>
+            </ul>
+            <h3 style="margin-top:24px;">Quick links</h3>
+            <ul>
+                <li><span>🍽️ Host stand</span></li>
+                <li><span>🔗 Public site ↗</span></li>
+            </ul>
+        </aside>
+
+        <div class="main">
+            <div class="tabs">
+                <button class="active">Website</button>
+                <button>Staff</button>
+            </div>
+
+            <section class="card">
+                <div class="card-head">
+                    <div>
+                        <h2>Website</h2>
+                        <p>Pick a template for the pages your guests see at <strong>app.example.com/r/ramen-yokocho</strong> (and your custom domain, if you have one). Fill in a few details — everything else uses sensible defaults.</p>
+                    </div>
+                    <button class="ghost">Preview ↗</button>
+                </div>
+
+                <div class="template-grid">
+                    <div class="template-card">
+                        <h3>Saffron</h3>
+                        <p class="sub">Warm, casual, neighborhood-spot energy.</p>
+                        <div class="template-swatch swatch-saffron">Saffron</div>
+                        <button class="preview-btn">Preview this template →</button>
+                    </div>
+                    <div class="template-card selected">
+                        <h3>Slate</h3>
+                        <p class="sub">Modern, considered, cocktail-forward.</p>
+                        <div class="template-swatch swatch-slate">Slate</div>
+                        <button class="preview-btn">Preview this template →</button>
+                    </div>
+                </div>
+
+                <div class="content-editor">
+                    <h4>Content for "Slate"</h4>
+                    <div class="field">
+                        <label>Hero headline</label>
+                        <input type="text" value="Slow-simmered tonkotsu, ready tonight." />
+                    </div>
+                    <div class="field">
+                        <label>Hero subhead</label>
+                        <input type="text" value="No app, no reservation line — just join from your phone." />
+                    </div>
+                    <div class="field">
+                        <label>About section</label>
+                        <textarea>Ramen Yokocho opened in 2023 on Capitol Hill. Our broth simmers 36 hours with no shortcuts. Our noodles are made fresh daily in Seattle by Matsumoto Noodle Co.</textarea>
+                    </div>
+                    <div class="field">
+                        <label>Instagram handle</label>
+                        <input type="text" value="@ramenyokocho" />
+                    </div>
+                    <div class="save-row">
+                        <button class="primary">Save website</button>
+                        <span class="saved-flag">✓ Saved 2 minutes ago</span>
+                    </div>
+                </div>
+            </section>
+
+            <section class="card">
+                <div class="card-head">
+                    <div>
+                        <h2>Staff <span style="font-size:13px; color:var(--muted); font-weight:500;">(owner-only)</span></h2>
+                        <p>Invite your team, pick what they can see. Hosts run the floor. Admins can tune settings and see analytics. You (owner) control everything.</p>
+                    </div>
+                </div>
+
+                <table class="staff-table">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Email</th>
+                            <th>Role</th>
+                            <th>Last active</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>
+                                <div class="staff-row-avatar">
+                                    <div class="avatar">PM</div>
+                                    <div><div>Priya Menon</div><div class="you-tag">(you)</div></div>
+                                </div>
+                            </td>
+                            <td>priya@ramenyokocho.com</td>
+                            <td><span class="role-pill owner">Owner</span></td>
+                            <td style="color:var(--muted)">Now</td>
+                            <td><button class="staff-action" disabled>Revoke</button></td>
+                        </tr>
+                        <tr>
+                            <td>
+                                <div class="staff-row-avatar">
+                                    <div class="avatar" style="background:#cb6a34">JK</div>
+                                    <div>Jamie Kim</div>
+                                </div>
+                            </td>
+                            <td>jamie@ramenyokocho.com</td>
+                            <td><span class="role-pill admin">Admin</span></td>
+                            <td style="color:var(--muted)">2 hours ago</td>
+                            <td><button class="staff-action">Revoke</button></td>
+                        </tr>
+                        <tr>
+                            <td>
+                                <div class="staff-row-avatar">
+                                    <div class="avatar" style="background:#78716c">MT</div>
+                                    <div>Marco Tellez</div>
+                                </div>
+                            </td>
+                            <td>marco@ramenyokocho.com</td>
+                            <td><span class="role-pill host">Host</span></td>
+                            <td style="color:var(--muted)">Yesterday</td>
+                            <td><button class="staff-action">Revoke</button></td>
+                        </tr>
+                        <tr>
+                            <td>
+                                <div class="staff-row-avatar">
+                                    <div class="avatar" style="background:#b8b0a3">SR</div>
+                                    <div>Sana Rao</div>
+                                </div>
+                            </td>
+                            <td>sana.rao@gmail.com</td>
+                            <td><span class="role-pill pending">Invite pending</span></td>
+                            <td style="color:var(--muted)">Sent 1 day ago</td>
+                            <td><button class="staff-action">Cancel invite</button></td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <div class="invite-form">
+                    <h4>Invite a teammate</h4>
+                    <div class="invite-grid">
+                        <div>
+                            <label>Name</label>
+                            <input type="text" placeholder="Full name" />
+                        </div>
+                        <div>
+                            <label>Email</label>
+                            <input type="email" placeholder="them@example.com" />
+                        </div>
+                        <button class="primary">Send invite</button>
+                    </div>
+                    <div>
+                        <label style="font-size:12px; color:var(--muted); font-weight:500; margin-top:14px; display:block;">Role</label>
+                        <div class="role-radio">
+                            <label>
+                                <input type="radio" name="role" />
+                                <span><strong>Admin</strong><br/><span style="color:var(--muted); font-size:11px; font-weight:400;">Settings + analytics</span></span>
+                            </label>
+                            <label>
+                                <input type="radio" name="role" checked />
+                                <span><strong>Host</strong><br/><span style="color:var(--muted); font-size:11px; font-weight:400;">Run the floor only</span></span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </div>
+</div>
+
+</body>
+</html>

@@ -29,8 +29,13 @@ import {
     toPublicLocation,
 } from '../services/locations.js';
 import type { AnalyticsStage, LocationAddress, WeeklyHours } from '../types/queue.js';
-import { verifyCookie, __test__ } from '../middleware/hostAuth.js';
-import { createHmac, timingSafeEqual } from 'node:crypto';
+import {
+    requireRole,
+    mintLocationCookie,
+    HOST_COOKIE_NAME,
+    HOST_COOKIE_MAX_AGE_SECONDS,
+} from '../middleware/hostAuth.js';
+import { timingSafeEqual } from 'node:crypto';
 import QRCode from 'qrcode';
 
 function loc(req: Request): string {
@@ -41,36 +46,12 @@ function cookieSecret(): string | null {
     return process.env.SKB_COOKIE_SECRET ?? null;
 }
 
-const COOKIE_NAME = 'skb_host';
-const COOKIE_MAX_AGE_SECONDS = 12 * 60 * 60;
-
-/** Middleware: 401 unless a valid host cookie is present. */
-function requireHost(req: Request, res: Response, next: () => void): void {
-    const key = cookieSecret();
-    if (!key) { res.status(503).json({ error: 'host auth not configured' }); return; }
-    const raw = readCookie(req.headers.cookie);
-    if (!raw || !verifyCookie(raw, key)) { res.status(401).json({ error: 'unauthorized' }); return; }
-    next();
-}
-
-function readCookie(header: string | undefined): string | null {
-    if (!header) return null;
-    for (const part of header.split(';')) {
-        const eq = part.indexOf('=');
-        if (eq < 0) continue;
-        if (part.slice(0, eq).trim() === COOKIE_NAME) return part.slice(eq + 1).trim();
-    }
-    return null;
-}
-
-function sign(payload: string, key: string): string {
-    return createHmac('sha256', key).update(payload).digest('hex');
-}
-
-function mintCookie(now: Date, key: string): string {
-    const exp = Math.floor(now.getTime() / 1000) + COOKIE_MAX_AGE_SECONDS;
-    return `${exp}.${sign(String(exp), key)}`;
-}
+// Alias so the host-only routes read as `requireHost(...)` at each
+// route-registration site while the underlying middleware enforces
+// tenant binding. This is issue #52's one-line replacement: every
+// protected host endpoint now rejects a cookie minted at a different
+// tenant (403 wrong_tenant).
+const requireHost = requireRole('host');
 
 export function hostRouter(): Router {
     const r = Router({ mergeParams: true });
@@ -98,13 +79,15 @@ export function hostRouter(): Router {
             return;
         }
 
-        const cookie = mintCookie(new Date(), key);
-        res.setHeader('Set-Cookie', `${COOKIE_NAME}=${cookie}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${COOKIE_MAX_AGE_SECONDS}`);
+        const lid = loc(req);
+        const cookie = mintLocationCookie(new Date(), key, lid);
+        console.log(JSON.stringify({ t: new Date().toISOString(), level: 'info', msg: 'host.auth.ok', loc: lid, ip: req.ip }));
+        res.setHeader('Set-Cookie', `${HOST_COOKIE_NAME}=${cookie}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${HOST_COOKIE_MAX_AGE_SECONDS}`);
         res.json({ ok: true });
     });
 
     r.post('/host/logout', (_req: Request, res: Response) => {
-        res.setHeader('Set-Cookie', `${COOKIE_NAME}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0`);
+        res.setHeader('Set-Cookie', `${HOST_COOKIE_NAME}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0`);
         res.json({ ok: true });
     });
 

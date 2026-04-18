@@ -3,7 +3,7 @@
 **Platform**: OSH — the operating system for your restaurant. Working name; final brand research is a separate sub-task (spec §5).
 **Audience**: A restaurant owner who has never seen OSH.
 **Goal**: Take them from "I've heard about this thing" to "my front-of-house runs itself and a guest just joined" in ~12 minutes.
-**Thesis to sell** (don't say it literally; let the product say it): *OSH runs the mechanics — waitlist, website, staff logins, hours, menu, phone — so the owner can run the night.*
+**Thesis to sell** (don't say it literally; let the product say it): *Delight the guest. OSH handles the rest — waitlist, website, staff logins, hours, menu, phone, QR.* The owner's job is hospitality; the mundane is ours.
 **Prerequisites**: Dev server running on `localhost:3000` (or the staging URL). MongoDB up. If you've rehearsed this before, run `node scripts/demo-reset-abcd.mjs` to wipe any prior ABCD state.
 **Verified**: Walked end-to-end 2026-04-18 by supervisor; bugs surfaced during the demo walk are tracked in §"Demo-driven fixes" at the end.
 
@@ -25,7 +25,7 @@
 
 **Surface**: `http://localhost:3000/`
 
-> "This is OSH. The headline on the page is *'Run the night, not the mechanics.'* The idea is that you opened a restaurant because you love the guests and the food — but somebody still has to run the waitlist, build the website, handle the phone, manage the staff logins, update the hours when you close for Thanksgiving. OSH is the operating system for everything-else. You keep doing the guest-facing work. We keep doing the software."
+> "This is OSH. The headline on the page is *'Delight the guest. OSH handles the rest.'* The idea is that you opened a restaurant because you love the guests and the food — but somebody still has to run the waitlist, build the website, handle the phone, manage the staff logins, update the hours when you close for Thanksgiving. OSH is the operating system for everything-else. You keep doing the guest-facing work. We keep doing the software."
 
 Point at the three cards below the hero: **the front of house handled, your website built for you, your team with real logins.** Then the single CTA.
 

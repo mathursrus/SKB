@@ -25,6 +25,73 @@
 </div>
 
 <div id="admin-view" style="display:none">
+    <!-- Owner onboarding wizard (issue #54, spec §6.2). Dismissable modal
+         overlay surfaced on first load of admin. Client polls
+         /api/onboarding/steps to decide visibility; marking a step
+         complete POSTs back. Hidden entirely for role=host. -->
+    <div id="onboarding-overlay" class="onboarding-overlay" style="display:none" role="dialog" aria-modal="true" aria-labelledby="onboarding-title">
+        <div class="onboarding-backdrop"></div>
+        <div class="onboarding-modal">
+            <div class="onboarding-head">
+                <div>
+                    <h2 id="onboarding-title">Welcome &mdash; let&rsquo;s finish setting up.</h2>
+                    <p>Your restaurant is already live &mdash; these are optional polish steps. You can dismiss this and come back anytime from the Setup button.</p>
+                </div>
+                <button type="button" id="onboarding-dismiss" class="onboarding-dismiss" aria-label="Dismiss">&times;</button>
+            </div>
+            <ol class="onboarding-steps" id="onboarding-steps-list">
+                <li class="onboarding-step" data-step="basics">
+                    <div class="onboarding-badge">1</div>
+                    <div class="onboarding-step-body">
+                        <h4>Restaurant basics</h4>
+                        <p>Your address, phone, and weekly hours &mdash; used on your public site and in the IVR greeting.</p>
+                        <div class="onboarding-step-actions">
+                            <a href="#admin-site-street" class="onboarding-jump" data-target-step="basics">Open basics &rarr;</a>
+                            <button type="button" class="onboarding-done" data-step="basics">Mark complete</button>
+                        </div>
+                    </div>
+                </li>
+                <li class="onboarding-step" data-step="template">
+                    <div class="onboarding-badge">2</div>
+                    <div class="onboarding-step-body">
+                        <h4>Pick a website template</h4>
+                        <p>Two designs. Pick one, preview it live, change your mind later.</p>
+                        <div class="onboarding-step-actions">
+                            <a href="#website-template" class="onboarding-jump" data-target-step="template">Open templates &rarr;</a>
+                            <button type="button" class="onboarding-done" data-step="template">Mark complete</button>
+                        </div>
+                    </div>
+                </li>
+                <li class="onboarding-step" data-step="menu">
+                    <div class="onboarding-badge">3</div>
+                    <div class="onboarding-step-body">
+                        <h4>Add your menu</h4>
+                        <p>Upload a PDF or paste a link. Optional &mdash; your menu page will say &ldquo;coming soon&rdquo; until you add one.</p>
+                        <div class="onboarding-step-actions">
+                            <a href="#admin-visit-menu-url" class="onboarding-jump" data-target-step="menu">Open menu &rarr;</a>
+                            <button type="button" class="onboarding-done" data-step="menu">Skip for now</button>
+                        </div>
+                    </div>
+                </li>
+                <li class="onboarding-step" data-step="staff">
+                    <div class="onboarding-badge">4</div>
+                    <div class="onboarding-step-body">
+                        <h4>Invite your staff</h4>
+                        <p>Give your hosts and managers their own login.</p>
+                        <div class="onboarding-step-actions">
+                            <a href="#staff-tab" class="onboarding-jump" data-target-step="staff">Open staff &rarr;</a>
+                            <button type="button" class="onboarding-done" data-step="staff">Skip for now</button>
+                        </div>
+                    </div>
+                </li>
+            </ol>
+            <div class="onboarding-foot">
+                <span id="onboarding-progress">0 of 4 complete</span>
+                <button type="button" id="onboarding-dismiss-2" class="onboarding-dismiss-inline">Dismiss for now</button>
+            </div>
+        </div>
+    </div>
+
     <div class="topbar admin-topbar">
         <div class="admin-brand-block">
             <div class="brand">SKB · Admin</div>
@@ -34,6 +101,7 @@
             <div id="admin-topbar-summary" style="font-size:13px;color:#78716c">Analytics · Settings · QR</div>
         </div>
         <div class="admin-actions">
+            <button type="button" id="onboarding-reopen" class="onboarding-pill" style="display:none">Setup</button>
             <a href="host.html" class="logout" id="back-to-host-link" style="text-decoration:none;text-align:center">Back to Host</a>
             <button type="button" id="theme-toggle" class="theme-toggle-btn" aria-label="Toggle theme">&#9728;</button>
             <button class="logout" id="admin-logout-btn">Log out</button>
@@ -260,5 +328,6 @@
 </div>
 
 <script src="admin.js"></script>
+<script src="onboarding.js"></script>
 </body>
 </html>

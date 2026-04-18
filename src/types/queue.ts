@@ -55,6 +55,17 @@ export interface Location {
     visitMode?: 'auto' | 'queue' | 'menu' | 'closed';
     menuUrl?: string;         // external URL to redirect to in 'menu' mode
     closedMessage?: string;   // shown to scanners in 'closed' mode
+
+    // Multi-tenant website theming (spec §7 / issue #56). Absent ⇒ 'saffron'
+    // (preserves the SKB look). v1 values: 'saffron' | 'slate'. Stored as a
+    // free-string here so a future template addition doesn't require a
+    // type migration.
+    websiteTemplate?: string;
+
+    // Owner-onboarding wizard state (issue #54, spec §6.2). Each completed
+    // step ID is pushed in. Wizard is hidden client-side once all four are
+    // present. Possible values: 'basics', 'template', 'menu', 'staff'.
+    onboardingSteps?: string[];
 }
 
 // A safe projection of Location suitable for exposure via the public config

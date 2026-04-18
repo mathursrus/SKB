@@ -1,0 +1,389 @@
+/* ============================================================================
+   SKB — Saffron website template (issue #51 bug-bash follow-up)
+   ============================================================================
+   Warm, hospitality-forward restaurant theme. Cream + saffron + charcoal.
+   Georgia serif for brand/headers, Fira Sans / Helvetica for UI chrome.
+   Ported from the SKB-specific public/site.css, but trimmed to the structural
+   rules a brand-agnostic template needs (no hardcoded hero photo, no menu JSON
+   loader styles). Keeps the visual language of the original SKB saffron look
+   so Sid's reference mocks still render.
+   ============================================================================ */
+
+:root {
+    --cream: #fdf8ef;
+    --cream-warm: #faf1dc;
+    --charcoal: #2a2a2a;
+    --saffron: #e08a2e;
+    --saffron-dark: #b86a16;
+    --muted: #6d6660;
+    --line: #e8dcc4;
+    --leaf: #3d5a3d;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body.saffron-site {
+    font-family: Georgia, 'Times New Roman', serif;
+    background: var(--cream);
+    color: var(--charcoal);
+    line-height: 1.6;
+}
+
+a { color: var(--saffron-dark); }
+
+.saffron-banner {
+    background: var(--leaf);
+    color: var(--cream);
+    text-align: center;
+    padding: 8px 16px;
+    font-size: 0.85rem;
+    font-family: 'Fira Sans', Helvetica, Arial, sans-serif;
+    letter-spacing: 0.04em;
+}
+
+.saffron-header {
+    background: var(--cream);
+    border-bottom: 1px solid var(--line);
+    padding: 20px 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    max-width: 1200px;
+    margin: 0 auto;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+.saffron-brand-name {
+    font-size: 1.4rem;
+    color: var(--saffron-dark);
+    letter-spacing: 0.04em;
+}
+.saffron-brand-tag {
+    font-size: 0.8rem;
+    color: var(--muted);
+    font-family: 'Fira Sans', Helvetica, Arial, sans-serif;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    margin-top: 2px;
+}
+
+.saffron-nav ul {
+    display: flex;
+    list-style: none;
+    gap: 28px;
+    font-family: 'Fira Sans', Helvetica, Arial, sans-serif;
+    font-size: 0.9rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    flex-wrap: wrap;
+}
+.saffron-nav a {
+    color: var(--charcoal);
+    text-decoration: none;
+    padding: 6px 0;
+    border-bottom: 2px solid transparent;
+}
+.saffron-nav a:hover,
+.saffron-nav a[aria-current="page"] { border-bottom-color: var(--saffron); }
+
+/* Hero */
+.saffron-hero {
+    background:
+        linear-gradient(rgba(42, 42, 42, 0.55), rgba(42, 42, 42, 0.65)),
+        radial-gradient(ellipse at center, #8a5a2a 0%, #4a2a10 100%);
+    background-color: #4a2a10;
+    color: #fff;
+    text-align: center;
+    padding: 90px 24px 100px;
+}
+.saffron-hero h1 {
+    font-size: 3rem;
+    font-weight: normal;
+    margin-bottom: 16px;
+    letter-spacing: 0.02em;
+}
+.saffron-hero p {
+    font-size: 1.15rem;
+    max-width: 640px;
+    margin: 0 auto 32px;
+    color: #f5e9d0;
+    font-style: italic;
+}
+
+.saffron-cta {
+    display: inline-block;
+    background: var(--saffron);
+    color: #fff;
+    font-family: 'Fira Sans', Helvetica, Arial, sans-serif;
+    font-size: 0.95rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    padding: 14px 36px;
+    text-decoration: none;
+    border: 2px solid var(--saffron);
+    transition: all 0.2s;
+}
+.saffron-cta:hover {
+    background: transparent;
+    color: var(--saffron);
+    border-color: var(--cream);
+}
+.saffron-cta.ghost {
+    background: transparent;
+    color: var(--saffron-dark);
+    border-color: var(--saffron-dark);
+}
+.saffron-cta.ghost:hover {
+    background: var(--saffron-dark);
+    color: #fff;
+}
+
+.saffron-section {
+    padding: 72px 24px;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+.saffron-section h2 {
+    text-align: center;
+    font-size: 2rem;
+    font-weight: normal;
+    color: var(--saffron-dark);
+    margin-bottom: 12px;
+    letter-spacing: 0.02em;
+}
+.saffron-section .lead {
+    text-align: center;
+    font-size: 1rem;
+    color: var(--muted);
+    max-width: 640px;
+    margin: 0 auto 48px;
+    font-style: italic;
+}
+
+/* Known-for dish callouts */
+.saffron-dishes {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 32px;
+}
+.saffron-dish { text-align: center; }
+.saffron-dish-img {
+    display: block;
+    width: 100%;
+    height: 220px;
+    object-fit: cover;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    margin-bottom: 16px;
+    background: var(--cream-warm);
+}
+.saffron-dish-swatch {
+    display: block;
+    width: 100%;
+    height: 220px;
+    border-radius: 6px;
+    margin-bottom: 16px;
+    background: linear-gradient(135deg, var(--cream-warm), var(--saffron));
+    border: 1px solid var(--line);
+}
+.saffron-dish h3 {
+    font-size: 1.25rem;
+    color: var(--charcoal);
+    font-weight: normal;
+    margin-bottom: 8px;
+}
+.saffron-dish p {
+    color: var(--muted);
+    font-size: 0.95rem;
+}
+
+/* Waitlist CTA block */
+.saffron-waitlist-cta {
+    background: var(--cream-warm);
+    border: 1px solid var(--line);
+    padding: 48px 24px;
+    text-align: center;
+    border-radius: 6px;
+}
+.saffron-waitlist-cta h2 { margin-bottom: 16px; }
+.saffron-waitlist-cta p { margin-bottom: 28px; color: var(--muted); }
+
+/* Home info grid */
+.saffron-info-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 48px;
+    max-width: 900px;
+    margin: 0 auto;
+}
+.saffron-info-block h3 {
+    font-size: 1.1rem;
+    color: var(--saffron-dark);
+    margin-bottom: 12px;
+    font-weight: normal;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+.saffron-info-block p { color: var(--charcoal); margin-bottom: 6px; }
+.saffron-info-block .muted { color: var(--muted); font-size: 0.9rem; }
+
+/* Page hero (non-home) */
+.saffron-page-hero {
+    background: var(--cream-warm);
+    text-align: center;
+    padding: 80px 24px 64px;
+}
+.saffron-page-hero h1 {
+    font-size: 2.8rem;
+    color: var(--saffron-dark);
+    font-weight: normal;
+    letter-spacing: 0.02em;
+}
+.saffron-page-hero p {
+    color: var(--muted);
+    font-style: italic;
+    margin-top: 12px;
+}
+
+/* Menu page */
+.saffron-menu-main {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 64px 24px 72px;
+    text-align: center;
+}
+.saffron-menu-main p { color: var(--muted); font-size: 1.05rem; }
+
+/* About */
+.saffron-about-main {
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 64px 24px 72px;
+    line-height: 1.75;
+}
+.saffron-about-main h2 {
+    color: var(--saffron-dark);
+    font-size: 1.6rem;
+    font-weight: normal;
+    margin: 40px 0 12px;
+    letter-spacing: 0.02em;
+}
+.saffron-about-main p {
+    margin-bottom: 20px;
+    font-size: 1.05rem;
+}
+
+/* Hours & Location */
+.saffron-hours-main {
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 64px 24px 72px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 56px;
+}
+.saffron-hours-main h2 {
+    color: var(--saffron-dark);
+    font-size: 1.4rem;
+    font-weight: normal;
+    margin-bottom: 20px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+.saffron-hours-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 24px;
+}
+.saffron-hours-table td {
+    padding: 12px 0;
+    border-bottom: 1px dotted var(--line);
+    font-size: 1rem;
+}
+.saffron-hours-table td:first-child {
+    font-weight: bold;
+    color: var(--charcoal);
+    width: 120px;
+}
+.saffron-hours-table td:last-child {
+    color: var(--muted);
+    text-align: right;
+    font-family: 'Fira Sans', Helvetica, Arial, sans-serif;
+    font-size: 0.95rem;
+}
+.saffron-hours-table td.hours-closed {
+    color: var(--saffron-dark);
+    font-style: italic;
+    text-align: right;
+}
+.saffron-address-block {
+    margin-top: 24px;
+    padding: 16px 20px;
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    font-size: 1rem;
+}
+.saffron-address-block .line { margin: 4px 0; }
+
+/* Contact */
+.saffron-contact-main {
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 64px 24px 72px;
+    text-align: center;
+}
+.saffron-contact-main h2 {
+    color: var(--saffron-dark);
+    font-size: 1.6rem;
+    font-weight: normal;
+    margin: 24px 0 16px;
+}
+.saffron-contact-line {
+    font-size: 1.1rem;
+    margin: 12px 0;
+}
+.saffron-contact-line a {
+    color: var(--saffron-dark);
+    text-decoration: none;
+}
+.saffron-contact-line a:hover { text-decoration: underline; }
+
+/* Footer */
+.saffron-footer {
+    background: var(--charcoal);
+    color: var(--cream);
+    padding: 48px 24px 24px;
+    text-align: center;
+    font-family: 'Fira Sans', Helvetica, Arial, sans-serif;
+    font-size: 0.85rem;
+}
+.saffron-footer .fnav {
+    margin-bottom: 16px;
+    display: flex;
+    justify-content: center;
+    gap: 18px;
+    flex-wrap: wrap;
+}
+.saffron-footer a {
+    color: var(--cream);
+    text-decoration: none;
+}
+.saffron-footer a:hover { color: var(--saffron); }
+.saffron-footer .fcopy {
+    color: #7a756f;
+    margin-top: 12px;
+    font-size: 0.75rem;
+}
+
+/* Responsive */
+@media (max-width: 720px) {
+    .saffron-header { flex-direction: column; gap: 16px; }
+    .saffron-nav ul { gap: 16px; font-size: 0.75rem; }
+    .saffron-hero h1 { font-size: 2rem; }
+    .saffron-hero { padding: 64px 24px 72px; }
+    .saffron-dishes { grid-template-columns: 1fr; }
+    .saffron-info-grid { grid-template-columns: 1fr; gap: 32px; }
+    .saffron-hours-main { grid-template-columns: 1fr; gap: 48px; }
+}

@@ -247,6 +247,81 @@ const cases: BaseTestCase[] = [
         },
     },
 
+    // ─── Issue #51 bug-bash: non-SKB saffron tenant gets the warm palette ─
+    //
+    // Before the bug-bash fix, a non-SKB tenant picking saffron inherited
+    // Shri Krishna Bhavan's hand-written public/home.html copy. After the
+    // initial guard (`_id === 'skb'`), non-SKB saffron tenants fell through
+    // to slate (cool teal palette — wrong brand). With the parameterized
+    // `public/templates/saffron/` directory in place, they should now see
+    // the warm saffron palette AND their own brand copy.
+    {
+        name: 'issue-51 bug-bash: non-SKB saffron tenant gets the warm saffron palette, not slate and not SKB copy',
+        tags: ['integration', 'site-renderer', 'acceptance', 'bug-bash-51'],
+        testFn: async () => {
+            const cookie = await loginCookie('ramen');
+            // Pick saffron explicitly for a non-SKB tenant.
+            const save = await fetch(`${getTestServerUrl()}/r/ramen/api/host/website-config`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', Cookie: cookie },
+                body: JSON.stringify({
+                    websiteTemplate: 'saffron',
+                    content: {
+                        heroHeadline: 'Slow-simmered tonkotsu, ready tonight.',
+                        heroSubhead: 'Walk-ins welcome.',
+                        reservationsNote: 'Walk-ins welcome',
+                    },
+                }),
+            });
+            if (!save.ok) return false;
+
+            const res = await fetch(`${getTestServerUrl()}/r/ramen/`);
+            if (!res.ok) return false;
+            const html = await res.text();
+
+            // Must carry the tenant's own brand + hero copy.
+            const hasOwnBrand = html.includes('Ramen Yokocho')
+                && html.includes('Slow-simmered tonkotsu, ready tonight.');
+            // Must NOT carry Shri Krishna Bhavan's hand-written copy (the
+            // original leak).
+            const noSkbLeak = !html.includes('Shri Krishna Bhavan')
+                && !html.includes('12 Bellevue Way');
+            // Must NOT fall through to slate (the wrong-fallback bug).
+            const notSlate = !html.includes('Kitchen open until 10:00 PM')
+                && !html.includes('slate-site');
+            // Must be wearing the warm saffron palette.
+            const css = await fetch(`${getTestServerUrl()}/r/ramen/templates/saffron/site.css`);
+            if (!css.ok) return false;
+            const cssText = await css.text();
+            const warmPalette = cssText.includes('#e08a2e') && cssText.includes('#fdf8ef');
+
+            return hasOwnBrand && noSkbLeak && notSlate && warmPalette;
+        },
+    },
+
+    // ─── Issue #51 bug-bash: SKB saffron tenant still serves legacy copy ──
+    //
+    // G5 (spec): SKB Bellevue is byte-preserved through the template system
+    // rollout. Even after templates/saffron/ exists, the SKB tenant with the
+    // saffron template must keep serving the hand-written public/home.html
+    // so skbbellevue.com keeps working.
+    {
+        name: 'issue-51 bug-bash: SKB tenant + saffron still serves the legacy Shri Krishna Bhavan copy',
+        tags: ['integration', 'site-renderer', 'acceptance', 'bug-bash-51'],
+        testFn: async () => {
+            // SKB starts in the default (unset → saffron) state. Fetch home.
+            const res = await fetch(`${getTestServerUrl()}/r/skb/`);
+            if (!res.ok) return false;
+            const html = await res.text();
+            // SKB's hand-written home carries these load-bearing strings that
+            // are NOT in templates/saffron/home.html (which has no dosa/idly
+            // copy and no hardcoded Bellevue Way address).
+            return html.includes('Shri Krishna Bhavan')
+                && html.includes('Authentic South Indian Cuisine')
+                && html.includes('Last orders daily at 2:10 PM');
+        },
+    },
+
     // ─── Teardown ──────────────────────────────────────────────────────────
     {
         name: 'site-renderer: teardown',

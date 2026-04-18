@@ -128,20 +128,29 @@ async function fileExists(p: string): Promise<boolean> {
     }
 }
 
-/** Resolve the HTML file path to read for a location + page. Searches the
- * active template directory first, then falls back to legacy `public/<file>`
- * ONLY for the legacy SKB tenant (whose `public/home.html` is the hand-written
- * Shri Krishna Bhavan site). Other tenants fall through to saffron's template
- * directory, then to slate, so a new restaurant never inherits SKB's content.
+/** Resolve the HTML file path to read for a location + page.
+ *
+ * Resolution order:
+ *   1. `public/templates/<activeKey>/<file>`  — the picked template's own file.
+ *   2. For saffron + SKB tenant (`_id === 'skb'`) only: the legacy flat
+ *      `public/<file>` files. These hand-written pages carry the
+ *      "Shri Krishna Bhavan" brand copy and have no `{{placeholder}}`
+ *      substitution points, so they must NEVER be served to any other tenant
+ *      (spec G5: zero observable change for SKB Bellevue while preventing
+ *      new-tenant content leak, issue #51 bug-bash).
+ *   3. `public/templates/saffron/<file>` — the parameterized saffron fallback
+ *      when a non-saffron template is missing a specific page.
+ *   4. `public/templates/slate/<file>` — ultimate fallback so no tenant ever
+ *      sees a 404 due to a missing template page.
  *
  * Returns `null` when no file is found.
  *
- * Issue #51 bug-bash fix: previously any saffron tenant fell back to
- * `public/home.html`, which carries hardcoded "Shri Krishna Bhavan" branding
- * and has no `{{placeholder}}` substitution points. A new owner signing up
- * with the default template would therefore see SKB's home page instead of
- * their own. The `_id === 'skb'` guard preserves G5 (zero observable change
- * for SKB Bellevue) while fixing the bug.
+ * Issue #51 bug-bash history: an earlier version fell through to the legacy
+ * `public/home.html` for every saffron tenant, so a brand-new restaurant
+ * picking the default template inherited SKB's hand-written home page. The
+ * `_id === 'skb'` guard restored G5 but left non-SKB saffron tenants hitting
+ * slate's cool teal palette. This revision routes them to the new
+ * `public/templates/saffron/` directory, preserving the warm saffron look.
  */
 export async function resolveTemplateFile(
     publicDir: string,
@@ -155,9 +164,6 @@ export async function resolveTemplateFile(
     const locationId = (location as { _id?: string })._id;
     const isSkb = locationId === 'skb';
 
-    const candidates = [
-        path.join(publicDir, 'templates', activeKey, file),
-    ];
     // Legacy saffron site lives flat under public/. The legacy file name for
     // the menu page is `menu-page.html`, not `menu.html` — keep the mapping
     // here so the templates dir can standardize on the friendlier name.
@@ -168,27 +174,33 @@ export async function resolveTemplateFile(
         hours: 'hours-location.html',
         contact: 'contact.html',
     };
+
+    const candidates: string[] = [];
+
     if (activeKey === 'saffron') {
-        // For SKB specifically, the legacy flat files under `public/` ARE the
-        // saffron template — fall back to them to preserve the existing site.
-        // For any other tenant, skip the legacy fallback and cascade through
-        // saffron's template dir (if present) then slate, so the tenant gets a
-        // template with working `{{placeholder}}` substitution rather than
-        // SKB's hardcoded copy.
         if (isSkb) {
+            // Preserve the SKB Bellevue site byte-for-byte (G5): the legacy
+            // flat files ARE the saffron template for this one tenant, and
+            // they take precedence over templates/saffron/ so skbbellevue.com
+            // renders the exact hand-written pages the owner curated.
             candidates.push(path.join(publicDir, legacyMap[pageKey]));
+            candidates.push(path.join(publicDir, 'templates', 'saffron', file));
         } else {
-            candidates.push(path.join(publicDir, 'templates', 'slate', file));
+            // Non-SKB saffron tenants get the parameterized saffron template
+            // — warm palette, tenant-specific copy — and never the legacy
+            // hand-written SKB pages.
+            candidates.push(path.join(publicDir, 'templates', 'saffron', file));
         }
+        // Ultimate fallback so a missing page never 404s.
+        candidates.push(path.join(publicDir, 'templates', 'slate', file));
     } else {
-        // If the non-default template is missing this page for any reason,
-        // fall back to saffron rather than serving a 404. The legacy
-        // SKB-specific files are only consulted for the SKB tenant.
+        // Non-saffron template (currently only 'slate'): serve its own file,
+        // then fall back to the parameterized saffron template if a page is
+        // missing. Legacy flat files are consulted only for the SKB tenant.
+        candidates.push(path.join(publicDir, 'templates', activeKey, file));
         candidates.push(path.join(publicDir, 'templates', 'saffron', file));
         if (isSkb) {
             candidates.push(path.join(publicDir, legacyMap[pageKey]));
-        } else {
-            candidates.push(path.join(publicDir, 'templates', 'slate', file));
         }
     }
 

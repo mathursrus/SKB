@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{brandName}} — Home</title>
+    <link rel="stylesheet" href="templates/slate/site.css">
+    <link href="https://fonts.googleapis.com/css2?family=Archivo+SemiCondensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+</head>
+<body class="slate-site">
+    <div class="slate-banner">Kitchen open until 10:00 PM · Walk-ins welcome</div>
+
+    <header class="slate-header">
+        <div>
+            <div class="slate-brand-name" id="brand-name">{{brandName}}</div>
+            <div class="slate-brand-tag" id="address-brand">Modern cuisine</div>
+        </div>
+        <nav class="slate-nav" aria-label="Primary navigation">
+            <ul>
+                <li><a href="./" aria-current="page">Home</a></li>
+                <li><a href="./menu">Menu</a></li>
+                <li><a href="./about">About</a></li>
+                <li><a href="./hours">Hours &amp; Location</a></li>
+                <li><a href="./contact">Contact</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <section class="slate-hero">
+        <div>
+            <h1>{{heroHeadline}}</h1>
+            <p>{{heroSubhead}}</p>
+            <a href="./visit" class="slate-cta">Join the Waitlist</a>
+        </div>
+        <div class="slate-hero-img"></div>
+    </section>
+
+    <section class="slate-section">
+        <h2>Find Us</h2>
+        <div class="slate-info-grid">
+            <div class="slate-info-block">
+                <h3>Location</h3>
+                <div id="home-address-block">
+                    <p>Address coming soon</p>
+                </div>
+                <p>{{reservationsNote}}</p>
+            </div>
+            <div class="slate-info-block">
+                <h3>Hours</h3>
+                <div id="home-hours-block">
+                    <p>Hours coming soon</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <footer class="slate-footer">
+        <div class="fnav">
+            <a href="./">Home</a>
+            <a href="./menu">Menu</a>
+            <a href="./about">About</a>
+            <a href="./hours">Hours &amp; Location</a>
+            <a href="./contact">Contact</a>
+        </div>
+        <div id="footer-contact">{{brandName}}</div>
+        <div>© 2026 {{brandName}}</div>
+    </footer>
+
+    <script src="site-config.js"></script>
+</body>
+</html>

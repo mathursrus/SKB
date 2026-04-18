@@ -26,9 +26,12 @@ import {
     updateLocationVisitConfig,
     updateLocationVoiceConfig,
     updateLocationSiteConfig,
+    updateLocationWebsiteConfig,
     toPublicLocation,
+    DEFAULT_WEBSITE_TEMPLATE,
+    type WebsiteConfigUpdate,
 } from '../services/locations.js';
-import type { AnalyticsStage, LocationAddress, WeeklyHours } from '../types/queue.js';
+import type { AnalyticsStage, LocationAddress, WeeklyHours, LocationContent, WebsiteTemplateKey } from '../types/queue.js';
 import {
     requireRole,
     mintLocationCookie,
@@ -628,6 +631,91 @@ export function hostRouter(): Router {
                 err.message.startsWith('address')
                 || err.message.startsWith('hours')
                 || err.message.startsWith('publicHost')
+            )) {
+                res.status(400).json({ error: err.message });
+                return;
+            }
+            if (err instanceof Error && err.message === 'location not found') {
+                res.status(404).json({ error: 'location not found' });
+                return;
+            }
+            dbError(res, err);
+        }
+    });
+
+    // ----------------------------------------------------------------------
+    // Website admin (issue #56): template choice + structured content.
+    // Separate from site-config (address/hours/publicHost) because the
+    // Website tab in admin owns a different capability area — the template
+    // renderer and content editor.
+    //
+    // The spec (#51 §8.5) specifies `POST /r/:loc/api/config/website` as
+    // the canonical endpoint and reserves it for owner/admin roles that
+    // don't exist yet (those ship in sub-issue 51b). In the interim we
+    // expose `/host/website-config` which piggybacks on the existing
+    // shared-PIN cookie; when 51b adds named roles, the handler below
+    // can be mounted at both paths with the stricter role check.
+    // ----------------------------------------------------------------------
+    r.get('/host/website-config', requireHost, async (req: Request, res: Response) => {
+        try {
+            const location = await getLocation(loc(req));
+            res.json({
+                websiteTemplate: location?.websiteTemplate ?? DEFAULT_WEBSITE_TEMPLATE,
+                content: location?.content ?? null,
+            });
+        } catch (err) { dbError(res, err); }
+    });
+
+    r.post('/host/website-config', requireHost, async (req: Request, res: Response) => {
+        const body = (req.body ?? {}) as {
+            websiteTemplate?: unknown;
+            content?: unknown;
+        };
+        const update: WebsiteConfigUpdate = {};
+        if (body.websiteTemplate !== undefined) {
+            if (body.websiteTemplate === null || body.websiteTemplate === '') {
+                update.websiteTemplate = null;
+            } else if (typeof body.websiteTemplate === 'string') {
+                update.websiteTemplate = body.websiteTemplate as WebsiteTemplateKey;
+            } else {
+                res.status(400).json({ error: 'websiteTemplate must be a string or null' });
+                return;
+            }
+        }
+        if (body.content !== undefined) {
+            if (body.content === null) {
+                update.content = null;
+            } else if (typeof body.content === 'object' && !Array.isArray(body.content)) {
+                update.content = body.content as LocationContent;
+            } else {
+                res.status(400).json({ error: 'content must be an object or null' });
+                return;
+            }
+        }
+        try {
+            const updated = await updateLocationWebsiteConfig(loc(req), update);
+            console.log(JSON.stringify({
+                t: new Date().toISOString(),
+                level: 'info',
+                msg: 'host.website_config.updated',
+                loc: loc(req),
+                websiteTemplate: updated.websiteTemplate ?? DEFAULT_WEBSITE_TEMPLATE,
+                contentSet: !!updated.content,
+            }));
+            res.json({
+                websiteTemplate: updated.websiteTemplate ?? DEFAULT_WEBSITE_TEMPLATE,
+                content: updated.content ?? null,
+            });
+        } catch (err) {
+            if (err instanceof Error && (
+                err.message.startsWith('websiteTemplate')
+                || err.message.startsWith('heroHeadline')
+                || err.message.startsWith('heroSubhead')
+                || err.message.startsWith('about')
+                || err.message.startsWith('reservationsNote')
+                || err.message.startsWith('instagramHandle')
+                || err.message.startsWith('contactEmail')
+                || err.message.startsWith('knownFor')
             )) {
                 res.status(400).json({ error: err.message });
                 return;

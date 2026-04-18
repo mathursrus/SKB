@@ -40,8 +40,17 @@ body {
 .brand {
     font:700 26px/1 'Archivo SemiCondensed', sans-serif;
     letter-spacing:.02em; color:var(--ink);
+    display:inline-flex; align-items:baseline; gap:10px;
+}
+.brand .expand {
+    font:500 13px/1 'IBM Plex Sans', sans-serif;
+    letter-spacing:.06em; text-transform:uppercase;
+    color:var(--muted);
 }
 .brand .dot { color:var(--accent-warm); }
+@media (max-width: 560px) {
+    .brand .expand { display:none; }
+}
 .topbar-right { display:flex; gap:22px; align-items:center; }
 .topbar-right a { color:var(--muted); text-decoration:none; font-size:14px; font-weight:500; }
 .topbar-right a:hover { color:var(--ink); }
@@ -171,7 +180,7 @@ body {
     margin:0 0 32px;
     color:var(--ink);
 }
-.steps { display:grid; grid-template-columns:repeat(4, 1fr); gap:20px; }
+.steps { display:grid; grid-template-columns:repeat(4, 1fr); gap:20px; list-style:none; padding:0; margin:0; }
 .step {
     padding:22px;
     border-radius:18px;
@@ -232,7 +241,7 @@ footer a:hover { color:var(--ink); }
 <body>
 
 <header class="topbar">
-    <div class="brand">OSH</div>
+    <div class="brand">OSH<span class="expand">OS for Hospitality</span></div>
     <div class="topbar-right">
         <a href="/login">Log in</a>
         <a class="topbar-cta" href="/signup">Start free</a>

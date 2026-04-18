@@ -2474,6 +2474,21 @@ a#custom-call-confirm[aria-disabled="true"] {
 }
 .role-radio-option:has(input:checked) strong { color: #1f6a5d; }
 
+/* Admin topbar brand expansion — "OSH · OS for Hospitality · Admin — {restaurant}" */
+.admin-topbar .brand .brand-mark { font: inherit; }
+.admin-topbar .brand .brand-expand {
+    font: 500 11px/1 'IBM Plex Sans', system-ui, sans-serif;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--muted, #78716c);
+    margin-left: 6px;
+    margin-right: 2px;
+    white-space: nowrap;
+}
+@media (max-width: 640px) {
+    .admin-topbar .brand .brand-expand { display: none; }
+}
+
 /* ============================================================================
  * "Ask OSH" MCP setup card (admin)
  * Purpose: give owners a copy-paste setup path for plugging Claude / ChatGPT

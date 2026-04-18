@@ -51,8 +51,10 @@ body {
     width:100%;
     max-width:420px;
 }
-.brand { font:700 24px/1 'Archivo SemiCondensed', sans-serif; letter-spacing:.02em; margin-bottom:28px; color:var(--ink); }
+.brand { font:700 24px/1 'Archivo SemiCondensed', sans-serif; letter-spacing:.02em; margin-bottom:28px; color:var(--ink); display:inline-flex; align-items:baseline; gap:10px; }
+.brand .expand { font:500 12px/1 'IBM Plex Sans', sans-serif; letter-spacing:.06em; text-transform:uppercase; color:var(--muted); }
 .brand .dot { color:var(--accent-warm); }
+@media (max-width: 560px) { .brand .expand { display:none; } }
 .form-card h1 { margin:0 0 4px; font:700 26px/1.2 'Archivo SemiCondensed', sans-serif; }
 .form-card .sub { color:var(--muted); font-size:14px; margin:0 0 22px; }
 .field { margin-bottom:14px; }
@@ -159,7 +161,7 @@ body {
 <body>
 <div class="pane-auth">
     <div class="form-card">
-        <div class="brand">OSH</div>
+        <div class="brand">OSH<span class="expand">OS for Hospitality</span></div>
 
         <div id="login-step">
             <h1>Welcome back</h1>

@@ -2413,3 +2413,63 @@ a#custom-call-confirm[aria-disabled="true"] {
 .onboarding-pill:hover {
     background: rgba(31, 106, 93, 0.2);
 }
+
+/* ============================================================================
+   Staff tab — role pills + role-aware avatar tints (issue #51 polish)
+   ----------------------------------------------------------------------------
+   Mock (docs/feature-specs/mocks/51-admin-brand-staff.html) renders the Role
+   column as colored pills and uses a distinct avatar tint per role so the
+   owner/admin/host mix reads at a glance. admin.js writes the `role-pill` +
+   `staff-avatar-<role>` classes against `row.role` so the CSS here is the
+   single source of truth for the visual vocabulary.
+   ============================================================================ */
+.role-pill {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: .01em;
+}
+.role-pill.owner { background: rgba(203, 106, 52, 0.16); color: #cb6a34; }
+.role-pill.admin { background: rgba(31, 106, 93, 0.14); color: #1f6a5d; }
+.role-pill.host { background: #eee6d4; color: #6a6258; }
+.role-pill.pending { background: #fff2c5; color: #8b6914; }
+
+.staff-avatar {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background: #1f6a5d;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    font-size: 13px;
+}
+.staff-avatar.avatar-owner { background: #1f6a5d; }
+.staff-avatar.avatar-admin { background: #cb6a34; }
+.staff-avatar.avatar-host { background: #78716c; }
+.staff-avatar.avatar-pending { background: #b8b0a3; }
+
+/* Invite form role radio — click to fill a card; selected state uses the
+   teal accent border so the picker reads as a segmented control. Matches
+   mock .role-radio label:has(input:checked) rule. */
+.role-radio-option {
+    flex: 1;
+    padding: 8px 10px;
+    border: 1.5px solid #dfd6c6;
+    border-radius: 10px;
+    cursor: pointer;
+    font-size: 13px;
+    text-align: center;
+    font-weight: 500;
+    background: #fff;
+    transition: border-color 0.1s, background 0.1s;
+}
+.role-radio-option:has(input:checked) {
+    border-color: #1f6a5d;
+    background: rgba(31, 106, 93, 0.06);
+}
+.role-radio-option:has(input:checked) strong { color: #1f6a5d; }

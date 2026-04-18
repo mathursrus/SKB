@@ -596,10 +596,11 @@
                 tbody.innerHTML = staff.map(row => {
                     const isSelf = row.userId === myUid;
                     const revokeAttr = isSelf ? 'disabled title="Owners cannot revoke themselves."' : '';
+                    const roleKey = esc(row.role || '');
                     return `<tr>
                         <td style="padding:14px 12px;border-bottom:1px solid #f0eae0">
                             <div style="display:flex;align-items:center;gap:10px">
-                                <div style="width:34px;height:34px;border-radius:50%;background:#1f6a5d;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:600;font-size:13px">${esc(initials(row.name, row.email))}</div>
+                                <div class="staff-avatar avatar-${roleKey}">${esc(initials(row.name, row.email))}</div>
                                 <div>
                                     <div>${esc(row.name || row.email)}</div>
                                     ${isSelf ? '<div style="font-size:11px;color:#78716c">(you)</div>' : ''}
@@ -607,7 +608,7 @@
                             </div>
                         </td>
                         <td style="padding:14px 12px;border-bottom:1px solid #f0eae0">${esc(row.email)}</td>
-                        <td style="padding:14px 12px;border-bottom:1px solid #f0eae0">${esc(roleLabel(row.role))}</td>
+                        <td style="padding:14px 12px;border-bottom:1px solid #f0eae0"><span class="role-pill ${roleKey}">${esc(roleLabel(row.role))}</span></td>
                         <td style="padding:14px 12px;border-bottom:1px solid #f0eae0;color:#78716c">${esc(relativeTime(row.createdAt))}</td>
                         <td style="padding:14px 12px;border-bottom:1px solid #f0eae0">
                             <button class="staff-action" data-revoke-membership="${esc(row.membershipId)}" ${revokeAttr} style="background:none;border:none;color:#b42318;font-size:13px;font-weight:500;cursor:${isSelf ? 'not-allowed' : 'pointer'};opacity:${isSelf ? '.4' : '1'}">Revoke</button>
@@ -624,9 +625,14 @@
                 pendingTable.style.display = '';
                 pendingEmpty.style.display = 'none';
                 pendingTbody.innerHTML = pending.map(row => `<tr>
-                    <td style="padding:14px 12px;border-bottom:1px solid #f0eae0">${esc(row.name)}</td>
+                    <td style="padding:14px 12px;border-bottom:1px solid #f0eae0">
+                        <div style="display:flex;align-items:center;gap:10px">
+                            <div class="staff-avatar avatar-pending">${esc(initials(row.name, row.email))}</div>
+                            <div>${esc(row.name)}</div>
+                        </div>
+                    </td>
                     <td style="padding:14px 12px;border-bottom:1px solid #f0eae0">${esc(row.email)}</td>
-                    <td style="padding:14px 12px;border-bottom:1px solid #f0eae0">${esc(roleLabel(row.role))}</td>
+                    <td style="padding:14px 12px;border-bottom:1px solid #f0eae0"><span class="role-pill pending">Invite pending</span></td>
                     <td style="padding:14px 12px;border-bottom:1px solid #f0eae0;color:#78716c">${esc(relativeTime(row.createdAt))}</td>
                     <td style="padding:14px 12px;border-bottom:1px solid #f0eae0">
                         <button class="staff-action" data-revoke-invite="${esc(row.id)}" style="background:none;border:none;color:#b42318;font-size:13px;font-weight:500;cursor:pointer">Cancel invite</button>

@@ -434,12 +434,12 @@
                     <div>
                         <label style="font-size:12px;color:#78716c;font-weight:500;margin-top:14px;display:block">Role</label>
                         <div class="role-radio" style="display:flex;gap:6px;margin-top:10px">
-                            <label style="flex:1;padding:8px 10px;border:1.5px solid #dfd6c6;border-radius:10px;cursor:pointer;font-size:13px;text-align:center;font-weight:500;background:#fff">
-                                <input type="radio" name="invite-role" value="admin" />
+                            <label class="role-radio-option">
+                                <input type="radio" name="invite-role" value="admin" style="display:none" />
                                 <span><strong>Admin</strong><br/><span style="color:#78716c;font-size:11px;font-weight:400">Settings + analytics</span></span>
                             </label>
-                            <label style="flex:1;padding:8px 10px;border:1.5px solid #dfd6c6;border-radius:10px;cursor:pointer;font-size:13px;text-align:center;font-weight:500;background:#fff">
-                                <input type="radio" name="invite-role" value="host" checked />
+                            <label class="role-radio-option">
+                                <input type="radio" name="invite-role" value="host" checked style="display:none" />
                                 <span><strong>Host</strong><br/><span style="color:#78716c;font-size:11px;font-weight:400">Run the floor only</span></span>
                             </label>
                         </div>

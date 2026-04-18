@@ -27,3 +27,7 @@ Thumbs.db
 # Playwright MCP artifacts
 .playwright-mcp/
 .claude/worktrees/
+
+# Bug-bash local runners (issue #51) — kept out of tree; see docs/evidence/51-bug-bash-evidence.md
+bug-bash-*.mjs
+.bug-bash-env.cjs

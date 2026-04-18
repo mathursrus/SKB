@@ -128,16 +128,33 @@ app.get('/accept-invite', (_req: Request, res: Response) => {
     res.sendFile(path.join(publicDir, 'accept-invite.html'));
 });
 
-// Landing page — list locations
-app.get('/', async (_req: Request, res: Response) => {
-    try {
-        const locs = await listLocations();
-        const links = locs.map(l => `<li><a href="/r/${l._id}/queue.html">${l.name}</a> — <a href="/r/${l._id}/host.html">Host</a> · <a href="/r/${l._id}/admin.html">Admin</a></li>`).join('\n');
-        res.type('html').send(`<!doctype html><html><head><title>SKB — Locations</title><link href="https://fonts.googleapis.com/css2?family=Fira+Sans:wght@400;600;700&display=swap" rel="stylesheet"><style>body{font-family:'Fira Sans',sans-serif;max-width:600px;margin:40px auto;padding:0 20px}h1{font-size:24px}li{margin:8px 0;font-size:16px}a{color:#b45309}</style></head><body><h1>SKB Waitlist</h1><ul>${links || '<li>No locations configured.</li>'}</ul></body></html>`);
-    } catch {
-        res.status(503).send('Service unavailable');
-    }
+// Marketing landing — naked '/' on the platform domain (issue #57).
+// The host-rewrite middleware above already handles the custom-domain
+// case: if the incoming Host matches a location's `publicHost` (e.g.
+// skbbellevue.com), the URL is rewritten to `/r/{loc}/home.html` before
+// we ever reach this handler. So when this route fires, we know the
+// visitor is on a naked/platform domain — serve the marketing page.
+app.get('/', (_req: Request, res: Response) => {
+    res.sendFile(path.join(publicDir, 'landing.html'));
 });
+
+// Operator console — legacy locations-list page, now gated behind
+// SKB_OPERATOR_CONSOLE=true (issue #57, spec §5 non-goals — no in-app
+// super-admin view for v1). When the flag is off, the route 404s so it
+// doesn't surface in crawls or accidental visits. The operator still
+// manages the platform through MongoDB / MCP tools.
+if (process.env.SKB_OPERATOR_CONSOLE === 'true') {
+    app.get('/admin/locations', async (_req: Request, res: Response) => {
+        try {
+            const locs = await listLocations();
+            const links = locs.map(l => `<li><a href="/r/${l._id}/queue.html">${l.name}</a> — <a href="/r/${l._id}/host.html">Host</a> · <a href="/r/${l._id}/admin.html">Admin</a></li>`).join('\n');
+            res.type('html').send(`<!doctype html><html><head><title>SKB Platform — Operator Console</title><link href="https://fonts.googleapis.com/css2?family=Fira+Sans:wght@400;600;700&display=swap" rel="stylesheet"><style>body{font-family:'Fira Sans',sans-serif;max-width:600px;margin:40px auto;padding:0 20px}h1{font-size:24px}li{margin:8px 0;font-size:16px}a{color:#b45309}</style></head><body><h1>SKB Platform &mdash; Operator Console</h1><p style="color:#78716c;font-size:14px">All configured restaurants. Operator-only.</p><ul>${links || '<li>No locations configured.</li>'}</ul></body></html>`);
+        } catch {
+            res.status(503).send('Service unavailable');
+        }
+    });
+    console.log('[MCP Server] Operator console enabled at /admin/locations');
+}
 
 // Per-location routes: /r/:loc/...
 app.use('/r/:loc/api', queueRouter());

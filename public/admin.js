@@ -373,6 +373,16 @@
             if (siteZip) siteZip.value = data.address?.zip || '';
             if (sitePublicHost) sitePublicHost.value = data.publicHost || '';
             siteLoadHoursIntoForm(data.hours);
+            // Issue #57: surface the restaurant name in the admin topbar
+            // brand block so owners see "SKB Platform · Admin — {name}".
+            // Platform label is hardcoded in the HTML; only the name slot
+            // is data-driven.
+            const nameEl = document.getElementById('admin-restaurant-name');
+            const sepEl = document.getElementById('admin-restaurant-name-sep');
+            if (nameEl && data.name) {
+                nameEl.textContent = data.name;
+                if (sepEl) sepEl.style.display = '';
+            }
         } catch {
             // non-blocking
         }

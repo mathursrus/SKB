@@ -49,23 +49,36 @@
             '<div class="line">' + esc(address.city) + ', ' + esc(address.state) + zip + '</div>';
     }
 
+    // Map JS getDay() (0=Sun..6=Sat) to the DAY_ORDER keys (mon..sun).
+    var JS_DAY_TO_KEY = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
+
     function renderHoursCompact(hours, el) {
         if (!hours || !el) return;
-        // Find the first open day to read lunch/dinner windows for the compact
-        // display on the home page.
-        var firstOpen = null;
-        for (var i = 0; i < DAY_ORDER.length; i++) {
-            var entry = hours[DAY_ORDER[i]];
-            if (entry && entry !== 'closed') { firstOpen = entry; break; }
+        // Previously this picked the FIRST OPEN DAY and rendered its
+        // lunch/dinner windows as the global home-page hours. That's
+        // wrong for restaurants whose hours vary by day — a diner
+        // landing on Saturday saw Tuesday's schedule labeled as if it
+        // applied today. Fix: render TODAY specifically, with the day
+        // name as the label, and a link to the full grid for other days.
+        //
+        // Timezone note: uses the browser's local clock, which matches
+        // the diner's perspective ("what are your hours right now?").
+        // Close to, but not exactly, the restaurant's configured TZ —
+        // close enough for a compact home-page display.
+        var today = new Date();
+        var todayKey = JS_DAY_TO_KEY[today.getDay()];
+        var entry = hours[todayKey];
+        var label = DAY_LABEL[todayKey] || 'Today';
+        var body;
+        if (entry === 'closed' || entry === undefined) {
+            body = '<p><strong>' + label + '</strong> · Closed today</p>';
+        } else {
+            var windows = [];
+            if (entry.lunch) windows.push(formatTime(entry.lunch.open) + ' – ' + formatTime(entry.lunch.close));
+            if (entry.dinner) windows.push(formatTime(entry.dinner.open) + ' – ' + formatTime(entry.dinner.close));
+            body = '<p><strong>' + label + '</strong> · ' + (windows.length ? windows.join(' &middot; ') : 'Closed today') + '</p>';
         }
-        if (!firstOpen) return;
-        var lunch = firstOpen.lunch
-            ? '<p>Lunch · ' + formatTime(firstOpen.lunch.open) + ' – ' + formatTime(firstOpen.lunch.close) + '</p>'
-            : '';
-        var dinner = firstOpen.dinner
-            ? '<p>Dinner · ' + formatTime(firstOpen.dinner.open) + ' – ' + formatTime(firstOpen.dinner.close) + '</p>'
-            : '';
-        el.innerHTML = lunch + dinner;
+        el.innerHTML = body + '<p class="hours-see-full"><a href="./hours">See full hours &rarr;</a></p>';
     }
 
     function renderHoursTable(hours, el) {

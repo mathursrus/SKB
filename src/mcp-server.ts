@@ -25,7 +25,8 @@ import { voiceRouter } from './routes/voice.js';
 import { smsRouter, smsStatusRouter } from './routes/sms.js';
 import { renderQueuePage } from './services/queue-template.js';
 import { resolveVisit } from './services/visit-page.js';
-import { listLocations, ensureLocation } from './services/locations.js';
+import { listLocations, ensureLocation, getLocation } from './services/locations.js';
+import { renderSitePage, type TemplatePageKey } from './services/site-renderer.js';
 
 const SERVER_NAME = 'skb-mcp';
 const SERVER_VERSION = '0.2.0';
@@ -153,24 +154,45 @@ app.get('/r/:loc/visit', async (req: Request, res: Response) => {
     }
 });
 
-// ─── Per-location public website routes (issue #45) ───────────────────
+// ─── Per-location public website routes (issue #45 + #56) ─────────────
 // Friendly URLs for the replacement skbbellevue.com pages. `/r/:loc/` is
-// the home page; `/r/:loc/menu` is the menu page (served from the
-// `menu-page.html` file — `menu.html` would collide with the existing
-// menu-page static asset used as visitMode=menu fallback in PR #42).
-const SITE_PAGE_MAP: Record<string, string> = {
-    '': 'home.html',
-    'menu': 'menu-page.html',
-    'about': 'about.html',
-    'hours': 'hours-location.html',
-    'contact': 'contact.html',
+// the home page; other pages are /menu, /about, /hours, /contact. Each
+// request picks the right template (`saffron` vs `slate`) based on the
+// location's `websiteTemplate` field and substitutes structured content
+// into the template HTML. See src/services/site-renderer.ts.
+const SITE_PAGE_MAP: Record<string, TemplatePageKey> = {
+    '': 'home',
+    'menu': 'menu',
+    'about': 'about',
+    'hours': 'hours',
+    'contact': 'contact',
 };
-const servePage = (relPath: string) => (_req: Request, res: Response) => {
-    res.sendFile(path.join(publicDir, relPath));
-};
-for (const [route, file] of Object.entries(SITE_PAGE_MAP)) {
+
+function servePage(pageKey: TemplatePageKey) {
+    return async (req: Request, res: Response) => {
+        try {
+            const locationId = String(req.params.loc);
+            const location = await getLocation(locationId);
+            if (!location) {
+                res.status(404).type('text/plain').send('Location not found');
+                return;
+            }
+            const html = await renderSitePage(publicDir, location, pageKey);
+            if (html === null) {
+                res.status(404).type('text/plain').send('Page not found');
+                return;
+            }
+            res.type('html').send(html);
+        } catch (err) {
+            console.error('[MCP Server] site render error:', err);
+            res.status(500).send('Internal server error');
+        }
+    };
+}
+
+for (const [route, pageKey] of Object.entries(SITE_PAGE_MAP)) {
     const url = route ? `/r/:loc/${route}` : '/r/:loc';
-    app.get(url, servePage(file));
+    app.get(url, servePage(pageKey));
 }
 
 // Static assets — served under /r/:loc/ so JS fetch() calls use relative paths

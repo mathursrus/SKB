@@ -256,6 +256,63 @@
                 <button type="button" id="admin-site-save" class="primary">Save Site Settings</button>
             </div>
         </section>
+
+        <section class="admin-card" id="admin-website-card">
+            <div class="admin-card-head">
+                <h2>Website</h2>
+                <p>Pick a template for the pages your guests see, and fill in the copy that makes the site yours. Everything else uses sensible defaults.</p>
+            </div>
+
+            <h4 class="visit-subhead">Template <span class="visit-sub-help">— switching templates preserves your content</span></h4>
+            <div class="website-template-grid" role="radiogroup" aria-label="Website template">
+                <button type="button" class="website-template-card" data-template="saffron" aria-pressed="false">
+                    <span class="website-template-swatch website-swatch-saffron">Saffron</span>
+                    <div class="website-template-name">Saffron</div>
+                    <div class="website-template-sub">Warm, casual, neighborhood-spot energy.</div>
+                    <span class="website-template-current">Current</span>
+                </button>
+                <button type="button" class="website-template-card" data-template="slate" aria-pressed="false">
+                    <span class="website-template-swatch website-swatch-slate">Slate</span>
+                    <div class="website-template-name">Slate</div>
+                    <div class="website-template-sub">Modern, considered, cocktail-forward.</div>
+                    <span class="website-template-current">Current</span>
+                </button>
+            </div>
+
+            <h4 class="visit-subhead">Content <span class="visit-sub-help">— overrides the template's built-in defaults</span></h4>
+            <div class="visit-grid">
+                <label class="visit-field visit-field-full">
+                    <span class="visit-label">Hero headline</span>
+                    <input type="text" id="admin-website-hero-headline" maxlength="120" placeholder="One sentence that greets your guests." />
+                </label>
+                <label class="visit-field visit-field-full">
+                    <span class="visit-label">Hero subhead</span>
+                    <input type="text" id="admin-website-hero-subhead" maxlength="200" placeholder="One more sentence — optional." />
+                </label>
+                <label class="visit-field visit-field-full">
+                    <span class="visit-label">About section</span>
+                    <textarea id="admin-website-about" maxlength="2000" rows="4" placeholder="Tell your guests who you are."></textarea>
+                </label>
+                <label class="visit-field">
+                    <span class="visit-label">Contact email</span>
+                    <input type="email" id="admin-website-contact-email" maxlength="254" placeholder="hello@example.com" />
+                </label>
+                <label class="visit-field">
+                    <span class="visit-label">Instagram handle</span>
+                    <input type="text" id="admin-website-instagram" maxlength="32" placeholder="@yourhandle" />
+                </label>
+                <label class="visit-field visit-field-full">
+                    <span class="visit-label">Reservations note</span>
+                    <input type="text" id="admin-website-reservations" maxlength="200" placeholder="Walk-ins welcome — no reservations." />
+                </label>
+            </div>
+
+            <div class="visit-actions admin-actions-row">
+                <span class="visit-status" id="admin-website-status"></span>
+                <a id="admin-website-preview" class="admin-website-preview" href="./" target="_blank" rel="noopener">Preview ↗</a>
+                <button type="button" id="admin-website-save" class="primary">Save Website</button>
+            </div>
+        </section>
     </main>
 </div>
 

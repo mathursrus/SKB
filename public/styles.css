@@ -2163,3 +2163,86 @@ a#custom-call-confirm[aria-disabled="true"] {
 /* Login card */
 .theme-dark .login-card { background: var(--card); border-color: var(--border); }
 
+/* ────────────────────────────────────────────────────────────────────────
+   Website tab (issue #56) — template picker + content editor
+   ──────────────────────────────────────────────────────────────────────── */
+.website-template-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 14px;
+    margin-bottom: 14px;
+}
+.website-template-card {
+    background: var(--card, #fff);
+    border: 2px solid var(--border, #dfd6c6);
+    border-radius: 18px;
+    padding: 16px;
+    cursor: pointer;
+    text-align: left;
+    font: inherit;
+    color: inherit;
+    position: relative;
+    transition: border-color 0.1s, box-shadow 0.1s;
+}
+.website-template-card:hover { border-color: #9ab8b0; }
+.website-template-card.is-selected {
+    border-color: #1f6a5d;
+    box-shadow: 0 0 0 3px rgba(31, 106, 93, 0.14);
+}
+.website-template-card .website-template-current {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    background: #1f6a5d;
+    color: #fff;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 4px 10px;
+    border-radius: 999px;
+    display: none;
+}
+.website-template-card.is-selected .website-template-current { display: inline-block; }
+.website-template-swatch {
+    display: block;
+    height: 110px;
+    border-radius: 12px;
+    margin-bottom: 12px;
+    font-family: Georgia, serif;
+    font-size: 22px;
+    font-weight: 700;
+    text-align: center;
+    line-height: 110px;
+    color: #fff;
+}
+.website-swatch-saffron {
+    background: linear-gradient(135deg, #fef3d9 0%, #e08a2e 100%);
+    color: #2a2a2a;
+}
+.website-swatch-slate {
+    background: linear-gradient(135deg, #e4ece9 0%, #1f6a5d 100%);
+    font-family: 'Archivo SemiCondensed', 'IBM Plex Sans', sans-serif;
+    letter-spacing: -0.01em;
+}
+.website-template-name {
+    font-weight: 700;
+    font-size: 17px;
+    margin-bottom: 2px;
+}
+.website-template-sub {
+    color: var(--muted, #6a6258);
+    font-size: 13px;
+}
+.admin-website-preview {
+    color: var(--accent, #1f6a5d);
+    font-weight: 600;
+    text-decoration: none;
+    margin-right: 12px;
+    align-self: center;
+}
+.admin-website-preview:hover { text-decoration: underline; }
+#admin-website-about { width: 100%; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--border, #dfd6c6); font: 14px inherit; resize: vertical; min-height: 90px; }
+
+@media (max-width: 720px) {
+    .website-template-grid { grid-template-columns: 1fr; }
+}
+

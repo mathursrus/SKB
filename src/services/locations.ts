@@ -11,6 +11,9 @@ import type {
     DayHours,
     DayOfWeek,
     PublicLocation,
+    WebsiteTemplateKey,
+    LocationContent,
+    LocationKnownForItem,
 } from '../types/queue.js';
 
 const FRONT_DESK_PHONE_RE = /^\d{10}$/;
@@ -25,7 +28,7 @@ export async function getLocation(locationId: string): Promise<Location | null> 
 /**
  * Project a Location into the public-safe subset. Excludes `pin` and any
  * operational internals. Used by the `/public-config` endpoint that powers
- * the new diner-facing website pages (issue #45).
+ * the new diner-facing website pages (issue #45 + issue #56 template fields).
  */
 export function toPublicLocation(location: Location): PublicLocation {
     const out: PublicLocation = { name: location.name };
@@ -33,6 +36,8 @@ export function toPublicLocation(location: Location): PublicLocation {
     if (location.hours) out.hours = location.hours;
     if (location.frontDeskPhone) out.frontDeskPhone = location.frontDeskPhone;
     if (location.publicUrl) out.publicUrl = location.publicUrl;
+    if (location.websiteTemplate) out.websiteTemplate = location.websiteTemplate;
+    if (location.content) out.content = location.content;
     return out;
 }
 
@@ -350,4 +355,174 @@ export async function ensureLocation(
     const existing = await getLocation(id);
     if (existing) return existing;
     return createLocation(id, name, pin);
+}
+
+// ============================================================================
+// Website config (issue #56) — template choice + structured content overrides
+// ============================================================================
+// Paired validator + updater. The validator is pure (unit-testable); the
+// updater calls Mongo. Follows the SiteConfig pattern established in #45.
+//
+// Size limits are deliberately generous for a hospitality site — "about" is
+// room for ~2 short paragraphs, hero/sub are single-line, and knownFor is
+// capped at 3 items per the spec §7 mock layout.
+// ============================================================================
+
+export const VALID_WEBSITE_TEMPLATES: readonly WebsiteTemplateKey[] = ['saffron', 'slate'];
+export const DEFAULT_WEBSITE_TEMPLATE: WebsiteTemplateKey = 'saffron';
+
+export const MAX_HERO_HEADLINE_LEN = 120;
+export const MAX_HERO_SUBHEAD_LEN = 200;
+export const MAX_ABOUT_LEN = 2000;
+export const MAX_RESERVATIONS_NOTE_LEN = 200;
+export const MAX_INSTAGRAM_HANDLE_LEN = 32; // Instagram's own limit is 30
+export const MAX_CONTACT_EMAIL_LEN = 254;   // RFC 5321
+export const MAX_KNOWN_FOR_ITEMS = 3;
+export const MAX_KNOWN_FOR_TITLE_LEN = 60;
+export const MAX_KNOWN_FOR_DESC_LEN = 160;
+export const MAX_KNOWN_FOR_IMAGE_LEN = 500;
+
+// Simple pragmatic email matcher (full RFC validation is not worth its weight).
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+export interface WebsiteConfigUpdate {
+    websiteTemplate?: WebsiteTemplateKey | null;
+    content?: LocationContent | null;
+}
+
+function checkLen(value: unknown, max: number, label: string): void {
+    if (value === undefined || value === null) return;
+    if (typeof value !== 'string') throw new Error(`${label} must be a string`);
+    if (value.length > max) throw new Error(`${label} must be <= ${max} chars`);
+}
+
+function validateKnownFor(items: unknown, label = 'knownFor'): void {
+    if (items === undefined || items === null) return;
+    if (!Array.isArray(items)) throw new Error(`${label} must be an array`);
+    if (items.length > MAX_KNOWN_FOR_ITEMS) {
+        throw new Error(`${label} supports at most ${MAX_KNOWN_FOR_ITEMS} items`);
+    }
+    items.forEach((raw, i) => {
+        if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) {
+            throw new Error(`${label}[${i}] must be an object`);
+        }
+        const item = raw as Record<string, unknown>;
+        checkLen(item.title, MAX_KNOWN_FOR_TITLE_LEN, `${label}[${i}].title`);
+        checkLen(item.desc, MAX_KNOWN_FOR_DESC_LEN, `${label}[${i}].desc`);
+        checkLen(item.image, MAX_KNOWN_FOR_IMAGE_LEN, `${label}[${i}].image`);
+    });
+}
+
+/**
+ * Pure validator for a Website-tab save. Throws on invalid input. Exported
+ * for unit testing; the DB-touching wrapper lives below.
+ *
+ * Semantics:
+ *  - `websiteTemplate: null` is an explicit reset to the default (saffron).
+ *  - `content: null` clears all overrides (falls back entirely to template
+ *    defaults).
+ *  - Individual content fields set to '' are allowed (user clearing just
+ *    one override). The updater treats empty strings as "unset this field"
+ *    so rendered output falls back to the template default.
+ */
+export function validateWebsiteConfigUpdate(update: WebsiteConfigUpdate): void {
+    if (update.websiteTemplate !== undefined && update.websiteTemplate !== null) {
+        if (!(VALID_WEBSITE_TEMPLATES as readonly string[]).includes(String(update.websiteTemplate))) {
+            throw new Error(`websiteTemplate must be one of: ${VALID_WEBSITE_TEMPLATES.join(', ')}`);
+        }
+    }
+    if (update.content !== undefined && update.content !== null) {
+        const c = update.content;
+        checkLen(c.heroHeadline, MAX_HERO_HEADLINE_LEN, 'heroHeadline');
+        checkLen(c.heroSubhead, MAX_HERO_SUBHEAD_LEN, 'heroSubhead');
+        checkLen(c.about, MAX_ABOUT_LEN, 'about');
+        checkLen(c.reservationsNote, MAX_RESERVATIONS_NOTE_LEN, 'reservationsNote');
+        checkLen(c.instagramHandle, MAX_INSTAGRAM_HANDLE_LEN, 'instagramHandle');
+        checkLen(c.contactEmail, MAX_CONTACT_EMAIL_LEN, 'contactEmail');
+        if (c.contactEmail !== undefined && c.contactEmail !== null && c.contactEmail !== '') {
+            if (!EMAIL_RE.test(String(c.contactEmail))) {
+                throw new Error('contactEmail must be a valid email address');
+            }
+        }
+        validateKnownFor(c.knownFor);
+    }
+}
+
+function normalizeContent(input: LocationContent): LocationContent {
+    // Preserve only the fields that have a non-empty value; drop empty strings
+    // so the renderer falls back to template defaults for those fields.
+    const out: LocationContent = {};
+    const strFields: (keyof LocationContent)[] = [
+        'heroHeadline', 'heroSubhead', 'about', 'contactEmail', 'instagramHandle', 'reservationsNote',
+    ];
+    for (const k of strFields) {
+        const v = input[k];
+        if (typeof v === 'string' && v.trim() !== '') {
+            (out as Record<string, unknown>)[k] = v.trim();
+        }
+    }
+    if (Array.isArray(input.knownFor)) {
+        const items: LocationKnownForItem[] = [];
+        for (const raw of input.knownFor) {
+            if (!raw || typeof raw !== 'object') continue;
+            const item: LocationKnownForItem = {
+                title: String(raw.title ?? '').trim(),
+                desc: String(raw.desc ?? '').trim(),
+                image: String(raw.image ?? '').trim(),
+            };
+            if (item.title || item.desc || item.image) items.push(item);
+        }
+        if (items.length > 0) out.knownFor = items;
+    }
+    return out;
+}
+
+/**
+ * Update the website-tab config on a Location (template + structured content).
+ * Follows the `updateLocation*Config` pattern established in #45: fields not
+ * present on `update` are left alone; `null` clears the field entirely.
+ */
+export async function updateLocationWebsiteConfig(
+    locationId: string,
+    update: WebsiteConfigUpdate,
+): Promise<Location> {
+    validateWebsiteConfigUpdate(update);
+
+    const db = await getDb();
+    const $set: Record<string, unknown> = {};
+    const $unset: Record<string, ''> = {};
+
+    if (update.websiteTemplate !== undefined) {
+        if (update.websiteTemplate === null) $unset.websiteTemplate = '';
+        else $set.websiteTemplate = update.websiteTemplate;
+    }
+    if (update.content !== undefined) {
+        if (update.content === null) {
+            $unset.content = '';
+        } else {
+            const normalized = normalizeContent(update.content);
+            if (Object.keys(normalized).length === 0) {
+                $unset.content = '';
+            } else {
+                $set.content = normalized;
+            }
+        }
+    }
+
+    const updateDoc: Record<string, unknown> = {};
+    if (Object.keys($set).length > 0) updateDoc.$set = $set;
+    if (Object.keys($unset).length > 0) updateDoc.$unset = $unset;
+    if (Object.keys(updateDoc).length === 0) {
+        const existing = await getLocation(locationId);
+        if (!existing) throw new Error('location not found');
+        return existing;
+    }
+
+    const result = await locations(db).findOneAndUpdate(
+        { _id: locationId },
+        updateDoc,
+        { returnDocument: 'after' },
+    );
+    if (!result) throw new Error('location not found');
+    return result;
 }

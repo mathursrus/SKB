@@ -371,6 +371,92 @@
         }
     });
 
+    // ─── Website tab (issue #56): template + structured content ──────────
+    const websiteCards = document.querySelectorAll('.website-template-card');
+    const websiteHeroHeadline = $('admin-website-hero-headline');
+    const websiteHeroSubhead = $('admin-website-hero-subhead');
+    const websiteAbout = $('admin-website-about');
+    const websiteContactEmail = $('admin-website-contact-email');
+    const websiteInstagram = $('admin-website-instagram');
+    const websiteReservations = $('admin-website-reservations');
+    const websiteStatus = $('admin-website-status');
+    const websiteSave = $('admin-website-save');
+    const websitePreview = $('admin-website-preview');
+    let selectedTemplate = 'saffron';
+    let websiteSavedAt = null;
+
+    function setSelectedTemplate(key) {
+        selectedTemplate = key === 'slate' ? 'slate' : 'saffron';
+        websiteCards.forEach(card => {
+            const active = card.getAttribute('data-template') === selectedTemplate;
+            card.classList.toggle('is-selected', active);
+            card.setAttribute('aria-pressed', String(active));
+        });
+    }
+    websiteCards.forEach(card => {
+        card.addEventListener('click', () => setSelectedTemplate(card.getAttribute('data-template')));
+    });
+
+    function updateSavedAgo() {
+        if (!websiteStatus || !websiteSavedAt) return;
+        const now = Date.now();
+        const ms = now - websiteSavedAt;
+        if (ms < 60000) websiteStatus.textContent = 'Saved just now';
+        else if (ms < 3600000) websiteStatus.textContent = `Saved ${Math.floor(ms / 60000)}m ago`;
+        else websiteStatus.textContent = `Saved ${Math.floor(ms / 3600000)}h ago`;
+        websiteStatus.className = 'visit-status success';
+    }
+    setInterval(updateSavedAgo, 30000);
+
+    async function loadWebsiteConfig() {
+        try {
+            const r = await fetch('api/host/website-config');
+            if (r.status === 401) return;
+            if (!r.ok) return;
+            const data = await r.json();
+            setSelectedTemplate(data.websiteTemplate);
+            const c = data.content || {};
+            if (websiteHeroHeadline) websiteHeroHeadline.value = c.heroHeadline || '';
+            if (websiteHeroSubhead) websiteHeroSubhead.value = c.heroSubhead || '';
+            if (websiteAbout) websiteAbout.value = c.about || '';
+            if (websiteContactEmail) websiteContactEmail.value = c.contactEmail || '';
+            if (websiteInstagram) websiteInstagram.value = c.instagramHandle || '';
+            if (websiteReservations) websiteReservations.value = c.reservationsNote || '';
+        } catch {
+            // non-blocking
+        }
+    }
+
+    if (websiteSave) {
+        websiteSave.addEventListener('click', async () => {
+            setStatus(websiteStatus, '', '');
+            const content = {
+                heroHeadline: websiteHeroHeadline?.value.trim() || '',
+                heroSubhead: websiteHeroSubhead?.value.trim() || '',
+                about: websiteAbout?.value.trim() || '',
+                contactEmail: websiteContactEmail?.value.trim() || '',
+                instagramHandle: websiteInstagram?.value.trim() || '',
+                reservationsNote: websiteReservations?.value.trim() || '',
+            };
+            try {
+                const r = await fetch('api/host/website-config', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ websiteTemplate: selectedTemplate, content }),
+                });
+                const data = await r.json().catch(() => ({}));
+                if (!r.ok) {
+                    setStatus(websiteStatus, data.error || 'Save failed', 'error');
+                    return;
+                }
+                websiteSavedAt = Date.now();
+                updateSavedAgo();
+            } catch {
+                setStatus(websiteStatus, 'Network error', 'error');
+            }
+        });
+    }
+
     [rangeSelect, partySizeSelect, startStageSelect, endStageSelect].forEach((el) => {
         el.addEventListener('change', loadAnalytics);
     });
@@ -397,7 +483,7 @@
 
     async function refreshAll() {
         rememberWorkspace();
-        await Promise.all([loadStats(), loadAnalytics(), loadVisitConfig(), loadVoiceConfig(), loadSiteConfig()]);
+        await Promise.all([loadStats(), loadAnalytics(), loadVisitConfig(), loadVoiceConfig(), loadSiteConfig(), loadWebsiteConfig()]);
     }
 
     function showLogin() {

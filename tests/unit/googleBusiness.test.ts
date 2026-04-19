@@ -52,12 +52,18 @@ function restoreEnv(): void {
     }
 }
 
-snapEnv(['GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET', 'GOOGLE_REDIRECT_URI', 'SKB_PUBLIC_BASE_URL']);
+snapEnv([
+    'OSH_GOOGLE_CLIENT_ID', 'OSH_GOOGLE_CLIENT_SECRET', 'OSH_GOOGLE_REDIRECT_URI',
+    'GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET', 'GOOGLE_REDIRECT_URI',
+    'SKB_PUBLIC_BASE_URL',
+]);
 
 const TEST_CONFIG: GoogleOAuthConfig = {
     clientId: 'test-client-id.apps.googleusercontent.com',
     clientSecret: 'test-client-secret',
-    redirectUri: 'http://localhost:3000/r/skb/api/google/oauth/callback',
+    // Phase D fix: one global callback URI registered in Google Cloud;
+    // tenant info rides in the `state` param, not the URL path.
+    redirectUri: 'http://localhost:3000/api/google/oauth/callback',
 };
 
 // Small mock helper that yields a Response-alike for fetch.
@@ -84,13 +90,69 @@ const cases: BaseTestCase[] = [
         },
     },
     {
-        name: 'credentials-present → readOAuthConfig returns both halves',
+        name: 'credentials-present (legacy GOOGLE_*) → readOAuthConfig returns both halves',
         tags: ['unit', 'googleBusiness', 'creds'],
         testFn: async () => {
+            delete process.env.OSH_GOOGLE_CLIENT_ID;
+            delete process.env.OSH_GOOGLE_CLIENT_SECRET;
             process.env.GOOGLE_CLIENT_ID = 'abc';
             process.env.GOOGLE_CLIENT_SECRET = 'xyz';
             const cfg = readOAuthConfig();
             const ok = cfg !== null && cfg.clientId === 'abc' && cfg.clientSecret === 'xyz';
+            restoreEnv();
+            return ok;
+        },
+    },
+    {
+        name: 'OSH_GOOGLE_* env vars are preferred over GOOGLE_* (rebrand)',
+        tags: ['unit', 'googleBusiness', 'creds', 'osh-env'],
+        testFn: async () => {
+            process.env.OSH_GOOGLE_CLIENT_ID = 'new-osh';
+            process.env.OSH_GOOGLE_CLIENT_SECRET = 'osh-secret';
+            process.env.GOOGLE_CLIENT_ID = 'legacy-google';
+            process.env.GOOGLE_CLIENT_SECRET = 'legacy-secret';
+            const cfg = readOAuthConfig();
+            const ok = cfg !== null && cfg.clientId === 'new-osh' && cfg.clientSecret === 'osh-secret';
+            restoreEnv();
+            return ok;
+        },
+    },
+    {
+        name: 'credentials-present (OSH_* only) → readOAuthConfig reads from OSH_ vars',
+        tags: ['unit', 'googleBusiness', 'creds', 'osh-env'],
+        testFn: async () => {
+            delete process.env.GOOGLE_CLIENT_ID;
+            delete process.env.GOOGLE_CLIENT_SECRET;
+            process.env.OSH_GOOGLE_CLIENT_ID = 'osh-only-client';
+            process.env.OSH_GOOGLE_CLIENT_SECRET = 'osh-only-secret';
+            const cfg = readOAuthConfig();
+            const ok = cfg !== null && cfg.clientId === 'osh-only-client' && cfg.clientSecret === 'osh-only-secret';
+            restoreEnv();
+            return ok;
+        },
+    },
+    {
+        name: 'resolveRedirectUri returns a GLOBAL path, not per-tenant (single registered URI)',
+        tags: ['unit', 'googleBusiness', 'osh-env'],
+        testFn: async () => {
+            delete process.env.OSH_GOOGLE_REDIRECT_URI;
+            delete process.env.GOOGLE_REDIRECT_URI;
+            process.env.SKB_PUBLIC_BASE_URL = 'https://example.com';
+            // Import dynamically to avoid capturing a stale readEnv cache.
+            const { resolveRedirectUri } = await import('../../src/services/googleBusiness.js');
+            const uri = resolveRedirectUri();
+            restoreEnv();
+            return uri === 'https://example.com/api/google/oauth/callback'
+                && !uri.includes('/r/');
+        },
+    },
+    {
+        name: 'OSH_GOOGLE_REDIRECT_URI overrides the computed default',
+        tags: ['unit', 'googleBusiness', 'osh-env'],
+        testFn: async () => {
+            process.env.OSH_GOOGLE_REDIRECT_URI = 'https://custom.example.com/oauth/cb';
+            const { resolveRedirectUri } = await import('../../src/services/googleBusiness.js');
+            const ok = resolveRedirectUri() === 'https://custom.example.com/oauth/cb';
             restoreEnv();
             return ok;
         },

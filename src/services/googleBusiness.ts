@@ -152,15 +152,24 @@ const GOOGLE_REVOKE_ENDPOINT = 'https://oauth2.googleapis.com/revoke';
 const GBP_ACCOUNTS_ENDPOINT = 'https://mybusinessaccountmanagement.googleapis.com/v1/accounts';
 const GBP_LOCATIONS_V1_BASE = 'https://mybusinessbusinessinformation.googleapis.com/v1';
 
+/**
+ * Read an env var with OSH_ preferred, GOOGLE_ as legacy fallback.
+ * Operators should set `OSH_GOOGLE_CLIENT_ID` etc. — the GOOGLE_* path
+ * exists only so an existing dev machine doesn't need to rotate keys.
+ */
+function readEnv(oshName: string, legacyName: string): string | undefined {
+    return process.env[oshName] ?? process.env[legacyName];
+}
+
 export function readOAuthConfig(): GoogleOAuthConfig | null {
-    const clientId = process.env.GOOGLE_CLIENT_ID;
-    const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
-    const redirectUri = process.env.GOOGLE_REDIRECT_URI;
+    const clientId = readEnv('OSH_GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_ID');
+    const clientSecret = readEnv('OSH_GOOGLE_CLIENT_SECRET', 'GOOGLE_CLIENT_SECRET');
+    const redirectUri = readEnv('OSH_GOOGLE_REDIRECT_URI', 'GOOGLE_REDIRECT_URI');
     if (!clientId || !clientSecret) return null;
-    // Redirect URI is computed dynamically per-request if unset (based on
-    // SKB_PUBLIC_BASE_URL and the :loc slug), but callers can override by
-    // exporting GOOGLE_REDIRECT_URI for environments where the inferred
-    // URL is wrong (e.g., Azure Front Door in front of the app service).
+    // Redirect URI defaults to a SINGLE global callback at
+    // `${SKB_PUBLIC_BASE_URL}/api/google/oauth/callback` — this is the one
+    // URL the operator registers in Google Cloud. The per-tenant routing
+    // is carried in the `state` param, not the URL path.
     return {
         clientId,
         clientSecret,
@@ -173,15 +182,18 @@ export function areCredentialsConfigured(): boolean {
 }
 
 /**
- * Compute the redirect URI for a specific :loc. If GOOGLE_REDIRECT_URI is
- * set, use that literally (operator override). Otherwise derive from
- * SKB_PUBLIC_BASE_URL plus the standard per-location callback path.
+ * The ONE callback URI that Google Cloud has registered for this OSH
+ * deployment. Tenant info rides in the `state` param; this URI is global.
+ *
+ * Operators can override with `OSH_GOOGLE_REDIRECT_URI` (e.g., when behind
+ * Azure Front Door where the externally-visible URL differs from the app's
+ * internal public base). Otherwise derived from `SKB_PUBLIC_BASE_URL`.
  */
-export function resolveRedirectUri(locationId: string): string {
-    const explicit = process.env.GOOGLE_REDIRECT_URI;
+export function resolveRedirectUri(): string {
+    const explicit = readEnv('OSH_GOOGLE_REDIRECT_URI', 'GOOGLE_REDIRECT_URI');
     if (explicit) return explicit;
     const base = process.env.SKB_PUBLIC_BASE_URL || 'http://localhost:3000';
-    return `${base.replace(/\/+$/, '')}/r/${locationId}/api/google/oauth/callback`;
+    return `${base.replace(/\/+$/, '')}/api/google/oauth/callback`;
 }
 
 // ============================================================================

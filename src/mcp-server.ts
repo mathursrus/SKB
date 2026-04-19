@@ -26,7 +26,7 @@ import { smsRouter, smsStatusRouter } from './routes/sms.js';
 import { authRouter } from './routes/auth.js';
 import { signupRouter } from './routes/signup.js';
 import { onboardingRouter } from './routes/onboarding.js';
-import { googleRouter } from './routes/google.js';
+import { googleRouter, googleOauthCallbackRouter } from './routes/google.js';
 import { renderQueuePage } from './services/queue-template.js';
 import { resolveVisit } from './services/visit-page.js';
 import { listLocations, ensureLocation, getLocation } from './services/locations.js';
@@ -123,11 +123,14 @@ app.use('/api', signupRouter());
 // so requireRole can extract the `loc` param and enforce tenant scoping.
 app.use('/r/:loc/api', onboardingRouter());
 
-// Google Business Profile OAuth + sync (issue #51 Phase D). Mounted at the
-// same per-location prefix so the tenant-binding check in requireRole
-// applies. The OAuth callback inside is intentionally public but validates
-// state + a PKCE cookie scoped to /r/:loc/api/google/oauth/.
+// Google Business Profile OAuth + sync (issue #51 Phase D). The per-tenant
+// endpoints (/status, /oauth/start, /disconnect, /sync, /link) are mounted
+// under /r/:loc/api/ so requireRole's tenant-binding applies. The OAuth
+// callback itself is GLOBAL (/api/google/oauth/callback) because Google
+// Cloud registers ONE exact redirect URI per OAuth client — per-tenant
+// paths would be unworkable. Tenant info rides in the signed `state` param.
 app.use('/r/:loc/api', googleRouter());
+app.use('/api', googleOauthCallbackRouter());
 
 // Friendly URLs for the public auth pages — /login and /reset-password
 // without `.html`. Spec §6.4: the marketing domain entry point is

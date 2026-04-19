@@ -106,6 +106,11 @@ export function googleRouter(): Router {
     // ─── POST /google/oauth/start ─────────────────────────────────────────
     // Returns { authUrl } and sets the PKCE verifier cookie. The admin JS
     // then redirects the window to authUrl.
+    //
+    // The PKCE cookie's Path is the GLOBAL callback path (/api/google/oauth/)
+    // so the browser will send it on the final callback hit, which no longer
+    // lives under /r/:loc/ — see the global callback router mounted in
+    // src/mcp-server.ts.
     r.post('/google/oauth/start', ownerOrAdmin, async (req: Request, res: Response) => {
         const config = readOAuthConfig();
         if (!config) {
@@ -119,7 +124,7 @@ export function googleRouter(): Router {
         // a captured state can't be replayed across sessions.
         const nonce = randomBytes(16).toString('base64url');
         const state = `${locationId}.${nonce}`;
-        const redirectUri = resolveRedirectUri(locationId);
+        const redirectUri = resolveRedirectUri();
         const authUrl = buildAuthUrl({
             config,
             redirectUri,
@@ -129,101 +134,16 @@ export function googleRouter(): Router {
         const cookie = mintPkceCookie(pkce.verifier, state);
         res.setHeader(
             'Set-Cookie',
-            `${PKCE_COOKIE}=${cookie}; Path=/r/${locationId}/api/google/oauth/; HttpOnly; SameSite=Lax; Max-Age=${PKCE_COOKIE_MAX_AGE_SECONDS}`,
+            `${PKCE_COOKIE}=${cookie}; Path=/api/google/oauth/; HttpOnly; SameSite=Lax; Max-Age=${PKCE_COOKIE_MAX_AGE_SECONDS}`,
         );
         res.json({ authUrl });
     });
 
-    // ─── GET /google/oauth/callback ───────────────────────────────────────
-    // Public route — no requireRole gate. Correctness comes from:
-    //   (1) state must match the location in the URL (tenant binding),
-    //   (2) the PKCE cookie's stateHash must match sha256(state) (request binding),
-    //   (3) Google itself enforces the code_verifier.
-    r.get('/google/oauth/callback', async (req: Request, res: Response) => {
-        const locationId = loc(req);
-        const code = typeof req.query.code === 'string' ? req.query.code : '';
-        const state = typeof req.query.state === 'string' ? req.query.state : '';
-        const errorParam = typeof req.query.error === 'string' ? req.query.error : '';
-        if (errorParam) {
-            res.redirect(302, `/r/${locationId}/admin.html?tab=settings&google=error=${encodeURIComponent(errorParam)}`);
-            return;
-        }
-        if (!code || !state) {
-            res.redirect(302, `/r/${locationId}/admin.html?tab=settings&google=error=missing_code`);
-            return;
-        }
-        // state format: `<locationId>.<nonce>`
-        const dot = state.indexOf('.');
-        if (dot <= 0 || state.slice(0, dot) !== locationId) {
-            res.redirect(302, `/r/${locationId}/admin.html?tab=settings&google=error=bad_state`);
-            return;
-        }
-        const raw = readNamedCookie(req.headers.cookie, PKCE_COOKIE);
-        if (!raw) {
-            res.redirect(302, `/r/${locationId}/admin.html?tab=settings&google=error=missing_pkce`);
-            return;
-        }
-        const parsed = parsePkceCookie(raw);
-        if (!parsed) {
-            res.redirect(302, `/r/${locationId}/admin.html?tab=settings&google=error=bad_pkce`);
-            return;
-        }
-        const expected = createHash('sha256').update(state).digest('hex');
-        if (parsed.stateHash !== expected) {
-            res.redirect(302, `/r/${locationId}/admin.html?tab=settings&google=error=state_mismatch`);
-            return;
-        }
-        const config = readOAuthConfig();
-        if (!config) {
-            res.redirect(302, `/r/${locationId}/admin.html?tab=settings&google=error=creds_missing`);
-            return;
-        }
-        // Identify who initiated this connect — we prefer the current session
-        // owner/admin so audit logs attribute the token row. The callback is
-        // public so we don't have a requireRole middleware here; we peek at
-        // the skb_session cookie the same way requireRole does.
-        const connectedByUserId = await resolveConnectedByUserId(req);
-
-        try {
-            const redirectUri = resolveRedirectUri(locationId);
-            const tokens = await exchangeCode({
-                config,
-                redirectUri,
-                code,
-                codeVerifier: parsed.verifier,
-            });
-            await upsertToken({
-                locationId,
-                connectedByUserId,
-                accessToken: tokens.accessToken,
-                refreshToken: tokens.refreshToken,
-                expiresAt: new Date(Date.now() + tokens.expiresIn * 1000),
-            });
-            // Best-effort: if the Google account has exactly one location,
-            // link it automatically. Multi-location accounts will hit the
-            // picker in the Settings card.
-            try {
-                const accounts = await listGbpAccounts(locationId);
-                if (accounts.length === 1) {
-                    const locs = await listGbpLocationsForAccount(locationId, accounts[0].name);
-                    if (locs.length === 1) {
-                        await setLinkedLocation(locationId, locs[0].name);
-                    }
-                }
-            } catch {
-                // Ignore — the picker path will recover.
-            }
-            // Clear the PKCE cookie.
-            res.setHeader(
-                'Set-Cookie',
-                `${PKCE_COOKIE}=; Path=/r/${locationId}/api/google/oauth/; HttpOnly; SameSite=Lax; Max-Age=0`,
-            );
-            res.redirect(302, `/r/${locationId}/admin.html?tab=settings&google=connected`);
-        } catch (err) {
-            console.error('[google] oauth callback exchange error:', err);
-            res.redirect(302, `/r/${locationId}/admin.html?tab=settings&google=error=exchange_failed`);
-        }
-    });
+    // The OAuth callback lives in its own global router below (googleOauthCallbackRouter)
+    // because Google Cloud requires ONE exact registered redirect URI per OAuth
+    // client — a per-tenant path would force a new registration for every
+    // restaurant. Tenant info is carried in the `state` param, parsed by the
+    // global handler. See src/mcp-server.ts for the mount.
 
     // ─── POST /google/disconnect ──────────────────────────────────────────
     r.post('/google/disconnect', ownerOrAdmin, async (req: Request, res: Response) => {
@@ -334,6 +254,98 @@ export function googleRouter(): Router {
         }
     });
 
+    return r;
+}
+
+/**
+ * The GLOBAL OAuth callback router. Mounted at `/api` (NOT under `/r/:loc/`)
+ * so Google Cloud registers ONE redirect URI per OAuth client, not one per
+ * tenant. Tenant info is read from the `state` query param, which is bound
+ * to the PKCE cookie by `sha256(state)` so an attacker can't forge it.
+ *
+ * Correctness depends on:
+ *   (1) `state` has shape `<locationId>.<nonce>` — the locationId tells us
+ *       which tenant admin to redirect back to.
+ *   (2) The PKCE cookie's stateHash matches sha256(state) — proves the
+ *       callback completion is bound to the same /oauth/start request.
+ *   (3) Google itself enforces that code_verifier matches the challenge it
+ *       stored at /authorize time.
+ */
+export function googleOauthCallbackRouter(): Router {
+    const r = Router();
+    r.get('/google/oauth/callback', async (req: Request, res: Response) => {
+        const code = typeof req.query.code === 'string' ? req.query.code : '';
+        const state = typeof req.query.state === 'string' ? req.query.state : '';
+        const errorParam = typeof req.query.error === 'string' ? req.query.error : '';
+
+        // Parse `<locationId>.<nonce>` up front — we need it even for the
+        // error redirects so the user lands back on their own admin page.
+        // If state is missing or malformed, we fall back to the platform
+        // marketing landing (naked `/`) with a query param.
+        const dot = state.indexOf('.');
+        const locationId = dot > 0 ? state.slice(0, dot) : '';
+        const errRedirect = (code: string) => {
+            if (locationId && /^[a-z0-9-]{1,60}$/.test(locationId)) {
+                return `/r/${locationId}/admin.html?tab=settings&google=error=${encodeURIComponent(code)}`;
+            }
+            return `/?google=error=${encodeURIComponent(code)}`;
+        };
+
+        if (errorParam) { res.redirect(302, errRedirect(errorParam)); return; }
+        if (!code || !state) { res.redirect(302, errRedirect('missing_code')); return; }
+        if (!locationId || !/^[a-z0-9-]{1,60}$/.test(locationId)) {
+            res.redirect(302, errRedirect('bad_state'));
+            return;
+        }
+
+        const raw = readNamedCookie(req.headers.cookie, PKCE_COOKIE);
+        if (!raw) { res.redirect(302, errRedirect('missing_pkce')); return; }
+        const parsed = parsePkceCookie(raw);
+        if (!parsed) { res.redirect(302, errRedirect('bad_pkce')); return; }
+        const expected = createHash('sha256').update(state).digest('hex');
+        if (parsed.stateHash !== expected) { res.redirect(302, errRedirect('state_mismatch')); return; }
+
+        const config = readOAuthConfig();
+        if (!config) { res.redirect(302, errRedirect('creds_missing')); return; }
+
+        const connectedByUserId = await resolveConnectedByUserId(req);
+        try {
+            const redirectUri = resolveRedirectUri();
+            const tokens = await exchangeCode({
+                config,
+                redirectUri,
+                code,
+                codeVerifier: parsed.verifier,
+            });
+            await upsertToken({
+                locationId,
+                connectedByUserId,
+                accessToken: tokens.accessToken,
+                refreshToken: tokens.refreshToken,
+                expiresAt: new Date(Date.now() + tokens.expiresIn * 1000),
+            });
+            // Best-effort single-location auto-link.
+            try {
+                const accounts = await listGbpAccounts(locationId);
+                if (accounts.length === 1) {
+                    const locs = await listGbpLocationsForAccount(locationId, accounts[0].name);
+                    if (locs.length === 1) {
+                        await setLinkedLocation(locationId, locs[0].name);
+                    }
+                }
+            } catch { /* picker path handles multi-location */ }
+
+            // Clear the PKCE cookie (global path).
+            res.setHeader(
+                'Set-Cookie',
+                `${PKCE_COOKIE}=; Path=/api/google/oauth/; HttpOnly; SameSite=Lax; Max-Age=0`,
+            );
+            res.redirect(302, `/r/${locationId}/admin.html?tab=settings&google=connected`);
+        } catch (err) {
+            console.error('[google] oauth callback exchange error:', err);
+            res.redirect(302, errRedirect('exchange_failed'));
+        }
+    });
     return r;
 }
 

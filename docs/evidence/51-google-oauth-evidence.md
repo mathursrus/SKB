@@ -109,28 +109,43 @@ You don't have Google Cloud credentials provisioned yet. When you do:
    account). Leave in "Testing" status — you don't need to publish for
    validation.
 4. **APIs & Services → Credentials → Create credentials → OAuth client ID**.
-   Type: **Web application**. Authorized redirect URI:
-   `https://skb-waitlist.azurewebsites.net/r/<slug>/api/google/oauth/callback`.
-   For local testing, also add
-   `http://localhost:3000/r/skb/api/google/oauth/callback`.
-   Copy the client ID + client secret.
+   Type: **Web application**. Authorized redirect URI — **one single URI per
+   OAuth client**, not per-tenant (tenant info rides in the `state` param):
 
-### 2. Environment variables on the server
+   - Prod: `https://skb-waitlist.azurewebsites.net/api/google/oauth/callback`
+   - Local: `http://localhost:3000/api/google/oauth/callback`
 
-Set on the Azure App Service (or local `.env`):
+   Add both if you want to test locally and deploy. Copy the client ID +
+   client secret.
 
+### 2. Environment variables
+
+The canonical names are **`OSH_GOOGLE_CLIENT_ID`** and
+**`OSH_GOOGLE_CLIENT_SECRET`** (the code also accepts legacy `GOOGLE_*`
+names as fallback during the rebrand window — prefer the `OSH_` form).
+
+**On Windows (development machine)** — via System Properties → Environment
+Variables, or from a Command Prompt:
+
+```cmd
+setx OSH_GOOGLE_CLIENT_ID "<from step 4>"
+setx OSH_GOOGLE_CLIENT_SECRET "<from step 4>"
 ```
-GOOGLE_CLIENT_ID=<from step 4>
-GOOGLE_CLIENT_SECRET=<from step 4>
-# Optional — only needed if you're behind a proxy that rewrites paths.
-# Leave unset and OSH computes it from SKB_PUBLIC_BASE_URL + /r/:loc/....
-GOOGLE_REDIRECT_URI=
-```
 
-If any of `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` is missing, the
-admin Settings card shows **"Ask your OSH admin to configure Google
-credentials"** and the Connect button is disabled. The rest of OSH
-keeps working.
+Then close + reopen your terminal so the new vars are inherited.
+
+**On Azure App Service (production)** — in Configuration → Application settings:
+
+| Name | Value |
+|---|---|
+| `OSH_GOOGLE_CLIENT_ID` | `<client id>` |
+| `OSH_GOOGLE_CLIENT_SECRET` | `<client secret>` |
+| `OSH_GOOGLE_REDIRECT_URI` | *(optional)* set only if behind a proxy that rewrites paths; leave unset and OSH computes `${SKB_PUBLIC_BASE_URL}/api/google/oauth/callback` |
+
+If either `OSH_GOOGLE_CLIENT_ID` or `OSH_GOOGLE_CLIENT_SECRET` is missing,
+the admin Settings card shows **"Ask your OSH admin to configure Google
+credentials"** and the Connect button is disabled. The rest of OSH keeps
+working normally.
 
 ### 3. Live validation checklist
 

@@ -84,14 +84,19 @@ let ownerACookie: string | null = null;
 let ownerBCookie: string | null = null;
 
 function clearCreds() {
+    delete process.env.OSH_GOOGLE_CLIENT_ID;
+    delete process.env.OSH_GOOGLE_CLIENT_SECRET;
+    delete process.env.OSH_GOOGLE_REDIRECT_URI;
     delete process.env.GOOGLE_CLIENT_ID;
     delete process.env.GOOGLE_CLIENT_SECRET;
     delete process.env.GOOGLE_REDIRECT_URI;
 }
 function setCreds() {
-    process.env.GOOGLE_CLIENT_ID = 'it-client.apps.googleusercontent.com';
-    process.env.GOOGLE_CLIENT_SECRET = 'it-secret';
-    process.env.GOOGLE_REDIRECT_URI = `${getTestServerUrl()}/r/${LOC_A}/api/google/oauth/callback`;
+    process.env.OSH_GOOGLE_CLIENT_ID = 'it-client.apps.googleusercontent.com';
+    process.env.OSH_GOOGLE_CLIENT_SECRET = 'it-secret';
+    // Global callback URI (Phase D fix): one registered URI for the whole
+    // OAuth client, tenant rides in state param.
+    process.env.OSH_GOOGLE_REDIRECT_URI = `${getTestServerUrl()}/api/google/oauth/callback`;
 }
 
 const cases: BaseTestCase[] = [
@@ -266,10 +271,12 @@ const cases: BaseTestCase[] = [
                 const body = await r.json() as { authUrl?: string };
                 if (typeof body.authUrl !== 'string') return false;
                 if (!body.authUrl.startsWith('https://accounts.google.com/')) return false;
-                // PKCE cookie must be set on the /r/:loc/api/google/oauth/ path.
+                // PKCE cookie must be set on the GLOBAL callback path so it's
+                // sent on the final hit to /api/google/oauth/callback (the ONE
+                // registered redirect URI). Tenant info rides in the state.
                 const setCookie = (r as unknown as Response).headers.get('set-cookie') ?? '';
                 return setCookie.includes('skb_google_oauth=')
-                    && setCookie.includes(`Path=/r/${LOC_A}/api/google/oauth/`);
+                    && setCookie.includes('Path=/api/google/oauth/');
             }
             if (r.status === 503) {
                 const body = await r.json() as { error?: string };

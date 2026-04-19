@@ -5,7 +5,42 @@
 **Goal**: Take them from "I've heard about this thing" to "my front-of-house runs itself and a guest just joined" in ~12 minutes.
 **Thesis to sell** (don't say it literally; let the product say it): *Delight the guest. OSH handles the rest — waitlist, website, staff logins, hours, menu, phone, QR.* The owner's job is hospitality; the mundane is ours.
 **Prerequisites**: Dev server running on `localhost:3000` (or the staging URL). MongoDB up. If you've rehearsed this before, run `node scripts/demo-reset-abcd.mjs` to wipe any prior ABCD state.
-**Verified**: Walked end-to-end 2026-04-18 by supervisor; bugs surfaced during the demo walk are tracked in §"Demo-driven fixes" at the end.
+**Verified**: Walked end-to-end 2026-04-18 by supervisor; bugs surfaced during the demo walk are tracked in §"Demo-driven fixes" at the end. Follow-up UI polish + menu builder + email sign-in + Set-PIN + Google rate-limit UX validated 2026-04-19.
+
+### Pre-seeded demo account (for the "it's already real" moment)
+
+If you want to skip signup and jump straight to a fully-configured admin as the owner, run:
+
+```
+npx tsx scripts/seed-demo-owner.ts
+```
+
+It idempotently provisions a demo user you can log in with on either tenant:
+
+| Field | Value |
+|---|---|
+| Email | `demo@osh.test` |
+| Password | `OshDemo2026!` |
+| Role on `skb` | owner |
+| Role on `abcd` | admin |
+
+Sign in from the polished admin login screen: visit `/r/skb/admin.html` (or `/r/abcd/admin.html`) → click **"Sign in with your OSH account →"** → paste the credentials above. PIN unlock still works for the host-stand path; this is the owner/admin path that unlocks admin-level saves (menu, QR routing, profile, Device PIN, Google Business).
+
+### New surfaces to call out (post-Phase-D follow-ups)
+
+The workspace is now a **7-tab accordion IA**, each tab single-purpose:
+
+| Tab | Mental model |
+|---|---|
+| Ops Dashboard | What happened last shift (Service Debrief + Lead Times) |
+| Profile | The restaurant itself (address / hours / public host) — each as a collapsed sub-accordion |
+| Website | Template / Content / Signature dishes — 3 sub-accordions + single Save strip |
+| Menu | Structured menu builder (sections → items with name/desc/price) + optional External link fallback |
+| Front desk | How guests reach the stand: IVR, Door QR routing, Device PIN (owner can Set PIN to any 4–6 digit value) |
+| Staff | Owner-only; invite/revoke |
+| Integrations | MCP/AI + Google Business Profile (both live here now; sign-in-required surfaces show a clear CTA for PIN-only users) |
+
+Every admin-card is a collapsed `<details>` accordion by default. Saves flash "Saved ✓" for 3s then clear — no more stuck "Saved Nm ago" ticker. "Pick image" is a real `<button>` (not a `<label>` wrap) for reliability across popup-blockers.
 
 ---
 
@@ -231,7 +266,30 @@ Watch Claude call `list_waiting` under the hood and return **Jamie K., party of 
 
 > "That's the whole point of OSH in one screen: you have a guest in front of you. You ask your phone a question. You get the answer. You go back to the guest."
 
-**Safety aside**: Call out the yellow safety note on the card. The bearer token is the host PIN — if it leaks, anyone can operate the waitlist. Rotate it from Settings → Device PIN. (Per-owner API keys are a future sub-task.)
+**Safety aside**: Call out the yellow safety note on the card. The bearer token is the host PIN — if it leaks, anyone can operate the waitlist. Rotate it from **Front desk → Device PIN → Set PIN** (the PIN card now takes a direct admin-chosen 4–6 digit value, no "regenerate" coin-flip). Per-owner API keys are a future sub-task.
+
+### What the AI can actually do (MCP surface — 17+ tools)
+
+The MCP endpoint exposes every admin action the browser does:
+
+| Category | Tools |
+|---|---|
+| Waiting list | `list_waiting`, `add_party`, `seat_party`, `mark_no_show`, `notify_party`, `send_chat`, `read_chat`, `mark_chat_read` |
+| Seated + timeline | `list_seated`, `advance_party`, `get_party_timeline` |
+| Analytics / debrief | `list_completed`, `get_stats`, `get_analytics` |
+| ETA config | `get_settings`, `set_settings` |
+| Menu builder | `get_menu`, `set_menu` |
+| Door QR routing | `get_visit_config`, `set_visit_config` |
+| Restaurant profile | `get_site_config`, `set_site_config` |
+| IVR | `get_voice_config`, `set_voice_config` |
+| Website (template + content) | `get_website_config`, `set_website_config` |
+| Device PIN | `get_device_pin`, `set_device_pin` |
+| Google Business | `get_google_status`, `google_sync`, `google_disconnect` *(connect requires browser OAuth)* |
+| Ops | `file_issue` |
+
+Plug AI in once and an owner can literally say "*Claude, change our menu — the new brunch section has three items: Huevos $14, Shakshuka $16, Avocado toast $12*" and it'll land in the structured menu, which pushes out to the public /menu page and (when Google is connected) the listing.
+
+> "Two commands and your waitlist, menu, hours, phone, and Google listing all answer to your AI."
 
 ---
 

@@ -41,3 +41,4 @@ admin-tab-*.png
 public/assets/ui-tabs-diner-*/
 public/assets/wizard-ui-*/
 public/assets/abcd/
+.claude/settings.local.json

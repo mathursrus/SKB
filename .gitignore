@@ -39,3 +39,5 @@ admin-tab-*.png
 # in tests/ui/admin-tabs.ui.test.ts provisions a random tenant each run
 # and uploads a 1x1 PNG to verify the signature-dish pipeline end to end.
 public/assets/ui-tabs-diner-*/
+public/assets/wizard-ui-*/
+public/assets/abcd/

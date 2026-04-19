@@ -530,6 +530,22 @@ export function hostRouter(): Router {
     // frontDeskPhone, voiceLargePartyThreshold. The press-0 transfer branch
     // added in issue #45 dials whatever `frontDeskPhone` the owner has
     // saved here.
+    // Onboarding-wizard "you're live" reveal (issue #51 Phase C). The wizard
+    // finishes by showing the owner their host-stand PIN so they can print the
+    // door poster. Gated to requireAdmin so staff-role accounts can't lift the
+    // PIN from the admin page. Returns 404 when the location exists but no
+    // per-location PIN is set (falls back to env SKB_HOST_PIN in that case,
+    // which the env-based single-tenant installs don't need to surface).
+    r.get('/host/pin', requireAdmin, async (req: Request, res: Response) => {
+        try {
+            const location = await getLocation(loc(req));
+            if (!location) { res.status(404).json({ error: 'location not found' }); return; }
+            const pin = location.pin ?? '';
+            if (!pin) { res.status(404).json({ error: 'pin not set' }); return; }
+            res.json({ pin });
+        } catch (err) { dbError(res, err); }
+    });
+
     r.get('/host/voice-config', requireHost, async (req: Request, res: Response) => {
         try {
             const location = await getLocation(loc(req));

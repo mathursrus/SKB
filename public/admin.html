@@ -25,70 +25,362 @@
 </div>
 
 <div id="admin-view" style="display:none">
-    <!-- Owner onboarding wizard (issue #54, spec §6.2). Dismissable modal
-         overlay surfaced on first load of admin. Client polls
-         /api/onboarding/steps to decide visibility; marking a step
-         complete POSTs back. Hidden entirely for role=host.
-         Phase C of issue #51 will rebuild this; left untouched here. -->
-    <div id="onboarding-overlay" class="onboarding-overlay" style="display:none" role="dialog" aria-modal="true" aria-labelledby="onboarding-title">
+    <!-- Owner onboarding wizard (issue #51 Phase C — full rebuild).
+         Self-contained inline flow of 6 embedded-form steps with Save/Cancel
+         + dirty-tracking per step, live iframe preview pane, and a clickable
+         progress indicator on the left. Opens on first admin load when any
+         step is incomplete; dismissable via the × in the head or the "Setup"
+         pill in the topbar reopens it. Driven by public/onboarding.js.
+
+         Outer DIV id + data-target-step attributes preserved for backward
+         compatibility with Phase B helpers. Step ids are basics / template /
+         content / dishes / menu / staff — matching src/routes/onboarding.ts. -->
+    <div id="onboarding-overlay" class="onboarding-overlay onboarding-wizard" style="display:none" role="dialog" aria-modal="true" aria-labelledby="onboarding-title">
         <div class="onboarding-backdrop"></div>
-        <div class="onboarding-modal">
+        <div class="onboarding-wiz-modal">
             <div class="onboarding-head">
                 <div>
-                    <h2 id="onboarding-title">Welcome &mdash; let&rsquo;s finish setting up.</h2>
-                    <p>Your restaurant is already live &mdash; these are optional polish steps. You can dismiss this and come back anytime from the Setup button.</p>
+                    <h2 id="onboarding-title">Welcome &mdash; let&rsquo;s set up your restaurant.</h2>
+                    <p id="onboarding-subtitle">Six short steps. Every save is kept; you can dismiss and come back anytime from the Setup pill.</p>
                 </div>
                 <button type="button" id="onboarding-dismiss" class="onboarding-dismiss" aria-label="Dismiss">&times;</button>
             </div>
-            <ol class="onboarding-steps" id="onboarding-steps-list">
-                <li class="onboarding-step" data-step="basics">
-                    <div class="onboarding-badge">1</div>
-                    <div class="onboarding-step-body">
-                        <h4>Restaurant basics</h4>
-                        <p>Your address, phone, and weekly hours &mdash; used on your public site and in the IVR greeting.</p>
-                        <div class="onboarding-step-actions">
-                            <a href="#admin-site-street" class="onboarding-jump" data-target-step="basics">Open basics &rarr;</a>
-                            <button type="button" class="onboarding-done" data-step="basics">Mark complete</button>
+
+            <div class="onboarding-wiz-body">
+                <!-- Left: clickable step list (progress indicator). -->
+                <aside class="onboarding-wiz-nav" aria-label="Setup steps">
+                    <ol class="onboarding-wiz-steps" id="onboarding-steps-list">
+                        <li class="onboarding-wiz-step current" data-step="basics" data-target-step="basics" data-step-index="1">
+                            <div class="onboarding-badge"><span class="onboarding-badge-number">1</span></div>
+                            <div class="onboarding-wiz-step-meta">
+                                <h4>Welcome &amp; basics</h4>
+                                <p>Address, phone, hours</p>
+                            </div>
+                        </li>
+                        <li class="onboarding-wiz-step todo" data-step="template" data-target-step="template" data-step-index="2">
+                            <div class="onboarding-badge"><span class="onboarding-badge-number">2</span></div>
+                            <div class="onboarding-wiz-step-meta">
+                                <h4>Website template</h4>
+                                <p>Pick Saffron or Slate</p>
+                            </div>
+                        </li>
+                        <li class="onboarding-wiz-step todo" data-step="content" data-target-step="content" data-step-index="3">
+                            <div class="onboarding-badge"><span class="onboarding-badge-number">3</span></div>
+                            <div class="onboarding-wiz-step-meta">
+                                <h4>Website content</h4>
+                                <p>Hero, about, socials</p>
+                            </div>
+                        </li>
+                        <li class="onboarding-wiz-step todo" data-step="dishes" data-target-step="dishes" data-step-index="4">
+                            <div class="onboarding-badge"><span class="onboarding-badge-number">4</span></div>
+                            <div class="onboarding-wiz-step-meta">
+                                <h4>Signature dishes</h4>
+                                <p>Three hero cards</p>
+                            </div>
+                        </li>
+                        <li class="onboarding-wiz-step todo" data-step="menu" data-target-step="menu" data-step-index="5">
+                            <div class="onboarding-badge"><span class="onboarding-badge-number">5</span></div>
+                            <div class="onboarding-wiz-step-meta">
+                                <h4>Menu</h4>
+                                <p>Link or PDF &mdash; optional</p>
+                            </div>
+                        </li>
+                        <li class="onboarding-wiz-step todo" data-step="staff" data-target-step="staff" data-step-index="6">
+                            <div class="onboarding-badge"><span class="onboarding-badge-number">6</span></div>
+                            <div class="onboarding-wiz-step-meta">
+                                <h4>Invite staff</h4>
+                                <p>Host / admin logins</p>
+                            </div>
+                        </li>
+                    </ol>
+                    <div class="onboarding-wiz-progress">
+                        <span id="onboarding-progress">0 of 6 complete</span>
+                    </div>
+                </aside>
+
+                <!-- Middle: active step's form. Each panel is shown when its
+                     data-step matches the active step. -->
+                <section class="onboarding-wiz-main">
+                    <!-- Step 1: basics -->
+                    <div class="onboarding-wiz-panel" data-panel="basics">
+                        <h3>Welcome &amp; basics</h3>
+                        <p class="onboarding-wiz-lead">Your address, phone, and weekly hours. These drive your public site and the IVR greeting.</p>
+                        <form class="onboarding-wiz-form" id="onboarding-form-basics" novalidate>
+                            <div class="wiz-field">
+                                <label for="wiz-basics-street">Street address</label>
+                                <input type="text" id="wiz-basics-street" name="street" autocomplete="street-address" />
+                            </div>
+                            <div class="wiz-grid-3">
+                                <div class="wiz-field">
+                                    <label for="wiz-basics-city">City</label>
+                                    <input type="text" id="wiz-basics-city" name="city" autocomplete="address-level2" />
+                                </div>
+                                <div class="wiz-field">
+                                    <label for="wiz-basics-state">State</label>
+                                    <input type="text" id="wiz-basics-state" name="state" maxlength="2" autocomplete="address-level1" />
+                                </div>
+                                <div class="wiz-field">
+                                    <label for="wiz-basics-zip">ZIP</label>
+                                    <input type="text" id="wiz-basics-zip" name="zip" autocomplete="postal-code" />
+                                </div>
+                            </div>
+                            <div class="wiz-field">
+                                <label for="wiz-basics-phone">Front-desk phone</label>
+                                <input type="tel" id="wiz-basics-phone" name="phone" placeholder="(555) 555-0142" autocomplete="tel" />
+                                <p class="wiz-help">Used for the press-0 IVR transfer branch.</p>
+                            </div>
+                            <fieldset class="wiz-field wiz-hours">
+                                <legend>Weekly hours</legend>
+                                <table class="wiz-hours-grid" aria-label="Weekly hours">
+                                    <thead>
+                                        <tr><th></th><th>Closed</th><th>Opens</th><th>Closes</th></tr>
+                                    </thead>
+                                    <tbody id="wiz-basics-hours-body"></tbody>
+                                </table>
+                            </fieldset>
+                            <div class="wiz-validation" id="wiz-basics-validation" role="alert" aria-live="polite"></div>
+                            <div class="wiz-actions">
+                                <button type="button" class="wiz-cancel" data-step="basics" disabled>Cancel</button>
+                                <button type="button" class="wiz-save" data-step="basics" disabled>Save</button>
+                                <div class="wiz-actions-spacer"></div>
+                                <button type="button" class="wiz-back" data-action="back" disabled>Back</button>
+                                <button type="button" class="wiz-skip" data-action="skip">Skip</button>
+                                <button type="button" class="wiz-next" data-action="next">Next &rarr;</button>
+                            </div>
+                        </form>
+                    </div>
+
+                    <!-- Step 2: template -->
+                    <div class="onboarding-wiz-panel" data-panel="template" hidden>
+                        <h3>Pick a website template</h3>
+                        <p class="onboarding-wiz-lead">Two hand-built templates. Pick one, preview it live, change your mind any time.</p>
+                        <form class="onboarding-wiz-form" id="onboarding-form-template">
+                            <div class="wiz-template-cards">
+                                <label class="wiz-template-card" data-template="saffron">
+                                    <input type="radio" name="template" value="saffron" />
+                                    <div class="wiz-template-card-body">
+                                        <div class="wiz-template-swatch wiz-template-swatch-saffron"></div>
+                                        <h4>Saffron</h4>
+                                        <p>Warm cream + marigold. Friendly neighborhood feel.</p>
+                                    </div>
+                                </label>
+                                <label class="wiz-template-card" data-template="slate">
+                                    <input type="radio" name="template" value="slate" />
+                                    <div class="wiz-template-card-body">
+                                        <div class="wiz-template-swatch wiz-template-swatch-slate"></div>
+                                        <h4>Slate</h4>
+                                        <p>Cool grays + deep teal. Modern evening dining.</p>
+                                    </div>
+                                </label>
+                            </div>
+                            <div class="wiz-validation" id="wiz-template-validation" role="alert" aria-live="polite"></div>
+                            <div class="wiz-actions">
+                                <button type="button" class="wiz-cancel" data-step="template" disabled>Cancel</button>
+                                <button type="button" class="wiz-save" data-step="template" disabled>Save</button>
+                                <div class="wiz-actions-spacer"></div>
+                                <button type="button" class="wiz-back" data-action="back">&larr; Back</button>
+                                <button type="button" class="wiz-next" data-action="next">Next &rarr;</button>
+                            </div>
+                        </form>
+                    </div>
+
+                    <!-- Step 3: content -->
+                    <div class="onboarding-wiz-panel" data-panel="content" hidden>
+                        <h3>Website content</h3>
+                        <p class="onboarding-wiz-lead">What people see above the fold. You can edit this any time from the Website tab.</p>
+                        <form class="onboarding-wiz-form" id="onboarding-form-content">
+                            <div class="wiz-field">
+                                <label for="wiz-content-headline">Hero headline</label>
+                                <input type="text" id="wiz-content-headline" name="heroHeadline" maxlength="80" placeholder="Slow-simmered tonkotsu, ready tonight." />
+                            </div>
+                            <div class="wiz-field">
+                                <label for="wiz-content-subhead">Hero subhead</label>
+                                <input type="text" id="wiz-content-subhead" name="heroSubhead" maxlength="160" placeholder="No app, no reservation line — just join from your phone." />
+                            </div>
+                            <div class="wiz-field">
+                                <label for="wiz-content-about">About paragraph</label>
+                                <textarea id="wiz-content-about" name="about" rows="4" maxlength="800" placeholder="A sentence or two about your restaurant."></textarea>
+                            </div>
+                            <div class="wiz-grid-2">
+                                <div class="wiz-field">
+                                    <label for="wiz-content-instagram">Instagram handle</label>
+                                    <input type="text" id="wiz-content-instagram" name="instagramHandle" placeholder="@yourhandle" />
+                                </div>
+                                <div class="wiz-field">
+                                    <label for="wiz-content-reservations">Reservations note</label>
+                                    <input type="text" id="wiz-content-reservations" name="reservationsNote" placeholder="Walk-ins welcome" />
+                                </div>
+                            </div>
+                            <div class="wiz-validation" id="wiz-content-validation" role="alert" aria-live="polite"></div>
+                            <div class="wiz-actions">
+                                <button type="button" class="wiz-cancel" data-step="content" disabled>Cancel</button>
+                                <button type="button" class="wiz-save" data-step="content" disabled>Save</button>
+                                <div class="wiz-actions-spacer"></div>
+                                <button type="button" class="wiz-back" data-action="back">&larr; Back</button>
+                                <button type="button" class="wiz-skip" data-action="skip">Skip</button>
+                                <button type="button" class="wiz-next" data-action="next">Next &rarr;</button>
+                            </div>
+                        </form>
+                    </div>
+
+                    <!-- Step 4: dishes -->
+                    <div class="onboarding-wiz-panel" data-panel="dishes" hidden>
+                        <h3>Signature dishes</h3>
+                        <p class="onboarding-wiz-lead">Three cards on your homepage. Upload photos here or add them later from the Website tab.</p>
+                        <form class="onboarding-wiz-form" id="onboarding-form-dishes">
+                            <div class="wiz-dish-rows" id="wiz-dish-rows">
+                                <div class="wiz-dish-row" data-dish-index="0">
+                                    <div class="wiz-dish-photo">
+                                        <img class="wiz-dish-preview" alt="" src="" data-dish-index="0" />
+                                        <label class="wiz-dish-upload">
+                                            <input type="file" class="wiz-dish-file" accept="image/*" data-dish-index="0" />
+                                            <span>Upload photo</span>
+                                        </label>
+                                    </div>
+                                    <div class="wiz-dish-meta">
+                                        <input type="text" class="wiz-dish-title" placeholder="Dish name" data-dish-index="0" />
+                                        <textarea class="wiz-dish-desc" rows="2" placeholder="One line on what makes it special." data-dish-index="0"></textarea>
+                                    </div>
+                                </div>
+                                <div class="wiz-dish-row" data-dish-index="1">
+                                    <div class="wiz-dish-photo">
+                                        <img class="wiz-dish-preview" alt="" src="" data-dish-index="1" />
+                                        <label class="wiz-dish-upload">
+                                            <input type="file" class="wiz-dish-file" accept="image/*" data-dish-index="1" />
+                                            <span>Upload photo</span>
+                                        </label>
+                                    </div>
+                                    <div class="wiz-dish-meta">
+                                        <input type="text" class="wiz-dish-title" placeholder="Dish name" data-dish-index="1" />
+                                        <textarea class="wiz-dish-desc" rows="2" placeholder="One line on what makes it special." data-dish-index="1"></textarea>
+                                    </div>
+                                </div>
+                                <div class="wiz-dish-row" data-dish-index="2">
+                                    <div class="wiz-dish-photo">
+                                        <img class="wiz-dish-preview" alt="" src="" data-dish-index="2" />
+                                        <label class="wiz-dish-upload">
+                                            <input type="file" class="wiz-dish-file" accept="image/*" data-dish-index="2" />
+                                            <span>Upload photo</span>
+                                        </label>
+                                    </div>
+                                    <div class="wiz-dish-meta">
+                                        <input type="text" class="wiz-dish-title" placeholder="Dish name" data-dish-index="2" />
+                                        <textarea class="wiz-dish-desc" rows="2" placeholder="One line on what makes it special." data-dish-index="2"></textarea>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="wiz-validation" id="wiz-dishes-validation" role="alert" aria-live="polite"></div>
+                            <div class="wiz-actions">
+                                <button type="button" class="wiz-cancel" data-step="dishes" disabled>Cancel</button>
+                                <button type="button" class="wiz-save" data-step="dishes" disabled>Save</button>
+                                <div class="wiz-actions-spacer"></div>
+                                <button type="button" class="wiz-back" data-action="back">&larr; Back</button>
+                                <button type="button" class="wiz-skip" data-action="skip">Skip</button>
+                                <button type="button" class="wiz-next" data-action="next">Next &rarr;</button>
+                            </div>
+                        </form>
+                    </div>
+
+                    <!-- Step 5: menu -->
+                    <div class="onboarding-wiz-panel" data-panel="menu" hidden>
+                        <h3>Menu</h3>
+                        <p class="onboarding-wiz-lead">Paste a link to your menu (Google Doc, image, PDF, anything public). Uploading PDFs inline is coming soon.</p>
+                        <form class="onboarding-wiz-form" id="onboarding-form-menu">
+                            <div class="wiz-field">
+                                <label for="wiz-menu-url">Menu URL</label>
+                                <input type="url" id="wiz-menu-url" name="menuUrl" placeholder="https://example.com/menu.pdf" />
+                                <p class="wiz-help">Leave empty if you&rsquo;d rather add it later &mdash; your menu page will say &ldquo;coming soon.&rdquo;</p>
+                            </div>
+                            <div class="wiz-validation" id="wiz-menu-validation" role="alert" aria-live="polite"></div>
+                            <div class="wiz-actions">
+                                <button type="button" class="wiz-cancel" data-step="menu" disabled>Cancel</button>
+                                <button type="button" class="wiz-save" data-step="menu" disabled>Save</button>
+                                <div class="wiz-actions-spacer"></div>
+                                <button type="button" class="wiz-back" data-action="back">&larr; Back</button>
+                                <button type="button" class="wiz-skip" data-action="skip">Skip</button>
+                                <button type="button" class="wiz-next" data-action="next">Next &rarr;</button>
+                            </div>
+                        </form>
+                    </div>
+
+                    <!-- Step 6: staff -->
+                    <div class="onboarding-wiz-panel" data-panel="staff" hidden>
+                        <h3>Invite staff</h3>
+                        <p class="onboarding-wiz-lead">Give your hosts and managers their own login. Add as many as you like; they&rsquo;ll each get an email with a one-click accept link.</p>
+                        <form class="onboarding-wiz-form" id="onboarding-form-staff">
+                            <div class="wiz-grid-3">
+                                <div class="wiz-field">
+                                    <label for="wiz-staff-name">Name</label>
+                                    <input type="text" id="wiz-staff-name" name="name" autocomplete="off" />
+                                </div>
+                                <div class="wiz-field">
+                                    <label for="wiz-staff-email">Email</label>
+                                    <input type="email" id="wiz-staff-email" name="email" autocomplete="off" />
+                                </div>
+                                <div class="wiz-field">
+                                    <label>Role</label>
+                                    <div class="wiz-role-radios">
+                                        <label><input type="radio" name="role" value="admin" checked /> Admin</label>
+                                        <label><input type="radio" name="role" value="host" /> Host</label>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="wiz-actions wiz-actions-staff-add">
+                                <button type="button" class="wiz-staff-queue" id="wiz-staff-queue-add">Add to invite list</button>
+                            </div>
+                            <div class="wiz-staff-queue-list" id="wiz-staff-queue-list" aria-live="polite"></div>
+                            <div class="wiz-validation" id="wiz-staff-validation" role="alert" aria-live="polite"></div>
+                            <div class="wiz-actions">
+                                <button type="button" class="wiz-cancel" data-step="staff" disabled>Cancel</button>
+                                <button type="button" class="wiz-save" data-step="staff" id="wiz-staff-send" disabled>Send invites</button>
+                                <div class="wiz-actions-spacer"></div>
+                                <button type="button" class="wiz-back" data-action="back">&larr; Back</button>
+                                <button type="button" class="wiz-skip" data-action="skip">Skip &amp; finish</button>
+                                <button type="button" class="wiz-next" data-action="next">Finish &rarr;</button>
+                            </div>
+                        </form>
+                    </div>
+
+                    <!-- "You're live" — post-finish celebration. -->
+                    <div class="onboarding-wiz-panel onboarding-wiz-celebrate" data-panel="done" hidden>
+                        <h3>You&rsquo;re live.</h3>
+                        <p class="onboarding-wiz-lead">Your restaurant is up and running. Share this link with your team and scan it from the door.</p>
+                        <div class="onboarding-wiz-live-block">
+                            <div class="wiz-live-field">
+                                <span class="wiz-live-label">Public URL</span>
+                                <a id="wiz-live-url" class="wiz-live-value" href="#" target="_blank" rel="noopener">&mdash;</a>
+                            </div>
+                            <div class="wiz-live-field">
+                                <span class="wiz-live-label">Host PIN</span>
+                                <code class="wiz-live-value" id="wiz-live-pin">&mdash;</code>
+                                <span class="wiz-live-hint">(printed on the door-poster PDF)</span>
+                            </div>
+                        </div>
+                        <div class="wiz-actions">
+                            <div class="wiz-actions-spacer"></div>
+                            <button type="button" class="wiz-back" data-action="back">&larr; Back</button>
+                            <button type="button" class="wiz-finish" id="wiz-finish-close">Close wizard</button>
                         </div>
                     </div>
-                </li>
-                <li class="onboarding-step" data-step="template">
-                    <div class="onboarding-badge">2</div>
-                    <div class="onboarding-step-body">
-                        <h4>Pick a website template</h4>
-                        <p>Two designs. Pick one, preview it live, change your mind later.</p>
-                        <div class="onboarding-step-actions">
-                            <a href="#website-template" class="onboarding-jump" data-target-step="template">Open templates &rarr;</a>
-                            <button type="button" class="onboarding-done" data-step="template">Mark complete</button>
+                </section>
+
+                <!-- Right: live preview pane with phone frame + iframe. -->
+                <aside class="onboarding-wiz-preview" id="onboarding-wiz-preview">
+                    <div class="onboarding-wiz-preview-head">
+                        <h4>Live preview</h4>
+                        <div class="onboarding-wiz-preview-actions">
+                            <button type="button" id="wiz-preview-refresh" class="wiz-preview-refresh" aria-label="Refresh preview">&#x21bb; Refresh</button>
+                            <a id="wiz-preview-open" href="#" target="_blank" rel="noopener" class="wiz-preview-open">Open ↗</a>
                         </div>
                     </div>
-                </li>
-                <li class="onboarding-step" data-step="menu">
-                    <div class="onboarding-badge">3</div>
-                    <div class="onboarding-step-body">
-                        <h4>Add your menu</h4>
-                        <p>Upload a PDF or paste a link. Optional &mdash; your menu page will say &ldquo;coming soon&rdquo; until you add one.</p>
-                        <div class="onboarding-step-actions">
-                            <a href="#admin-visit-menu-url" class="onboarding-jump" data-target-step="menu">Open menu &rarr;</a>
-                            <button type="button" class="onboarding-done" data-step="menu">Skip for now</button>
-                        </div>
+                    <div class="onboarding-wiz-preview-frame">
+                        <iframe id="wiz-preview-iframe" title="Public site preview" loading="lazy"></iframe>
                     </div>
-                </li>
-                <li class="onboarding-step" data-step="staff">
-                    <div class="onboarding-badge">4</div>
-                    <div class="onboarding-step-body">
-                        <h4>Invite your staff</h4>
-                        <p>Give your hosts and managers their own login.</p>
-                        <div class="onboarding-step-actions">
-                            <a href="#staff-tab" class="onboarding-jump" data-target-step="staff">Open staff &rarr;</a>
-                            <button type="button" class="onboarding-done" data-step="staff">Skip for now</button>
-                        </div>
-                    </div>
-                </li>
-            </ol>
-            <div class="onboarding-foot">
-                <span id="onboarding-progress">0 of 4 complete</span>
-                <button type="button" id="onboarding-dismiss-2" class="onboarding-dismiss-inline">Dismiss for now</button>
+                    <p class="onboarding-wiz-preview-hint">Updates after each save.</p>
+                </aside>
+
+                <!-- Mobile collapsed preview: button that flips the pane to visible. -->
+                <button type="button" id="wiz-preview-toggle" class="onboarding-wiz-preview-toggle" aria-expanded="false">Preview</button>
             </div>
         </div>
     </div>

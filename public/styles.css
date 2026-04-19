@@ -2415,6 +2415,353 @@ a#custom-call-confirm[aria-disabled="true"] {
 }
 
 /* ============================================================================
+   Onboarding wizard — issue #51 Phase C
+   Inline 6-step embedded-form flow with a clickable progress rail on the left,
+   the active step's form in the middle, and a phone-framed live iframe preview
+   on the right. Collapses to a single column (preview becomes a toggle) under
+   860px. Palette mirrors docs/feature-specs/mocks/51-owner-onboarding.html:
+   off-white panels, teal accents, warm orange highlights.
+   ============================================================================ */
+.onboarding-wizard {
+    align-items: flex-start;
+    padding: 24px;
+}
+.onboarding-wiz-modal {
+    background: #fffdf8;
+    color: #1d1b19;
+    border: 1px solid #dfd6c6;
+    border-radius: 28px;
+    padding: 24px 26px;
+    box-shadow: 0 22px 60px rgba(37, 26, 15, 0.18);
+    max-width: 1280px;
+    width: 100%;
+    font-family: 'Fira Sans', 'IBM Plex Sans', sans-serif;
+    max-height: calc(100vh - 48px);
+    overflow-y: auto;
+}
+.onboarding-wiz-body {
+    display: grid;
+    grid-template-columns: 240px minmax(0, 1fr) 340px;
+    gap: 22px;
+    align-items: start;
+    margin-top: 18px;
+}
+
+/* Left rail: step list ------------------------------------------------------ */
+.onboarding-wiz-nav { position: sticky; top: 0; }
+.onboarding-wiz-steps { list-style: none; padding: 0; margin: 0; }
+.onboarding-wiz-step {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 12px;
+    border-radius: 14px;
+    border: 1px solid transparent;
+    margin-bottom: 6px;
+    cursor: pointer;
+    background: transparent;
+}
+.onboarding-wiz-step:hover { background: rgba(31, 106, 93, 0.05); }
+.onboarding-wiz-step.current {
+    background: rgba(31, 106, 93, 0.08);
+    border-color: rgba(31, 106, 93, 0.25);
+}
+.onboarding-wiz-step.current .onboarding-badge { background: #1f6a5d; color: #fff; }
+.onboarding-wiz-step.done .onboarding-badge { background: #1f8f5f; color: #fff; }
+.onboarding-wiz-step.done .onboarding-badge::before { content: '\2713'; }
+.onboarding-wiz-step.done .onboarding-badge-number { display: none; }
+.onboarding-wiz-step-meta h4 {
+    margin: 0 0 2px;
+    font: 600 14px 'IBM Plex Sans', sans-serif;
+}
+.onboarding-wiz-step-meta p {
+    margin: 0;
+    color: #6a6258;
+    font-size: 12px;
+}
+.onboarding-wiz-progress {
+    margin-top: 14px;
+    font-size: 12px;
+    color: #6a6258;
+    padding: 8px 12px;
+    border-top: 1px solid #ede4d1;
+    padding-top: 12px;
+}
+
+/* Middle column: active step panel ----------------------------------------- */
+.onboarding-wiz-main { min-width: 0; }
+.onboarding-wiz-panel h3 {
+    margin: 0 0 6px;
+    font: 700 22px/1.15 'Archivo SemiCondensed', 'Fira Sans', sans-serif;
+}
+.onboarding-wiz-lead {
+    margin: 0 0 16px;
+    color: #6a6258;
+    font-size: 14px;
+}
+.onboarding-wiz-form { display: flex; flex-direction: column; gap: 14px; }
+.wiz-field label, .wiz-field legend {
+    display: block;
+    font-size: 12px;
+    color: #6a6258;
+    font-weight: 500;
+    margin-bottom: 4px;
+}
+.wiz-field input[type="text"],
+.wiz-field input[type="email"],
+.wiz-field input[type="tel"],
+.wiz-field input[type="url"],
+.wiz-field input[type="time"],
+.wiz-field textarea {
+    width: 100%;
+    padding: 9px 12px;
+    border-radius: 10px;
+    border: 1px solid #dfd6c6;
+    background: #fff;
+    font: 14px 'IBM Plex Sans', 'Fira Sans', sans-serif;
+    color: #1d1b19;
+}
+.wiz-field textarea { resize: vertical; min-height: 72px; }
+.wiz-help { font-size: 12px; color: #6a6258; margin: 4px 0 0; }
+.wiz-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.wiz-grid-3 { display: grid; grid-template-columns: 1.2fr 0.6fr 1fr; gap: 12px; }
+
+/* Weekly hours grid */
+.wiz-hours { border: 1px solid #ede4d1; border-radius: 12px; padding: 12px; background: #fffdf8; }
+.wiz-hours legend { padding: 0 6px; }
+.wiz-hours-grid { width: 100%; border-collapse: collapse; font-size: 13px; }
+.wiz-hours-grid th, .wiz-hours-grid td { padding: 5px 6px; text-align: left; vertical-align: middle; }
+.wiz-hours-grid thead th { color: #6a6258; font-weight: 500; font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
+.wiz-hours-grid input[type="time"] { padding: 5px 8px; }
+
+/* Template cards */
+.wiz-template-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.wiz-template-card {
+    display: block;
+    padding: 14px;
+    border-radius: 16px;
+    border: 2px solid #ede4d1;
+    background: #fffdf8;
+    cursor: pointer;
+    transition: border-color .15s;
+}
+.wiz-template-card:hover { border-color: #c9b78e; }
+.wiz-template-card.selected { border-color: #1f6a5d; background: rgba(31,106,93,.04); }
+.wiz-template-card input { position: absolute; opacity: 0; pointer-events: none; }
+.wiz-template-card h4 { margin: 10px 0 4px; font: 700 16px 'Archivo SemiCondensed', sans-serif; }
+.wiz-template-card p { margin: 0; color: #6a6258; font-size: 13px; }
+.wiz-template-swatch { height: 72px; border-radius: 10px; }
+.wiz-template-swatch-saffron { background: linear-gradient(135deg, #f7f1e8 0%, #e5a23a 60%, #cb6a34 100%); }
+.wiz-template-swatch-slate { background: linear-gradient(135deg, #2a3540 0%, #1f6a5d 100%); }
+
+/* Dishes */
+.wiz-dish-rows { display: flex; flex-direction: column; gap: 12px; }
+.wiz-dish-row {
+    display: grid;
+    grid-template-columns: 160px 1fr;
+    gap: 14px;
+    padding: 12px;
+    border: 1px solid #ede4d1;
+    border-radius: 14px;
+    background: #fffdf8;
+}
+.wiz-dish-photo {
+    position: relative;
+    aspect-ratio: 4 / 3;
+    width: 160px;
+    height: 120px;
+    border: 1px dashed #c9b78e;
+    border-radius: 10px;
+    background: #f7f1e8;
+    overflow: hidden;
+}
+.wiz-dish-preview { width: 100%; height: 100%; object-fit: cover; display: none; }
+.wiz-dish-upload {
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    color: #6a6258; font-size: 12px; font-weight: 500; cursor: pointer;
+    background: rgba(255, 253, 248, 0);
+    transition: background .15s;
+}
+.wiz-dish-upload:hover { background: rgba(255, 253, 248, 0.6); }
+.wiz-dish-upload input[type="file"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.wiz-dish-preview[src]:not([src=""]) + .wiz-dish-upload { background: transparent; }
+.wiz-dish-preview[src]:not([src=""]) { display: block; }
+.wiz-dish-preview[src]:not([src=""]) ~ .wiz-dish-upload span { background: rgba(29,27,25,.6); color:#fff; padding: 4px 10px; border-radius: 999px; }
+.wiz-dish-meta { display: flex; flex-direction: column; gap: 8px; }
+.wiz-dish-title, .wiz-dish-desc {
+    width: 100%;
+    padding: 8px 12px;
+    border-radius: 10px;
+    border: 1px solid #dfd6c6;
+    background: #fff;
+    font: 14px 'IBM Plex Sans', sans-serif;
+    color: #1d1b19;
+}
+.wiz-dish-desc { resize: vertical; min-height: 56px; }
+
+/* Staff queue */
+.wiz-role-radios { display: flex; gap: 12px; padding-top: 6px; font-size: 13px; }
+.wiz-role-radios label { display: inline-flex; align-items: center; gap: 4px; color: #1d1b19; font-weight: 500; }
+.wiz-actions-staff-add { justify-content: flex-start; margin-top: -6px; }
+.wiz-staff-queue {
+    background: rgba(31, 106, 93, 0.1);
+    color: #1f6a5d;
+    border: 1px solid rgba(31, 106, 93, 0.3);
+    padding: 7px 14px;
+    border-radius: 10px;
+    font: 600 13px 'IBM Plex Sans', sans-serif;
+    cursor: pointer;
+}
+.wiz-staff-queue:hover { background: rgba(31, 106, 93, 0.18); }
+.wiz-staff-queue-list { font-size: 13px; }
+.wiz-staff-queue-empty { color: #6a6258; margin: 0; font-size: 13px; }
+.wiz-staff-queue-ul { list-style: none; padding: 0; margin: 0; }
+.wiz-staff-queue-ul li {
+    display: grid;
+    grid-template-columns: auto 1fr auto auto;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    border: 1px solid #ede4d1;
+    border-radius: 10px;
+    margin-bottom: 6px;
+    background: #fffdf8;
+}
+.wiz-staff-queue-role { text-transform: capitalize; }
+.wiz-staff-queue-email { color: #6a6258; font-size: 12px; }
+.wiz-staff-queue-remove {
+    background: transparent; border: none; color: #6a6258; cursor: pointer;
+    font-size: 16px; line-height: 1; padding: 4px 8px;
+}
+
+/* Action bar (save / cancel / back / skip / next) */
+.wiz-actions {
+    display: flex; align-items: center; gap: 10px; padding-top: 6px;
+    border-top: 1px solid #ede4d1; margin-top: 10px;
+}
+.wiz-actions .wiz-actions-spacer { flex: 1; }
+.wiz-save, .wiz-cancel, .wiz-back, .wiz-next, .wiz-skip, .wiz-finish {
+    padding: 8px 16px;
+    border-radius: 10px;
+    font: 600 13px 'IBM Plex Sans', 'Fira Sans', sans-serif;
+    cursor: pointer;
+    border: none;
+}
+.wiz-save { background: #1f6a5d; color: #fff; }
+.wiz-save:hover:not(:disabled) { background: #185246; }
+.wiz-save:disabled { background: #c2d3ce; color: #fff; cursor: not-allowed; opacity: .7; }
+.wiz-cancel {
+    background: transparent; color: #6a6258; border: 1px solid #dfd6c6;
+}
+.wiz-cancel:hover:not(:disabled) { background: #f7f3ec; }
+.wiz-cancel:disabled { color: #c2bdb1; cursor: not-allowed; border-color: #ede4d1; }
+.wiz-back { background: #f7f3ec; color: #6a6258; }
+.wiz-back:hover:not(:disabled) { background: #ede4d1; }
+.wiz-back:disabled { opacity: .4; cursor: not-allowed; }
+.wiz-next, .wiz-finish { background: #cb6a34; color: #fff; }
+.wiz-next:hover, .wiz-finish:hover { background: #a8531f; }
+.wiz-skip { background: transparent; color: #6a6258; text-decoration: underline; }
+
+.wiz-validation { color: #a8531f; font-size: 13px; display: none; }
+
+/* Live iframe preview */
+.onboarding-wiz-preview {
+    background: #fffdf8;
+    border: 1px solid #dfd6c6;
+    border-radius: 18px;
+    padding: 14px;
+    position: sticky; top: 0;
+}
+.onboarding-wiz-preview-head {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 10px;
+}
+.onboarding-wiz-preview-head h4 {
+    margin: 0; font: 600 12px 'IBM Plex Sans', sans-serif;
+    text-transform: uppercase; letter-spacing: .08em; color: #6a6258;
+}
+.onboarding-wiz-preview-actions { display: flex; align-items: center; gap: 8px; }
+.wiz-preview-refresh {
+    background: transparent; border: 1px solid #dfd6c6; color: #6a6258;
+    padding: 4px 10px; border-radius: 999px; font-size: 12px; cursor: pointer;
+}
+.wiz-preview-refresh:hover { background: #f7f3ec; }
+.wiz-preview-open { color: #1f6a5d; font-size: 12px; font-weight: 600; text-decoration: none; }
+.onboarding-wiz-preview-frame {
+    width: 100%;
+    aspect-ratio: 9 / 16;
+    max-height: 560px;
+    border-radius: 24px;
+    overflow: hidden;
+    background: #222;
+    padding: 8px;
+    box-shadow: 0 10px 28px rgba(0,0,0,.12);
+}
+.onboarding-wiz-preview-frame iframe {
+    width: 100%; height: 100%; border: 0; border-radius: 18px; background: #faf7f2;
+}
+.onboarding-wiz-preview-hint {
+    font-size: 12px; color: #6a6258; margin: 10px 0 0; text-align: center;
+}
+
+/* Mobile preview toggle */
+.onboarding-wiz-preview-toggle {
+    display: none;
+    position: fixed;
+    right: 16px;
+    bottom: 16px;
+    background: #1f6a5d;
+    color: #fff;
+    border: none;
+    padding: 10px 16px;
+    border-radius: 999px;
+    font: 600 13px 'IBM Plex Sans', sans-serif;
+    cursor: pointer;
+    box-shadow: 0 6px 16px rgba(0,0,0,.16);
+    z-index: 120;
+}
+
+/* "You're live" celebration */
+.onboarding-wiz-celebrate h3 { color: #1f6a5d; }
+.onboarding-wiz-live-block {
+    background: rgba(31, 106, 93, 0.06);
+    border: 1px solid rgba(31, 106, 93, 0.2);
+    border-radius: 14px;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 10px;
+}
+.wiz-live-field { display: flex; flex-direction: column; gap: 2px; }
+.wiz-live-label { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: #6a6258; font-weight: 600; }
+.wiz-live-value { font: 600 16px 'IBM Plex Sans', sans-serif; color: #1d1b19; text-decoration: none; }
+.wiz-live-value:hover { text-decoration: underline; }
+.wiz-live-hint { font-size: 12px; color: #6a6258; }
+
+/* Responsive: under 860px, stack + show the preview toggle */
+@media (max-width: 860px) {
+    .onboarding-wiz-body { grid-template-columns: 1fr; }
+    .onboarding-wiz-nav { position: static; }
+    .onboarding-wiz-steps { display: flex; gap: 4px; overflow-x: auto; padding-bottom: 4px; }
+    .onboarding-wiz-step { min-width: 140px; }
+    .onboarding-wiz-preview {
+        position: fixed;
+        inset: 0;
+        z-index: 110;
+        border-radius: 0;
+        display: none;
+    }
+    .onboarding-wiz-preview.open { display: block; overflow-y: auto; }
+    .onboarding-wiz-preview-toggle { display: inline-flex; }
+    .wiz-grid-2, .wiz-grid-3 { grid-template-columns: 1fr; }
+    .wiz-template-cards { grid-template-columns: 1fr; }
+    .wiz-dish-row { grid-template-columns: 1fr; }
+    .wiz-dish-photo { width: 100%; height: 180px; }
+}
+
+/* ============================================================================
    Staff tab — role pills + role-aware avatar tints (issue #51 polish)
    ----------------------------------------------------------------------------
    Mock (docs/feature-specs/mocks/51-admin-brand-staff.html) renders the Role

@@ -11,9 +11,20 @@
 //   POST /r/:loc/api/onboarding/steps    { step }  → marks step complete
 //   DELETE /r/:loc/api/onboarding/steps  → resets (for admins re-running)
 //
-// Steps are the fixed v1 set { 'basics', 'template', 'menu', 'staff' }.
-// Unknown step IDs are rejected so typos don't silently accumulate in the
-// db array.
+// Steps are the v2 set (issue #51 Phase C — inline 6-step wizard):
+//   'basics'   — address/phone/weekly hours (site-config + voice-config)
+//   'template' — pick Saffron or Slate (website-config.websiteTemplate)
+//   'content'  — hero/about/instagram/reservations (website-config.content)
+//   'dishes'   — three signature dishes (website-config.content.knownFor)
+//   'menu'     — menuUrl + optional PDF (visit-config.menuUrl)
+//   'staff'    — invite host(s) & admin(s) (staff/invite)
+//
+// Legacy callers that POST {step: 'content'} or {step: 'dishes'} just cause
+// $addToSet of an extra entry on the Location.onboardingSteps[] array — no
+// migration needed because existing demo locations simply have a shorter
+// list and the client fills the rest over time.
+//
+// Unknown step IDs are rejected so typos don't silently accumulate.
 //
 // Gating: owner OR admin (spec §6.2 — either can work the wizard; only the
 // staff-invite step is owner-only and gated at that route).
@@ -24,7 +35,7 @@ import { Router, type Request, type Response } from 'express';
 import { requireRole } from '../middleware/hostAuth.js';
 import { getDb, locations } from '../core/db/mongo.js';
 
-const STEP_IDS = ['basics', 'template', 'menu', 'staff'] as const;
+const STEP_IDS = ['basics', 'template', 'content', 'dishes', 'menu', 'staff'] as const;
 type StepId = typeof STEP_IDS[number];
 const STEP_SET = new Set<string>(STEP_IDS);
 

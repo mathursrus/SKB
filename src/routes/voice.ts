@@ -7,6 +7,7 @@
 // ============================================================================
 
 import { Router, type Request, type Response } from 'express';
+import { buildQueueStatusUrl } from '../core/utils/url.js';
 import { getQueueState, joinQueue } from '../services/queue.js';
 import { getLocation } from '../services/locations.js';
 import { sendSms } from '../services/sms.js';
@@ -441,7 +442,7 @@ export function voiceRouter(): Router {
             console.log(JSON.stringify({ t: new Date().toISOString(), level: 'info', msg: 'voice.join.complete', loc: loc(req), code: result.code, position: result.position, partySize: size }));
 
             // Fire-and-forget SMS confirmation
-            const statusUrl = `${baseUrl(req)}/r/${loc(req)}/queue?code=${result.code}`;
+            const statusUrl = buildQueueStatusUrl(baseUrl(req), loc(req), result.code);
             sendSms(phone, joinConfirmationMessage(result.code, statusUrl))
                 .catch(e => console.log(JSON.stringify({ t: new Date().toISOString(), level: 'error', msg: 'voice.sms_confirm_failed', error: e instanceof Error ? e.message : String(e) })));
 

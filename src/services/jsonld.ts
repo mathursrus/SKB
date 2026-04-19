@@ -10,6 +10,7 @@
 // falls back to hardcoded defaults for backward compatibility.
 // ============================================================================
 
+import { buildLocationPageUrl } from '../core/utils/url.js';
 import type { Location, QueueStateDTO } from '../types/queue.js';
 
 /** SKB restaurant defaults -- fallback when Location fields are not set. */
@@ -39,8 +40,7 @@ function resolveName(location: Location | null): string {
  */
 export function buildCanonicalUrl(location: Location | null): string | null {
     if (location?.publicUrl) {
-        const base = location.publicUrl.replace(/\/+$/, '');
-        return `${base}/r/${location._id}/queue.html`;
+        return buildLocationPageUrl(location.publicUrl, location._id, 'queue.html');
     }
     return null;
 }

@@ -970,6 +970,35 @@
             </div>
             <p style="margin-top:12px;font-size:12px;color:#78716c">The PIN is shown on your door-poster PDF and never returned by any API after signup. Rotating it invalidates all current host/admin sessions.</p>
         </section>
+
+        <!-- ═══════════════════════════════════════════════════════════════
+             Google Business Profile — issue #51 Phase D
+             ═══════════════════════════════════════════════════════════════
+             State machine (see admin.js renderGoogleCard):
+               · creds_missing → "ask your OSH admin…"
+               · not_connected → "Connect" button
+               · connecting    → spinner while the OAuth round-trip runs
+               · connected_single → linked name + Sync now / Disconnect
+               · connected_multi  → location picker, then link + connect
+             The card updates on page load + when ?google=connected / ?google=error
+             query params are present post-redirect. -->
+        <section class="admin-card" id="admin-gbp-card" data-state="loading">
+            <div class="admin-card-head">
+                <h2>Google Business Profile</h2>
+                <p id="admin-gbp-blurb">Connect your Google Business listing so hours, phone, and description sync automatically.</p>
+            </div>
+            <div id="admin-gbp-body" class="visit-grid" style="display:block">
+                <div id="admin-gbp-loading" style="color:#78716c;font-size:13px">Loading…</div>
+            </div>
+            <div class="visit-actions admin-actions-row">
+                <span class="visit-status" id="admin-gbp-status"></span>
+                <button type="button" id="admin-gbp-connect" class="primary" style="display:none">Connect Google Business</button>
+                <button type="button" id="admin-gbp-sync" class="primary" style="display:none">Sync now</button>
+                <button type="button" id="admin-gbp-link" class="primary" style="display:none">Link this location</button>
+                <button type="button" id="admin-gbp-disconnect" class="admin-danger" style="display:none">Disconnect</button>
+            </div>
+            <p id="admin-gbp-last-sync" style="margin-top:12px;font-size:12px;color:#78716c;display:none"></p>
+        </section>
     </main>
 </div>
 

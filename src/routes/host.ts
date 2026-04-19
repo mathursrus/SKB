@@ -32,6 +32,7 @@ import {
     type WebsiteConfigUpdate,
 } from '../services/locations.js';
 import { processKnownForImages } from '../services/siteAssets.js';
+import { pushToGbpBackground } from '../services/googleBusiness.js';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -578,6 +579,12 @@ export function hostRouter(): Router {
                 frontDeskPhoneSet: !!updated.frontDeskPhone,
                 voiceLargePartyThreshold: updated.voiceLargePartyThreshold ?? 10,
             }));
+            // Fan-out to Google Business Profile (issue #51 Phase D) when
+            // the primary phone changed. Same fire-and-forget pattern as
+            // the site/website handlers.
+            if (body.frontDeskPhone !== undefined) {
+                pushToGbpBackground(loc(req));
+            }
             res.json({
                 voiceEnabled: updated.voiceEnabled ?? (process.env.TWILIO_VOICE_ENABLED === 'true'),
                 frontDeskPhone: updated.frontDeskPhone ?? '',
@@ -672,6 +679,14 @@ export function hostRouter(): Router {
                 hoursSet: !!updated.hours,
                 publicHostSet: !!updated.publicHost,
             }));
+            // Fan-out to Google Business Profile (issue #51 Phase D). Fire-
+            // and-forget: sync failures update google_tokens.lastSyncError
+            // but don't fail the admin save. The Settings card surfaces the
+            // last error so owners can retry or disconnect. Skipped if the
+            // tenant isn't Google-connected.
+            if (update.hours !== undefined) {
+                pushToGbpBackground(loc(req));
+            }
             res.json({
                 address: updated.address ?? null,
                 hours: updated.hours ?? null,
@@ -759,6 +774,13 @@ export function hostRouter(): Router {
                 websiteTemplate: updated.websiteTemplate ?? DEFAULT_WEBSITE_TEMPLATE,
                 contentSet: !!updated.content,
             }));
+            // Fan-out to Google Business Profile (issue #51 Phase D). See
+            // the note in /host/site-config above: fire-and-forget, never
+            // blocks the admin save. Triggered when `content` changed since
+            // `content.about` is the description surface we push to GBP.
+            if (update.content !== undefined) {
+                pushToGbpBackground(loc(req));
+            }
             res.json({
                 websiteTemplate: updated.websiteTemplate ?? DEFAULT_WEBSITE_TEMPLATE,
                 content: updated.content ?? null,

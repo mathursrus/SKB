@@ -1018,8 +1018,229 @@
         menu: async () => { await loadMenuUrl(); },
         staff: async () => { await loadStaff(); },
         ai: async () => { await loadMcpConfig(); },
-        settings: async () => { await loadVisitConfig(); },
+        settings: async () => { await loadVisitConfig(); await loadGoogleCard(); },
     };
+
+    // ─── Google Business Profile card (issue #51 Phase D) ────────────────
+    // The card has a small state machine driven by /api/google/status +
+    // /api/google/locations. See admin.html for the DOM it renders into.
+    async function loadGoogleCard() {
+        const card = document.getElementById('admin-gbp-card');
+        if (!card) return;
+        const body = document.getElementById('admin-gbp-body');
+        const connectBtn = document.getElementById('admin-gbp-connect');
+        const syncBtn = document.getElementById('admin-gbp-sync');
+        const linkBtn = document.getElementById('admin-gbp-link');
+        const discBtn = document.getElementById('admin-gbp-disconnect');
+        const status = document.getElementById('admin-gbp-status');
+        const lastSync = document.getElementById('admin-gbp-last-sync');
+        const blurb = document.getElementById('admin-gbp-blurb');
+
+        function hide(el) { if (el) el.style.display = 'none'; }
+        function show(el, display) { if (el) el.style.display = display || ''; }
+        function setStatusLine(text, kind) {
+            if (!status) return;
+            status.textContent = text || '';
+            status.className = 'visit-status' + (kind ? ' ' + kind : '');
+        }
+
+        // Reset state
+        hide(connectBtn); hide(syncBtn); hide(linkBtn); hide(discBtn); hide(lastSync);
+        body.innerHTML = '<div style="color:#78716c;font-size:13px">Loading Google Business Profile status…</div>';
+
+        let data;
+        try {
+            const r = await fetch('api/google/status');
+            if (!r.ok) throw new Error('status ' + r.status);
+            data = await r.json();
+        } catch (err) {
+            body.innerHTML = '<div style="color:#b45309;font-size:13px">Couldn\'t check Google status.</div>';
+            setStatusLine('Check failed: ' + (err && err.message ? err.message : 'network error'), 'error');
+            card.setAttribute('data-state', 'error');
+            return;
+        }
+
+        if (!data.credsConfigured) {
+            card.setAttribute('data-state', 'creds_missing');
+            body.innerHTML = '<div style="color:#78716c;font-size:13px">'
+                + 'Google credentials are not configured on this server yet. '
+                + 'Ask your OSH admin to set <code>GOOGLE_CLIENT_ID</code> and <code>GOOGLE_CLIENT_SECRET</code>. '
+                + 'The rest of OSH keeps working in the meantime.</div>';
+            if (connectBtn) { connectBtn.disabled = true; show(connectBtn); }
+            return;
+        }
+
+        if (!data.connected) {
+            card.setAttribute('data-state', 'not_connected');
+            blurb.textContent = 'Connect your Google Business listing so hours, phone, and description sync automatically.';
+            body.innerHTML = '';
+            if (connectBtn) { connectBtn.disabled = false; show(connectBtn); }
+            return;
+        }
+
+        // Connected. Decide single vs. multi.
+        if (data.locationResourceName) {
+            card.setAttribute('data-state', 'connected_single');
+            body.innerHTML = '<div style="font-size:13px">'
+                + '<div><strong>Linked to:</strong> <code>' + esc(data.locationResourceName) + '</code></div>'
+                + (data.accountId ? '<div style="color:#78716c;margin-top:4px">Account: <code>' + esc(data.accountId) + '</code></div>' : '')
+                + '</div>';
+            show(syncBtn); show(discBtn);
+        } else {
+            card.setAttribute('data-state', 'connected_multi');
+            body.innerHTML = '<div style="font-size:13px;margin-bottom:8px">Your Google account has multiple locations. Pick the one that matches this restaurant:</div>'
+                + '<select id="admin-gbp-loc-select" style="width:100%;padding:8px"><option value="">Loading…</option></select>';
+            show(linkBtn); show(discBtn);
+            try {
+                const r = await fetch('api/google/locations');
+                const sel = document.getElementById('admin-gbp-loc-select');
+                if (!r.ok) {
+                    sel.innerHTML = '<option value="">(failed to load locations)</option>';
+                } else {
+                    const locs = (await r.json()).locations || [];
+                    if (locs.length === 0) {
+                        sel.innerHTML = '<option value="">(no locations on this account)</option>';
+                    } else if (locs.length === 1) {
+                        // Auto-fill the dropdown but still require an explicit link-click.
+                        sel.innerHTML = '<option value="' + esc(locs[0].name) + '">'
+                            + esc(locs[0].title || locs[0].name) + (locs[0].address ? ' — ' + esc(locs[0].address) : '')
+                            + '</option>';
+                    } else {
+                        sel.innerHTML = '<option value="">— pick one —</option>' + locs.map(function (l) {
+                            return '<option value="' + esc(l.name) + '">'
+                                + esc(l.title || l.name) + (l.address ? ' — ' + esc(l.address) : '')
+                                + '</option>';
+                        }).join('');
+                    }
+                }
+            } catch (err) {
+                const sel = document.getElementById('admin-gbp-loc-select');
+                if (sel) sel.innerHTML = '<option value="">(failed to load)</option>';
+            }
+        }
+
+        if (data.lastSyncAt) {
+            show(lastSync);
+            lastSync.textContent = 'Last synced: ' + new Date(data.lastSyncAt).toLocaleString();
+        }
+        if (data.lastSyncError) {
+            show(lastSync);
+            lastSync.textContent = 'Last sync error: ' + data.lastSyncError;
+            lastSync.style.color = '#b91c1c';
+        }
+    }
+
+    function wireGoogleCard() {
+        const connectBtn = document.getElementById('admin-gbp-connect');
+        const syncBtn = document.getElementById('admin-gbp-sync');
+        const linkBtn = document.getElementById('admin-gbp-link');
+        const discBtn = document.getElementById('admin-gbp-disconnect');
+        const status = document.getElementById('admin-gbp-status');
+        function setStatusLine(text, kind) {
+            if (!status) return;
+            status.textContent = text || '';
+            status.className = 'visit-status' + (kind ? ' ' + kind : '');
+        }
+
+        if (connectBtn) connectBtn.addEventListener('click', async () => {
+            setStatusLine('Connecting…');
+            connectBtn.disabled = true;
+            try {
+                const r = await fetch('api/google/oauth/start', { method: 'POST' });
+                if (!r.ok) {
+                    const body = await r.json().catch(() => ({}));
+                    throw new Error(body.error || ('status ' + r.status));
+                }
+                const data = await r.json();
+                window.location.href = data.authUrl;
+            } catch (err) {
+                setStatusLine('Connect failed: ' + (err && err.message ? err.message : 'network error'), 'error');
+                connectBtn.disabled = false;
+            }
+        });
+
+        if (syncBtn) syncBtn.addEventListener('click', async () => {
+            setStatusLine('Syncing…');
+            syncBtn.disabled = true;
+            try {
+                const r = await fetch('api/google/sync', { method: 'POST' });
+                const data = await r.json().catch(() => ({}));
+                if (!r.ok || !data.ok) {
+                    throw new Error(data.error || ('status ' + r.status));
+                }
+                setStatusLine('Synced. Hours, phone, and description pushed to Google.', 'ok');
+            } catch (err) {
+                setStatusLine('Sync failed: ' + (err && err.message ? err.message : 'network error'), 'error');
+            } finally {
+                syncBtn.disabled = false;
+                loadGoogleCard();
+            }
+        });
+
+        if (linkBtn) linkBtn.addEventListener('click', async () => {
+            const sel = document.getElementById('admin-gbp-loc-select');
+            const value = sel ? sel.value : '';
+            if (!value) { setStatusLine('Pick a location first.', 'error'); return; }
+            linkBtn.disabled = true;
+            setStatusLine('Linking…');
+            try {
+                const r = await fetch('api/google/link', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ locationResourceName: value }),
+                });
+                const data = await r.json().catch(() => ({}));
+                if (!r.ok) throw new Error(data.error || ('status ' + r.status));
+                setStatusLine('Linked.', 'ok');
+                loadGoogleCard();
+            } catch (err) {
+                setStatusLine('Link failed: ' + (err && err.message ? err.message : 'network error'), 'error');
+            } finally {
+                linkBtn.disabled = false;
+            }
+        });
+
+        if (discBtn) discBtn.addEventListener('click', async () => {
+            if (!window.confirm('Disconnect Google Business Profile? Hours, phone, and description will stop syncing to Google.')) return;
+            discBtn.disabled = true;
+            setStatusLine('Disconnecting…');
+            try {
+                const r = await fetch('api/google/disconnect', { method: 'POST' });
+                if (!r.ok) {
+                    const body = await r.json().catch(() => ({}));
+                    throw new Error(body.error || ('status ' + r.status));
+                }
+                setStatusLine('Disconnected.', 'ok');
+                loadGoogleCard();
+            } catch (err) {
+                setStatusLine('Disconnect failed: ' + (err && err.message ? err.message : 'network error'), 'error');
+            } finally {
+                discBtn.disabled = false;
+            }
+        });
+
+        // If we were just redirected back from Google with `?google=connected`
+        // or `?google=error=...`, surface that as a status line and force
+        // a card refresh.
+        (function handleRedirectParams() {
+            const params = new URLSearchParams(window.location.search);
+            const g = params.get('google');
+            if (!g) return;
+            if (g === 'connected') {
+                setStatusLine('Connected to Google Business.', 'ok');
+            } else if (g.indexOf('error') === 0) {
+                const reason = g.split('=')[1] || 'unknown';
+                setStatusLine('Connect failed: ' + reason, 'error');
+            }
+            // Strip the query param without a reload.
+            try {
+                const url = new URL(window.location.href);
+                url.searchParams.delete('google');
+                url.searchParams.delete('tab');
+                window.history.replaceState({}, document.title, url.toString());
+            } catch {}
+        })();
+    }
 
     function activateTab(key, opts = {}) {
         if (!TAB_KEYS.includes(key)) key = 'dashboard';
@@ -1101,6 +1322,7 @@
     wireInviteForm();
     wireStaffActions();
     wireSignatureDishRows();
+    wireGoogleCard();
 
     (async function boot() {
         // Load named-user identity first so we can enforce role-gate R2

@@ -8,6 +8,7 @@ import { determineDatabaseName } from '../utils/git-utils.js';
 import type { Location, QueueEntry, Settings } from '../../types/queue.js';
 import type { ChatMessage } from '../../types/chat.js';
 import type { User, Membership, PasswordReset, Invite } from '../../types/identity.js';
+import type { GoogleToken } from '../../services/googleBusiness.js';
 
 let client: MongoClient | null = null;
 let db: Db | null = null;
@@ -63,6 +64,10 @@ export function passwordResets(db: Db): Collection<PasswordReset> {
 
 export function invites(db: Db): Collection<Invite> {
     return db.collection<Invite>('invites');
+}
+
+export function googleTokens(db: Db): Collection<GoogleToken> {
+    return db.collection<GoogleToken>('google_tokens');
 }
 
 async function bootstrapIndexes(db: Db): Promise<void> {
@@ -189,6 +194,16 @@ async function bootstrapIndexes(db: Db): Promise<void> {
             // and only unredeemed invites reach this TTL branch.
             expireAfterSeconds: 0,
         },
+    );
+
+    // Google Business Profile tokens (issue #51 Phase D):
+    // - One row per tenant (unique on locationId). Re-connecting overwrites.
+    // - refreshToken is a long-lived secret; callers must never project it
+    //   back to the wire. See services/googleBusiness.ts for the
+    //   toPublicGoogleToken() guard — same shape as toPublicUser().
+    await googleTokens(db).createIndex(
+        { locationId: 1 },
+        { name: 'loc_unique', unique: true },
     );
 }
 

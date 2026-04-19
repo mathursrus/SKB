@@ -20,6 +20,21 @@ import type {
 } from '../types/queue.js';
 
 const FRONT_DESK_PHONE_RE = /^\d{10}$/;
+
+/**
+ * Normalize a user-entered US phone to a bare 10-digit string.
+ * Accepts common inputs: `2065551234`, `(206) 555-1234`, `206-555-1234`,
+ * `+1 206-555-1234`, `+1 (206) 555 1234`. Strips everything non-numeric,
+ * then drops a leading `1` if the remaining length is 11 (US country code).
+ * Returns the normalized 10-digit string, or `null` if the input can't be
+ * coerced into one (so the validator can surface the error).
+ */
+export function normalizeFrontDeskPhone(input: string): string | null {
+    const digits = input.replace(/\D/g, '');
+    if (digits.length === 11 && digits.startsWith('1')) return digits.slice(1);
+    if (digits.length === 10) return digits;
+    return null;
+}
 const MIN_VOICE_LARGE_PARTY_THRESHOLD = 6;
 const MAX_VOICE_LARGE_PARTY_THRESHOLD = 20;
 
@@ -86,8 +101,11 @@ export interface SiteConfigUpdate {
 export function validateVoiceConfigUpdate(update: VoiceConfigUpdate): void {
     if (update.frontDeskPhone !== undefined && update.frontDeskPhone !== null && update.frontDeskPhone !== '') {
         const phone = String(update.frontDeskPhone).trim();
-        if (!FRONT_DESK_PHONE_RE.test(phone)) {
-            throw new Error('frontDeskPhone must be a 10-digit phone number');
+        // Accept common US formats — "+1 (206) 555-1234", "206-555-1234",
+        // "206 555 1234" — by normalizing to bare 10 digits first.
+        const normalized = normalizeFrontDeskPhone(phone) ?? phone;
+        if (!FRONT_DESK_PHONE_RE.test(normalized)) {
+            throw new Error('frontDeskPhone must be a 10-digit US phone number');
         }
     }
     if (update.voiceLargePartyThreshold !== undefined) {
@@ -251,9 +269,9 @@ export async function updateLocationVoiceConfig(
         $set.voiceEnabled = Boolean(update.voiceEnabled);
     }
     if (update.frontDeskPhone !== undefined) {
-        const phone = update.frontDeskPhone === null ? '' : String(update.frontDeskPhone).trim();
-        if (phone === '') $unset.frontDeskPhone = '';
-        else $set.frontDeskPhone = phone;
+        const raw = update.frontDeskPhone === null ? '' : String(update.frontDeskPhone).trim();
+        if (raw === '') $unset.frontDeskPhone = '';
+        else $set.frontDeskPhone = normalizeFrontDeskPhone(raw) ?? raw;
     }
     if (update.voiceLargePartyThreshold !== undefined) {
         $set.voiceLargePartyThreshold = Number(update.voiceLargePartyThreshold);

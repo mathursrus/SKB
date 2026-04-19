@@ -213,7 +213,7 @@ body {
 
             <button type="submit" class="primary" id="signup-submit">Create my restaurant</button>
 
-            <p class="fallback">Prefer to talk to someone? <a href="mailto:hello@example.com">Email hello@example.com</a>.</p>
+            <p class="fallback">Prefer to talk to someone? <a href="mailto:sid.mathur@gmail.com">Email sid.mathur@gmail.com</a>.</p>
         </form>
 
         <div id="signup-success" class="success" role="status" aria-live="polite">
@@ -328,7 +328,7 @@ body {
             var data = await res.json();
             if (!res.ok) {
                 var msg = data && data.error ? data.error : 'Signup failed. Please try again.';
-                if (res.status === 429) msg = 'Too many signups from this network. Please try again in an hour or email hello@example.com.';
+                if (res.status === 429) msg = 'Too many signups from this network. Please try again in an hour or email sid.mathur@gmail.com.';
                 if (data && data.field === 'email' && res.status === 409) {
                     msg = 'That email is already registered. Try logging in instead.';
                 }

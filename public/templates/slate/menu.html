@@ -28,7 +28,25 @@
 
     <section class="slate-section">
         <h2>Menu</h2>
+        {{#each menu.sections}}
+        <div class="slate-menu-section">
+            <h3 class="slate-menu-section-title">{{title}}</h3>
+            <ul class="slate-menu-items">
+                {{#items}}
+                <li class="slate-menu-item">
+                    <div class="slate-menu-item-head">
+                        <span class="slate-menu-item-name">{{name}}</span>
+                        {{#if price}}<span class="slate-menu-item-price">{{price}}</span>{{/if}}
+                    </div>
+                    {{#if description}}<p class="slate-menu-item-desc">{{description}}</p>{{/if}}
+                </li>
+                {{/items}}
+            </ul>
+        </div>
+        {{/each}}
+        {{#unless menuHasSections}}
         <p>Menu coming soon.</p>
+        {{/unless}}
     </section>
 
     <footer class="slate-footer">

@@ -140,6 +140,24 @@ a { color: var(--slate-accent); }
 }
 .slate-section p { color: var(--slate-muted); }
 
+.slate-menu-section { margin: 28px 0 40px; }
+.slate-menu-section-title {
+    font: 600 18px 'Archivo SemiCondensed', 'IBM Plex Sans', sans-serif;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--slate-muted);
+    margin: 0 0 16px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--slate-line);
+}
+.slate-menu-items { list-style: none; padding: 0; margin: 0; }
+.slate-menu-item { padding: 14px 0; }
+.slate-menu-item + .slate-menu-item { border-top: 1px solid var(--slate-line); }
+.slate-menu-item-head { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; }
+.slate-menu-item-name { font-weight: 600; font-size: 16px; }
+.slate-menu-item-price { font-weight: 500; font-variant-numeric: tabular-nums; color: var(--slate-muted); white-space: nowrap; }
+.slate-menu-item-desc { margin: 4px 0 0; color: var(--slate-muted); font-size: 14px; line-height: 1.5; }
+
 .slate-dishes {
     display: grid;
     grid-template-columns: repeat(3, 1fr);

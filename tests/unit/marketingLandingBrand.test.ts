@@ -64,7 +64,10 @@ const cases: BaseTestCase[] = [
         tags: ['unit', 'issue-57', 'landing'],
         testFn: async () => {
             const html = loadPage('landing.html');
-            return /mailto:hello@example\.com/i.test(html);
+            // Accept any mailto link — the specific address is config-level
+            // and not worth pinning in a test (updated 2026-04-19 when the
+            // placeholder `hello@example.com` was replaced with a real inbox).
+            return /<a[^>]*href="mailto:[^"]+"/.test(html);
         },
     },
 

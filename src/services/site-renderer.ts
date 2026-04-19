@@ -150,6 +150,79 @@ function expandKnownForItem(inner: string, item: { title: string; desc: string; 
 }
 
 /**
+ * Render the structured menu blocks:
+ *   {{#each menu.sections}}
+ *     {{title}}
+ *     {{#each items}}
+ *       {{name}} {{#if price}}{{price}}{{/if}} {{#if description}}{{description}}{{/if}}
+ *     {{/each}}
+ *   {{/each}}
+ *   {{#unless menuHasSections}}...fallback...{{/unless}}
+ *
+ * Handles nested iteration by first matching the outer sections block,
+ * expanding each section's template (which itself contains the inner items
+ * block), then rendering conditional fallback bodies based on whether the
+ * tenant has saved any sections at all.
+ *
+ * All scalar substitutions (title/name/price/description) are HTML-escaped.
+ */
+function renderMenuBlocks(html: string, location: Pick<Location, 'menu'>): string {
+    const sections = location.menu?.sections ?? [];
+    const hasSections = sections.length > 0;
+
+    // Outer block — for each section, expand the inner template (which may
+    // itself contain {{#each items}}).
+    let out = html.replace(
+        /\{\{#each\s+menu\.sections\s*\}\}([\s\S]*?)\{\{\/each\}\}/g,
+        (_full, sectionTmpl: string) => sections.map((s) => expandMenuSection(sectionTmpl, s)).join(''),
+    );
+
+    // Conditional fallback — `{{#unless menuHasSections}}...{{/unless}}`
+    // renders only when the tenant has zero sections (first-day state).
+    out = out.replace(
+        /\{\{#unless\s+menuHasSections\s*\}\}([\s\S]*?)\{\{\/unless\}\}/g,
+        (_full, body: string) => (hasSections ? '' : body),
+    );
+    out = out.replace(
+        /\{\{#if\s+menuHasSections\s*\}\}([\s\S]*?)\{\{\/if\}\}/g,
+        (_full, body: string) => (hasSections ? body : ''),
+    );
+
+    return out;
+}
+
+function expandMenuSection(tmpl: string, section: { title: string; items: Array<{ name: string; description?: string; price?: string }> }): string {
+    // Inner items block. Uses a distinct tag name `{{#items}}...{{/items}}`
+    // (not `{{#each items}}`) so the outer `{{#each menu.sections}}...{{/each}}`
+    // regex can stay non-greedy without colliding on the inner `{{/each}}`.
+    let out = tmpl.replace(
+        /\{\{#items\s*\}\}([\s\S]*?)\{\{\/items\}\}/g,
+        (_full, itemTmpl: string) => (section.items ?? []).map((it) => expandMenuItem(itemTmpl, it)).join(''),
+    );
+    // Section scalar: {{title}}.
+    out = out.replace(/\{\{\s*title\s*\}\}/g, () => escHtml(section.title ?? ''));
+    return out;
+}
+
+function expandMenuItem(tmpl: string, item: { name: string; description?: string; price?: string }): string {
+    const hasPrice = !!(item.price && String(item.price).trim());
+    const hasDesc = !!(item.description && String(item.description).trim());
+    let out = tmpl;
+    out = out.replace(
+        /\{\{#if\s+price\s*\}\}([\s\S]*?)\{\{\/if\}\}/g,
+        (_full, body: string) => (hasPrice ? body : ''),
+    );
+    out = out.replace(
+        /\{\{#if\s+description\s*\}\}([\s\S]*?)\{\{\/if\}\}/g,
+        (_full, body: string) => (hasDesc ? body : ''),
+    );
+    return out.replace(/\{\{\s*(name|price|description)\s*\}\}/g, (_m, key: string) => {
+        const v = (item as Record<string, string | undefined>)[key] ?? '';
+        return escHtml(String(v));
+    });
+}
+
+/**
  * Replace `{{placeholderName}}` tokens in `html` with the corresponding
  * values from the location. All substituted values are HTML-escaped to
  * defend against stored-XSS via the admin editor. Unknown placeholders are
@@ -157,19 +230,21 @@ function expandKnownForItem(inner: string, item: { title: string; desc: string; 
  * the render.
  *
  * Also expands `{{#each knownFor}}...{{/each}}` blocks for signature-dish
- * cards — see renderKnownForBlocks.
+ * cards, and `{{#each menu.sections}}{{#each items}}...{{/each}}{{/each}}`
+ * for the structured menu builder (issue #51 follow-up).
  *
  * Exported for unit testing.
  */
 export function renderTemplate(
     html: string,
-    location: Pick<Location, 'name' | 'content'>,
+    location: Pick<Location, 'name' | 'content' | 'menu'>,
 ): string {
     // 1. Expand array-iteration blocks before scalar substitution so tokens
     //    inside the block get their own per-item context.
-    const withBlocks = renderKnownForBlocks(html, location);
+    const withKnownFor = renderKnownForBlocks(html, location);
+    const withMenu = renderMenuBlocks(withKnownFor, location);
     const values = buildPlaceholderValues(location);
-    return withBlocks.replace(/\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g, (match, key: string) => {
+    return withMenu.replace(/\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g, (match, key: string) => {
         if (!(PLACEHOLDER_KEYS as readonly string[]).includes(key)) return match;
         return escHtml(values[key as PlaceholderKey]);
     });

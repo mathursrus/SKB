@@ -251,9 +251,30 @@ a { color: var(--saffron-dark); }
     max-width: 900px;
     margin: 0 auto;
     padding: 64px 24px 72px;
-    text-align: center;
 }
-.saffron-menu-main p { color: var(--muted); font-size: 1.05rem; }
+.saffron-menu-main > p { color: var(--muted); font-size: 1.05rem; text-align: center; }
+.saffron-menu-section { margin: 48px 0; }
+.saffron-menu-section:first-child { margin-top: 0; }
+.saffron-menu-section-title {
+    font-family: Georgia, 'Archivo SemiCondensed', serif;
+    font-size: 1.75rem;
+    color: var(--accent, #c0872e);
+    margin: 0 0 20px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid rgba(192, 135, 46, 0.2);
+}
+.saffron-menu-items { list-style: none; padding: 0; margin: 0; }
+.saffron-menu-item { padding: 16px 0; border-bottom: 1px dotted rgba(0, 0, 0, 0.08); }
+.saffron-menu-item:last-child { border-bottom: none; }
+.saffron-menu-item-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 16px;
+}
+.saffron-menu-item-name { font-weight: 600; font-size: 1.1rem; color: var(--fg, #1d1b19); }
+.saffron-menu-item-price { font-weight: 600; color: var(--accent, #c0872e); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.saffron-menu-item-desc { margin: 6px 0 0; color: var(--muted); font-size: 0.95rem; line-height: 1.5; }
 
 /* About */
 .saffron-about-main {

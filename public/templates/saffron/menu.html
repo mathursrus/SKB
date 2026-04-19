@@ -32,10 +32,28 @@
     </div>
 
     <main class="saffron-menu-main" id="menu-main">
+        {{#each menu.sections}}
+        <section class="saffron-menu-section">
+            <h2 class="saffron-menu-section-title">{{title}}</h2>
+            <ul class="saffron-menu-items">
+                {{#items}}
+                <li class="saffron-menu-item">
+                    <div class="saffron-menu-item-head">
+                        <span class="saffron-menu-item-name">{{name}}</span>
+                        {{#if price}}<span class="saffron-menu-item-price">{{price}}</span>{{/if}}
+                    </div>
+                    {{#if description}}<p class="saffron-menu-item-desc">{{description}}</p>{{/if}}
+                </li>
+                {{/items}}
+            </ul>
+        </section>
+        {{/each}}
+        {{#unless menuHasSections}}
         <p>Menu coming soon.</p>
         <p style="margin-top: 24px;">
             <a class="saffron-cta ghost" href="./contact">Contact us for details</a>
         </p>
+        {{/unless}}
     </main>
 
     <footer class="saffron-footer">

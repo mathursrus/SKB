@@ -47,7 +47,7 @@ export async function sendWelcomeEmail(input: WelcomeEmailInput): Promise<void> 
             '',
             `Your host-stand PIN is ${input.hostPin}. Keep it somewhere safe — this is the only time we\u2019ll show it in plain text.`,
             '',
-            'If you get stuck, reply to this email or write to hello@example.com.',
+            'If you get stuck, reply to this email or write to sid.mathur@gmail.com.',
         ].join('\n');
 
         // eslint-disable-next-line no-console -- intentional dev/prod stub

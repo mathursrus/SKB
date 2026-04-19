@@ -191,6 +191,20 @@ export function googleRouter(): Router {
             const locs = await listGbpLocationsForAccount(loc(req), acc.name);
             res.json({ accounts: [acc], locations: locs });
         } catch (err) {
+            // Google Business Profile APIs default to very low quotas
+            // (Account Management often ships at 1 qpm). Surface 429s with
+            // a clear, actionable code so the admin UI can render a
+            // specific message + retry guidance.
+            const e = err as Error & { code?: string; httpStatus?: number };
+            if (e && (e.code === 'rate_limited' || e.httpStatus === 429)) {
+                res.status(429).json({
+                    error: 'google rate limited',
+                    code: 'rate_limited',
+                    detail: e.message,
+                    hint: 'Google Business Profile API quota hit. Wait ~60 seconds and reload, or request a quota increase in Google Cloud Console → APIs & Services → Quotas.',
+                });
+                return;
+            }
             const msg = err instanceof Error ? err.message : String(err);
             res.status(502).json({ error: `gbp api error: ${msg}` });
         }
@@ -286,7 +300,7 @@ export function googleOauthCallbackRouter(): Router {
         const locationId = dot > 0 ? state.slice(0, dot) : '';
         const errRedirect = (code: string) => {
             if (locationId && /^[a-z0-9-]{1,60}$/.test(locationId)) {
-                return `/r/${locationId}/admin.html?tab=settings&google=error=${encodeURIComponent(code)}`;
+                return `/r/${locationId}/admin.html?tab=integrations&google=error=${encodeURIComponent(code)}`;
             }
             return `/?google=error=${encodeURIComponent(code)}`;
         };
@@ -340,7 +354,7 @@ export function googleOauthCallbackRouter(): Router {
                 'Set-Cookie',
                 `${PKCE_COOKIE}=; Path=/api/google/oauth/; HttpOnly; SameSite=Lax; Max-Age=0`,
             );
-            res.redirect(302, `/r/${locationId}/admin.html?tab=settings&google=connected`);
+            res.redirect(302, `/r/${locationId}/admin.html?tab=integrations&google=connected`);
         } catch (err) {
             console.error('[google] oauth callback exchange error:', err);
             res.redirect(302, errRedirect('exchange_failed'));

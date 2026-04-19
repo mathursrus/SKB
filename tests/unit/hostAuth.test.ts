@@ -472,8 +472,13 @@ const cases: T[] = [
         },
     },
     {
-        name: 'requireRole: session cookie with mismatched lid → 403 wrong_tenant',
-        tags: ['unit', 'auth', 'session', 'requireRole'],
+        // Updated 2026-04: wrong-tenant sessions now fall through to the PIN
+        // check rather than 403 outright. This lets a shared host tablet
+        // (valid PIN for THIS location) keep working even when the browser
+        // still carries a stale session cookie from a different tenant. If
+        // PIN is absent, we end up at the final 401 "unauthorized" path.
+        name: 'requireRole: session cookie with mismatched lid + no PIN → 401 (falls through)',
+        tags: ['unit', 'auth', 'session', 'requireRole', 'cross-tenant'],
         testFn: async () => {
             return withEnv({ SKB_COOKIE_SECRET: KEY }, () => {
                 const payload: SessionPayload = { uid: 'u', lid: 'loc-a', role: 'owner', exp: Math.floor(Date.now() / 1000) + 3600 };
@@ -486,7 +491,34 @@ const cases: T[] = [
                     () => { nextState.called = true; },
                 );
                 const body = state.body as { error?: string } | undefined;
-                return state.status === 403 && body?.error === 'wrong_tenant' && !nextState.called;
+                return state.status === 401 && body?.error === 'unauthorized' && !nextState.called;
+            });
+        },
+    },
+    {
+        // Regression: a real scenario where an owner signed into tenant A
+        // walks over to tenant B's front-desk tablet (which has tenant B's
+        // PIN set). Their stale session must NOT block the PIN from working.
+        name: 'requireRole: wrong-tenant session + valid PIN for current tenant → passes as host',
+        tags: ['unit', 'auth', 'session', 'requireRole', 'cross-tenant'],
+        testFn: async () => {
+            return withEnv({ SKB_COOKIE_SECRET: KEY }, () => {
+                const session = mintSessionCookie(
+                    { uid: 'u', lid: 'loc-a', role: 'owner', exp: Math.floor(Date.now() / 1000) + 3600 },
+                    KEY,
+                );
+                const pin = __test__.mintLocationCookie(new Date(), KEY, 'loc-b');
+                const { res, state } = makeRes();
+                const nextState = { called: false };
+                const req = {
+                    headers: { cookie: `${SESSION_COOKIE_NAME}=${session}; skb_host=${pin}` },
+                    params: { loc: 'loc-b' },
+                } as unknown as Request & { hostAuth?: { role?: string; source?: string } };
+                requireRole('host')(req, res, () => { nextState.called = true; });
+                return nextState.called
+                    && state.status === 200
+                    && req.hostAuth?.role === 'host'
+                    && req.hostAuth?.source === 'host';
             });
         },
     },

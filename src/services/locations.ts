@@ -14,6 +14,9 @@ import type {
     WebsiteTemplateKey,
     LocationContent,
     LocationKnownForItem,
+    LocationMenu,
+    MenuSection,
+    MenuItem,
 } from '../types/queue.js';
 
 const FRONT_DESK_PHONE_RE = /^\d{10}$/;
@@ -518,6 +521,117 @@ export async function updateLocationWebsiteConfig(
         return existing;
     }
 
+    const result = await locations(db).findOneAndUpdate(
+        { _id: locationId },
+        updateDoc,
+        { returnDocument: 'after' },
+    );
+    if (!result) throw new Error('location not found');
+    return result;
+}
+
+// ----------------------------------------------------------------------------
+// Structured menu (issue #51 follow-up)
+// ----------------------------------------------------------------------------
+// Sections + items, authored by the owner in the Menu tab. The public /menu
+// route reads this directly; the legacy `menuUrl` still works as an
+// external-link alternative (owner who keeps their menu as a PDF etc).
+
+const MENU_MAX_SECTIONS = 20;
+const MENU_MAX_ITEMS_PER_SECTION = 60;
+const MENU_MAX_TITLE = 80;
+const MENU_MAX_NAME = 120;
+const MENU_MAX_DESC = 500;
+const MENU_MAX_PRICE = 40;
+
+export function validateMenu(menu: LocationMenu): void {
+    if (!menu || !Array.isArray(menu.sections)) {
+        throw new Error('menu.sections must be an array');
+    }
+    if (menu.sections.length > MENU_MAX_SECTIONS) {
+        throw new Error(`menu.sections must be <= ${MENU_MAX_SECTIONS}`);
+    }
+    const seenSectionIds = new Set<string>();
+    for (const s of menu.sections) {
+        if (!s || typeof s.id !== 'string' || s.id.length === 0 || s.id.length > 40) {
+            throw new Error('section.id must be a non-empty string (<= 40 chars)');
+        }
+        if (seenSectionIds.has(s.id)) throw new Error(`section.id duplicate: ${s.id}`);
+        seenSectionIds.add(s.id);
+        if (typeof s.title !== 'string' || s.title.trim().length === 0) {
+            throw new Error('section.title is required');
+        }
+        if (s.title.length > MENU_MAX_TITLE) {
+            throw new Error(`section.title must be <= ${MENU_MAX_TITLE} chars`);
+        }
+        if (!Array.isArray(s.items)) throw new Error('section.items must be an array');
+        if (s.items.length > MENU_MAX_ITEMS_PER_SECTION) {
+            throw new Error(`section.items must be <= ${MENU_MAX_ITEMS_PER_SECTION}`);
+        }
+        const seenItemIds = new Set<string>();
+        for (const it of s.items) {
+            if (!it || typeof it.id !== 'string' || it.id.length === 0 || it.id.length > 40) {
+                throw new Error('item.id must be a non-empty string (<= 40 chars)');
+            }
+            if (seenItemIds.has(it.id)) throw new Error(`item.id duplicate in section ${s.id}: ${it.id}`);
+            seenItemIds.add(it.id);
+            if (typeof it.name !== 'string' || it.name.trim().length === 0) {
+                throw new Error('item.name is required');
+            }
+            if (it.name.length > MENU_MAX_NAME) {
+                throw new Error(`item.name must be <= ${MENU_MAX_NAME} chars`);
+            }
+            if (it.description !== undefined && it.description !== null) {
+                if (typeof it.description !== 'string') throw new Error('item.description must be a string');
+                if (it.description.length > MENU_MAX_DESC) {
+                    throw new Error(`item.description must be <= ${MENU_MAX_DESC} chars`);
+                }
+            }
+            if (it.price !== undefined && it.price !== null) {
+                if (typeof it.price !== 'string') throw new Error('item.price must be a string');
+                if (it.price.length > MENU_MAX_PRICE) {
+                    throw new Error(`item.price must be <= ${MENU_MAX_PRICE} chars`);
+                }
+            }
+        }
+    }
+}
+
+/** Normalize for storage: trim strings, drop empty description/price. */
+function normalizeMenu(menu: LocationMenu): LocationMenu {
+    return {
+        sections: menu.sections.map((s): MenuSection => ({
+            id: s.id,
+            title: s.title.trim(),
+            items: s.items.map((it): MenuItem => {
+                const out: MenuItem = { id: it.id, name: it.name.trim() };
+                const d = typeof it.description === 'string' ? it.description.trim() : '';
+                if (d) out.description = d;
+                const p = typeof it.price === 'string' ? it.price.trim() : '';
+                if (p) out.price = p;
+                return out;
+            }),
+        })),
+        updatedAt: new Date(),
+    };
+}
+
+/**
+ * Replace the entire menu for a location. `null` drops the field (revert
+ * to the "no structured menu / menuUrl fallback" state).
+ */
+export async function updateLocationMenu(
+    locationId: string,
+    menu: LocationMenu | null,
+): Promise<Location> {
+    const db = await getDb();
+    const updateDoc: Record<string, unknown> = {};
+    if (menu === null) {
+        updateDoc.$unset = { menu: '' };
+    } else {
+        validateMenu(menu);
+        updateDoc.$set = { menu: normalizeMenu(menu) };
+    }
     const result = await locations(db).findOneAndUpdate(
         { _id: locationId },
         updateDoc,

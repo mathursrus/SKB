@@ -153,18 +153,41 @@ const GBP_ACCOUNTS_ENDPOINT = 'https://mybusinessaccountmanagement.googleapis.co
 const GBP_LOCATIONS_V1_BASE = 'https://mybusinessbusinessinformation.googleapis.com/v1';
 
 /**
- * Read an env var with OSH_ preferred, GOOGLE_ as legacy fallback.
- * Operators should set `OSH_GOOGLE_CLIENT_ID` etc. — the GOOGLE_* path
- * exists only so an existing dev machine doesn't need to rotate keys.
+ * Read the Google OAuth env bundle atomically.
+ *
+ * IMPORTANT: we do NOT mix OSH_ and GOOGLE_ vars. If OSH_GOOGLE_CLIENT_ID is
+ * set, we use the OSH_ bundle exclusively (even if OSH_GOOGLE_REDIRECT_URI is
+ * unset — resolveRedirectUri derives a sensible default). Otherwise we fall
+ * back to the legacy GOOGLE_* bundle as a whole.
+ *
+ * Why: a dev machine may have leftover GOOGLE_REDIRECT_URI from an unrelated
+ * project (e.g., Ashley Calendar AI). Per-field fallback would pick OSH's
+ * client_id but that project's redirect_uri, producing a redirect_uri_mismatch
+ * against the OSH OAuth client.
  */
-function readEnv(oshName: string, legacyName: string): string | undefined {
-    return process.env[oshName] ?? process.env[legacyName];
+interface GoogleEnvBundle {
+    clientId?: string;
+    clientSecret?: string;
+    redirectUri?: string;
+}
+
+function readGoogleEnvBundle(): GoogleEnvBundle {
+    if (process.env.OSH_GOOGLE_CLIENT_ID) {
+        return {
+            clientId: process.env.OSH_GOOGLE_CLIENT_ID,
+            clientSecret: process.env.OSH_GOOGLE_CLIENT_SECRET,
+            redirectUri: process.env.OSH_GOOGLE_REDIRECT_URI,
+        };
+    }
+    return {
+        clientId: process.env.GOOGLE_CLIENT_ID,
+        clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+        redirectUri: process.env.GOOGLE_REDIRECT_URI,
+    };
 }
 
 export function readOAuthConfig(): GoogleOAuthConfig | null {
-    const clientId = readEnv('OSH_GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_ID');
-    const clientSecret = readEnv('OSH_GOOGLE_CLIENT_SECRET', 'GOOGLE_CLIENT_SECRET');
-    const redirectUri = readEnv('OSH_GOOGLE_REDIRECT_URI', 'GOOGLE_REDIRECT_URI');
+    const { clientId, clientSecret, redirectUri } = readGoogleEnvBundle();
     if (!clientId || !clientSecret) return null;
     // Redirect URI defaults to a SINGLE global callback at
     // `${SKB_PUBLIC_BASE_URL}/api/google/oauth/callback` — this is the one
@@ -190,8 +213,8 @@ export function areCredentialsConfigured(): boolean {
  * internal public base). Otherwise derived from `SKB_PUBLIC_BASE_URL`.
  */
 export function resolveRedirectUri(): string {
-    const explicit = readEnv('OSH_GOOGLE_REDIRECT_URI', 'GOOGLE_REDIRECT_URI');
-    if (explicit) return explicit;
+    const { redirectUri } = readGoogleEnvBundle();
+    if (redirectUri) return redirectUri;
     const base = process.env.SKB_PUBLIC_BASE_URL || 'http://localhost:3000';
     return `${base.replace(/\/+$/, '')}/api/google/oauth/callback`;
 }
@@ -411,6 +434,7 @@ export async function getTokenFor(locationId: string): Promise<GoogleToken | nul
 export async function deleteTokenFor(locationId: string): Promise<void> {
     const coll = await tokensCollection();
     await coll.deleteOne({ locationId });
+    invalidateGbpCaches(locationId);
 }
 
 export async function setLinkedLocation(
@@ -494,18 +518,67 @@ async function gbpFetch(
     return res;
 }
 
+// Accounts/locations rarely change; cache per tenant to sidestep GBP's
+// aggressive default rate limits (Account Management API defaults to
+// ~1 qpm, which tanks the admin UI on every page load). TTL is 10 minutes;
+// `Disconnect`/`Link` paths clear the cache explicitly.
+interface CacheEntry<T> { expiresAt: number; value: T }
+const accountsCache = new Map<string, CacheEntry<GbpAccountSummary[]>>();
+const locationsCache = new Map<string, CacheEntry<GbpLocationSummary[]>>();
+const CACHE_TTL_MS = 10 * 60 * 1000;
+
+export function invalidateGbpCaches(locationId: string): void {
+    accountsCache.delete(locationId);
+    for (const key of Array.from(locationsCache.keys())) {
+        if (key.startsWith(locationId + '::')) locationsCache.delete(key);
+    }
+}
+
+/** Parse a Google-style error body to extract a human message + the
+ *  machine-readable status (e.g., RESOURCE_EXHAUSTED for 429). Falls back
+ *  to the HTTP status code if the body isn't JSON. */
+async function gbpErrorDetails(res: Response, prefix: string): Promise<Error> {
+    const status = res.status;
+    let detail = '';
+    let gStatus = '';
+    try {
+        const bodyText = await res.text();
+        const body = bodyText ? JSON.parse(bodyText) : null;
+        const err = body?.error;
+        if (err && typeof err === 'object') {
+            gStatus = typeof err.status === 'string' ? err.status : '';
+            if (typeof err.message === 'string') detail = err.message;
+        } else if (bodyText) {
+            detail = bodyText.slice(0, 200);
+        }
+    } catch { /* ignore body parse */ }
+    // Build a structured error code the UI can branch on.
+    const rateLimited = status === 429 || gStatus === 'RESOURCE_EXHAUSTED';
+    const code = rateLimited ? 'rate_limited' : `http_${status}`;
+    const msg = `${prefix} failed [${code}]${detail ? `: ${detail}` : `: ${status}`}`;
+    const e = new Error(msg) as Error & { code?: string; httpStatus?: number };
+    e.code = code;
+    e.httpStatus = status;
+    return e;
+}
+
 export async function listGbpAccounts(
     locationId: string,
     fetchFn: typeof fetch = fetch,
 ): Promise<GbpAccountSummary[]> {
+    const cached = accountsCache.get(locationId);
+    if (cached && cached.expiresAt > Date.now()) return cached.value;
+
     const res = await gbpFetch(locationId, GBP_ACCOUNTS_ENDPOINT, { method: 'GET' }, fetchFn);
-    if (!res.ok) throw new Error(`gbp accounts list failed: ${res.status}`);
+    if (!res.ok) throw await gbpErrorDetails(res, 'gbp accounts list');
     const data = (await res.json()) as { accounts?: Array<Record<string, unknown>> };
     const accounts = Array.isArray(data.accounts) ? data.accounts : [];
-    return accounts.map((a) => ({
+    const out = accounts.map((a) => ({
         name: typeof a.name === 'string' ? a.name : '',
         accountName: typeof a.accountName === 'string' ? a.accountName : undefined,
     }));
+    accountsCache.set(locationId, { value: out, expiresAt: Date.now() + CACHE_TTL_MS });
+    return out;
 }
 
 export async function listGbpLocationsForAccount(
@@ -513,13 +586,17 @@ export async function listGbpLocationsForAccount(
     accountResourceName: string,
     fetchFn: typeof fetch = fetch,
 ): Promise<GbpLocationSummary[]> {
+    const cacheKey = `${locationId}::${accountResourceName}`;
+    const cached = locationsCache.get(cacheKey);
+    if (cached && cached.expiresAt > Date.now()) return cached.value;
+
     const url = `${GBP_LOCATIONS_V1_BASE}/${accountResourceName}/locations`
         + '?readMask=name,title,storefrontAddress';
     const res = await gbpFetch(locationId, url, { method: 'GET' }, fetchFn);
-    if (!res.ok) throw new Error(`gbp locations list failed: ${res.status}`);
+    if (!res.ok) throw await gbpErrorDetails(res, 'gbp locations list');
     const data = (await res.json()) as { locations?: Array<Record<string, unknown>> };
     const rows = Array.isArray(data.locations) ? data.locations : [];
-    return rows.map((l) => {
+    const out = rows.map((l) => {
         const addr = (l.storefrontAddress as Record<string, unknown> | undefined) ?? {};
         const lines = Array.isArray(addr.addressLines) ? addr.addressLines.join(', ') : '';
         const city = typeof addr.locality === 'string' ? addr.locality : '';
@@ -533,6 +610,8 @@ export async function listGbpLocationsForAccount(
             address: addressStr || undefined,
         };
     });
+    locationsCache.set(cacheKey, { value: out, expiresAt: Date.now() + CACHE_TTL_MS });
+    return out;
 }
 
 // ============================================================================

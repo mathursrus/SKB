@@ -27,6 +27,7 @@ import {
     updateLocationVoiceConfig,
     updateLocationSiteConfig,
     updateLocationWebsiteConfig,
+    updateLocationMenu,
     toPublicLocation,
     DEFAULT_WEBSITE_TEMPLATE,
     type WebsiteConfigUpdate,
@@ -37,7 +38,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const publicDirForAssets = path.resolve(__dirname, '..', '..', 'public');
-import type { AnalyticsStage, LocationAddress, WeeklyHours, LocationContent, WebsiteTemplateKey } from '../types/queue.js';
+import type { AnalyticsStage, LocationAddress, WeeklyHours, LocationContent, WebsiteTemplateKey, LocationMenu } from '../types/queue.js';
 import {
     requireRole,
     mintLocationCookie,
@@ -53,7 +54,7 @@ import {
     isInvitableRole,
 } from '../services/invites.js';
 import { ObjectId } from 'mongodb';
-import { getDb, memberships as membershipsColl } from '../core/db/mongo.js';
+import { getDb, memberships as membershipsColl, locations as locationsColl } from '../core/db/mongo.js';
 import { timingSafeEqual } from 'node:crypto';
 import QRCode from 'qrcode';
 
@@ -443,6 +444,62 @@ export function hostRouter(): Router {
         } catch (err) { dbError(res, err); }
     });
 
+    // ----------------------------------------------------------------------
+    // Structured menu (issue #51 follow-up). GET is public — powers the
+    // diner-facing /menu page. POST requires admin/owner.
+    // ----------------------------------------------------------------------
+    r.get('/menu', async (req: Request, res: Response) => {
+        try {
+            const location = await getLocation(loc(req));
+            if (!location) { res.status(404).json({ error: 'location not found' }); return; }
+            res.json({
+                menu: location.menu ?? { sections: [] },
+                menuUrl: location.menuUrl ?? '',
+            });
+        } catch (err) { dbError(res, err); }
+    });
+
+    r.post('/host/menu', requireAdmin, async (req: Request, res: Response) => {
+        const body = (req.body ?? {}) as { menu?: unknown };
+        if (body.menu === null) {
+            try {
+                await updateLocationMenu(loc(req), null);
+                res.json({ ok: true, menu: { sections: [] } });
+                return;
+            } catch (err) { dbError(res, err); return; }
+        }
+        if (!body.menu || typeof body.menu !== 'object' || !Array.isArray((body.menu as LocationMenu).sections)) {
+            res.status(400).json({ error: 'menu.sections must be an array' });
+            return;
+        }
+        try {
+            const updated = await updateLocationMenu(loc(req), body.menu as LocationMenu);
+            console.log(JSON.stringify({
+                t: new Date().toISOString(),
+                level: 'info',
+                msg: 'host.menu.updated',
+                loc: loc(req),
+                sectionCount: updated.menu?.sections.length ?? 0,
+                itemCount: (updated.menu?.sections ?? []).reduce((n, s) => n + s.items.length, 0),
+            }));
+            res.json({ ok: true, menu: updated.menu ?? { sections: [] } });
+        } catch (err) {
+            if (err instanceof Error && (
+                err.message.startsWith('menu.')
+                || err.message.startsWith('section.')
+                || err.message.startsWith('item.')
+            )) {
+                res.status(400).json({ error: err.message });
+                return;
+            }
+            if (err instanceof Error && err.message === 'location not found') {
+                res.status(404).json({ error: 'location not found' });
+                return;
+            }
+            dbError(res, err);
+        }
+    });
+
     r.post('/host/visit-config', requireAdmin, async (req: Request, res: Response) => {
         const body = (req.body ?? {}) as {
             visitMode?: unknown;
@@ -544,6 +601,35 @@ export function hostRouter(): Router {
             const pin = location.pin ?? '';
             if (!pin) { res.status(404).json({ error: 'pin not set' }); return; }
             res.json({ pin });
+        } catch (err) { dbError(res, err); }
+    });
+
+    // Admin-set PIN. 4-6 digits. Invalidates any active skb_host cookies
+    // because the cookie HMAC is location-specific — a new PIN doesn't
+    // immediately log out tablets, but future unlocks must use the new
+    // value. (A full rotate-session-secret flow is a follow-up.)
+    r.post('/host/pin', requireAdmin, async (req: Request, res: Response) => {
+        const body = (req.body ?? {}) as { pin?: unknown };
+        const pin = typeof body.pin === 'string' ? body.pin.trim() : '';
+        if (!/^\d{4,6}$/.test(pin)) {
+            res.status(400).json({ error: 'PIN must be 4–6 digits', field: 'pin' });
+            return;
+        }
+        try {
+            const db = await getDb();
+            const r2 = await locationsColl(db).findOneAndUpdate(
+                { _id: loc(req) },
+                { $set: { pin } },
+                { returnDocument: 'after' },
+            );
+            if (!r2) { res.status(404).json({ error: 'location not found' }); return; }
+            console.log(JSON.stringify({
+                t: new Date().toISOString(),
+                level: 'info',
+                msg: 'host.pin.updated',
+                loc: loc(req),
+            }));
+            res.json({ ok: true });
         } catch (err) { dbError(res, err); }
     });
 

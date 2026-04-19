@@ -60,6 +60,7 @@ export interface Location {
     // fields fall back to template defaults.
     websiteTemplate?: WebsiteTemplateKey;
     content?: LocationContent;
+    menu?: LocationMenu;       // structured menu (sections + items, issue #51)
 
     // Owner-onboarding wizard state (issue #54, spec §6.2). Each completed
     // step ID is pushed in. Wizard is hidden client-side once all four are
@@ -86,6 +87,27 @@ export interface LocationContent {
     contactEmail?: string;      // optional override for the contact page
     instagramHandle?: string;   // "@example" with or without the leading @
     reservationsNote?: string;  // "Walk-ins welcome" etc.
+}
+
+// Structured menu (issue #51 follow-up). The restaurant can author an
+// ordered list of sections, each holding items with name / description /
+// price. The public /menu route reads this directly if present; the legacy
+// `menuUrl` still works as an external-link alternative for operators who
+// keep their menu elsewhere (PDF / Squarespace / etc).
+export interface MenuItem {
+    id: string;                 // short random id, client-minted
+    name: string;
+    description?: string;
+    price?: string;             // display string ("$12.50", "12", "market price")
+}
+export interface MenuSection {
+    id: string;                 // short random id, client-minted
+    title: string;              // "Appetizers", "Dosas", "Drinks", ...
+    items: MenuItem[];
+}
+export interface LocationMenu {
+    sections: MenuSection[];
+    updatedAt?: Date;
 }
 
 // A safe projection of Location suitable for exposure via the public config

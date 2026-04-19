@@ -322,19 +322,24 @@ export function requireRole(...roles: Role[]) {
                 res.status(401).json({ error: 'unauthorized' });
                 return;
             }
+            // Wrong-tenant: the user's session is for a different restaurant.
+            // Don't 403 outright — the user may legitimately be using a shared
+            // host tablet with a valid PIN for *this* tenant. Treat the session
+            // as not-applicable and fall through to the PIN check below. If
+            // PIN also fails, the final 401 says "unauthorized" which prompts
+            // a clean re-login.
             if (paramLoc && sv.payload.lid !== paramLoc) {
                 emitLog({
-                    level: 'warn',
-                    msg: 'auth.wrong-tenant',
+                    level: 'info',
+                    msg: 'auth.session.cross-tenant-fallthrough',
                     source: 'session',
                     cookieLid: sv.payload.lid,
                     paramLoc,
                     uid: sv.payload.uid,
                     ip: req.ip,
                 });
-                res.status(403).json({ error: 'wrong_tenant' });
-                return;
-            }
+                // Intentional fall-through. Do NOT return.
+            } else {
             if (!allowed.has(sv.payload.role)) {
                 emitLog({
                     level: 'warn',
@@ -416,6 +421,7 @@ export function requireRole(...roles: Role[]) {
             };
             next();
             return;
+            }
         }
 
         // 2) skb_host — PIN-anonymous, role always 'host'.

@@ -132,6 +132,34 @@ const cases: BaseTestCase[] = [
         },
     },
     {
+        // Regression: dev machines may carry an unrelated GOOGLE_REDIRECT_URI
+        // from another project (e.g., a calendar helper). Per-field fallback
+        // would mix OSH's client_id with that project's redirect_uri, producing
+        // redirect_uri_mismatch at Google. readOAuthConfig/resolveRedirectUri
+        // must pick one ENV bundle atomically.
+        name: 'atomic env bundle — OSH_CLIENT_ID present ignores legacy GOOGLE_REDIRECT_URI',
+        tags: ['unit', 'googleBusiness', 'creds', 'osh-env', 'regression'],
+        testFn: async () => {
+            delete process.env.OSH_GOOGLE_REDIRECT_URI;
+            delete process.env.SKB_PUBLIC_BASE_URL;
+            process.env.OSH_GOOGLE_CLIENT_ID = 'osh-client';
+            process.env.OSH_GOOGLE_CLIENT_SECRET = 'osh-secret';
+            process.env.GOOGLE_CLIENT_ID = 'legacy-client';
+            process.env.GOOGLE_CLIENT_SECRET = 'legacy-secret';
+            process.env.GOOGLE_REDIRECT_URI = 'http://localhost:8371/oauth/callback';
+            const { resolveRedirectUri, readOAuthConfig: reread } = await import('../../src/services/googleBusiness.js');
+            const cfg = reread();
+            const uri = resolveRedirectUri();
+            restoreEnv();
+            // Client ID comes from OSH bundle; redirect URI must NOT leak from legacy bundle.
+            return cfg !== null
+                && cfg.clientId === 'osh-client'
+                && cfg.clientSecret === 'osh-secret'
+                && uri === 'http://localhost:3000/api/google/oauth/callback'
+                && !uri.includes('8371');
+        },
+    },
+    {
         name: 'resolveRedirectUri returns a GLOBAL path, not per-tenant (single registered URI)',
         tags: ['unit', 'googleBusiness', 'osh-env'],
         testFn: async () => {
@@ -150,6 +178,9 @@ const cases: BaseTestCase[] = [
         name: 'OSH_GOOGLE_REDIRECT_URI overrides the computed default',
         tags: ['unit', 'googleBusiness', 'osh-env'],
         testFn: async () => {
+            // OSH bundle is atomic — CLIENT_ID must be set for OSH_REDIRECT_URI to take effect.
+            process.env.OSH_GOOGLE_CLIENT_ID = 'osh-client';
+            process.env.OSH_GOOGLE_CLIENT_SECRET = 'osh-secret';
             process.env.OSH_GOOGLE_REDIRECT_URI = 'https://custom.example.com/oauth/cb';
             const { resolveRedirectUri } = await import('../../src/services/googleBusiness.js');
             const ok = resolveRedirectUri() === 'https://custom.example.com/oauth/cb';

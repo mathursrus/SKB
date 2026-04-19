@@ -259,18 +259,22 @@
     async function loadVisitConfig() {
         try {
             const r = await fetch('api/host/visit-config');
-            if (!r.ok) return;
-            const data = await r.json();
-            visitMode.value = data.visitMode || 'auto';
-            visitMenuUrl.value = data.menuUrl || '';
-            visitClosedMessage.value = data.closedMessage || '';
+            if (r.ok) {
+                const data = await r.json();
+                visitMode.value = data.visitMode || 'auto';
+                visitMenuUrl.value = data.menuUrl || '';
+                visitClosedMessage.value = data.closedMessage || '';
+            }
+            // 401/403 here just means the caller lacks edit rights. The QR
+            // card below still renders from URL-shape inputs; if they later
+            // click Save, the save handler surfaces the exact error.
         } catch {
-            visitStatus.textContent = 'Failed to load visit settings';
-            visitStatus.className = 'visit-status error';
+            // Network-only failure; silently render the QR. Save will re-try.
         }
         // Show the URL that the door-QR actually resolves to, so the owner
         // can verify what scanners will land on without having to scan it.
-        // Uses the same logic as the server-side QR endpoint.
+        // Uses the same logic as the server-side QR endpoint. Rendered even
+        // when the config fetch failed — the scanner URL is pure DOM state.
         const qrTarget = document.getElementById('admin-qr-target-url');
         const qrTestLink = document.getElementById('admin-qr-test-link');
         const loc = (window.location.pathname.match(/^\/r\/([^/]+)\//) || [])[1] || 'skb';
@@ -316,7 +320,8 @@
     }
 
     visitSave.addEventListener('click', async () => {
-        setStatus(visitStatus, '', '');
+        setStatus(visitStatus, 'Saving\u2026', '');
+        visitSave.disabled = true;
         try {
             const r = await fetch('api/host/visit-config', {
                 method: 'POST',
@@ -332,14 +337,17 @@
                 setStatus(visitStatus, data.error || 'Save failed', 'error');
                 return;
             }
-            setStatus(visitStatus, 'Saved \u2713', 'success');
+            flashSaved(visitStatus);
         } catch {
             setStatus(visitStatus, 'Network error', 'error');
+        } finally {
+            visitSave.disabled = false;
         }
     });
 
     voiceSave.addEventListener('click', async () => {
-        setStatus(voiceStatus, '', '');
+        setStatus(voiceStatus, 'Saving\u2026', '');
+        voiceSave.disabled = true;
         try {
             const r = await fetch('api/host/voice-config', {
                 method: 'POST',
@@ -355,9 +363,11 @@
                 setStatus(voiceStatus, data.error || 'Save failed', 'error');
                 return;
             }
-            setStatus(voiceStatus, 'Saved \u2713', 'success');
+            flashSaved(voiceStatus);
         } catch {
             setStatus(voiceStatus, 'Network error', 'error');
+        } finally {
+            voiceSave.disabled = false;
         }
     });
 
@@ -389,7 +399,8 @@
     }
 
     siteSave.addEventListener('click', async () => {
-        setStatus(siteStatus, '', '');
+        setStatus(siteStatus, 'Saving\u2026', '');
+        siteSave.disabled = true;
         const street = siteStreet?.value.trim() || '';
         const city = siteCity?.value.trim() || '';
         const state = siteState?.value.trim().toUpperCase() || '';
@@ -411,9 +422,11 @@
                 setStatus(siteStatus, data.error || 'Save failed', 'error');
                 return;
             }
-            setStatus(siteStatus, 'Saved \u2713', 'success');
+            flashSaved(siteStatus);
         } catch {
             setStatus(siteStatus, 'Network error', 'error');
+        } finally {
+            siteSave.disabled = false;
         }
     });
 
@@ -443,16 +456,20 @@
         card.addEventListener('click', () => setSelectedTemplate(card.getAttribute('data-template')));
     });
 
-    function updateSavedAgo() {
-        if (!websiteStatus || !websiteSavedAt) return;
-        const now = Date.now();
-        const ms = now - websiteSavedAt;
-        if (ms < 60000) websiteStatus.textContent = 'Saved just now';
-        else if (ms < 3600000) websiteStatus.textContent = `Saved ${Math.floor(ms / 60000)}m ago`;
-        else websiteStatus.textContent = `Saved ${Math.floor(ms / 3600000)}h ago`;
-        websiteStatus.className = 'visit-status success';
+    // Transient save feedback: show "Saved ✓" briefly, then clear. We
+    // intentionally do NOT render a persistent "Saved Nm ago" relative
+    // time — it reads as telemetry noise and implies pending state.
+    function flashSaved(statusEl, text) {
+        if (!statusEl) return;
+        statusEl.textContent = text || 'Saved \u2713';
+        statusEl.className = 'visit-status success';
+        setTimeout(() => {
+            if (statusEl.textContent === (text || 'Saved \u2713')) {
+                statusEl.textContent = '';
+                statusEl.className = 'visit-status';
+            }
+        }, 3000);
     }
-    setInterval(updateSavedAgo, 30000);
 
     async function loadWebsiteConfig() {
         try {
@@ -478,51 +495,188 @@
     // The full menu JSON editor is out of scope for Phase B. This field
     // shares the same persistence as the Settings → QR card's menuUrl so
     // owners only have to maintain one value.
-    async function loadMenuUrl() {
-        const input = $('admin-menu-url');
-        if (!input) return;
+    // ------------------------------------------------------------------
+    // Menu builder (structured sections + items) + external-link fallback.
+    // Builder state lives on the DOM: each section is a .menu-section
+    // block with data-sid, items inside are .menu-item blocks with
+    // data-iid. Save button serializes the DOM tree and POSTs to
+    // /api/host/menu. External link is a separate card that still rides
+    // on visit-config.menuUrl.
+    // ------------------------------------------------------------------
+    function menuUid() {
+        return Math.random().toString(36).slice(2, 10);
+    }
+
+    function renderMenuItemRow(item) {
+        const iid = item.id || menuUid();
+        const name = esc(item.name || '');
+        const desc = esc(item.description || '');
+        const price = esc(item.price || '');
+        return '<div class="menu-item" data-iid="' + esc(iid) + '">'
+            + '<div class="menu-item-grid">'
+            + '<label class="visit-field"><span class="visit-label">Item name</span>'
+            + '<input type="text" class="menu-item-name" maxlength="120" value="' + name + '" placeholder="e.g. Masala Dosa" /></label>'
+            + '<label class="visit-field visit-field-small"><span class="visit-label">Price</span>'
+            + '<input type="text" class="menu-item-price" maxlength="40" value="' + price + '" placeholder="$12" /></label>'
+            + '<label class="visit-field visit-field-full"><span class="visit-label">Description <span class="visit-sub-help">optional</span></span>'
+            + '<textarea class="menu-item-desc" maxlength="500" rows="2" placeholder="Crispy rice-and-lentil crepe with spiced potato filling.">' + desc + '</textarea></label>'
+            + '</div>'
+            + '<button type="button" class="menu-item-delete admin-danger-inline" aria-label="Delete item">Remove</button>'
+            + '</div>';
+    }
+
+    function renderMenuSectionBlock(section) {
+        const sid = section.id || menuUid();
+        const title = esc(section.title || '');
+        const items = (section.items || []).map(renderMenuItemRow).join('');
+        return '<details class="menu-section" data-sid="' + esc(sid) + '" open>'
+            + '<summary class="menu-section-head">'
+            + '<input type="text" class="menu-section-title" maxlength="80" value="' + title + '" placeholder="e.g. Appetizers" />'
+            + '<button type="button" class="menu-section-delete admin-danger-inline" aria-label="Delete section">Delete section</button>'
+            + '</summary>'
+            + '<div class="menu-items-list">' + items + '</div>'
+            + '<div class="menu-section-actions"><button type="button" class="menu-item-add secondary">+ Add item</button></div>'
+            + '</details>';
+    }
+
+    function renderMenuSections(menu) {
+        const container = document.getElementById('admin-menu-sections');
+        const empty = document.getElementById('admin-menu-empty');
+        if (!container) return;
+        const sections = Array.isArray(menu?.sections) ? menu.sections : [];
+        const html = sections.map(renderMenuSectionBlock).join('');
+        container.innerHTML = html + (empty ? empty.outerHTML : '');
+        const emptyEl = document.getElementById('admin-menu-empty');
+        if (emptyEl) emptyEl.style.display = sections.length === 0 ? 'block' : 'none';
+    }
+
+    function serializeMenuFromDom() {
+        const container = document.getElementById('admin-menu-sections');
+        if (!container) return { sections: [] };
+        const sections = Array.from(container.querySelectorAll('.menu-section')).map(sec => {
+            const sid = sec.getAttribute('data-sid') || menuUid();
+            const title = (sec.querySelector('.menu-section-title')?.value || '').trim();
+            const items = Array.from(sec.querySelectorAll('.menu-item')).map(it => {
+                const iid = it.getAttribute('data-iid') || menuUid();
+                const name = (it.querySelector('.menu-item-name')?.value || '').trim();
+                const description = (it.querySelector('.menu-item-desc')?.value || '').trim();
+                const price = (it.querySelector('.menu-item-price')?.value || '').trim();
+                const out = { id: iid, name };
+                if (description) out.description = description;
+                if (price) out.price = price;
+                return out;
+            }).filter(it => it.name.length > 0);
+            return { id: sid, title, items };
+        }).filter(s => s.title.length > 0);
+        return { sections };
+    }
+
+    async function loadMenuBuilder() {
+        // Structured menu
         try {
-            const r = await fetch('api/host/visit-config');
-            if (!r.ok) return;
-            const data = await r.json();
-            input.value = data.menuUrl || '';
+            const r = await fetch('api/menu');
+            const data = r.ok ? await r.json() : { menu: { sections: [] }, menuUrl: '' };
+            renderMenuSections(data.menu);
+            const urlInput = $('admin-menu-url');
+            if (urlInput) urlInput.value = data.menuUrl || '';
         } catch {
-            // non-blocking
+            renderMenuSections({ sections: [] });
         }
     }
 
-    const menuSave = $('admin-menu-save');
-    if (menuSave) {
-        menuSave.addEventListener('click', async () => {
-            const status = $('admin-menu-status');
-            setStatus(status, '', '');
-            const url = ($('admin-menu-url')?.value || '').trim() || null;
-            try {
-                // Fetch current visit-config first so we don't clobber visitMode/closedMessage.
-                const cur = await fetch('api/host/visit-config').then(r => r.ok ? r.json() : {}).catch(() => ({}));
-                const r = await fetch('api/host/visit-config', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        visitMode: cur.visitMode || 'auto',
-                        menuUrl: url,
-                        closedMessage: cur.closedMessage || null,
-                    }),
-                });
-                const data = await r.json().catch(() => ({}));
-                if (!r.ok) {
-                    setStatus(status, data.error || 'Save failed', 'error');
-                    return;
+    function wireMenuBuilder() {
+        const container = document.getElementById('admin-menu-sections');
+        const addSectionBtn = $('admin-menu-add-section');
+        const saveBtn = $('admin-menu-save');
+        const statusEl = $('admin-menu-status');
+        if (!container || !addSectionBtn || !saveBtn) return;
+
+        // Event delegation: add item, delete item, delete section all
+        // bubble to the container.
+        container.addEventListener('click', (e) => {
+            const t = e.target;
+            if (!(t instanceof HTMLElement)) return;
+            if (t.classList.contains('menu-item-add')) {
+                const sec = t.closest('.menu-section');
+                if (!sec) return;
+                const items = sec.querySelector('.menu-items-list');
+                if (items) items.insertAdjacentHTML('beforeend', renderMenuItemRow({ id: menuUid() }));
+            } else if (t.classList.contains('menu-item-delete')) {
+                t.closest('.menu-item')?.remove();
+            } else if (t.classList.contains('menu-section-delete')) {
+                // Prevent the summary from also toggling open/closed.
+                e.preventDefault();
+                e.stopPropagation();
+                if (confirm('Delete this section and all its items?')) {
+                    t.closest('.menu-section')?.remove();
+                    const empty = document.getElementById('admin-menu-empty');
+                    if (empty && !document.querySelector('.menu-section')) empty.style.display = 'block';
                 }
-                setStatus(status, 'Saved \u2713', 'success');
-                // Keep the Settings QR-card input in sync so switching tabs
-                // doesn't show stale data.
-                if (visitMenuUrl) visitMenuUrl.value = url || '';
-            } catch {
-                setStatus(status, 'Network error', 'error');
             }
         });
+
+        addSectionBtn.addEventListener('click', () => {
+            const empty = document.getElementById('admin-menu-empty');
+            if (empty) empty.style.display = 'none';
+            container.insertAdjacentHTML(
+                'beforeend',
+                renderMenuSectionBlock({ id: menuUid(), title: '', items: [{ id: menuUid(), name: '' }] }),
+            );
+            container.querySelector('.menu-section:last-of-type .menu-section-title')?.focus();
+        });
+
+        saveBtn.addEventListener('click', async () => {
+            setStatus(statusEl, '', '');
+            const menu = serializeMenuFromDom();
+            saveBtn.disabled = true;
+            try {
+                const r = await fetch('api/host/menu', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ menu }),
+                });
+                const data = await r.json().catch(() => ({}));
+                if (!r.ok) { setStatus(statusEl, data.error || 'Save failed', 'error'); return; }
+                flashSaved(statusEl);
+            } catch {
+                setStatus(statusEl, 'Network error', 'error');
+            } finally {
+                saveBtn.disabled = false;
+            }
+        });
+
+        // External menu link (URL-only fallback, lives on visit-config).
+        const urlSave = $('admin-menu-url-save');
+        if (urlSave) {
+            urlSave.addEventListener('click', async () => {
+                const urlStatus = $('admin-menu-url-status');
+                setStatus(urlStatus, '', '');
+                const url = ($('admin-menu-url')?.value || '').trim() || null;
+                try {
+                    const cur = await fetch('api/host/visit-config').then(r => r.ok ? r.json() : {}).catch(() => ({}));
+                    const r = await fetch('api/host/visit-config', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            visitMode: cur.visitMode || 'auto',
+                            menuUrl: url,
+                            closedMessage: cur.closedMessage || null,
+                        }),
+                    });
+                    const data = await r.json().catch(() => ({}));
+                    if (!r.ok) { setStatus(urlStatus, data.error || 'Save failed', 'error'); return; }
+                    flashSaved(urlStatus);
+                    if (visitMenuUrl) visitMenuUrl.value = url || '';
+                } catch {
+                    setStatus(urlStatus, 'Network error', 'error');
+                }
+            });
+        }
     }
+
+    // Wire the menu builder once the DOM is ready (it's in admin.html from
+    // the start, so no need to wait for a tab-activation).
+    wireMenuBuilder();
 
     // ─── Device PIN regen stub (Phase B: button wired, endpoint deferred) ─
     // Spec says the rotate-PIN endpoint is a TODO; the UI shows the button
@@ -537,20 +691,47 @@
         el.style.display = '';
         setTimeout(() => { el.style.display = 'none'; }, 3200);
     }
-    const devicePinRegen = $('admin-device-pin-regen');
-    if (devicePinRegen) {
-        devicePinRegen.addEventListener('click', async () => {
+    // ─── Device PIN: admin-set (GET current, POST new) ───────────────────
+    async function loadDevicePin() {
+        const displayEl = $('admin-device-pin-display');
+        if (!displayEl) return;
+        try {
+            const r = await fetch('api/host/pin');
+            if (!r.ok) { displayEl.value = ''; displayEl.placeholder = '(not set)'; return; }
+            const data = await r.json();
+            displayEl.value = data.pin || '';
+        } catch {
+            displayEl.value = '';
+        }
+    }
+    const devicePinSave = $('admin-device-pin-save');
+    if (devicePinSave) {
+        devicePinSave.addEventListener('click', async () => {
+            const statusEl = $('admin-device-pin-status');
+            const newInput = $('admin-device-pin-new');
+            const pin = (newInput?.value || '').trim();
+            setStatus(statusEl, '', '');
+            if (!/^\d{4,6}$/.test(pin)) {
+                setStatus(statusEl, 'PIN must be 4–6 digits', 'error');
+                return;
+            }
+            devicePinSave.disabled = true;
             try {
-                const r = await fetch('api/host/regenerate-pin', { method: 'POST' });
-                if (r.ok) {
-                    const data = await r.json().catch(() => ({}));
-                    showToast('New PIN: ' + (data.pin || '(saved)'), 'success');
-                    return;
-                }
-                // 404 / 501 / anything else — treat as deferred.
-                showToast('Regenerate PIN — coming soon', 'info');
+                const r = await fetch('api/host/pin', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ pin }),
+                });
+                const data = await r.json().catch(() => ({}));
+                if (!r.ok) { setStatus(statusEl, data.error || 'Save failed', 'error'); return; }
+                flashSaved(statusEl, 'PIN updated \u2713');
+                // Refresh the current-PIN display; clear the input.
+                if (newInput) newInput.value = '';
+                await loadDevicePin();
             } catch {
-                showToast('Regenerate PIN — coming soon', 'info');
+                setStatus(statusEl, 'Network error', 'error');
+            } finally {
+                devicePinSave.disabled = false;
             }
         });
     }
@@ -607,6 +788,17 @@
         for (let i = 0; i < SIG_ROWS; i++) {
             const file = sigFileEl(i);
             const clearBtn = sigClearBtn(i);
+            const pickBtn = sigRowEl(i)?.querySelector('[data-sig-pick]');
+            if (pickBtn && file) {
+                // Robust pattern: a visible <button> explicitly invokes the
+                // hidden <input type="file">. Works across browsers, popup
+                // blockers, and extension click interceptors — the click()
+                // call happens inside the user-gesture event handler, so
+                // the native OS file chooser always opens.
+                pickBtn.addEventListener('click', () => {
+                    try { file.click(); } catch (err) { console.error('file picker open failed', err); }
+                });
+            }
             if (file) {
                 file.addEventListener('change', () => {
                     const f = file.files?.[0];
@@ -657,7 +849,8 @@
 
     if (websiteSave) {
         websiteSave.addEventListener('click', async () => {
-            setStatus(websiteStatus, '', '');
+            setStatus(websiteStatus, 'Saving\u2026', '');
+            websiteSave.disabled = true;
             const content = {
                 heroHeadline: websiteHeroHeadline?.value.trim() || '',
                 heroSubhead: websiteHeroSubhead?.value.trim() || '',
@@ -681,10 +874,11 @@
                 // Server returns the persisted content — reload so the row
                 // state reflects any URL substitutions the uploader did.
                 if (data?.content?.knownFor) sigLoadFromContent(data.content.knownFor);
-                websiteSavedAt = Date.now();
-                updateSavedAgo();
+                flashSaved(websiteStatus);
             } catch {
                 setStatus(websiteStatus, 'Network error', 'error');
+            } finally {
+                websiteSave.disabled = false;
             }
         });
     }
@@ -712,6 +906,60 @@
         loginError.textContent = body.error || 'Login failed';
         loginError.style.display = '';
     });
+
+    // ------------------------------------------------------------------
+    // Email + password sign-in (for owners/admins). PIN unlock only grants
+    // `host` role, so admin-level saves (menu, QR, profile, Google) 403.
+    // Named sign-in hits /api/login and sets skb_session, which carries
+    // the owner/admin role. Tabs that live under requireAdmin start
+    // actually persisting changes once this cookie is present.
+    // ------------------------------------------------------------------
+    const showEmailLoginLink = $('admin-login-show-email');
+    const showPinLoginLink = $('admin-login-show-pin');
+    const pinBlock = $('admin-login-pin-block');
+    const emailBlock = $('admin-login-email-block');
+    const emailForm = $('admin-login-email-form');
+    const emailErrorEl = $('admin-login-email-error');
+    function swapToEmailLogin(e) { if (e) e.preventDefault(); if (pinBlock) pinBlock.style.display = 'none'; if (emailBlock) emailBlock.style.display = ''; $('admin-login-email')?.focus(); }
+    function swapToPinLogin(e) { if (e) e.preventDefault(); if (emailBlock) emailBlock.style.display = 'none'; if (pinBlock) pinBlock.style.display = ''; $('admin-pin')?.focus(); }
+    if (showEmailLoginLink) showEmailLoginLink.addEventListener('click', swapToEmailLogin);
+    if (showPinLoginLink) showPinLoginLink.addEventListener('click', swapToPinLogin);
+
+    if (emailForm) {
+        emailForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            if (emailErrorEl) emailErrorEl.style.display = 'none';
+            const email = ($('admin-login-email')?.value || '').trim();
+            const password = $('admin-login-password')?.value || '';
+            const locMatch = window.location.pathname.match(/^\/r\/([^/]+)\//);
+            const locationId = locMatch ? locMatch[1] : undefined;
+            try {
+                const r = await fetch('/api/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(locationId ? { email, password, locationId } : { email, password }),
+                });
+                const body = await r.json().catch(() => ({}));
+                if (!r.ok) {
+                    if (emailErrorEl) {
+                        emailErrorEl.textContent = body.error === 'no membership at location'
+                            ? 'You are not a member of this restaurant. Ask the owner to invite you.'
+                            : (body.error || 'Sign-in failed');
+                        emailErrorEl.style.display = '';
+                    }
+                    return;
+                }
+                // Hard reload so admin.js runs showAdmin() cleanly against
+                // the new cookie and the wizard / role-gates re-evaluate.
+                window.location.reload();
+            } catch {
+                if (emailErrorEl) {
+                    emailErrorEl.textContent = 'Network error';
+                    emailErrorEl.style.display = '';
+                }
+            }
+        });
+    }
 
     async function refreshAll() {
         rememberWorkspace();
@@ -994,17 +1242,33 @@
     }
 
     // ------------------------------------------------------------------
-    // 7-tab workspace (issue #51 Phase B). Tabs are:
-    //   dashboard · site · website · menu · staff · ai · settings
+    // 7-tab workspace. Tabs (in order):
+    //   dashboard · profile · website · menu · frontdesk · staff · integrations
+    //
+    // Renamed from the earlier site/settings/ai split so each tab has a
+    // single clear purpose:
+    //   profile      — the restaurant (address, hours, brand identity)
+    //   frontdesk    — IVR, Door QR routing, Device PIN (how guests
+    //                  physically reach the host stand)
+    //   integrations — MCP / AI + Google Business (outward connections)
     //
     // Each panel is lazy-loaded via `tabLoaders` on first activation. The
     // last-active tab is persisted per-location in localStorage under
     // `skb:adminTab:<loc>` so reloads land the operator back where they
     // left off. Hidden-by-role tabs (currently just `staff`) fall back to
     // `dashboard` when the stored key isn't visible.
+    //
+    // Legacy keys ('site', 'ai', 'settings') from older URLs or saved state
+    // are aliased in `rememberWorkspace` / URL parsing so pre-rename
+    // bookmarks + Google OAuth redirects still land somewhere sensible.
     // ------------------------------------------------------------------
-    const TAB_KEYS = ['dashboard', 'site', 'website', 'menu', 'staff', 'ai', 'settings'];
+    const TAB_KEYS = ['dashboard', 'profile', 'website', 'menu', 'frontdesk', 'staff', 'integrations'];
+    const LEGACY_TAB_ALIAS = { site: 'profile', ai: 'integrations', settings: 'frontdesk' };
     const loadedPanels = new Set();
+
+    function normalizeTabKey(key) {
+        return LEGACY_TAB_ALIAS[key] || key;
+    }
 
     function adminTabStorageKey() {
         const loc = (window.location.pathname.match(/^\/r\/([^/]+)\//) || [])[1] || 'skb';
@@ -1013,12 +1277,12 @@
 
     const tabLoaders = {
         dashboard: async () => { await Promise.all([loadStats(), loadAnalytics()]); },
-        site: async () => { await Promise.all([loadSiteConfig(), loadVoiceConfig()]); },
+        profile: async () => { await loadSiteConfig(); },
         website: async () => { await loadWebsiteConfig(); },
-        menu: async () => { await loadMenuUrl(); },
+        menu: async () => { await loadMenuBuilder(); },
+        frontdesk: async () => { await Promise.all([loadVisitConfig(), loadVoiceConfig(), loadDevicePin()]); },
         staff: async () => { await loadStaff(); },
-        ai: async () => { await loadMcpConfig(); },
-        settings: async () => { await loadVisitConfig(); await loadGoogleCard(); },
+        integrations: async () => { await loadMcpConfig(); await loadGoogleCard(); },
     };
 
     // ─── Google Business Profile card (issue #51 Phase D) ────────────────
@@ -1051,6 +1315,16 @@
         let data;
         try {
             const r = await fetch('api/google/status');
+            if (r.status === 401 || r.status === 403) {
+                // PIN-only hosts don't have permission to manage Google.
+                // Show a clear sign-in call-to-action instead of raw status.
+                card.setAttribute('data-state', 'needs_session');
+                body.innerHTML = '<div style="color:#78716c;font-size:13px">'
+                    + 'Sign in with your OSH owner or admin account to connect Google Business Profile.'
+                    + '</div>';
+                setStatusLine('', '');
+                return;
+            }
             if (!r.ok) throw new Error('status ' + r.status);
             data = await r.json();
         } catch (err) {
@@ -1064,7 +1338,7 @@
             card.setAttribute('data-state', 'creds_missing');
             body.innerHTML = '<div style="color:#78716c;font-size:13px">'
                 + 'Google credentials are not configured on this server yet. '
-                + 'Ask your OSH admin to set <code>GOOGLE_CLIENT_ID</code> and <code>GOOGLE_CLIENT_SECRET</code>. '
+                + 'Ask your OSH admin to set <code>OSH_GOOGLE_CLIENT_ID</code> and <code>OSH_GOOGLE_CLIENT_SECRET</code>. '
                 + 'The rest of OSH keeps working in the meantime.</div>';
             if (connectBtn) { connectBtn.disabled = true; show(connectBtn); }
             return;
@@ -1089,33 +1363,49 @@
         } else {
             card.setAttribute('data-state', 'connected_multi');
             body.innerHTML = '<div style="font-size:13px;margin-bottom:8px">Your Google account has multiple locations. Pick the one that matches this restaurant:</div>'
-                + '<select id="admin-gbp-loc-select" style="width:100%;padding:8px"><option value="">Loading…</option></select>';
+                + '<select id="admin-gbp-loc-select" style="width:100%;padding:8px"><option value="">Loading…</option></select>'
+                + '<div id="admin-gbp-loc-hint" style="display:none;margin-top:10px;padding:10px 12px;background:#fef3c7;border:1px solid #fde68a;border-radius:8px;color:#78350f;font-size:13px;line-height:1.5"></div>';
             show(linkBtn); show(discBtn);
+            const sel = document.getElementById('admin-gbp-loc-select');
+            const hint = document.getElementById('admin-gbp-loc-hint');
+            function showHint(text) {
+                if (!hint) return;
+                hint.textContent = text;
+                hint.style.display = '';
+                if (linkBtn) linkBtn.disabled = true;
+            }
             try {
                 const r = await fetch('api/google/locations');
-                const sel = document.getElementById('admin-gbp-loc-select');
-                if (!r.ok) {
-                    sel.innerHTML = '<option value="">(failed to load locations)</option>';
+                if (r.status === 429) {
+                    const data = await r.json().catch(() => ({}));
+                    sel.innerHTML = '<option value="">(Google rate limit hit — try again shortly)</option>';
+                    showHint(data.hint || 'Google Business Profile API quota hit. Wait ~60 seconds and reload.');
+                } else if (!r.ok) {
+                    const data = await r.json().catch(() => ({}));
+                    sel.innerHTML = '<option value="">(couldn\u2019t load locations)</option>';
+                    showHint('Couldn\u2019t fetch your GBP locations (' + (data.error || 'status ' + r.status) + '). Reload, or disconnect and reconnect if the error persists.');
                 } else {
                     const locs = (await r.json()).locations || [];
                     if (locs.length === 0) {
                         sel.innerHTML = '<option value="">(no locations on this account)</option>';
+                        showHint('Your Google account is connected, but it doesn\u2019t own any Business Profile locations yet. Finish verifying your listing at business.google.com, then reload.');
                     } else if (locs.length === 1) {
-                        // Auto-fill the dropdown but still require an explicit link-click.
                         sel.innerHTML = '<option value="' + esc(locs[0].name) + '">'
                             + esc(locs[0].title || locs[0].name) + (locs[0].address ? ' — ' + esc(locs[0].address) : '')
                             + '</option>';
+                        if (linkBtn) linkBtn.disabled = false;
                     } else {
                         sel.innerHTML = '<option value="">— pick one —</option>' + locs.map(function (l) {
                             return '<option value="' + esc(l.name) + '">'
                                 + esc(l.title || l.name) + (l.address ? ' — ' + esc(l.address) : '')
                                 + '</option>';
                         }).join('');
+                        if (linkBtn) linkBtn.disabled = false;
                     }
                 }
             } catch (err) {
-                const sel = document.getElementById('admin-gbp-loc-select');
-                if (sel) sel.innerHTML = '<option value="">(failed to load)</option>';
+                sel.innerHTML = '<option value="">(network error)</option>';
+                showHint('Couldn\u2019t reach the server. Check your connection and reload.');
             }
         }
 
@@ -1243,6 +1533,7 @@
     }
 
     function activateTab(key, opts = {}) {
+        key = normalizeTabKey(key);
         if (!TAB_KEYS.includes(key)) key = 'dashboard';
         const tabs = document.querySelectorAll('.admin-tab');
         // If the requested tab is hidden by role, fall back to dashboard.
@@ -1284,7 +1575,10 @@
         let key = 'dashboard';
         try {
             const saved = localStorage.getItem(adminTabStorageKey());
-            if (saved && TAB_KEYS.includes(saved)) key = saved;
+            if (saved) {
+                const normalized = normalizeTabKey(saved);
+                if (TAB_KEYS.includes(normalized)) key = normalized;
+            }
         } catch {}
         activateTab(key);
     }

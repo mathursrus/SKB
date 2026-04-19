@@ -29,7 +29,7 @@ const ADMIN_JS = fs.readFileSync(
     'utf8',
 );
 
-const TAB_KEYS = ['dashboard', 'site', 'website', 'menu', 'staff', 'ai', 'settings'] as const;
+const TAB_KEYS = ['dashboard', 'profile', 'website', 'menu', 'frontdesk', 'staff', 'integrations'] as const;
 
 function hasTabButton(key: string): boolean {
     return new RegExp(`<button[^>]*data-tab="${key}"`, 'i').test(ADMIN_HTML);
@@ -72,29 +72,31 @@ const cases: BaseTestCase[] = [
 
     // ─── Dashboard panel ──────────────────────────────────────────────
     {
-        name: 'Dashboard panel holds Service Debrief + Stage-Based Analytics',
+        name: 'Ops Dashboard panel holds Service Debrief + Lead Times',
         tags: ['unit', 'admin-tabs', 'dashboard'],
         testFn: async () => {
             const body = panelBody('dashboard');
             return body.includes('Service Debrief')
-                && body.includes('Stage-Based Analytics')
+                && body.includes('Lead Times')
                 && body.includes('admin-stats-grid')
                 && body.includes('admin-histograms');
         },
     },
 
-    // ─── Site panel ───────────────────────────────────────────────────
+    // ─── Profile panel (renamed from Site) ────────────────────────────
+    // Holds ONLY the restaurant profile: address, weekly hours, public host.
+    // IVR moved out to the Front desk panel (issue #51 IA cleanup).
     {
-        name: 'Site panel holds address + weekly hours + public host + IVR',
-        tags: ['unit', 'admin-tabs', 'site'],
+        name: 'Profile panel holds address + weekly hours + public host (no IVR)',
+        tags: ['unit', 'admin-tabs', 'profile'],
         testFn: async () => {
-            const body = panelBody('site');
+            const body = panelBody('profile');
             return body.includes('admin-site-street')
                 && body.includes('admin-site-public-host')
                 && body.includes('admin-site-mon-closed')
                 && body.includes('admin-site-sun-closed')
-                && body.includes('admin-voice-enabled')
-                && body.includes('admin-front-desk-phone');
+                && !body.includes('admin-voice-enabled')
+                && !body.includes('admin-front-desk-phone');
         },
     },
 
@@ -153,14 +155,20 @@ const cases: BaseTestCase[] = [
     },
 
     // ─── Menu panel ───────────────────────────────────────────────────
+    // Now a structured builder (sections + items) plus an optional
+    // external-link fallback for PDFs / hosted menu pages.
     {
-        name: 'Menu panel is a placeholder with a menuUrl input + save button',
+        name: 'Menu panel has a structured builder card + external-link fallback',
         tags: ['unit', 'admin-tabs', 'menu'],
         testFn: async () => {
             const body = panelBody('menu');
-            return body.includes('coming soon')
+            return body.includes('admin-menu-builder-card')
+                && body.includes('admin-menu-sections')
+                && body.includes('admin-menu-add-section')
+                && body.includes('admin-menu-save')
+                && body.includes('admin-menu-url-card')
                 && body.includes('admin-menu-url')
-                && body.includes('admin-menu-save');
+                && body.includes('admin-menu-url-save');
         },
     },
 
@@ -176,30 +184,40 @@ const cases: BaseTestCase[] = [
         },
     },
 
-    // ─── AI panel ─────────────────────────────────────────────────────
+    // ─── Integrations panel (renamed from AI) ─────────────────────────
+    // Absorbs Google Business Profile so every "talks to an outside system"
+    // feature lives in one place.
     {
-        name: 'AI panel holds the Ask OSH (MCP) card unchanged',
-        tags: ['unit', 'admin-tabs', 'ai'],
+        name: 'Integrations panel holds Ask OSH (MCP) card + Google Business card',
+        tags: ['unit', 'admin-tabs', 'integrations'],
         testFn: async () => {
-            const body = panelBody('ai');
+            const body = panelBody('integrations');
             return body.includes('admin-mcp-card')
                 && body.includes('mcp-endpoint')
                 && body.includes('mcp-location-header')
-                && body.includes('mcp-bearer');
+                && body.includes('mcp-bearer')
+                && body.includes('admin-gbp-card')
+                && body.includes('admin-gbp-connect');
         },
     },
 
-    // ─── Settings panel ───────────────────────────────────────────────
+    // ─── Front desk panel (renamed from Settings) ─────────────────────
+    // Holds everything about how guests physically reach the host stand:
+    // IVR (phone entry), Door QR routing, Device PIN.
     {
-        name: 'Settings panel holds Door QR card + Device PIN with Regenerate button',
-        tags: ['unit', 'admin-tabs', 'settings'],
+        name: 'Front desk panel holds IVR + Door QR + Device PIN (no Google card)',
+        tags: ['unit', 'admin-tabs', 'frontdesk'],
         testFn: async () => {
-            const body = panelBody('settings');
-            return body.includes('admin-qr-image')
+            const body = panelBody('frontdesk');
+            return body.includes('admin-voice-enabled')
+                && body.includes('admin-front-desk-phone')
+                && body.includes('admin-qr-image')
                 && body.includes('admin-visit-mode')
                 && body.includes('admin-device-pin-display')
-                && body.includes('admin-device-pin-regen')
-                && /Regenerate PIN/i.test(body);
+                && body.includes('admin-device-pin-new')
+                && body.includes('admin-device-pin-save')
+                && !body.includes('admin-gbp-card')
+                && /Set PIN/i.test(body);
         },
     },
 

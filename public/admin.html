@@ -13,14 +13,40 @@
 <body class="host admin-page">
 <div id="admin-login-view">
     <div class="card login-card">
-        <h2 style="margin-top:0">OSH · Admin</h2>
-        <p style="color:#78716c;font-size:14px">Enter device PIN to open the admin workspace.</p>
-        <form id="admin-login-form">
-            <label for="admin-pin">PIN</label>
-            <input type="password" id="admin-pin" required inputmode="numeric" autocomplete="off" />
-            <div class="error" id="admin-login-error" style="display:none"></div>
-            <button type="submit" class="primary">Unlock Admin</button>
-        </form>
+        <h2>OSH · Admin</h2>
+        <span class="login-wordmark-sub">OS for Hospitality</span>
+
+        <!-- Two sign-in paths. PIN → host role (tablet-level). Email+password
+             → owner/admin role (required to save menu, QR, profile, Google).
+             Initially show PIN; a swap link toggles to email. -->
+
+        <div id="admin-login-pin-block">
+            <p style="color:#78716c;font-size:14px;margin-top:0">Tablet device? Enter the PIN to open the host stand.</p>
+            <form id="admin-login-form">
+                <label for="admin-pin">PIN</label>
+                <input type="password" id="admin-pin" required inputmode="numeric" autocomplete="off" placeholder="••••" />
+                <div class="error" id="admin-login-error" style="display:none"></div>
+                <button type="submit" class="primary">Unlock host stand</button>
+            </form>
+            <div class="login-swap-link">
+                Owner or admin? <a href="#" id="admin-login-show-email">Sign in with your OSH account &rarr;</a>
+            </div>
+        </div>
+
+        <div id="admin-login-email-block" style="display:none">
+            <p style="color:#78716c;font-size:14px;margin-top:0">Sign in with the email and password you used when you set up this restaurant.</p>
+            <form id="admin-login-email-form">
+                <label for="admin-login-email">Email</label>
+                <input type="email" id="admin-login-email" required autocomplete="email" placeholder="you@example.com" />
+                <label for="admin-login-password" style="margin-top:14px">Password</label>
+                <input type="password" id="admin-login-password" required autocomplete="current-password" />
+                <div class="error" id="admin-login-email-error" style="display:none"></div>
+                <button type="submit" class="primary">Sign in</button>
+            </form>
+            <div class="login-swap-link">
+                Just a host? <a href="#" id="admin-login-show-pin">Use PIN instead &rarr;</a>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -409,24 +435,24 @@
          is remembered per location via localStorage. Tabs marked
          data-role-owner-only are shown only when /api/me reports role=owner. -->
     <nav class="admin-tabs admin-tabs-workspace" id="admin-tabs" aria-label="Admin sections">
-        <button type="button" class="admin-tab active" data-tab="dashboard">Dashboard</button>
-        <button type="button" class="admin-tab" data-tab="site">Site</button>
+        <button type="button" class="admin-tab active" data-tab="dashboard">Ops Dashboard</button>
+        <button type="button" class="admin-tab" data-tab="profile">Profile</button>
         <button type="button" class="admin-tab" data-tab="website">Website</button>
         <button type="button" class="admin-tab" data-tab="menu">Menu</button>
+        <button type="button" class="admin-tab" data-tab="frontdesk">Front desk</button>
         <button type="button" class="admin-tab" data-tab="staff" id="admin-tab-staff" data-role-owner-only="true" style="display:none">Staff</button>
-        <button type="button" class="admin-tab" data-tab="ai">AI</button>
-        <button type="button" class="admin-tab" data-tab="settings">Settings</button>
+        <button type="button" class="admin-tab" data-tab="integrations">Integrations</button>
     </nav>
 
     <!-- ═══════════════════════════════════════════════════════════════
-         Dashboard tab: Service Debrief + Stage-Based Analytics
+         Ops Dashboard tab: Service Debrief + Lead Times
          ═══════════════════════════════════════════════════════════════ -->
     <main class="admin-main admin-panel" id="admin-panel-dashboard" data-panel="dashboard">
-        <section class="admin-card">
-            <div class="admin-card-head">
+        <details class="admin-card">
+            <summary class="admin-card-head">
                 <h2>Service Debrief</h2>
                 <p>Review what happened this shift and decide what to improve for the next one.</p>
-            </div>
+            </summary>
             <div class="stats-grid admin-stats-grid" id="admin-stats-grid">
                 <div class="stat-item"><div class="stat-value" id="admin-stat-seated">0</div><div class="stat-label">Seated</div></div>
                 <div class="stat-item"><div class="stat-value" id="admin-stat-noshows">0</div><div class="stat-label">No-Shows</div></div>
@@ -439,13 +465,13 @@
                 <div class="stat-item"><div class="stat-value" id="admin-stat-table">&mdash;</div><div class="stat-label">Avg Table</div></div>
             </div>
             <p id="admin-stats-empty" class="stats-empty" style="display:none">No historical data yet.</p>
-        </section>
+        </details>
 
-        <section class="admin-card">
-            <div class="admin-card-head">
-                <h2>Stage-Based Analytics</h2>
-                <p>Compare lifecycle spans by date range, party size, and start/end stage.</p>
-            </div>
+        <details class="admin-card">
+            <summary class="admin-card-head">
+                <h2>Lead Times</h2>
+                <p>How long each stage of the guest lifecycle takes. Filter by date range, party size, and start/end stage.</p>
+            </summary>
             <div class="admin-filters">
                 <label>
                     <span>Range</span>
@@ -486,20 +512,18 @@
                 </label>
             </div>
             <div id="admin-histograms" class="histograms admin-histograms"><div class="hist-empty">Loading...</div></div>
-        </section>
+        </details>
     </main>
 
     <!-- ═══════════════════════════════════════════════════════════════
          Site tab: Address + Phone + Weekly Hours + Public Host + IVR
          ═══════════════════════════════════════════════════════════════ -->
-    <main class="admin-main admin-panel" id="admin-panel-site" data-panel="site" style="display:none">
-        <section class="admin-card">
-            <div class="admin-card-head">
-                <h2>Restaurant Site</h2>
-                <p>Address, weekly hours, and the public host (e.g. skbbellevue.com) used by the diner-facing website and the IVR hours / location branch.</p>
-            </div>
-
-            <h4 class="visit-subhead">Address <span class="visit-sub-help">— shown on home, hours, contact pages + IVR press-4 script + Google Maps embed</span></h4>
+    <main class="admin-main admin-panel" id="admin-panel-profile" data-panel="profile" style="display:none">
+        <details class="admin-card">
+            <summary class="admin-card-head">
+                <h2>Address</h2>
+                <p>Shown on home / hours / contact pages, read aloud by the IVR, and pinned on the Google Maps embed.</p>
+            </summary>
             <div class="visit-address-grid">
                 <label class="visit-field visit-field-full">
                     <span class="visit-label">Street</span>
@@ -518,8 +542,13 @@
                     <input type="text" id="admin-site-zip" placeholder="00000" maxlength="10" pattern="\d{5}(-\d{4})?" />
                 </label>
             </div>
+        </details>
 
-            <h4 class="visit-subhead">Weekly Hours <span class="visit-sub-help">— shown on home + hours pages and read by the IVR</span></h4>
+        <details class="admin-card">
+            <summary class="admin-card-head">
+                <h2>Weekly hours</h2>
+                <p>Shown on the home + hours pages and read aloud by the IVR.</p>
+            </summary>
             <div class="visit-hours-grid">
                 <div class="visit-hours-row"><div class="visit-hours-day">Monday</div>
                     <label class="visit-hours-closed-label"><input type="checkbox" id="admin-site-mon-closed"> Closed</label>
@@ -557,46 +586,27 @@
                     <div class="visit-hours-window"><span>Dinner</span><input type="time" id="admin-site-sun-dinner-open"> – <input type="time" id="admin-site-sun-dinner-close"></div>
                 </div>
             </div>
+        </details>
 
-            <h4 class="visit-subhead">Public Host <span class="visit-sub-help">— when set, requests to this domain are rewritten to this location's pages</span></h4>
+        <details class="admin-card">
+            <summary class="admin-card-head">
+                <h2>Public host <span class="admin-card-tag">Optional</span></h2>
+                <p>When set, requests to this domain are rewritten to this location&rsquo;s pages (e.g. skbbellevue.com).</p>
+            </summary>
             <div class="visit-grid">
                 <label class="visit-field visit-field-full">
                     <span class="visit-label">Public host</span>
                     <input type="text" id="admin-site-public-host" placeholder="skbbellevue.com" maxlength="120" />
                 </label>
             </div>
+        </details>
 
+        <!-- Save strip: one button persists the whole profile (address +
+             hours + public host) together. Flat card, not an accordion. -->
+        <section class="admin-card admin-card-saverow">
             <div class="visit-actions admin-actions-row">
                 <span class="visit-status" id="admin-site-status"></span>
-                <button type="button" id="admin-site-save" class="primary">Save Site Settings</button>
-            </div>
-        </section>
-
-        <section class="admin-card">
-            <div class="admin-card-head">
-                <h2>IVR / Phone Entry</h2>
-                <p>Configure call-based waitlist behavior and front-desk transfer defaults.</p>
-            </div>
-            <div class="visit-grid">
-                <label class="visit-field">
-                    <span class="visit-label">IVR enabled</span>
-                    <select id="admin-voice-enabled">
-                        <option value="true">Enabled</option>
-                        <option value="false">Disabled</option>
-                    </select>
-                </label>
-                <label class="visit-field">
-                    <span class="visit-label">Front desk phone</span>
-                    <input type="tel" id="admin-front-desk-phone" placeholder="2065551234" maxlength="10" inputmode="numeric" />
-                </label>
-                <label class="visit-field visit-field-full">
-                    <span class="visit-label">Large party transfer threshold</span>
-                    <input type="number" id="admin-large-party-threshold" min="6" max="20" />
-                </label>
-            </div>
-            <div class="visit-actions admin-actions-row">
-                <span class="visit-status" id="admin-voice-status"></span>
-                <button type="button" id="admin-voice-save" class="primary">Save IVR Settings</button>
+                <button type="button" id="admin-site-save" class="primary">Save profile</button>
             </div>
         </section>
     </main>
@@ -605,13 +615,11 @@
          Website tab: Template + Content editor + Signature-dish editor
          ═══════════════════════════════════════════════════════════════ -->
     <main class="admin-main admin-panel" id="admin-panel-website" data-panel="website" style="display:none">
-        <section class="admin-card" id="admin-website-card">
-            <div class="admin-card-head">
-                <h2>Website</h2>
-                <p>Pick a template for the pages your guests see, and fill in the copy that makes the site yours. Everything else uses sensible defaults.</p>
-            </div>
-
-            <h4 class="visit-subhead">Template <span class="visit-sub-help">— switching templates preserves your content</span></h4>
+        <details class="admin-card" id="admin-website-card">
+            <summary class="admin-card-head">
+                <h2>Template</h2>
+                <p>Pick the look for the pages your guests see. Switching templates preserves your content.</p>
+            </summary>
             <div class="website-template-grid" role="radiogroup" aria-label="Website template">
                 <button type="button" class="website-template-card" data-template="saffron" aria-pressed="false">
                     <span class="website-template-swatch website-swatch-saffron">Saffron</span>
@@ -626,8 +634,13 @@
                     <span class="website-template-current">Current</span>
                 </button>
             </div>
+        </details>
 
-            <h4 class="visit-subhead">Content <span class="visit-sub-help">— overrides the template's built-in defaults</span></h4>
+        <details class="admin-card" id="admin-website-content-card">
+            <summary class="admin-card-head">
+                <h2>Content</h2>
+                <p>Hero headline, about text, contact info. Overrides the template&rsquo;s built-in defaults.</p>
+            </summary>
             <div class="visit-grid">
                 <label class="visit-field visit-field-full">
                     <span class="visit-label">Hero headline</span>
@@ -654,7 +667,13 @@
                     <input type="text" id="admin-website-reservations" maxlength="200" placeholder="Walk-ins welcome — no reservations." />
                 </label>
             </div>
+        </details>
 
+        <details class="admin-card" id="admin-website-dishes-card">
+            <summary class="admin-card-head">
+                <h2>Signature dishes</h2>
+                <p>Up to three. Shown on the home page under &ldquo;Known For&rdquo;.</p>
+            </summary>
             <!-- Signature-dish editor (issue #51 Phase B). 3 rows. Each row
                  has a title input, a desc textarea, and a file picker that
                  reads the chosen image as a DataURL and shows a 160x120
@@ -662,7 +681,6 @@
                  array where each `image` is either (a) the pre-existing
                  URL string (unchanged) or (b) a { mime, data } object that
                  the backend (Phase A) persists to /assets/<slug>/dishes/. -->
-            <h4 class="visit-subhead">Signature Dishes <span class="visit-sub-help">— up to three; appears on the home page under "Known For"</span></h4>
             <div class="signature-dish-grid" id="signature-dish-grid">
                 <div class="signature-dish-row" data-sig-index="0">
                     <div class="signature-dish-fields">
@@ -678,10 +696,8 @@
                     <div class="signature-dish-media">
                         <img class="signature-dish-preview" data-sig-preview alt="" style="display:none" />
                         <div class="signature-dish-preview-placeholder" data-sig-placeholder>No image yet</div>
-                        <label class="signature-dish-filebtn">
-                            <input type="file" class="signature-dish-file" data-sig-file accept="image/*" />
-                            <span>Pick image</span>
-                        </label>
+                        <button type="button" class="signature-dish-pickbtn secondary" data-sig-pick>Pick image</button>
+                        <input type="file" class="signature-dish-file" data-sig-file accept="image/*" style="display:none" />
                         <button type="button" class="signature-dish-clear" data-sig-clear style="display:none">Clear</button>
                     </div>
                 </div>
@@ -699,10 +715,8 @@
                     <div class="signature-dish-media">
                         <img class="signature-dish-preview" data-sig-preview alt="" style="display:none" />
                         <div class="signature-dish-preview-placeholder" data-sig-placeholder>No image yet</div>
-                        <label class="signature-dish-filebtn">
-                            <input type="file" class="signature-dish-file" data-sig-file accept="image/*" />
-                            <span>Pick image</span>
-                        </label>
+                        <button type="button" class="signature-dish-pickbtn secondary" data-sig-pick>Pick image</button>
+                        <input type="file" class="signature-dish-file" data-sig-file accept="image/*" style="display:none" />
                         <button type="button" class="signature-dish-clear" data-sig-clear style="display:none">Clear</button>
                     </div>
                 </div>
@@ -720,15 +734,19 @@
                     <div class="signature-dish-media">
                         <img class="signature-dish-preview" data-sig-preview alt="" style="display:none" />
                         <div class="signature-dish-preview-placeholder" data-sig-placeholder>No image yet</div>
-                        <label class="signature-dish-filebtn">
-                            <input type="file" class="signature-dish-file" data-sig-file accept="image/*" />
-                            <span>Pick image</span>
-                        </label>
+                        <button type="button" class="signature-dish-pickbtn secondary" data-sig-pick>Pick image</button>
+                        <input type="file" class="signature-dish-file" data-sig-file accept="image/*" style="display:none" />
                         <button type="button" class="signature-dish-clear" data-sig-clear style="display:none">Clear</button>
                     </div>
                 </div>
             </div>
 
+        </details>
+
+        <!-- Save strip: one button persists Template + Content + Signature
+             Dishes together so the owner doesn't have to save each accordion
+             separately. Not an accordion (no summary) — just a flat card. -->
+        <section class="admin-card admin-card-saverow">
             <div class="visit-actions admin-actions-row">
                 <span class="visit-status" id="admin-website-status"></span>
                 <a id="admin-website-preview" class="admin-website-preview" href="./" target="_blank" rel="noopener">Preview ↗</a>
@@ -743,33 +761,54 @@
          Settings → QR card uses). Kept deliberately minimal.
          ═══════════════════════════════════════════════════════════════ -->
     <main class="admin-main admin-panel" id="admin-panel-menu" data-panel="menu" style="display:none">
-        <section class="admin-card" id="admin-menu-card">
-            <div class="admin-card-head">
-                <h2>Menu</h2>
-                <p>Menu editor &mdash; coming soon. For now, link to a hosted PDF or menu page; scanners in "menu" mode will land there.</p>
+        <!-- Structured menu builder. Sections + items, each with name,
+             description, price. Persisted under Location.menu. The public
+             /menu route renders this; the legacy "external link" below is
+             the fallback for restaurants who keep their menu elsewhere. -->
+        <details class="admin-card" id="admin-menu-builder-card" open>
+            <summary class="admin-card-head">
+                <h2>Menu builder</h2>
+                <p>Sections like "Appetizers" or "Mains", each holding items with a name, optional description, and optional price.</p>
+            </summary>
+            <div id="admin-menu-sections" class="menu-sections-list">
+                <div class="menu-empty-state" id="admin-menu-empty" style="display:none">
+                    No sections yet. Click &ldquo;Add section&rdquo; to get started.
+                </div>
             </div>
+            <div class="visit-actions admin-actions-row">
+                <button type="button" id="admin-menu-add-section" class="secondary">+ Add section</button>
+                <span class="visit-status" id="admin-menu-status"></span>
+                <button type="button" id="admin-menu-save" class="primary">Save menu</button>
+            </div>
+        </details>
+
+        <details class="admin-card" id="admin-menu-url-card">
+            <summary class="admin-card-head">
+                <h2>External menu link <span class="admin-card-tag">Optional</span></h2>
+                <p>If you&rsquo;d rather point guests to a hosted PDF or an existing menu page, paste it here. The Door QR "menu" mode will redirect here instead of rendering the builder above.</p>
+            </summary>
             <div class="visit-grid">
                 <label class="visit-field visit-field-full">
                     <span class="visit-label">Menu URL</span>
-                    <input type="url" id="admin-menu-url" placeholder="https://skb.com/menu" maxlength="500" />
+                    <input type="url" id="admin-menu-url" placeholder="https://skbbellevue.com/menu.pdf" maxlength="500" />
                 </label>
             </div>
             <div class="visit-actions admin-actions-row">
-                <span class="visit-status" id="admin-menu-status"></span>
-                <button type="button" id="admin-menu-save" class="primary">Save Menu URL</button>
+                <span class="visit-status" id="admin-menu-url-status"></span>
+                <button type="button" id="admin-menu-url-save" class="primary">Save link</button>
             </div>
-        </section>
+        </details>
     </main>
 
     <!-- ═══════════════════════════════════════════════════════════════
          Staff tab: existing staff card (owner-only)
          ═══════════════════════════════════════════════════════════════ -->
     <main class="admin-main admin-panel" id="admin-panel-staff" data-panel="staff" style="display:none">
-        <section class="admin-card">
-            <div class="admin-card-head">
+        <details class="admin-card">
+            <summary class="admin-card-head">
                 <h2>Staff <span style="font-size:13px;color:#78716c;font-weight:500">(owner-only)</span></h2>
                 <p>Invite your team and pick what they can see. Hosts run the floor. Admins can tune settings and see analytics. You (owner) control everything.</p>
-            </div>
+            </summary>
 
             <div id="staff-empty" class="stats-empty" style="display:none">No staff yet — invite someone below.</div>
             <table class="staff-table" id="staff-table" style="width:100%;border-collapse:collapse">
@@ -830,19 +869,19 @@
                 </thead>
                 <tbody id="pending-tbody"></tbody>
             </table>
-        </section>
+        </details>
     </main>
 
     <!-- ═══════════════════════════════════════════════════════════════
          AI tab: Ask OSH (MCP) card — moved unchanged from the
          prior operations panel. Contents kept intact per Phase-B spec.
          ═══════════════════════════════════════════════════════════════ -->
-    <main class="admin-main admin-panel" id="admin-panel-ai" data-panel="ai" style="display:none">
-        <section class="admin-card" id="admin-mcp-card">
-            <div class="admin-card-head">
+    <main class="admin-main admin-panel" id="admin-panel-integrations" data-panel="integrations" style="display:none">
+        <details class="admin-card" id="admin-mcp-card">
+            <summary class="admin-card-head">
                 <h2>Ask OSH <span class="admin-card-tag">MCP / AI</span></h2>
                 <p>Plug your restaurant into Claude, ChatGPT, or any AI that speaks <a href="https://modelcontextprotocol.io" target="_blank" rel="noopener">MCP</a>. Then just ask — no dashboards to learn.</p>
-            </div>
+            </summary>
 
             <div class="mcp-ask-samples">
                 <div class="mcp-ask-sample">"Who's waiting right now?"</div>
@@ -899,27 +938,87 @@
                 <p class="mcp-panel-followup">Working <em>very close</em> to home? You can also run Claude Code on your phone and point it at OSH from anywhere on the floor.</p>
             </div>
 
-            <p class="mcp-safety"><strong>Safety note:</strong> the bearer token above is your host PIN. Anyone with it can operate your waitlist. Rotate it from Settings → Device PIN if you think it's leaked.</p>
-        </section>
+            <p class="mcp-safety"><strong>Safety note:</strong> the bearer token above is your host PIN. Anyone with it can operate your waitlist. Rotate it from Front desk → Device PIN if you think it's leaked.</p>
+        </details>
+
+        <!-- ═══════════════════════════════════════════════════════════════
+             Google Business Profile — issue #51 Phase D
+             ═══════════════════════════════════════════════════════════════
+             State machine (see admin.js renderGoogleCard):
+               · creds_missing → "ask your OSH admin…"
+               · not_connected → "Connect" button
+               · connecting    → spinner while the OAuth round-trip runs
+               · connected_single → linked name + Sync now / Disconnect
+               · connected_multi  → location picker, then link + connect
+             The card updates on page load + when ?google=connected / ?google=error
+             query params are present post-redirect. -->
+        <details class="admin-card" id="admin-gbp-card" data-state="loading">
+            <summary class="admin-card-head">
+                <h2>Google Business Profile</h2>
+                <p id="admin-gbp-blurb">Connect your Google Business listing so hours, phone, and description sync automatically.</p>
+            </summary>
+            <div id="admin-gbp-body" class="visit-grid" style="display:block">
+                <div id="admin-gbp-loading" style="color:#78716c;font-size:13px">Loading…</div>
+            </div>
+            <div class="visit-actions admin-actions-row">
+                <span class="visit-status" id="admin-gbp-status"></span>
+                <button type="button" id="admin-gbp-connect" class="primary" style="display:none">Connect Google Business</button>
+                <button type="button" id="admin-gbp-sync" class="primary" style="display:none">Sync now</button>
+                <button type="button" id="admin-gbp-link" class="primary" style="display:none">Link this location</button>
+                <button type="button" id="admin-gbp-disconnect" class="admin-danger" style="display:none">Disconnect</button>
+            </div>
+            <p id="admin-gbp-last-sync" style="margin-top:12px;font-size:12px;color:#78716c;display:none"></p>
+        </details>
     </main>
 
     <!-- ═══════════════════════════════════════════════════════════════
-         Settings tab: Door QR card + Device PIN
+         Front desk tab: IVR / Phone Entry + Door QR routing + Device PIN
+         "How guests physically reach the host stand."
          ═══════════════════════════════════════════════════════════════ -->
-    <main class="admin-main admin-panel" id="admin-panel-settings" data-panel="settings" style="display:none">
-        <section class="admin-card">
-            <div class="admin-card-head">
+    <main class="admin-main admin-panel" id="admin-panel-frontdesk" data-panel="frontdesk" style="display:none">
+        <details class="admin-card">
+            <summary class="admin-card-head">
+                <h2>IVR / Phone Entry</h2>
+                <p>Configure call-based waitlist behavior and front-desk transfer defaults.</p>
+            </summary>
+            <div class="visit-grid">
+                <label class="visit-field">
+                    <span class="visit-label">IVR enabled</span>
+                    <select id="admin-voice-enabled">
+                        <option value="true">Enabled</option>
+                        <option value="false">Disabled</option>
+                    </select>
+                </label>
+                <label class="visit-field">
+                    <span class="visit-label">Front desk phone</span>
+                    <input type="tel" id="admin-front-desk-phone" placeholder="2065551234" maxlength="10" inputmode="numeric" />
+                </label>
+                <label class="visit-field visit-field-full">
+                    <span class="visit-label">Large party transfer threshold</span>
+                    <input type="number" id="admin-large-party-threshold" min="6" max="20" />
+                </label>
+            </div>
+            <div class="visit-actions admin-actions-row">
+                <span class="visit-status" id="admin-voice-status"></span>
+                <button type="button" id="admin-voice-save" class="primary">Save IVR Settings</button>
+            </div>
+        </details>
+        <details class="admin-card">
+            <summary class="admin-card-head">
                 <h2>Door QR — where it sends scanners</h2>
                 <p>The QR sticker on your front door always points at a single stable URL. What scanners see when they arrive is decided here, live, without reprinting the sticker.</p>
-            </div>
+            </summary>
             <div class="qr-preview-block">
                 <a id="admin-qr-test-link" class="qr-preview-link" href="#" target="_blank" rel="noopener" title="Click to open the scanner destination in a new tab">
-                    <img id="admin-qr-image" class="qr-preview" alt="Door QR code for this location" src="api/host/visit-qr.svg" />
+                    <!-- Do NOT set src inline — admin.js sets the src after PIN/session
+                         auth is established so the image doesn't render a 401
+                         placeholder + broken-image alt text on first paint. -->
+                    <img id="admin-qr-image" class="qr-preview" alt="" onerror="this.style.visibility='hidden'" />
                 </a>
                 <div class="qr-preview-meta">
                     <div class="qr-target-label">Scanners land on:</div>
-                    <code id="admin-qr-target-url">loading...</code>
-                    <a id="admin-qr-download" href="api/host/visit-qr.svg" download="skb-visit-qr.svg" class="qr-download-link">Download SVG</a>
+                    <code id="admin-qr-target-url">—</code>
+                    <a id="admin-qr-download" href="#" download="skb-visit-qr.svg" class="qr-download-link">Download SVG</a>
                     <div class="qr-preview-hint">Tip: click the QR to preview where scanners land.</div>
                 </div>
             </div>
@@ -946,59 +1045,31 @@
                 <span class="visit-status" id="admin-visit-status"></span>
                 <button type="button" id="admin-visit-save" class="primary">Save QR Routing</button>
             </div>
-        </section>
+        </details>
 
-        <!-- Device PIN card. The actual PIN is never returned by any API
-             (correctly — treat as a secret). The UI shows a masked
-             placeholder and a "Regenerate PIN" button that hits the
-             (not-yet-implemented) rotate endpoint. Endpoint returns 501
-             for now; the front-end surfaces a "coming soon" toast. -->
-        <section class="admin-card" id="admin-device-pin-card">
-            <div class="admin-card-head">
+        <!-- Device PIN card. Owner/admin can view the current PIN and set
+             a new one. Admin-only (requireAdmin) on both GET and POST. -->
+        <details class="admin-card" id="admin-device-pin-card">
+            <summary class="admin-card-head">
                 <h2>Device PIN</h2>
-                <p>The 4-digit PIN your hosts type on the tablet to unlock the host stand. The admin workspace uses the same PIN.</p>
-            </div>
+                <p>The 4&ndash;6-digit PIN your hosts type on the tablet to unlock the host stand.</p>
+            </summary>
             <div class="visit-grid">
-                <label class="visit-field visit-field-full">
+                <label class="visit-field">
                     <span class="visit-label">Current PIN</span>
-                    <input type="text" id="admin-device-pin-display" value="••••" readonly aria-label="Current PIN (masked)" />
+                    <input type="text" id="admin-device-pin-display" value="" placeholder="—" readonly aria-label="Current PIN" />
+                </label>
+                <label class="visit-field">
+                    <span class="visit-label">New PIN</span>
+                    <input type="text" id="admin-device-pin-new" maxlength="6" inputmode="numeric" pattern="\d{4,6}" placeholder="4–6 digits" autocomplete="off" />
                 </label>
             </div>
             <div class="visit-actions admin-actions-row">
                 <span class="visit-status" id="admin-device-pin-status"></span>
-                <button type="button" id="admin-device-pin-regen" class="primary">Regenerate PIN</button>
+                <button type="button" id="admin-device-pin-save" class="primary">Set PIN</button>
             </div>
-            <p style="margin-top:12px;font-size:12px;color:#78716c">The PIN is shown on your door-poster PDF and never returned by any API after signup. Rotating it invalidates all current host/admin sessions.</p>
-        </section>
-
-        <!-- ═══════════════════════════════════════════════════════════════
-             Google Business Profile — issue #51 Phase D
-             ═══════════════════════════════════════════════════════════════
-             State machine (see admin.js renderGoogleCard):
-               · creds_missing → "ask your OSH admin…"
-               · not_connected → "Connect" button
-               · connecting    → spinner while the OAuth round-trip runs
-               · connected_single → linked name + Sync now / Disconnect
-               · connected_multi  → location picker, then link + connect
-             The card updates on page load + when ?google=connected / ?google=error
-             query params are present post-redirect. -->
-        <section class="admin-card" id="admin-gbp-card" data-state="loading">
-            <div class="admin-card-head">
-                <h2>Google Business Profile</h2>
-                <p id="admin-gbp-blurb">Connect your Google Business listing so hours, phone, and description sync automatically.</p>
-            </div>
-            <div id="admin-gbp-body" class="visit-grid" style="display:block">
-                <div id="admin-gbp-loading" style="color:#78716c;font-size:13px">Loading…</div>
-            </div>
-            <div class="visit-actions admin-actions-row">
-                <span class="visit-status" id="admin-gbp-status"></span>
-                <button type="button" id="admin-gbp-connect" class="primary" style="display:none">Connect Google Business</button>
-                <button type="button" id="admin-gbp-sync" class="primary" style="display:none">Sync now</button>
-                <button type="button" id="admin-gbp-link" class="primary" style="display:none">Link this location</button>
-                <button type="button" id="admin-gbp-disconnect" class="admin-danger" style="display:none">Disconnect</button>
-            </div>
-            <p id="admin-gbp-last-sync" style="margin-top:12px;font-size:12px;color:#78716c;display:none"></p>
-        </section>
+            <p style="margin-top:12px;font-size:12px;color:#78716c">Changing the PIN doesn&rsquo;t log out tablets already unlocked, but future unlocks require the new value. The PIN is also printed on the door-poster PDF.</p>
+        </details>
     </main>
 </div>
 

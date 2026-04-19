@@ -144,6 +144,62 @@ button.primary {
 button.primary:hover { background: #333; }
 button.primary:disabled { opacity: 0.5; cursor: not-allowed; }
 
+/* Ghost button: inline, low-weight companion to the primary. Used for
+   "+ Add item", "+ Add section", and similar additive actions where
+   we don't want a heavy solid-black call-to-action. */
+button.secondary {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 14px;
+    min-height: 36px;
+    background: #fff;
+    color: var(--fg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.2px;
+    cursor: pointer;
+    transition: border-color 120ms ease, background 120ms ease, color 120ms ease;
+}
+button.secondary:hover {
+    border-color: var(--accent, #c0872e);
+    color: var(--accent, #c0872e);
+    background: #fffdf7;
+}
+button.secondary:active { background: #fdf6e4; }
+button.secondary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* Destructive companion to .primary. Used for Disconnect, Revoke,
+   Delete buttons where a destructive action needs confirmation weight
+   without shouting in the default state. */
+button.admin-danger {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 16px;
+    min-height: 40px;
+    background: #fff;
+    color: #b91c1c;
+    border: 1px solid #fecaca;
+    border-radius: 8px;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.2px;
+    cursor: pointer;
+    transition: border-color 120ms ease, background 120ms ease, color 120ms ease;
+}
+button.admin-danger:hover {
+    background: #fef2f2;
+    border-color: #f87171;
+    color: #991b1b;
+}
+button.admin-danger:active { background: #fee2e2; }
+button.admin-danger:disabled { opacity: 0.5; cursor: not-allowed; }
+
 .confirmation { text-align: center; padding: 24px 20px; }
 .confirmation .pos-label {
     color: var(--muted);
@@ -378,9 +434,193 @@ footer {
     padding: 20px;
     box-shadow: 0 1px 3px rgba(0,0,0,0.04);
 }
+/* Accordion: every admin-card is a <details> element. Summary acts as the
+   clickable header row; the caret in ::before flips when open. Collapsed
+   by default so each tab loads as a clean list of section titles. */
+details.admin-card { padding: 0; }
+details.admin-card > summary.admin-card-head {
+    list-style: none;
+    cursor: pointer;
+    padding: 16px 20px 16px 48px;
+    margin: 0;
+    position: relative;
+    border-radius: 12px;
+    user-select: none;
+}
+details.admin-card > summary.admin-card-head::-webkit-details-marker { display: none; }
+details.admin-card > summary.admin-card-head::before {
+    content: "";
+    position: absolute;
+    left: 20px;
+    top: 50%;
+    width: 0;
+    height: 0;
+    border-left: 6px solid transparent;
+    border-right: 6px solid transparent;
+    border-top: 8px solid #78716c;
+    transform: translateY(-50%) rotate(-90deg);
+    transition: transform 120ms ease;
+}
+details.admin-card[open] > summary.admin-card-head::before { transform: translateY(-40%) rotate(0deg); }
+details.admin-card[open] > summary.admin-card-head { border-radius: 12px 12px 0 0; }
+details.admin-card > summary.admin-card-head:hover { background: #fafaf9; }
+details.admin-card > summary.admin-card-head > h2 { display: inline-block; vertical-align: middle; }
+details.admin-card > *:not(summary) { padding: 0 20px; }
+details.admin-card > *:not(summary):last-child { padding-bottom: 20px; }
 .admin-card-head { margin-bottom: 16px; }
 .admin-card-head h2 { margin: 0 0 4px; font-size: 20px; }
 .admin-card-head p { margin: 0; color: var(--muted); font-size: 14px; }
+
+/* Flat save-strip card (e.g. at the bottom of Website / Profile tabs).
+   Shares admin-card background but has no accordion affordance, and
+   tightens vertical padding since there's no header. */
+.admin-card.admin-card-saverow { padding: 14px 20px; }
+
+/* Menu builder styling. <details> per section, item rows inside. Keep
+   dense but readable: section numbers subtly count up, items have a
+   hover lift, delete actions are muted until hovered, placeholders
+   guide first-time use. */
+.menu-sections-list {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    counter-reset: menu-section;
+}
+.menu-empty-state {
+    color: var(--muted);
+    padding: 32px 24px;
+    text-align: center;
+    border: 1px dashed var(--border);
+    border-radius: 10px;
+    background: #fafaf9;
+    font-size: 14px;
+}
+details.menu-section {
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: #fafaf9;
+    padding: 0;
+    counter-increment: menu-section;
+    transition: border-color 120ms ease, box-shadow 120ms ease;
+}
+details.menu-section:hover { border-color: #d6d3d1; }
+details.menu-section[open] { background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,0.03); }
+details.menu-section > summary.menu-section-head {
+    list-style: none;
+    cursor: pointer;
+    padding: 14px 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    user-select: none;
+}
+details.menu-section > summary.menu-section-head::-webkit-details-marker { display: none; }
+details.menu-section > summary.menu-section-head::before {
+    content: "";
+    flex-shrink: 0;
+    width: 0; height: 0;
+    border-left: 6px solid transparent;
+    border-right: 6px solid transparent;
+    border-top: 9px solid #57534e;
+    transform: rotate(-90deg);
+    transition: transform 120ms ease;
+}
+details.menu-section[open] > summary.menu-section-head::before { transform: rotate(0); }
+details.menu-section > summary.menu-section-head::after {
+    content: "Section " counter(menu-section);
+    color: var(--muted);
+    font-size: 11px;
+    letter-spacing: 0.6px;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+details.menu-section input.menu-section-title {
+    flex: 1;
+    font-weight: 600;
+    font-size: 16px;
+    padding: 8px 10px;
+    border: 1px solid transparent;
+    background: transparent;
+    border-radius: 6px;
+    color: var(--fg);
+}
+details.menu-section input.menu-section-title::placeholder { color: #a8a29e; font-weight: 500; }
+details.menu-section input.menu-section-title:hover,
+details.menu-section input.menu-section-title:focus {
+    background: #fff;
+    border-color: var(--border);
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(192, 135, 46, 0.12);
+}
+.menu-items-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 0 16px 14px;
+}
+.menu-item {
+    position: relative;
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px;
+    transition: border-color 120ms ease, box-shadow 120ms ease;
+}
+.menu-item:hover { border-color: #d6d3d1; box-shadow: 0 1px 2px rgba(0,0,0,0.03); }
+.menu-item-grid {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 2fr 100px;
+    gap: 12px 14px;
+    min-width: 0;
+}
+.menu-item-grid .visit-field-small { grid-column: 2; }
+.menu-item-grid .visit-field-full { grid-column: 1 / -1; }
+.menu-item-grid input,
+.menu-item-grid textarea {
+    width: 100%;
+    box-sizing: border-box;
+    font-size: 14px;
+}
+.menu-item-grid textarea { resize: vertical; min-height: 44px; }
+@media (max-width: 640px) {
+    .menu-item { flex-direction: column; align-items: stretch; }
+    .menu-item-grid { grid-template-columns: 1fr; }
+    .menu-item-grid .visit-field-small { grid-column: 1; }
+}
+.menu-section-actions {
+    padding: 0 16px 16px;
+    border-top: 1px dashed var(--border);
+    margin: 0 16px;
+    padding-top: 14px;
+}
+.menu-section-actions .menu-item-add {
+    font-size: 13px;
+    padding: 6px 12px;
+}
+.admin-danger-inline {
+    background: transparent;
+    color: #78716c;
+    border: 1px solid transparent;
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 12px;
+    cursor: pointer;
+    flex-shrink: 0;
+    font-weight: 500;
+    transition: color 120ms ease, background 120ms ease, border-color 120ms ease;
+}
+.menu-item .admin-danger-inline { align-self: flex-start; margin-top: 2px; }
+.admin-danger-inline:hover {
+    color: #b91c1c;
+    background: #fee2e2;
+    border-color: #fecaca;
+}
+/* Save strip pinned bottom-right looks cleaner when its container is flat. */
+.admin-card.admin-card-saverow { padding: 14px 20px; background: #fafaf9; border-color: var(--border); }
 .admin-grid-2up { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
 .admin-filters {
     display: grid;
@@ -883,7 +1123,86 @@ tr.expandable:hover { background: var(--surface-alt); }
 .complete-summary strong { color: var(--fg); }
 
 .empty { text-align: center; color: var(--muted); padding: 40px; }
-.login-card { max-width: 360px; margin: 80px auto; }
+/* Polished admin login card. Two sign-in paths (PIN, email+password);
+   the body carries a subtle wordmark, the swap link is saffron-accented,
+   and the two blocks stack with a soft divider so mode changes feel
+   intentional instead of replace-in-place. */
+.login-card {
+    max-width: 420px;
+    margin: 96px auto 40px;
+    padding: 32px 28px;
+    border-radius: 14px;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+}
+.login-card h2 {
+    font-size: 24px;
+    letter-spacing: 0.3px;
+    margin: 0 0 4px;
+}
+.login-card .login-wordmark-sub {
+    display: block;
+    color: var(--muted);
+    font-size: 12px;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    margin-bottom: 20px;
+}
+.login-card label {
+    display: block;
+    font-size: 12px;
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-weight: 600;
+}
+.login-card input[type="password"],
+.login-card input[type="email"],
+.login-card input[type="text"] {
+    width: 100%;
+    padding: 12px 14px;
+    font-size: 15px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: #fff;
+    transition: border-color 120ms ease, box-shadow 120ms ease;
+    box-sizing: border-box;
+}
+.login-card input:focus {
+    outline: none;
+    border-color: var(--accent, #c0872e);
+    box-shadow: 0 0 0 3px rgba(192, 135, 46, 0.15);
+}
+.login-card .primary {
+    width: 100%;
+    padding: 12px;
+    font-size: 15px;
+    margin-top: 16px;
+    border-radius: 8px;
+}
+.login-card .error {
+    margin-top: 10px;
+    padding: 10px 12px;
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+    border-radius: 8px;
+    color: #991b1b;
+    font-size: 13px;
+}
+.login-card .login-swap-link {
+    display: block;
+    text-align: center;
+    margin-top: 20px;
+    padding-top: 18px;
+    border-top: 1px solid var(--border);
+    font-size: 13px;
+    color: var(--muted);
+}
+.login-card .login-swap-link a {
+    color: var(--accent, #c0872e);
+    text-decoration: none;
+    font-weight: 600;
+}
+.login-card .login-swap-link a:hover { text-decoration: underline; }
 
 /* ============================================================================
    Issue #37 — waitlist transparency, host chat/call, table on seat
@@ -3070,11 +3389,20 @@ a#custom-call-confirm[aria-disabled="true"] {
     color: var(--fg);
 }
 .signature-dish-filebtn:hover { background: var(--surface-alt, #faf6ee); }
+/* Visually hide the file input but keep it interactable. Using the
+   standard sr-only pattern: clip + 1px + negative margin. Avoids
+   display:none / visibility:hidden, which some browsers refuse to
+   click through from a label. */
 .signature-dish-filebtn input[type="file"] {
     position: absolute;
-    opacity: 0;
-    width: 1px; height: 1px;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
     overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
 }
 .signature-dish-clear {
     background: none;

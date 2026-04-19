@@ -88,7 +88,7 @@ const cases: BaseTestCase[] = [
             const r = await fetch(`${BASE()}/r/${slug}/admin.html`);
             if (!r.ok) return false;
             const html = await r.text();
-            for (const key of ['dashboard', 'site', 'website', 'menu', 'staff', 'ai', 'settings']) {
+            for (const key of ['dashboard', 'profile', 'website', 'menu', 'frontdesk', 'staff', 'integrations']) {
                 if (!new RegExp(`data-tab="${key}"`).test(html)) return false;
                 if (!new RegExp(`id="admin-panel-${key}"`).test(html)) return false;
             }
@@ -106,7 +106,7 @@ const cases: BaseTestCase[] = [
     },
     {
         name: 'served admin.html has the Regenerate PIN button',
-        tags: ['ui', 'admin-tabs', 'settings'],
+        tags: ['ui', 'admin-tabs', 'frontdesk'],
         testFn: async () => {
             const html = await (await fetch(`${BASE()}/r/${slug}/admin.html`)).text();
             return /id="admin-device-pin-regen"/.test(html)

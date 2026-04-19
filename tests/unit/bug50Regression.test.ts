@@ -111,11 +111,16 @@ const cases: BaseTestCase[] = [
 
     // ---------- Bug 7: door QR display + clearer title ----------
     {
-        name: 'bug50 #7: admin.html has the door QR image with src pointing at visit-qr.svg',
+        // IA cleanup (2026-04): the inline src= was removed to stop the <img>
+        // from painting a 401 broken-image placeholder before PIN/session auth
+        // completes. admin.js now sets the src post-auth — that behavior is
+        // asserted by the "refreshes the QR src with a cache-busting param"
+        // case below.
+        name: 'bug50 #7: admin.html declares the door QR <img> slot (src wired by admin.js post-auth)',
         tags: ['unit', 'bug50', 'qr'],
         testFn: async () =>
             /id=["']admin-qr-image["']/.test(adminHtml)
-            && /api\/host\/visit-qr\.svg/.test(adminHtml),
+            && /api\/host\/visit-qr\.svg/.test(adminJs),
     },
     {
         name: 'bug50 #7: admin.html card title reads "Door QR — where it sends scanners" (not "Visit Page / QR")',

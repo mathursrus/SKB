@@ -1,6 +1,7 @@
 // Unit tests for HMAC-signed host cookie verification + legacy middleware handlers
 import { runTests } from '../test-utils.js';
-import { verifyCookie, __test__, loginHandler, logoutHandler, requireHost } from '../../src/middleware/hostAuth.js';
+import { verifyCookie, verifyCookieDetailed, __test__, loginHandler, logoutHandler, requireHost, requireRole, mintSessionCookie, verifySessionCookie, SESSION_COOKIE_NAME } from '../../src/middleware/hostAuth.js';
+import type { SessionPayload } from '../../src/types/identity.js';
 import type { Request, Response } from 'express';
 
 interface T { name: string; description?: string; tags?: string[]; testFn?: () => Promise<boolean>; }
@@ -221,6 +222,381 @@ const cases: T[] = [
                 const { res, state } = makeRes();
                 loginHandler({ body: { pin: '1234' }, ip: '127.0.0.1' } as Request, res);
                 return state.status === 401;
+            });
+        },
+    },
+
+    // ---------- Issue #52: new location-scoped cookie format ----------
+    {
+        name: 'mintLocationCookie: produces <lid>.<exp>.<mac> with lid included in MAC input',
+        tags: ['unit', 'auth', 'multi-tenant'],
+        testFn: async () => {
+            const cookie = __test__.mintLocationCookie(new Date(), KEY, 'probe-a');
+            const parts = cookie.split('.');
+            if (parts.length !== 3) return false;
+            const [lid, exp, mac] = parts;
+            if (lid !== 'probe-a') return false;
+            if (!/^\d+$/.test(exp)) return false;
+            if (mac.length !== 64) return false;
+            // Re-derive the MAC over '<lid>.<exp>' and confirm equality.
+            const expected = __test__.sign(`${lid}.${exp}`, KEY);
+            return expected === mac;
+        },
+    },
+    {
+        name: 'verifyCookieDetailed: new-format cookie returns { ok:true, lid, legacy:false }',
+        tags: ['unit', 'auth', 'multi-tenant'],
+        testFn: async () => {
+            const cookie = __test__.mintLocationCookie(new Date(), KEY, 'loc-a');
+            const result = verifyCookieDetailed(cookie, KEY);
+            return result.ok && result.lid === 'loc-a' && result.legacy === false;
+        },
+    },
+    {
+        name: 'verifyCookieDetailed: legacy-format cookie returns { ok:true, lid:undefined, legacy:true }',
+        tags: ['unit', 'auth', 'multi-tenant'],
+        testFn: async () => {
+            const cookie = __test__.mintCookie(new Date(), KEY);
+            const result = verifyCookieDetailed(cookie, KEY);
+            return result.ok && result.lid === undefined && result.legacy === true;
+        },
+    },
+    {
+        name: 'verifyCookieDetailed: swapping lid on a valid new-format cookie fails verification',
+        tags: ['unit', 'auth', 'multi-tenant'],
+        testFn: async () => {
+            const cookie = __test__.mintLocationCookie(new Date(), KEY, 'loc-a');
+            const [, exp, mac] = cookie.split('.');
+            const tampered = `loc-b.${exp}.${mac}`;
+            return !verifyCookieDetailed(tampered, KEY).ok;
+        },
+    },
+    {
+        name: 'verifyCookie (legacy boolean API): still accepts both formats for backward compat',
+        tags: ['unit', 'auth', 'multi-tenant'],
+        testFn: async () => {
+            const legacy = __test__.mintCookie(new Date(), KEY);
+            const v2 = __test__.mintLocationCookie(new Date(), KEY, 'loc-a');
+            return verifyCookie(legacy, KEY) && verifyCookie(v2, KEY);
+        },
+    },
+
+    // ---------- Issue #52: requireRole middleware ----------
+    {
+        name: 'requireRole: new-format cookie with matching lid → calls next(), sets req.hostAuth',
+        tags: ['unit', 'auth', 'multi-tenant', 'requireRole'],
+        testFn: async () => {
+            return withEnv({ SKB_COOKIE_SECRET: KEY }, () => {
+                const cookie = __test__.mintLocationCookie(new Date(), KEY, 'probe-a');
+                const { res, state } = makeRes();
+                const nextState = { called: false };
+                const req = {
+                    headers: { cookie: `skb_host=${cookie}` },
+                    params: { loc: 'probe-a' },
+                } as unknown as Request & { hostAuth?: { lid: string; legacy: boolean } };
+                requireRole('host')(req, res, () => { nextState.called = true; });
+                return nextState.called && state.status === 200
+                    && req.hostAuth?.lid === 'probe-a' && req.hostAuth?.legacy === false;
+            });
+        },
+    },
+    {
+        name: 'requireRole: new-format cookie with MISMATCHED lid → 403 wrong_tenant',
+        tags: ['unit', 'auth', 'multi-tenant', 'requireRole'],
+        testFn: async () => {
+            return withEnv({ SKB_COOKIE_SECRET: KEY }, () => {
+                const cookie = __test__.mintLocationCookie(new Date(), KEY, 'probe-a');
+                const { res, state } = makeRes();
+                const nextState = { called: false };
+                requireRole('host')(
+                    { headers: { cookie: `skb_host=${cookie}` }, params: { loc: 'probe-b' } } as unknown as Request,
+                    res,
+                    () => { nextState.called = true; },
+                );
+                const body = state.body as { error?: string } | undefined;
+                return state.status === 403 && body?.error === 'wrong_tenant' && !nextState.called;
+            });
+        },
+    },
+    {
+        name: 'requireRole: legacy cookie → accepts (deprecation window), sets legacy flag',
+        tags: ['unit', 'auth', 'multi-tenant', 'requireRole'],
+        testFn: async () => {
+            return withEnv({ SKB_COOKIE_SECRET: KEY }, () => {
+                const cookie = __test__.mintCookie(new Date(), KEY);
+                const { res, state } = makeRes();
+                const nextState = { called: false };
+                const req = {
+                    headers: { cookie: `skb_host=${cookie}` },
+                    params: { loc: 'probe-a' },
+                } as unknown as Request & { hostAuth?: { lid?: string; legacy: boolean } };
+                requireRole('host')(req, res, () => { nextState.called = true; });
+                return nextState.called && state.status === 200
+                    && req.hostAuth?.legacy === true && req.hostAuth?.lid === undefined;
+            });
+        },
+    },
+    {
+        name: 'requireRole: missing cookie → 401',
+        tags: ['unit', 'auth', 'multi-tenant', 'requireRole'],
+        testFn: async () => {
+            return withEnv({ SKB_COOKIE_SECRET: KEY }, () => {
+                const { res, state } = makeRes();
+                const nextState = { called: false };
+                requireRole('host')(
+                    { headers: {}, params: { loc: 'probe-a' } } as unknown as Request,
+                    res,
+                    () => { nextState.called = true; },
+                );
+                return state.status === 401 && !nextState.called;
+            });
+        },
+    },
+    {
+        name: 'requireRole: no secret env → 503',
+        tags: ['unit', 'auth', 'multi-tenant', 'requireRole'],
+        testFn: async () => {
+            return withEnv({ SKB_COOKIE_SECRET: undefined }, () => {
+                const { res, state } = makeRes();
+                const nextState = { called: false };
+                requireRole('host')(
+                    { headers: {}, params: { loc: 'probe-a' } } as unknown as Request,
+                    res,
+                    () => { nextState.called = true; },
+                );
+                return state.status === 503 && !nextState.called;
+            });
+        },
+    },
+
+    // ---------- Issue #53: skb_session (named-user) cookie ----------
+    {
+        name: 'mintSessionCookie + verifySessionCookie: round-trips payload exactly',
+        tags: ['unit', 'auth', 'session'],
+        testFn: async () => {
+            const exp = Math.floor(Date.now() / 1000) + 3600;
+            const payload: SessionPayload = { uid: 'u1', lid: 'loc-a', role: 'owner', exp };
+            const cookie = mintSessionCookie(payload, KEY);
+            const v = verifySessionCookie(cookie, KEY);
+            return v.ok === true
+                && v.payload?.uid === 'u1'
+                && v.payload?.lid === 'loc-a'
+                && v.payload?.role === 'owner'
+                && v.payload?.exp === exp;
+        },
+    },
+    {
+        name: 'verifySessionCookie: wrong key → not ok',
+        tags: ['unit', 'auth', 'session'],
+        testFn: async () => {
+            const payload: SessionPayload = { uid: 'u', lid: 'a', role: 'host', exp: Math.floor(Date.now() / 1000) + 3600 };
+            const cookie = mintSessionCookie(payload, KEY);
+            return !verifySessionCookie(cookie, 'wrong-key').ok;
+        },
+    },
+    {
+        name: 'verifySessionCookie: expired → not ok',
+        tags: ['unit', 'auth', 'session'],
+        testFn: async () => {
+            const payload: SessionPayload = { uid: 'u', lid: 'a', role: 'host', exp: Math.floor(Date.now() / 1000) - 10 };
+            const cookie = mintSessionCookie(payload, KEY);
+            return !verifySessionCookie(cookie, KEY).ok;
+        },
+    },
+    {
+        name: 'verifySessionCookie: tampered role (re-signed with wrong key) → not ok',
+        tags: ['unit', 'auth', 'session'],
+        testFn: async () => {
+            const payload: SessionPayload = { uid: 'u', lid: 'a', role: 'host', exp: Math.floor(Date.now() / 1000) + 3600 };
+            const cookie = mintSessionCookie(payload, KEY);
+            // Forge a new payload saying 'owner' — but keep the original MAC.
+            const [ , mac] = cookie.split('.');
+            const forgedPayload = Buffer.from(JSON.stringify({ ...payload, role: 'owner' }), 'utf8').toString('base64url');
+            return !verifySessionCookie(`${forgedPayload}.${mac}`, KEY).ok;
+        },
+    },
+    {
+        name: 'verifySessionCookie: unknown role → not ok',
+        tags: ['unit', 'auth', 'session'],
+        testFn: async () => {
+            // Forge a cookie with a role the app doesn't recognize.
+            const raw = Buffer.from(JSON.stringify({ uid: 'u', lid: 'a', role: 'hacker', exp: Math.floor(Date.now() / 1000) + 3600 }), 'utf8').toString('base64url');
+            const { createHmac } = await import('node:crypto');
+            const mac = createHmac('sha256', KEY).update(raw).digest('hex');
+            return !verifySessionCookie(`${raw}.${mac}`, KEY).ok;
+        },
+    },
+    {
+        name: 'verifySessionCookie: malformed input → not ok',
+        tags: ['unit', 'auth', 'session'],
+        testFn: async () => {
+            return !verifySessionCookie('', KEY).ok
+                && !verifySessionCookie('nodot', KEY).ok
+                && !verifySessionCookie('.short', KEY).ok
+                && !verifySessionCookie('abc.def', KEY).ok; // mac not 64 hex chars
+        },
+    },
+
+    // ---------- Issue #53: requireRole with session cookie ----------
+    // Note: since issue #55, requireRole does a live membership check in
+    // Mongo for session cookies (R4: revoked memberships fail at next
+    // request). Two paths are possible:
+    //   (a) Mongo reachable + membership active: next() is called.
+    //   (b) Mongo reachable + no membership: 401 unauthorized.
+    //   (c) Mongo unreachable: 503 temporarily unavailable.
+    // The pure-cookie-parse assertions (tenant mismatch, role mismatch,
+    // expired/bad HMAC) still short-circuit synchronously — those unit
+    // tests work unchanged. The "happy path" test below moved to the
+    // integration suite (see tests/integration/invites.integration.test.ts).
+    {
+        name: 'requireRole: session cookie with matching lid → either next() (live membership) or DB failure path',
+        tags: ['unit', 'auth', 'session', 'requireRole'],
+        testFn: async () => {
+            return withEnv({ SKB_COOKIE_SECRET: KEY, MONGODB_URI: 'mongodb://127.0.0.1:1/skb_nonexistent' }, async () => {
+                const exp = Math.floor(Date.now() / 1000) + 3600;
+                // Use a hex uid so the ObjectId parse succeeds and we reach the DB step.
+                const payload: SessionPayload = { uid: '000000000000000000000001', lid: 'loc-a', role: 'owner', exp };
+                const cookie = mintSessionCookie(payload, KEY);
+                const { res, state } = makeRes();
+                const nextState = { called: false };
+                const req = {
+                    headers: { cookie: `${SESSION_COOKIE_NAME}=${cookie}` },
+                    params: { loc: 'loc-a' },
+                } as unknown as Request & { hostAuth?: { uid?: string; role: string; source: string } };
+                await requireRole('owner', 'admin')(req, res, () => { nextState.called = true; });
+                // Against a mongodb URI that can't connect: status is 503 OR 401 depending on timing.
+                // We only assert that the pre-DB parsing succeeded (role/lid matched) by checking
+                // we did NOT get a 403 wrong_tenant or 403 forbidden.
+                return state.status !== 403;
+            });
+        },
+    },
+    {
+        // Updated 2026-04: wrong-tenant sessions now fall through to the PIN
+        // check rather than 403 outright. This lets a shared host tablet
+        // (valid PIN for THIS location) keep working even when the browser
+        // still carries a stale session cookie from a different tenant. If
+        // PIN is absent, we end up at the final 401 "unauthorized" path.
+        name: 'requireRole: session cookie with mismatched lid + no PIN → 401 (falls through)',
+        tags: ['unit', 'auth', 'session', 'requireRole', 'cross-tenant'],
+        testFn: async () => {
+            return withEnv({ SKB_COOKIE_SECRET: KEY }, () => {
+                const payload: SessionPayload = { uid: 'u', lid: 'loc-a', role: 'owner', exp: Math.floor(Date.now() / 1000) + 3600 };
+                const cookie = mintSessionCookie(payload, KEY);
+                const { res, state } = makeRes();
+                const nextState = { called: false };
+                requireRole('owner')(
+                    { headers: { cookie: `${SESSION_COOKIE_NAME}=${cookie}` }, params: { loc: 'loc-b' } } as unknown as Request,
+                    res,
+                    () => { nextState.called = true; },
+                );
+                const body = state.body as { error?: string } | undefined;
+                return state.status === 401 && body?.error === 'unauthorized' && !nextState.called;
+            });
+        },
+    },
+    {
+        // Regression: a real scenario where an owner signed into tenant A
+        // walks over to tenant B's front-desk tablet (which has tenant B's
+        // PIN set). Their stale session must NOT block the PIN from working.
+        name: 'requireRole: wrong-tenant session + valid PIN for current tenant → passes as host',
+        tags: ['unit', 'auth', 'session', 'requireRole', 'cross-tenant'],
+        testFn: async () => {
+            return withEnv({ SKB_COOKIE_SECRET: KEY }, () => {
+                const session = mintSessionCookie(
+                    { uid: 'u', lid: 'loc-a', role: 'owner', exp: Math.floor(Date.now() / 1000) + 3600 },
+                    KEY,
+                );
+                const pin = __test__.mintLocationCookie(new Date(), KEY, 'loc-b');
+                const { res, state } = makeRes();
+                const nextState = { called: false };
+                const req = {
+                    headers: { cookie: `${SESSION_COOKIE_NAME}=${session}; skb_host=${pin}` },
+                    params: { loc: 'loc-b' },
+                } as unknown as Request & { hostAuth?: { role?: string; source?: string } };
+                requireRole('host')(req, res, () => { nextState.called = true; });
+                return nextState.called
+                    && state.status === 200
+                    && req.hostAuth?.role === 'host'
+                    && req.hostAuth?.source === 'host';
+            });
+        },
+    },
+    {
+        name: 'requireRole: session cookie with role not in allowed set → 403 forbidden',
+        tags: ['unit', 'auth', 'session', 'requireRole'],
+        testFn: async () => {
+            return withEnv({ SKB_COOKIE_SECRET: KEY }, () => {
+                const payload: SessionPayload = { uid: 'u', lid: 'loc-a', role: 'host', exp: Math.floor(Date.now() / 1000) + 3600 };
+                const cookie = mintSessionCookie(payload, KEY);
+                const { res, state } = makeRes();
+                const nextState = { called: false };
+                requireRole('owner', 'admin')(
+                    { headers: { cookie: `${SESSION_COOKIE_NAME}=${cookie}` }, params: { loc: 'loc-a' } } as unknown as Request,
+                    res,
+                    () => { nextState.called = true; },
+                );
+                const body = state.body as { error?: string } | undefined;
+                return state.status === 403 && body?.error === 'forbidden' && !nextState.called;
+            });
+        },
+    },
+    {
+        name: 'requireRole: host-PIN cookie rejected when only "owner" role allowed',
+        tags: ['unit', 'auth', 'session', 'requireRole'],
+        testFn: async () => {
+            return withEnv({ SKB_COOKIE_SECRET: KEY }, () => {
+                const cookie = __test__.mintLocationCookie(new Date(), KEY, 'loc-a');
+                const { res, state } = makeRes();
+                const nextState = { called: false };
+                requireRole('owner')(
+                    { headers: { cookie: `skb_host=${cookie}` }, params: { loc: 'loc-a' } } as unknown as Request,
+                    res,
+                    () => { nextState.called = true; },
+                );
+                const body = state.body as { error?: string } | undefined;
+                return state.status === 403 && body?.error === 'forbidden' && !nextState.called;
+            });
+        },
+    },
+    {
+        name: 'requireRole: session cookie takes precedence over host cookie when both present',
+        tags: ['unit', 'auth', 'session', 'requireRole'],
+        testFn: async () => {
+            return withEnv({ SKB_COOKIE_SECRET: KEY }, async () => {
+                const session = mintSessionCookie({ uid: '000000000000000000000001', lid: 'loc-a', role: 'owner', exp: Math.floor(Date.now() / 1000) + 3600 }, KEY);
+                const host = __test__.mintLocationCookie(new Date(), KEY, 'loc-a');
+                const { res, state } = makeRes();
+                const nextState = { called: false };
+                const req = {
+                    headers: { cookie: `${SESSION_COOKIE_NAME}=${session}; skb_host=${host}` },
+                    params: { loc: 'loc-a' },
+                } as unknown as Request & { hostAuth?: { source?: string; role?: string } };
+                // requireRole is async since #55 — the DB-backed
+                // membership check means next() only resolves after
+                // Mongo replies. We just verify that the session-cookie
+                // branch is taken (status is 401/503/pass, NOT 403
+                // wrong_tenant or forbidden which would indicate the
+                // host-cookie fallback fired).
+                await requireRole('owner')(req, res, () => { nextState.called = true; });
+                return state.status !== 403;
+            });
+        },
+    },
+    {
+        name: 'requireRole: invalid session cookie → 401 (does not fall through to host cookie)',
+        tags: ['unit', 'auth', 'session', 'requireRole'],
+        testFn: async () => {
+            return withEnv({ SKB_COOKIE_SECRET: KEY }, () => {
+                const host = __test__.mintLocationCookie(new Date(), KEY, 'loc-a');
+                const { res, state } = makeRes();
+                const nextState = { called: false };
+                requireRole('host')(
+                    { headers: { cookie: `${SESSION_COOKIE_NAME}=garbage.deadbeef; skb_host=${host}` }, params: { loc: 'loc-a' } } as unknown as Request,
+                    res,
+                    () => { nextState.called = true; },
+                );
+                return state.status === 401 && !nextState.called;
             });
         },
     },

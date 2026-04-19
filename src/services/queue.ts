@@ -91,7 +91,7 @@ export async function joinQueue(
 
     let lastErr: unknown;
     for (let attempt = 0; attempt < MAX_CODE_RETRIES; attempt++) {
-        const code = generateCode();
+        const code = generateCode(locationId);
         const entry: QueueEntry = {
             locationId,
             code,

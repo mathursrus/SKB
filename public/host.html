@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=1024,initial-scale=1" />
-<title>SKB — Host Stand</title>
+<title>Host Stand</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Fira+Sans:wght@400;600;700&display=swap" rel="stylesheet" />
@@ -14,7 +14,12 @@
 <div id="login-view">
     <button type="button" data-theme-toggle class="theme-toggle-btn login-theme-toggle" aria-label="Toggle theme">&#9728;</button>
     <div class="card login-card">
-        <h2 style="margin-top:0">SKB · Host Stand</h2>
+        <!-- Restaurant-specific brand (issue #57 R4, spec §6.7). Fallback
+             copy is intentionally generic — the restaurant name is
+             injected by host.js once the PIN login succeeds. Front-desk
+             operators see their own restaurant's name on the tablet, not
+             the platform label. -->
+        <h2 style="margin-top:0"><span id="host-login-restaurant-name">Host Stand</span></h2>
         <p style="color:#78716c;font-size:14px">Enter device PIN to continue.</p>
         <form id="login-form">
             <label for="pin">PIN</label>
@@ -27,7 +32,7 @@
 
 <div id="queue-view" style="display:none">
     <div class="topbar">
-        <div class="brand">SKB · Host Stand</div>
+        <div class="brand"><span id="host-restaurant-name"></span><span id="host-restaurant-name-sep" style="display:none"> &middot; </span>Host Stand</div>
         <div class="counts">
             <div><strong id="count-waiting">0</strong> waiting</div>
             <div><strong id="count-dining">0</strong> dining</div>

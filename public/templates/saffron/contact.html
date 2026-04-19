@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Contact — {{brandName}}</title>
+    <link rel="stylesheet" href="templates/saffron/site.css">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fira+Sans:wght@400;600&display=swap">
+</head>
+<body class="saffron-site">
+    <div class="saffron-banner">Walk-ins welcome · Join the waitlist from your phone</div>
+
+    <header class="saffron-header">
+        <div>
+            <div class="saffron-brand-name" id="brand-name">{{brandName}}</div>
+            <div class="saffron-brand-tag">Fresh, from-scratch cooking</div>
+        </div>
+        <nav class="saffron-nav" aria-label="Primary navigation">
+            <ul>
+                <li><a href="./">Home</a></li>
+                <li><a href="./menu">Menu</a></li>
+                <li><a href="./about">About</a></li>
+                <li><a href="./hours">Hours &amp; Location</a></li>
+                <li><a href="./contact" aria-current="page">Contact</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <div class="saffron-page-hero">
+        <h1>Contact Us</h1>
+        <p>We'd love to hear from you — call, email, or drop by.</p>
+    </div>
+
+    <main class="saffron-contact-main">
+        <h2>Call</h2>
+        <p class="saffron-contact-line">
+            <a data-front-desk-phone="display" href="#">Phone coming soon</a>
+        </p>
+
+        <h2>Email</h2>
+        <p class="saffron-contact-line">
+            <a href="mailto:{{contactEmail}}">{{contactEmail}}</a>
+        </p>
+
+        <h2>Follow</h2>
+        <p class="saffron-contact-line">
+            <a href="https://instagram.com/{{instagramHandle}}" rel="noopener">{{instagramHandle}}</a>
+        </p>
+
+        <h2>Visit</h2>
+        <div class="saffron-address-block" id="hours-address-lines" style="display: inline-block; text-align: left;">
+            <div class="line"><strong id="address-brand">{{brandName}}</strong></div>
+            <div class="line">Address coming soon</div>
+        </div>
+
+        <p class="saffron-contact-line" style="margin-top: 24px;">{{reservationsNote}}</p>
+        <p class="saffron-contact-line">
+            <a class="saffron-cta ghost" href="./hours">See Hours &amp; Directions</a>
+        </p>
+    </main>
+
+    <footer class="saffron-footer">
+        <div class="fnav">
+            <a href="./">Home</a>
+            <a href="./menu">Menu</a>
+            <a href="./about">About</a>
+            <a href="./hours">Hours &amp; Location</a>
+            <a href="./contact">Contact</a>
+        </div>
+        <div id="footer-contact">{{brandName}}</div>
+        <div class="fcopy">© 2026 {{brandName}}</div>
+    </footer>
+
+    <script src="site-config.js"></script>
+</body>
+</html>

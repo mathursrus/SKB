@@ -1,0 +1,365 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>OSH — Sign up</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Archivo+SemiCondensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+:root {
+    --panel:#fffdf8;
+    --ink:#1d1b19;
+    --muted:#6a6258;
+    --accent:#1f6a5d;
+    --accent-warm:#cb6a34;
+    --line:#e5ddd0;
+    --danger:#b42318;
+    --success:#1f8f5f;
+}
+* { box-sizing:border-box; }
+body {
+    margin:0;
+    font:15px/1.5 'IBM Plex Sans', sans-serif;
+    color:var(--ink);
+    min-height:100vh;
+    background:
+        radial-gradient(circle at top left, rgba(203,106,52,.16), transparent 28%),
+        radial-gradient(circle at top right, rgba(31,106,93,.18), transparent 26%),
+        linear-gradient(135deg, #f7f1e8 0%, #edf4f2 100%);
+}
+.topbar { display:flex; justify-content:space-between; align-items:center; padding:20px 28px; }
+.brand { font:700 24px/1 'Archivo SemiCondensed', sans-serif; letter-spacing:.02em; color:var(--ink); display:inline-flex; align-items:baseline; gap:10px; }
+.brand .expand { font:500 12px/1 'IBM Plex Sans', sans-serif; letter-spacing:.06em; text-transform:uppercase; color:var(--muted); }
+.brand .dot { color:var(--accent-warm); }
+@media (max-width: 560px) { .brand .expand { display:none; } }
+.topbar-right a { color:var(--muted); text-decoration:none; font-size:14px; }
+.topbar-right a:hover { color:var(--ink); }
+.page { max-width:1080px; margin:0 auto; padding:32px 28px 80px; display:grid; grid-template-columns:1.1fr 1fr; gap:40px; align-items:start; }
+.pitch { padding-top:24px; }
+.pitch h1 { font:700 46px/1.1 'Archivo SemiCondensed', sans-serif; margin:0 0 18px; letter-spacing:-.01em; }
+.pitch p { color:var(--muted); font-size:17px; margin:0 0 18px; max-width:460px; }
+.pitch ul { list-style:none; padding:0; margin:24px 0 0; }
+.pitch li { display:flex; align-items:center; gap:12px; padding:10px 0; color:var(--ink); font-size:15px; }
+.pitch li::before { content:'\2713'; color:var(--accent); font-weight:700; font-size:16px; width:22px; }
+.card {
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:28px;
+    padding:32px;
+    box-shadow:0 18px 48px rgba(37,26,15,.08);
+}
+.card h2 { margin:0 0 4px; font:700 22px/1.2 'Archivo SemiCondensed', sans-serif; }
+.card .sub { color:var(--muted); font-size:14px; margin:0 0 22px; }
+.field { margin-bottom:16px; }
+.field label { display:block; font-weight:500; font-size:13px; margin-bottom:6px; color:var(--ink); }
+.field input {
+    width:100%;
+    padding:12px 14px;
+    border-radius:12px;
+    border:1px solid var(--line);
+    font:15px 'IBM Plex Sans', sans-serif;
+    color:var(--ink);
+    background:#fff;
+}
+.field input:focus { outline:2px solid var(--accent); outline-offset:-1px; border-color:var(--accent); }
+.field-row { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+.slug-preview {
+    margin:4px 0 16px;
+    padding:12px 14px;
+    border-radius:10px;
+    background:#f3efea;
+    font-size:13px;
+    color:var(--muted);
+    display:flex; justify-content:space-between; align-items:center;
+    gap:8px; flex-wrap:wrap;
+}
+.slug-preview strong { color:var(--ink); font-weight:600; font-family:'IBM Plex Sans',monospace; }
+.slug-preview button { background:none; border:none; color:var(--accent); font-weight:600; font-size:13px; cursor:pointer; }
+.slug-input-row { display:none; gap:8px; margin:4px 0 16px; }
+.slug-input-row input {
+    flex:1;
+    padding:10px 12px;
+    border-radius:10px;
+    border:1px solid var(--line);
+    font:14px 'IBM Plex Sans', monospace;
+}
+.slug-input-row button.cancel { background:transparent; border:none; color:var(--muted); font-size:13px; cursor:pointer; }
+.tos { display:flex; align-items:flex-start; gap:10px; margin:18px 0 20px; color:var(--muted); font-size:13px; }
+.tos input { margin-top:3px; }
+.tos a { color:var(--accent); }
+.primary {
+    width:100%;
+    padding:14px;
+    border-radius:14px;
+    background:var(--accent);
+    color:#fff;
+    border:none;
+    font:600 16px 'IBM Plex Sans', sans-serif;
+    cursor:pointer;
+}
+.primary:hover { background:#185246; }
+.primary:disabled { background:#9cbdb7; cursor:not-allowed; }
+.fallback { text-align:center; font-size:13px; color:var(--muted); margin-top:18px; }
+.fallback a { color:var(--accent-warm); font-weight:500; text-decoration:none; }
+.foot-login { text-align:center; margin-top:18px; font-size:14px; color:var(--muted); }
+.foot-login a { color:var(--accent); font-weight:500; text-decoration:none; }
+.error {
+    margin:12px 0 0;
+    padding:12px 14px;
+    background:#fdeceb;
+    border:1px solid #f1b5b0;
+    color:var(--danger);
+    border-radius:10px;
+    font-size:13px;
+    display:none;
+}
+.error.show { display:block; }
+.success {
+    margin:16px 0;
+    padding:18px;
+    background:#eef8f2;
+    border:1px solid #b5e2ca;
+    color:var(--success);
+    border-radius:14px;
+    font-size:14px;
+    display:none;
+}
+.success.show { display:block; }
+.success strong { color:var(--ink); }
+.pin-badge {
+    display:inline-block;
+    font:700 22px 'IBM Plex Sans', monospace;
+    letter-spacing:.25em;
+    background:#fff;
+    border:1px solid var(--line);
+    padding:6px 14px;
+    border-radius:10px;
+    color:var(--ink);
+    margin:8px 0;
+}
+@media (max-width:800px) {
+    .page { grid-template-columns:1fr; gap:24px; }
+    .pitch h1 { font-size:36px; }
+}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+    <div class="brand">OSH<span class="expand">OS for Hospitality</span></div>
+    <div class="topbar-right"><a href="/login">Already on the platform? Log in</a></div>
+</header>
+
+<main class="page">
+    <section class="pitch">
+        <h1>Delight the guest. OSH handles the rest.</h1>
+        <p>No app. No sales call. No POS to replace. OSH ships your waitlist, your website, your hours, your menu, your staff logins, your door QR, your phone IVR &mdash; so every minute of your shift goes to the guest in front of you.</p>
+        <ul>
+            <li>Live in ten minutes. Free while we're in beta.</li>
+            <li>Waitlist + website + hours + menu + staff &mdash; one account.</li>
+            <li>Named logins for your team, with roles.</li>
+            <li>Ask Claude or ChatGPT about your numbers &mdash; OSH speaks MCP.</li>
+            <li>Works on the phone already in your pocket.</li>
+        </ul>
+    </section>
+
+    <section class="card">
+        <h2>Start your restaurant</h2>
+        <p class="sub">Takes about a minute. You can edit everything later.</p>
+
+        <form id="signup-form" novalidate>
+            <div class="field">
+                <label for="restaurant-name">Restaurant name</label>
+                <input id="restaurant-name" name="restaurantName" type="text" autocomplete="organization" required />
+            </div>
+            <div class="field">
+                <label for="city">City</label>
+                <input id="city" name="city" type="text" autocomplete="address-level2" required />
+            </div>
+
+            <div id="slug-preview" class="slug-preview">
+                <span>You'll be at <strong id="slug-preview-text">app.example.com/r/your-restaurant</strong></span>
+                <button type="button" id="slug-change-btn">Change</button>
+            </div>
+            <div id="slug-input-row" class="slug-input-row">
+                <input id="slug-input" name="slug" type="text" placeholder="your-restaurant" pattern="[a-z0-9-]+" />
+                <button type="button" class="cancel" id="slug-cancel-btn">Cancel</button>
+            </div>
+
+            <div class="field-row">
+                <div class="field">
+                    <label for="owner-name">Your name</label>
+                    <input id="owner-name" name="ownerName" type="text" autocomplete="name" required />
+                </div>
+                <div class="field">
+                    <label for="email">Email</label>
+                    <input id="email" name="email" type="email" autocomplete="email" required />
+                </div>
+            </div>
+
+            <div class="field">
+                <label for="password">Password</label>
+                <input id="password" name="password" type="password" autocomplete="new-password" minlength="10" required />
+            </div>
+
+            <label class="tos">
+                <input id="tos" name="tosAccepted" type="checkbox" required />
+                <span>I agree to the <a href="#">Terms of Service</a> and <a href="#">Privacy Policy</a>.</span>
+            </label>
+
+            <div id="signup-error" class="error" role="alert"></div>
+
+            <button type="submit" class="primary" id="signup-submit">Create my restaurant</button>
+
+            <p class="fallback">Prefer to talk to someone? <a href="mailto:hello@example.com">Email hello@example.com</a>.</p>
+        </form>
+
+        <div id="signup-success" class="success" role="status" aria-live="polite">
+            <p style="margin:0 0 10px"><strong>Your restaurant is live.</strong></p>
+            <p style="margin:0 0 8px">Save this host-stand PIN &mdash; this is the only time we&rsquo;ll show it in plain text:</p>
+            <p style="margin:0 0 10px"><span class="pin-badge" id="success-pin">0000</span></p>
+            <p style="margin:0 0 10px">Taking you to your admin at <strong id="success-slug">/r/your-slug/admin.html</strong>&hellip;</p>
+        </div>
+
+        <p class="foot-login">Already on the platform? <a href="/login">Log in</a></p>
+    </section>
+</main>
+
+<script>
+(function(){
+    'use strict';
+    var nameInput = document.getElementById('restaurant-name');
+    var cityInput = document.getElementById('city');
+    var ownerNameInput = document.getElementById('owner-name');
+    var emailInput = document.getElementById('email');
+    var passwordInput = document.getElementById('password');
+    var tosInput = document.getElementById('tos');
+    var slugPreview = document.getElementById('slug-preview');
+    var slugPreviewText = document.getElementById('slug-preview-text');
+    var slugChangeBtn = document.getElementById('slug-change-btn');
+    var slugCancelBtn = document.getElementById('slug-cancel-btn');
+    var slugInputRow = document.getElementById('slug-input-row');
+    var slugInput = document.getElementById('slug-input');
+    var errorBox = document.getElementById('signup-error');
+    var successBox = document.getElementById('signup-success');
+    var successPin = document.getElementById('success-pin');
+    var successSlug = document.getElementById('success-slug');
+    var submitBtn = document.getElementById('signup-submit');
+    var form = document.getElementById('signup-form');
+
+    // Mirror the server-side kebabCase enough to show a realistic preview.
+    function kebab(s) {
+        return String(s || '')
+            .normalize('NFKD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, '-')
+            .replace(/^-+|-+$/g, '');
+    }
+    function origin() {
+        // Show the actual host the signup page is hitting so the preview
+        // matches what the server will mint. Strip the port for a cleaner
+        // preview in dev (localhost:3000 → localhost).
+        return location.host.replace(/:\d+$/, '');
+    }
+    function updatePreview() {
+        var slug = slugInputRow.style.display === 'flex' && slugInput.value
+            ? kebab(slugInput.value)
+            : kebab(nameInput.value || '');
+        slugPreviewText.textContent = (origin() || 'app.example.com') + '/r/' + (slug || 'your-restaurant');
+    }
+    nameInput.addEventListener('input', updatePreview);
+    cityInput.addEventListener('input', updatePreview);
+    slugInput.addEventListener('input', updatePreview);
+
+    slugChangeBtn.addEventListener('click', function(){
+        slugPreview.style.display = 'none';
+        slugInputRow.style.display = 'flex';
+        slugInput.value = kebab(nameInput.value || '');
+        slugInput.focus();
+        updatePreview();
+    });
+    slugCancelBtn.addEventListener('click', function(){
+        slugInputRow.style.display = 'none';
+        slugPreview.style.display = 'flex';
+        slugInput.value = '';
+        updatePreview();
+    });
+
+    function showError(msg) {
+        errorBox.textContent = msg;
+        errorBox.classList.add('show');
+    }
+    function clearError() {
+        errorBox.classList.remove('show');
+        errorBox.textContent = '';
+    }
+
+    form.addEventListener('submit', async function(ev){
+        ev.preventDefault();
+        clearError();
+        if (!tosInput.checked) { showError('Please accept the terms to continue.'); return; }
+        if ((passwordInput.value || '').length < 10) { showError('Password must be at least 10 characters.'); return; }
+
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Creating\u2026';
+
+        var payload = {
+            restaurantName: nameInput.value.trim(),
+            city: cityInput.value.trim(),
+            ownerName: ownerNameInput.value.trim(),
+            email: emailInput.value.trim(),
+            password: passwordInput.value,
+            tosAccepted: true
+        };
+        if (slugInputRow.style.display === 'flex' && slugInput.value.trim()) {
+            payload.slug = slugInput.value.trim();
+        }
+
+        try {
+            var res = await fetch('/api/signup', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+                credentials: 'same-origin'
+            });
+            var data = await res.json();
+            if (!res.ok) {
+                var msg = data && data.error ? data.error : 'Signup failed. Please try again.';
+                if (res.status === 429) msg = 'Too many signups from this network. Please try again in an hour or email hello@example.com.';
+                if (data && data.field === 'email' && res.status === 409) {
+                    msg = 'That email is already registered. Try logging in instead.';
+                }
+                if (data && data.field === 'slug' && res.status === 409) {
+                    msg = 'That slug is already taken. Try another one using "Change" above.';
+                }
+                showError(msg);
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Create my restaurant';
+                return;
+            }
+            // Success. Show the PIN, then redirect to admin.
+            form.style.display = 'none';
+            successPin.textContent = data.hostPin;
+            successSlug.textContent = data.redirectTo;
+            successBox.classList.add('show');
+            setTimeout(function(){
+                location.href = data.redirectTo;
+            }, 2500);
+        } catch (err) {
+            showError('Network error. Please try again.');
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Create my restaurant';
+        }
+    });
+
+    // Initial preview using placeholder text.
+    nameInput.value = '';
+    updatePreview();
+})();
+</script>
+
+</body>
+</html>

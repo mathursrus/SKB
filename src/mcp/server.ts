@@ -22,6 +22,7 @@ import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/
 
 import { authenticateMcpRequest, type McpAuthContext } from './auth.js';
 import { registerAdminTools } from './tools/admin.js';
+import { registerConfigTools } from './tools/config.js';
 import { registerOpsTools } from './tools/ops.js';
 import { registerSeatedTools } from './tools/seated.js';
 import { registerWaitingTools } from './tools/waiting.js';
@@ -39,17 +40,23 @@ function buildMcpServer(ctx: McpAuthContext): McpServer {
         { name: SERVER_NAME, version: SERVER_VERSION },
         {
             instructions:
-                'SKB restaurant waitlist MCP. Tools are scoped to one location (default "skb"). ' +
+                'OSH restaurant OS MCP. Tools are scoped to one location (default "skb"). ' +
                 'list_waiting / list_seated / list_completed read the current state. ' +
                 'add_party / seat_party / mark_no_show / notify_party / advance_party mutate it. ' +
                 'send_chat / read_chat / mark_chat_read handle the host ↔ diner thread. ' +
-                'get_stats / get_analytics / get_settings / set_settings drive the admin surface.',
+                'get_stats / get_analytics drive the Ops Dashboard. get_settings / set_settings tune the ETA mode. ' +
+                'Admin config: get_menu / set_menu (structured menu), get/set_visit_config (Door QR), ' +
+                'get/set_site_config (address, hours, publicHost — the profile), ' +
+                'get/set_voice_config (IVR), get/set_website_config (template + content), ' +
+                'get_device_pin / set_device_pin (host PIN). ' +
+                'Google Business: get_google_status, google_sync, google_disconnect — the OAuth connect flow requires the browser admin Integrations tab.',
         },
     );
     const getCtx = () => ctx;
     registerWaitingTools(server, getCtx);
     registerSeatedTools(server, getCtx);
     registerAdminTools(server, getCtx);
+    registerConfigTools(server, getCtx);
     registerOpsTools(server);
     return server;
 }

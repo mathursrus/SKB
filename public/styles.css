@@ -144,6 +144,62 @@ button.primary {
 button.primary:hover { background: #333; }
 button.primary:disabled { opacity: 0.5; cursor: not-allowed; }
 
+/* Ghost button: inline, low-weight companion to the primary. Used for
+   "+ Add item", "+ Add section", and similar additive actions where
+   we don't want a heavy solid-black call-to-action. */
+button.secondary {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 14px;
+    min-height: 36px;
+    background: #fff;
+    color: var(--fg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.2px;
+    cursor: pointer;
+    transition: border-color 120ms ease, background 120ms ease, color 120ms ease;
+}
+button.secondary:hover {
+    border-color: var(--accent, #c0872e);
+    color: var(--accent, #c0872e);
+    background: #fffdf7;
+}
+button.secondary:active { background: #fdf6e4; }
+button.secondary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* Destructive companion to .primary. Used for Disconnect, Revoke,
+   Delete buttons where a destructive action needs confirmation weight
+   without shouting in the default state. */
+button.admin-danger {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 16px;
+    min-height: 40px;
+    background: #fff;
+    color: #b91c1c;
+    border: 1px solid #fecaca;
+    border-radius: 8px;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.2px;
+    cursor: pointer;
+    transition: border-color 120ms ease, background 120ms ease, color 120ms ease;
+}
+button.admin-danger:hover {
+    background: #fef2f2;
+    border-color: #f87171;
+    color: #991b1b;
+}
+button.admin-danger:active { background: #fee2e2; }
+button.admin-danger:disabled { opacity: 0.5; cursor: not-allowed; }
+
 .confirmation { text-align: center; padding: 24px 20px; }
 .confirmation .pos-label {
     color: var(--muted);
@@ -364,6 +420,10 @@ footer {
 .host .logout { background: none; border: 1px solid var(--border); border-radius: 6px; padding: 10px 14px; min-height: 44px; cursor: pointer; color: var(--muted); font-size: 13px; }
 .host main { padding: 20px 24px; }
 .admin-main { padding: 20px 24px; display: grid; gap: 20px; }
+.admin-tabs { display: flex; gap: 4px; margin: 16px 24px 0; padding: 4px; background: var(--surface-alt, #faf6ee); border: 1px solid var(--border); border-radius: 10px; width: fit-content; }
+.admin-tab { background: transparent; border: none; padding: 8px 16px; border-radius: 8px; font-weight: 600; font-size: 13px; color: var(--muted); cursor: pointer; }
+.admin-tab.active { background: var(--accent, #1f6a5d); color: #fff; }
+.admin-tab:focus-visible { outline: 2px solid var(--accent, #1f6a5d); outline-offset: 2px; }
 .admin-topbar { align-items: flex-start; }
 .admin-brand-block { display: flex; flex-direction: column; gap: 4px; min-width: 240px; }
 .admin-subhead { color: var(--muted); font-size: 13px; max-width: 360px; }
@@ -374,9 +434,193 @@ footer {
     padding: 20px;
     box-shadow: 0 1px 3px rgba(0,0,0,0.04);
 }
+/* Accordion: every admin-card is a <details> element. Summary acts as the
+   clickable header row; the caret in ::before flips when open. Collapsed
+   by default so each tab loads as a clean list of section titles. */
+details.admin-card { padding: 0; }
+details.admin-card > summary.admin-card-head {
+    list-style: none;
+    cursor: pointer;
+    padding: 16px 20px 16px 48px;
+    margin: 0;
+    position: relative;
+    border-radius: 12px;
+    user-select: none;
+}
+details.admin-card > summary.admin-card-head::-webkit-details-marker { display: none; }
+details.admin-card > summary.admin-card-head::before {
+    content: "";
+    position: absolute;
+    left: 20px;
+    top: 50%;
+    width: 0;
+    height: 0;
+    border-left: 6px solid transparent;
+    border-right: 6px solid transparent;
+    border-top: 8px solid #78716c;
+    transform: translateY(-50%) rotate(-90deg);
+    transition: transform 120ms ease;
+}
+details.admin-card[open] > summary.admin-card-head::before { transform: translateY(-40%) rotate(0deg); }
+details.admin-card[open] > summary.admin-card-head { border-radius: 12px 12px 0 0; }
+details.admin-card > summary.admin-card-head:hover { background: #fafaf9; }
+details.admin-card > summary.admin-card-head > h2 { display: inline-block; vertical-align: middle; }
+details.admin-card > *:not(summary) { padding: 0 20px; }
+details.admin-card > *:not(summary):last-child { padding-bottom: 20px; }
 .admin-card-head { margin-bottom: 16px; }
 .admin-card-head h2 { margin: 0 0 4px; font-size: 20px; }
 .admin-card-head p { margin: 0; color: var(--muted); font-size: 14px; }
+
+/* Flat save-strip card (e.g. at the bottom of Website / Profile tabs).
+   Shares admin-card background but has no accordion affordance, and
+   tightens vertical padding since there's no header. */
+.admin-card.admin-card-saverow { padding: 14px 20px; }
+
+/* Menu builder styling. <details> per section, item rows inside. Keep
+   dense but readable: section numbers subtly count up, items have a
+   hover lift, delete actions are muted until hovered, placeholders
+   guide first-time use. */
+.menu-sections-list {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    counter-reset: menu-section;
+}
+.menu-empty-state {
+    color: var(--muted);
+    padding: 32px 24px;
+    text-align: center;
+    border: 1px dashed var(--border);
+    border-radius: 10px;
+    background: #fafaf9;
+    font-size: 14px;
+}
+details.menu-section {
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: #fafaf9;
+    padding: 0;
+    counter-increment: menu-section;
+    transition: border-color 120ms ease, box-shadow 120ms ease;
+}
+details.menu-section:hover { border-color: #d6d3d1; }
+details.menu-section[open] { background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,0.03); }
+details.menu-section > summary.menu-section-head {
+    list-style: none;
+    cursor: pointer;
+    padding: 14px 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    user-select: none;
+}
+details.menu-section > summary.menu-section-head::-webkit-details-marker { display: none; }
+details.menu-section > summary.menu-section-head::before {
+    content: "";
+    flex-shrink: 0;
+    width: 0; height: 0;
+    border-left: 6px solid transparent;
+    border-right: 6px solid transparent;
+    border-top: 9px solid #57534e;
+    transform: rotate(-90deg);
+    transition: transform 120ms ease;
+}
+details.menu-section[open] > summary.menu-section-head::before { transform: rotate(0); }
+details.menu-section > summary.menu-section-head::after {
+    content: "Section " counter(menu-section);
+    color: var(--muted);
+    font-size: 11px;
+    letter-spacing: 0.6px;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+details.menu-section input.menu-section-title {
+    flex: 1;
+    font-weight: 600;
+    font-size: 16px;
+    padding: 8px 10px;
+    border: 1px solid transparent;
+    background: transparent;
+    border-radius: 6px;
+    color: var(--fg);
+}
+details.menu-section input.menu-section-title::placeholder { color: #a8a29e; font-weight: 500; }
+details.menu-section input.menu-section-title:hover,
+details.menu-section input.menu-section-title:focus {
+    background: #fff;
+    border-color: var(--border);
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(192, 135, 46, 0.12);
+}
+.menu-items-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 0 16px 14px;
+}
+.menu-item {
+    position: relative;
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px;
+    transition: border-color 120ms ease, box-shadow 120ms ease;
+}
+.menu-item:hover { border-color: #d6d3d1; box-shadow: 0 1px 2px rgba(0,0,0,0.03); }
+.menu-item-grid {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 2fr 100px;
+    gap: 12px 14px;
+    min-width: 0;
+}
+.menu-item-grid .visit-field-small { grid-column: 2; }
+.menu-item-grid .visit-field-full { grid-column: 1 / -1; }
+.menu-item-grid input,
+.menu-item-grid textarea {
+    width: 100%;
+    box-sizing: border-box;
+    font-size: 14px;
+}
+.menu-item-grid textarea { resize: vertical; min-height: 44px; }
+@media (max-width: 640px) {
+    .menu-item { flex-direction: column; align-items: stretch; }
+    .menu-item-grid { grid-template-columns: 1fr; }
+    .menu-item-grid .visit-field-small { grid-column: 1; }
+}
+.menu-section-actions {
+    padding: 0 16px 16px;
+    border-top: 1px dashed var(--border);
+    margin: 0 16px;
+    padding-top: 14px;
+}
+.menu-section-actions .menu-item-add {
+    font-size: 13px;
+    padding: 6px 12px;
+}
+.admin-danger-inline {
+    background: transparent;
+    color: #78716c;
+    border: 1px solid transparent;
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 12px;
+    cursor: pointer;
+    flex-shrink: 0;
+    font-weight: 500;
+    transition: color 120ms ease, background 120ms ease, border-color 120ms ease;
+}
+.menu-item .admin-danger-inline { align-self: flex-start; margin-top: 2px; }
+.admin-danger-inline:hover {
+    color: #b91c1c;
+    background: #fee2e2;
+    border-color: #fecaca;
+}
+/* Save strip pinned bottom-right looks cleaner when its container is flat. */
+.admin-card.admin-card-saverow { padding: 14px 20px; background: #fafaf9; border-color: var(--border); }
 .admin-grid-2up { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
 .admin-filters {
     display: grid;
@@ -879,7 +1123,86 @@ tr.expandable:hover { background: var(--surface-alt); }
 .complete-summary strong { color: var(--fg); }
 
 .empty { text-align: center; color: var(--muted); padding: 40px; }
-.login-card { max-width: 360px; margin: 80px auto; }
+/* Polished admin login card. Two sign-in paths (PIN, email+password);
+   the body carries a subtle wordmark, the swap link is saffron-accented,
+   and the two blocks stack with a soft divider so mode changes feel
+   intentional instead of replace-in-place. */
+.login-card {
+    max-width: 420px;
+    margin: 96px auto 40px;
+    padding: 32px 28px;
+    border-radius: 14px;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+}
+.login-card h2 {
+    font-size: 24px;
+    letter-spacing: 0.3px;
+    margin: 0 0 4px;
+}
+.login-card .login-wordmark-sub {
+    display: block;
+    color: var(--muted);
+    font-size: 12px;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    margin-bottom: 20px;
+}
+.login-card label {
+    display: block;
+    font-size: 12px;
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-weight: 600;
+}
+.login-card input[type="password"],
+.login-card input[type="email"],
+.login-card input[type="text"] {
+    width: 100%;
+    padding: 12px 14px;
+    font-size: 15px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: #fff;
+    transition: border-color 120ms ease, box-shadow 120ms ease;
+    box-sizing: border-box;
+}
+.login-card input:focus {
+    outline: none;
+    border-color: var(--accent, #c0872e);
+    box-shadow: 0 0 0 3px rgba(192, 135, 46, 0.15);
+}
+.login-card .primary {
+    width: 100%;
+    padding: 12px;
+    font-size: 15px;
+    margin-top: 16px;
+    border-radius: 8px;
+}
+.login-card .error {
+    margin-top: 10px;
+    padding: 10px 12px;
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+    border-radius: 8px;
+    color: #991b1b;
+    font-size: 13px;
+}
+.login-card .login-swap-link {
+    display: block;
+    text-align: center;
+    margin-top: 20px;
+    padding-top: 18px;
+    border-top: 1px solid var(--border);
+    font-size: 13px;
+    color: var(--muted);
+}
+.login-card .login-swap-link a {
+    color: var(--accent, #c0872e);
+    text-decoration: none;
+    font-weight: 600;
+}
+.login-card .login-swap-link a:hover { text-decoration: underline; }
 
 /* ============================================================================
    Issue #37 — waitlist transparency, host chat/call, table on seat
@@ -2163,3 +2486,959 @@ a#custom-call-confirm[aria-disabled="true"] {
 /* Login card */
 .theme-dark .login-card { background: var(--card); border-color: var(--border); }
 
+/* ────────────────────────────────────────────────────────────────────────
+   Website tab (issue #56) — template picker + content editor
+   ──────────────────────────────────────────────────────────────────────── */
+.website-template-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 14px;
+    margin-bottom: 14px;
+}
+.website-template-card {
+    background: var(--card, #fff);
+    border: 2px solid var(--border, #dfd6c6);
+    border-radius: 18px;
+    padding: 16px;
+    cursor: pointer;
+    text-align: left;
+    font: inherit;
+    color: inherit;
+    position: relative;
+    transition: border-color 0.1s, box-shadow 0.1s;
+}
+.website-template-card:hover { border-color: #9ab8b0; }
+.website-template-card.is-selected {
+    border-color: #1f6a5d;
+    box-shadow: 0 0 0 3px rgba(31, 106, 93, 0.14);
+}
+.website-template-card .website-template-current {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    background: #1f6a5d;
+    color: #fff;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 4px 10px;
+    border-radius: 999px;
+    display: none;
+}
+.website-template-card.is-selected .website-template-current { display: inline-block; }
+.website-template-swatch {
+    display: block;
+    height: 110px;
+    border-radius: 12px;
+    margin-bottom: 12px;
+    font-family: Georgia, serif;
+    font-size: 22px;
+    font-weight: 700;
+    text-align: center;
+    line-height: 110px;
+    color: #fff;
+}
+.website-swatch-saffron {
+    background: linear-gradient(135deg, #fef3d9 0%, #e08a2e 100%);
+    color: #2a2a2a;
+}
+.website-swatch-slate {
+    background: linear-gradient(135deg, #e4ece9 0%, #1f6a5d 100%);
+    font-family: 'Archivo SemiCondensed', 'IBM Plex Sans', sans-serif;
+    letter-spacing: -0.01em;
+}
+.website-template-name {
+    font-weight: 700;
+    font-size: 17px;
+    margin-bottom: 2px;
+}
+.website-template-sub {
+    color: var(--muted, #6a6258);
+    font-size: 13px;
+}
+.admin-website-preview {
+    color: var(--accent, #1f6a5d);
+    font-weight: 600;
+    text-decoration: none;
+    margin-right: 12px;
+    align-self: center;
+}
+.admin-website-preview:hover { text-decoration: underline; }
+#admin-website-about { width: 100%; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--border, #dfd6c6); font: 14px inherit; resize: vertical; min-height: 90px; }
+
+@media (max-width: 720px) {
+    .website-template-grid { grid-template-columns: 1fr; }
+}
+
+
+/* ============================================================================
+ * Owner onboarding wizard (issue #54, spec §6.2)
+ * Overlay modal + Setup pill. Designed to coexist with the existing admin
+ * shell; sits above the admin topbar via position: fixed + high z-index.
+ * ============================================================================ */
+.onboarding-overlay {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    z-index: 90;
+    padding: 40px 20px;
+    overflow-y: auto;
+}
+.onboarding-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(24, 20, 14, 0.42);
+    backdrop-filter: blur(4px);
+    z-index: -1;
+}
+.onboarding-modal {
+    background: #fffdf8;
+    color: #1d1b19;
+    border: 1px solid #dfd6c6;
+    border-radius: 28px;
+    padding: 28px;
+    box-shadow: 0 22px 60px rgba(37, 26, 15, 0.18);
+    max-width: 640px;
+    width: 100%;
+    font-family: 'Fira Sans', 'IBM Plex Sans', sans-serif;
+}
+.onboarding-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 16px;
+    margin-bottom: 20px;
+}
+.onboarding-head h2 {
+    margin: 0 0 6px;
+    font: 700 22px/1.2 'Archivo SemiCondensed', 'Fira Sans', sans-serif;
+}
+.onboarding-head p {
+    color: #6a6258;
+    font-size: 14px;
+    margin: 0;
+}
+.onboarding-dismiss {
+    background: none;
+    border: none;
+    color: #6a6258;
+    font-size: 22px;
+    line-height: 1;
+    cursor: pointer;
+    padding: 4px 8px;
+}
+.onboarding-steps {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+.onboarding-step {
+    display: flex;
+    gap: 14px;
+    padding: 14px;
+    border-radius: 16px;
+    border: 1px solid #ede4d1;
+    margin-bottom: 10px;
+    background: #fffdf8;
+}
+.onboarding-step.done {
+    background: #eef8f2;
+    border-color: #bae1cd;
+}
+.onboarding-badge {
+    flex-shrink: 0;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: #efe8da;
+    color: #6a6258;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 14px;
+}
+.onboarding-step.done .onboarding-badge {
+    background: #1f8f5f;
+    color: #fff;
+}
+.onboarding-step.done .onboarding-badge::after { content: '\2713'; }
+.onboarding-step.done .onboarding-badge { font-size: 16px; }
+.onboarding-step.done .onboarding-badge-number { display: none; }
+.onboarding-step-body { flex: 1; }
+.onboarding-step h4 {
+    margin: 0 0 4px;
+    font: 600 16px 'IBM Plex Sans', 'Fira Sans', sans-serif;
+}
+.onboarding-step p {
+    margin: 0;
+    color: #6a6258;
+    font-size: 13px;
+}
+.onboarding-step-actions {
+    margin-top: 10px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+.onboarding-jump {
+    color: #1f6a5d;
+    font-weight: 600;
+    font-size: 13px;
+    text-decoration: none;
+}
+.onboarding-jump:hover { text-decoration: underline; }
+.onboarding-done {
+    background: #1f6a5d;
+    color: #fff;
+    border: none;
+    padding: 8px 14px;
+    border-radius: 10px;
+    font: 600 13px 'IBM Plex Sans', 'Fira Sans', sans-serif;
+    cursor: pointer;
+}
+.onboarding-done:hover { background: #185246; }
+.onboarding-done:disabled {
+    background: #b5c8c3;
+    cursor: default;
+}
+.onboarding-foot {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 16px;
+    color: #6a6258;
+    font-size: 13px;
+}
+.onboarding-dismiss-inline {
+    background: transparent;
+    border: none;
+    color: #6a6258;
+    font-size: 13px;
+    font-family: inherit;
+    cursor: pointer;
+    text-decoration: underline;
+}
+.onboarding-pill {
+    background: rgba(31, 106, 93, 0.12);
+    color: #1f6a5d;
+    border: 1px solid rgba(31, 106, 93, 0.3);
+    padding: 6px 14px;
+    border-radius: 999px;
+    font: 600 13px 'IBM Plex Sans', 'Fira Sans', sans-serif;
+    cursor: pointer;
+}
+.onboarding-pill:hover {
+    background: rgba(31, 106, 93, 0.2);
+}
+
+/* ============================================================================
+   Onboarding wizard — issue #51 Phase C
+   Inline 6-step embedded-form flow with a clickable progress rail on the left,
+   the active step's form in the middle, and a phone-framed live iframe preview
+   on the right. Collapses to a single column (preview becomes a toggle) under
+   860px. Palette mirrors docs/feature-specs/mocks/51-owner-onboarding.html:
+   off-white panels, teal accents, warm orange highlights.
+   ============================================================================ */
+.onboarding-wizard {
+    align-items: flex-start;
+    padding: 24px;
+}
+.onboarding-wiz-modal {
+    background: #fffdf8;
+    color: #1d1b19;
+    border: 1px solid #dfd6c6;
+    border-radius: 28px;
+    padding: 24px 26px;
+    box-shadow: 0 22px 60px rgba(37, 26, 15, 0.18);
+    max-width: 1280px;
+    width: 100%;
+    font-family: 'Fira Sans', 'IBM Plex Sans', sans-serif;
+    max-height: calc(100vh - 48px);
+    overflow-y: auto;
+}
+.onboarding-wiz-body {
+    display: grid;
+    grid-template-columns: 240px minmax(0, 1fr) 340px;
+    gap: 22px;
+    align-items: start;
+    margin-top: 18px;
+}
+
+/* Left rail: step list ------------------------------------------------------ */
+.onboarding-wiz-nav { position: sticky; top: 0; }
+.onboarding-wiz-steps { list-style: none; padding: 0; margin: 0; }
+.onboarding-wiz-step {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 12px;
+    border-radius: 14px;
+    border: 1px solid transparent;
+    margin-bottom: 6px;
+    cursor: pointer;
+    background: transparent;
+}
+.onboarding-wiz-step:hover { background: rgba(31, 106, 93, 0.05); }
+.onboarding-wiz-step.current {
+    background: rgba(31, 106, 93, 0.08);
+    border-color: rgba(31, 106, 93, 0.25);
+}
+.onboarding-wiz-step.current .onboarding-badge { background: #1f6a5d; color: #fff; }
+.onboarding-wiz-step.done .onboarding-badge { background: #1f8f5f; color: #fff; }
+.onboarding-wiz-step.done .onboarding-badge::before { content: '\2713'; }
+.onboarding-wiz-step.done .onboarding-badge-number { display: none; }
+.onboarding-wiz-step-meta h4 {
+    margin: 0 0 2px;
+    font: 600 14px 'IBM Plex Sans', sans-serif;
+}
+.onboarding-wiz-step-meta p {
+    margin: 0;
+    color: #6a6258;
+    font-size: 12px;
+}
+.onboarding-wiz-progress {
+    margin-top: 14px;
+    font-size: 12px;
+    color: #6a6258;
+    padding: 8px 12px;
+    border-top: 1px solid #ede4d1;
+    padding-top: 12px;
+}
+
+/* Middle column: active step panel ----------------------------------------- */
+.onboarding-wiz-main { min-width: 0; }
+.onboarding-wiz-panel h3 {
+    margin: 0 0 6px;
+    font: 700 22px/1.15 'Archivo SemiCondensed', 'Fira Sans', sans-serif;
+}
+.onboarding-wiz-lead {
+    margin: 0 0 16px;
+    color: #6a6258;
+    font-size: 14px;
+}
+.onboarding-wiz-form { display: flex; flex-direction: column; gap: 14px; }
+.wiz-field label, .wiz-field legend {
+    display: block;
+    font-size: 12px;
+    color: #6a6258;
+    font-weight: 500;
+    margin-bottom: 4px;
+}
+.wiz-field input[type="text"],
+.wiz-field input[type="email"],
+.wiz-field input[type="tel"],
+.wiz-field input[type="url"],
+.wiz-field input[type="time"],
+.wiz-field textarea {
+    width: 100%;
+    padding: 9px 12px;
+    border-radius: 10px;
+    border: 1px solid #dfd6c6;
+    background: #fff;
+    font: 14px 'IBM Plex Sans', 'Fira Sans', sans-serif;
+    color: #1d1b19;
+}
+.wiz-field textarea { resize: vertical; min-height: 72px; }
+.wiz-help { font-size: 12px; color: #6a6258; margin: 4px 0 0; }
+.wiz-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.wiz-grid-3 { display: grid; grid-template-columns: 1.2fr 0.6fr 1fr; gap: 12px; }
+
+/* Weekly hours grid */
+.wiz-hours { border: 1px solid #ede4d1; border-radius: 12px; padding: 12px; background: #fffdf8; }
+.wiz-hours legend { padding: 0 6px; }
+.wiz-hours-grid { width: 100%; border-collapse: collapse; font-size: 13px; }
+.wiz-hours-grid th, .wiz-hours-grid td { padding: 5px 6px; text-align: left; vertical-align: middle; }
+.wiz-hours-grid thead th { color: #6a6258; font-weight: 500; font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
+.wiz-hours-grid input[type="time"] { padding: 5px 8px; }
+
+/* Template cards */
+.wiz-template-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.wiz-template-card {
+    display: block;
+    padding: 14px;
+    border-radius: 16px;
+    border: 2px solid #ede4d1;
+    background: #fffdf8;
+    cursor: pointer;
+    transition: border-color .15s;
+}
+.wiz-template-card:hover { border-color: #c9b78e; }
+.wiz-template-card.selected { border-color: #1f6a5d; background: rgba(31,106,93,.04); }
+.wiz-template-card input { position: absolute; opacity: 0; pointer-events: none; }
+.wiz-template-card h4 { margin: 10px 0 4px; font: 700 16px 'Archivo SemiCondensed', sans-serif; }
+.wiz-template-card p { margin: 0; color: #6a6258; font-size: 13px; }
+.wiz-template-swatch { height: 72px; border-radius: 10px; }
+.wiz-template-swatch-saffron { background: linear-gradient(135deg, #f7f1e8 0%, #e5a23a 60%, #cb6a34 100%); }
+.wiz-template-swatch-slate { background: linear-gradient(135deg, #2a3540 0%, #1f6a5d 100%); }
+
+/* Dishes */
+.wiz-dish-rows { display: flex; flex-direction: column; gap: 12px; }
+.wiz-dish-row {
+    display: grid;
+    grid-template-columns: 160px 1fr;
+    gap: 14px;
+    padding: 12px;
+    border: 1px solid #ede4d1;
+    border-radius: 14px;
+    background: #fffdf8;
+}
+.wiz-dish-photo {
+    position: relative;
+    aspect-ratio: 4 / 3;
+    width: 160px;
+    height: 120px;
+    border: 1px dashed #c9b78e;
+    border-radius: 10px;
+    background: #f7f1e8;
+    overflow: hidden;
+}
+.wiz-dish-preview { width: 100%; height: 100%; object-fit: cover; display: none; }
+.wiz-dish-upload {
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    color: #6a6258; font-size: 12px; font-weight: 500; cursor: pointer;
+    background: rgba(255, 253, 248, 0);
+    transition: background .15s;
+}
+.wiz-dish-upload:hover { background: rgba(255, 253, 248, 0.6); }
+.wiz-dish-upload input[type="file"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.wiz-dish-preview[src]:not([src=""]) + .wiz-dish-upload { background: transparent; }
+.wiz-dish-preview[src]:not([src=""]) { display: block; }
+.wiz-dish-preview[src]:not([src=""]) ~ .wiz-dish-upload span { background: rgba(29,27,25,.6); color:#fff; padding: 4px 10px; border-radius: 999px; }
+.wiz-dish-meta { display: flex; flex-direction: column; gap: 8px; }
+.wiz-dish-title, .wiz-dish-desc {
+    width: 100%;
+    padding: 8px 12px;
+    border-radius: 10px;
+    border: 1px solid #dfd6c6;
+    background: #fff;
+    font: 14px 'IBM Plex Sans', sans-serif;
+    color: #1d1b19;
+}
+.wiz-dish-desc { resize: vertical; min-height: 56px; }
+
+/* Staff queue */
+.wiz-role-radios { display: flex; gap: 12px; padding-top: 6px; font-size: 13px; }
+.wiz-role-radios label { display: inline-flex; align-items: center; gap: 4px; color: #1d1b19; font-weight: 500; }
+.wiz-actions-staff-add { justify-content: flex-start; margin-top: -6px; }
+.wiz-staff-queue {
+    background: rgba(31, 106, 93, 0.1);
+    color: #1f6a5d;
+    border: 1px solid rgba(31, 106, 93, 0.3);
+    padding: 7px 14px;
+    border-radius: 10px;
+    font: 600 13px 'IBM Plex Sans', sans-serif;
+    cursor: pointer;
+}
+.wiz-staff-queue:hover { background: rgba(31, 106, 93, 0.18); }
+.wiz-staff-queue-list { font-size: 13px; }
+.wiz-staff-queue-empty { color: #6a6258; margin: 0; font-size: 13px; }
+.wiz-staff-queue-ul { list-style: none; padding: 0; margin: 0; }
+.wiz-staff-queue-ul li {
+    display: grid;
+    grid-template-columns: auto 1fr auto auto;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    border: 1px solid #ede4d1;
+    border-radius: 10px;
+    margin-bottom: 6px;
+    background: #fffdf8;
+}
+.wiz-staff-queue-role { text-transform: capitalize; }
+.wiz-staff-queue-email { color: #6a6258; font-size: 12px; }
+.wiz-staff-queue-remove {
+    background: transparent; border: none; color: #6a6258; cursor: pointer;
+    font-size: 16px; line-height: 1; padding: 4px 8px;
+}
+
+/* Action bar (save / cancel / back / skip / next) */
+.wiz-actions {
+    display: flex; align-items: center; gap: 10px; padding-top: 6px;
+    border-top: 1px solid #ede4d1; margin-top: 10px;
+}
+.wiz-actions .wiz-actions-spacer { flex: 1; }
+.wiz-save, .wiz-cancel, .wiz-back, .wiz-next, .wiz-skip, .wiz-finish {
+    padding: 8px 16px;
+    border-radius: 10px;
+    font: 600 13px 'IBM Plex Sans', 'Fira Sans', sans-serif;
+    cursor: pointer;
+    border: none;
+}
+.wiz-save { background: #1f6a5d; color: #fff; }
+.wiz-save:hover:not(:disabled) { background: #185246; }
+.wiz-save:disabled { background: #c2d3ce; color: #fff; cursor: not-allowed; opacity: .7; }
+.wiz-cancel {
+    background: transparent; color: #6a6258; border: 1px solid #dfd6c6;
+}
+.wiz-cancel:hover:not(:disabled) { background: #f7f3ec; }
+.wiz-cancel:disabled { color: #c2bdb1; cursor: not-allowed; border-color: #ede4d1; }
+.wiz-back { background: #f7f3ec; color: #6a6258; }
+.wiz-back:hover:not(:disabled) { background: #ede4d1; }
+.wiz-back:disabled { opacity: .4; cursor: not-allowed; }
+.wiz-next, .wiz-finish { background: #cb6a34; color: #fff; }
+.wiz-next:hover, .wiz-finish:hover { background: #a8531f; }
+.wiz-skip { background: transparent; color: #6a6258; text-decoration: underline; }
+
+.wiz-validation { color: #a8531f; font-size: 13px; display: none; }
+
+/* Live iframe preview */
+.onboarding-wiz-preview {
+    background: #fffdf8;
+    border: 1px solid #dfd6c6;
+    border-radius: 18px;
+    padding: 14px;
+    position: sticky; top: 0;
+}
+.onboarding-wiz-preview-head {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 10px;
+}
+.onboarding-wiz-preview-head h4 {
+    margin: 0; font: 600 12px 'IBM Plex Sans', sans-serif;
+    text-transform: uppercase; letter-spacing: .08em; color: #6a6258;
+}
+.onboarding-wiz-preview-actions { display: flex; align-items: center; gap: 8px; }
+.wiz-preview-refresh {
+    background: transparent; border: 1px solid #dfd6c6; color: #6a6258;
+    padding: 4px 10px; border-radius: 999px; font-size: 12px; cursor: pointer;
+}
+.wiz-preview-refresh:hover { background: #f7f3ec; }
+.wiz-preview-open { color: #1f6a5d; font-size: 12px; font-weight: 600; text-decoration: none; }
+.onboarding-wiz-preview-frame {
+    width: 100%;
+    aspect-ratio: 9 / 16;
+    max-height: 560px;
+    border-radius: 24px;
+    overflow: hidden;
+    background: #222;
+    padding: 8px;
+    box-shadow: 0 10px 28px rgba(0,0,0,.12);
+}
+.onboarding-wiz-preview-frame iframe {
+    width: 100%; height: 100%; border: 0; border-radius: 18px; background: #faf7f2;
+}
+.onboarding-wiz-preview-hint {
+    font-size: 12px; color: #6a6258; margin: 10px 0 0; text-align: center;
+}
+
+/* Mobile preview toggle */
+.onboarding-wiz-preview-toggle {
+    display: none;
+    position: fixed;
+    right: 16px;
+    bottom: 16px;
+    background: #1f6a5d;
+    color: #fff;
+    border: none;
+    padding: 10px 16px;
+    border-radius: 999px;
+    font: 600 13px 'IBM Plex Sans', sans-serif;
+    cursor: pointer;
+    box-shadow: 0 6px 16px rgba(0,0,0,.16);
+    z-index: 120;
+}
+
+/* "You're live" celebration */
+.onboarding-wiz-celebrate h3 { color: #1f6a5d; }
+.onboarding-wiz-live-block {
+    background: rgba(31, 106, 93, 0.06);
+    border: 1px solid rgba(31, 106, 93, 0.2);
+    border-radius: 14px;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 10px;
+}
+.wiz-live-field { display: flex; flex-direction: column; gap: 2px; }
+.wiz-live-label { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: #6a6258; font-weight: 600; }
+.wiz-live-value { font: 600 16px 'IBM Plex Sans', sans-serif; color: #1d1b19; text-decoration: none; }
+.wiz-live-value:hover { text-decoration: underline; }
+.wiz-live-hint { font-size: 12px; color: #6a6258; }
+
+/* Responsive: under 860px, stack + show the preview toggle */
+@media (max-width: 860px) {
+    .onboarding-wiz-body { grid-template-columns: 1fr; }
+    .onboarding-wiz-nav { position: static; }
+    .onboarding-wiz-steps { display: flex; gap: 4px; overflow-x: auto; padding-bottom: 4px; }
+    .onboarding-wiz-step { min-width: 140px; }
+    .onboarding-wiz-preview {
+        position: fixed;
+        inset: 0;
+        z-index: 110;
+        border-radius: 0;
+        display: none;
+    }
+    .onboarding-wiz-preview.open { display: block; overflow-y: auto; }
+    .onboarding-wiz-preview-toggle { display: inline-flex; }
+    .wiz-grid-2, .wiz-grid-3 { grid-template-columns: 1fr; }
+    .wiz-template-cards { grid-template-columns: 1fr; }
+    .wiz-dish-row { grid-template-columns: 1fr; }
+    .wiz-dish-photo { width: 100%; height: 180px; }
+}
+
+/* ============================================================================
+   Staff tab — role pills + role-aware avatar tints (issue #51 polish)
+   ----------------------------------------------------------------------------
+   Mock (docs/feature-specs/mocks/51-admin-brand-staff.html) renders the Role
+   column as colored pills and uses a distinct avatar tint per role so the
+   owner/admin/host mix reads at a glance. admin.js writes the `role-pill` +
+   `staff-avatar-<role>` classes against `row.role` so the CSS here is the
+   single source of truth for the visual vocabulary.
+   ============================================================================ */
+.role-pill {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: .01em;
+}
+.role-pill.owner { background: rgba(203, 106, 52, 0.16); color: #cb6a34; }
+.role-pill.admin { background: rgba(31, 106, 93, 0.14); color: #1f6a5d; }
+.role-pill.host { background: #eee6d4; color: #6a6258; }
+.role-pill.pending { background: #fff2c5; color: #8b6914; }
+
+.staff-avatar {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background: #1f6a5d;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    font-size: 13px;
+}
+.staff-avatar.avatar-owner { background: #1f6a5d; }
+.staff-avatar.avatar-admin { background: #cb6a34; }
+.staff-avatar.avatar-host { background: #78716c; }
+.staff-avatar.avatar-pending { background: #b8b0a3; }
+
+/* Invite form role radio — click to fill a card; selected state uses the
+   teal accent border so the picker reads as a segmented control. Matches
+   mock .role-radio label:has(input:checked) rule. */
+.role-radio-option {
+    flex: 1;
+    padding: 8px 10px;
+    border: 1.5px solid #dfd6c6;
+    border-radius: 10px;
+    cursor: pointer;
+    font-size: 13px;
+    text-align: center;
+    font-weight: 500;
+    background: #fff;
+    transition: border-color 0.1s, background 0.1s;
+}
+.role-radio-option:has(input:checked) {
+    border-color: #1f6a5d;
+    background: rgba(31, 106, 93, 0.06);
+}
+.role-radio-option:has(input:checked) strong { color: #1f6a5d; }
+
+/* Admin topbar brand expansion — "OSH · OS for Hospitality · Admin — {restaurant}" */
+.admin-topbar .brand .brand-mark { font: inherit; }
+.admin-topbar .brand .brand-expand {
+    font: 500 11px/1 'IBM Plex Sans', system-ui, sans-serif;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--muted, #78716c);
+    margin-left: 6px;
+    margin-right: 2px;
+    white-space: nowrap;
+}
+@media (max-width: 640px) {
+    .admin-topbar .brand .brand-expand { display: none; }
+}
+
+/* ============================================================================
+ * "Ask OSH" MCP setup card (admin)
+ * Purpose: give owners a copy-paste setup path for plugging Claude / ChatGPT
+ * into their restaurant's MCP endpoint. Visual language matches admin cards.
+ * ============================================================================ */
+#admin-mcp-card .admin-card-tag {
+    display: inline-block;
+    margin-left: 8px;
+    padding: 2px 8px;
+    font-size: 11px;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    color: #1f6a5d;
+    background: rgba(31,106,93,.12);
+    border-radius: 999px;
+    vertical-align: middle;
+    font-weight: 700;
+}
+.mcp-ask-samples {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 8px;
+    margin: 14px 0 20px;
+}
+.mcp-ask-sample {
+    background: #fffdf8;
+    border: 1px solid #ede4d1;
+    border-radius: 10px;
+    padding: 10px 14px;
+    color: #4a4238;
+    font-style: italic;
+    font-size: 13px;
+}
+.mcp-config-grid {
+    display: grid;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+.mcp-config-field .visit-label code {
+    background: rgba(31,106,93,.08);
+    border-radius: 4px;
+    padding: 1px 5px;
+    font-size: 12px;
+}
+.mcp-config-input-row {
+    display: flex;
+    gap: 6px;
+}
+.mcp-config-input-row input {
+    flex: 1;
+    padding: 10px 12px;
+    border-radius: 10px;
+    border: 1px solid var(--border, #dfd6c6);
+    font-family: 'IBM Plex Mono', ui-monospace, monospace;
+    font-size: 13px;
+    background: #fffdf8;
+}
+.mcp-copy-btn,
+.mcp-reveal-btn {
+    padding: 0 14px;
+    border-radius: 10px;
+    border: 1px solid var(--border, #dfd6c6);
+    background: #fff;
+    font-size: 13px;
+    font-weight: 600;
+    color: #1f6a5d;
+    cursor: pointer;
+    white-space: nowrap;
+}
+.mcp-copy-btn:hover,
+.mcp-reveal-btn:hover { background: rgba(31,106,93,.06); }
+.mcp-setup-tabs {
+    display: flex;
+    gap: 4px;
+    margin: 8px 0 14px;
+    border-bottom: 1px solid #ede4d1;
+    padding-bottom: 0;
+}
+.mcp-tab-btn {
+    border: none;
+    background: transparent;
+    padding: 10px 16px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #78716c;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+}
+.mcp-tab-btn:hover { color: #1f6a5d; }
+.mcp-tab-btn.is-selected {
+    color: #1f6a5d;
+    border-bottom-color: #1f6a5d;
+}
+.mcp-tab-panel { display: none; }
+.mcp-tab-panel.is-selected { display: block; }
+.mcp-panel-blurb,
+.mcp-panel-followup {
+    color: #4a4238;
+    font-size: 14px;
+    margin: 4px 0 10px;
+}
+.mcp-panel-followup em { color: #1f6a5d; }
+.mcp-snippet {
+    position: relative;
+    background: #1d1b19;
+    color: #f7f1e8;
+    border-radius: 12px;
+    padding: 14px 16px;
+    margin: 10px 0;
+    font-family: 'IBM Plex Mono', ui-monospace, monospace;
+    font-size: 13px;
+    line-height: 1.55;
+    overflow-x: auto;
+    white-space: pre;
+}
+.mcp-snippet code {
+    display: block;
+    white-space: pre;
+    font: inherit;
+    color: inherit;
+    background: none;
+    padding: 0;
+}
+.mcp-snippet-copy {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    padding: 4px 10px;
+    font-size: 12px;
+    background: rgba(255,255,255,.08);
+    color: #f7f1e8;
+    border-color: rgba(255,255,255,.2);
+}
+.mcp-snippet-copy:hover { background: rgba(255,255,255,.16); }
+.mcp-safety {
+    margin-top: 14px;
+    padding: 10px 14px;
+    background: #fff7ec;
+    border: 1px solid #f4d8a4;
+    border-radius: 10px;
+    font-size: 13px;
+    color: #6e4f10;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   Admin 7-tab workspace (issue #51 Phase B)
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* Widen the tab row to accommodate 7 labels. On wide screens the flex
+   row fits; at <=640px we switch to a horizontal-scroll strip so the
+   tabs never wrap or truncate. */
+.admin-tabs-workspace {
+    width: auto;
+    max-width: calc(100% - 48px);
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    scrollbar-width: thin;
+    -webkit-overflow-scrolling: touch;
+}
+.admin-tabs-workspace .admin-tab {
+    flex: 0 0 auto;
+    white-space: nowrap;
+}
+
+@media (max-width: 640px) {
+    .admin-tabs-workspace {
+        margin: 12px 12px 0;
+        max-width: calc(100% - 24px);
+        border-radius: 8px;
+    }
+    .admin-tabs-workspace .admin-tab {
+        padding: 8px 12px;
+        font-size: 12px;
+    }
+}
+
+/* Signature-dish editor grid — 3 rows stacked, each row is fields-on-left
+   + media-on-right at >=640px, stacked at <640px. */
+.signature-dish-grid {
+    display: grid;
+    gap: 14px;
+    margin-top: 12px;
+}
+.signature-dish-row {
+    display: grid;
+    grid-template-columns: 1fr 200px;
+    gap: 16px;
+    padding: 14px;
+    border: 1px solid var(--border, #dfd6c6);
+    border-radius: 12px;
+    background: var(--surface-alt, #faf6ee);
+}
+.signature-dish-fields { display: grid; gap: 10px; }
+.signature-dish-media {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+}
+.signature-dish-preview {
+    width: 160px;
+    height: 120px;
+    object-fit: cover;
+    border-radius: 8px;
+    border: 1px solid var(--border, #dfd6c6);
+    background: #fff;
+    align-self: center;
+}
+.signature-dish-preview-placeholder {
+    width: 160px;
+    height: 120px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px dashed var(--border, #dfd6c6);
+    border-radius: 8px;
+    color: var(--muted, #78716c);
+    font-size: 12px;
+    background: #fff;
+    align-self: center;
+}
+.signature-dish-filebtn {
+    display: inline-flex;
+    justify-content: center;
+    padding: 8px 12px;
+    border: 1px solid var(--border, #dfd6c6);
+    border-radius: 8px;
+    background: #fff;
+    font-size: 13px;
+    cursor: pointer;
+    color: var(--fg);
+}
+.signature-dish-filebtn:hover { background: var(--surface-alt, #faf6ee); }
+/* Visually hide the file input but keep it interactable. Using the
+   standard sr-only pattern: clip + 1px + negative margin. Avoids
+   display:none / visibility:hidden, which some browsers refuse to
+   click through from a label. */
+.signature-dish-filebtn input[type="file"] {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+.signature-dish-clear {
+    background: none;
+    border: none;
+    color: #b42318;
+    font-size: 12px;
+    cursor: pointer;
+    padding: 2px 4px;
+    align-self: center;
+}
+.signature-dish-clear:hover { text-decoration: underline; }
+
+@media (max-width: 640px) {
+    .signature-dish-row { grid-template-columns: 1fr; }
+    .signature-dish-media { flex-direction: row; flex-wrap: wrap; }
+    .signature-dish-preview,
+    .signature-dish-preview-placeholder { width: 140px; height: 106px; }
+}
+
+/* Lightweight toast (Device-PIN "coming soon" and friends). */
+.admin-toast {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 10px 18px;
+    border-radius: 999px;
+    background: #1f2937;
+    color: #f9fafb;
+    font-size: 13px;
+    font-weight: 500;
+    box-shadow: 0 4px 16px rgba(0,0,0,.2);
+    z-index: 2000;
+    max-width: 80vw;
+    text-align: center;
+}
+.admin-toast-success { background: #166534; }
+.admin-toast-info { background: #1f2937; }
+.admin-toast-error { background: #b42318; }

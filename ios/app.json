@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "SKB Host Stand",
+    "name": "OSH Host Stand",
     "slug": "skb-host-stand-ios",
     "version": "0.1.0",
     "orientation": "default",
@@ -17,9 +17,9 @@
         "UIBackgroundModes": [
           "remote-notification"
         ],
-        "NSCameraUsageDescription": "SKB Host Stand uses the camera to scan party QR codes at check-in.",
-        "NSPhotoLibraryUsageDescription": "SKB Host Stand does not access your photo library.",
-        "NSContactsUsageDescription": "SKB Host Stand does not access your contacts."
+        "NSCameraUsageDescription": "OSH Host Stand uses the camera to scan party QR codes at check-in.",
+        "NSPhotoLibraryUsageDescription": "OSH Host Stand does not access your photo library.",
+        "NSContactsUsageDescription": "OSH Host Stand does not access your contacts."
       },
       "privacyManifests": {
         "NSPrivacyCollectedDataTypes": [],

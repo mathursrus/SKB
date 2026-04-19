@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{brandName}} — Home</title>
+    <link rel="stylesheet" href="templates/saffron/site.css">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fira+Sans:wght@400;600&display=swap">
+</head>
+<body class="saffron-site">
+    <div class="saffron-banner">Walk-ins welcome · Join the waitlist from your phone</div>
+
+    <header class="saffron-header">
+        <div>
+            <div class="saffron-brand-name" id="brand-name">{{brandName}}</div>
+            <div class="saffron-brand-tag">Fresh, from-scratch cooking</div>
+        </div>
+        <nav class="saffron-nav" aria-label="Primary navigation">
+            <ul>
+                <li><a href="./" aria-current="page">Home</a></li>
+                <li><a href="./menu">Menu</a></li>
+                <li><a href="./about">About</a></li>
+                <li><a href="./hours">Hours &amp; Location</a></li>
+                <li><a href="./contact">Contact</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <section class="saffron-hero">
+        <h1>{{heroHeadline}}</h1>
+        <p>{{heroSubhead}}</p>
+        <a href="./visit" class="saffron-cta">Join the Waitlist</a>
+    </section>
+
+    <section class="saffron-section">
+        <h2>What We're Known For</h2>
+        <p class="lead">A few favorites from the kitchen — the full menu has plenty more.</p>
+        <div class="saffron-dishes" id="known-for-grid">
+            {{#each knownFor}}
+            <div class="saffron-dish">
+                {{#if image}}<img src="{{image}}" alt="{{title}}" class="saffron-dish-img" loading="lazy" />{{/if}}
+                {{#unless image}}<div class="saffron-dish-swatch" aria-hidden="true"></div>{{/unless}}
+                <h3>{{title}}</h3>
+                <p>{{desc}}</p>
+            </div>
+            {{/each}}
+        </div>
+    </section>
+
+    <section class="saffron-section" style="padding-top: 0;">
+        <div class="saffron-waitlist-cta">
+            <h2>Skip the Line</h2>
+            <p>Join the waitlist from your phone before you arrive — we'll text you when your table is ready.</p>
+            <a href="./visit" class="saffron-cta ghost">Join the Waitlist</a>
+        </div>
+    </section>
+
+    <section class="saffron-section">
+        <h2>Find Us</h2>
+        <div class="saffron-info-grid">
+            <div class="saffron-info-block">
+                <h3>Location</h3>
+                <div id="home-address-block">
+                    <p>Address coming soon</p>
+                </div>
+                <p class="muted">{{reservationsNote}}</p>
+            </div>
+            <div class="saffron-info-block">
+                <h3>Hours</h3>
+                <div id="home-hours-block">
+                    <p>Hours coming soon</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <footer class="saffron-footer">
+        <div class="fnav">
+            <a href="./">Home</a>
+            <a href="./menu">Menu</a>
+            <a href="./about">About</a>
+            <a href="./hours">Hours &amp; Location</a>
+            <a href="./contact">Contact</a>
+        </div>
+        <div id="footer-contact">{{brandName}}</div>
+        <div class="fcopy">© 2026 {{brandName}}</div>
+    </footer>
+
+    <script src="site-config.js"></script>
+</body>
+</html>

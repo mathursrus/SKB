@@ -1,0 +1,373 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Sign in — OSH</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Archivo+SemiCondensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+/* ============================================================================
+   Staff login — OSH (issue #51)
+   ----------------------------------------------------------------------------
+   Visual language: admin-split palette (spec §10) — off-white panels, teal
+   accent, warm secondary accent. Archivo SemiCondensed headings, IBM Plex
+   Sans body. Two-pane layout: sign-in form on the left, a "what staff see
+   after login" illustration of the multi-membership picker on the right
+   (collapses to single column < 780px).
+   Sourced from docs/feature-specs/mocks/51-staff-login.html.
+   ============================================================================ */
+:root {
+    --panel:#fffdf8;
+    --ink:#1d1b19;
+    --muted:#6a6258;
+    --accent:#1f6a5d;
+    --accent-deep:#185246;
+    --accent-warm:#cb6a34;
+    --line:#e5ddd0;
+    --danger:#b42318;
+}
+* { box-sizing:border-box; }
+html, body { margin:0; padding:0; }
+body {
+    min-height:100vh;
+    font:15px/1.5 'IBM Plex Sans', system-ui, sans-serif;
+    color:var(--ink);
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    background:
+        radial-gradient(circle at top left, rgba(203,106,52,.14), transparent 28%),
+        radial-gradient(circle at top right, rgba(31,106,93,.18), transparent 26%),
+        linear-gradient(135deg, #f7f1e8 0%, #edf4f2 100%);
+}
+.pane-auth { display:flex; align-items:center; justify-content:center; padding:40px 28px; }
+.form-card {
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:28px;
+    padding:36px;
+    box-shadow:0 18px 48px rgba(37,26,15,.08);
+    width:100%;
+    max-width:420px;
+}
+.brand { font:700 24px/1 'Archivo SemiCondensed', sans-serif; letter-spacing:.02em; margin-bottom:28px; color:var(--ink); display:inline-flex; align-items:baseline; gap:10px; }
+.brand .expand { font:500 12px/1 'IBM Plex Sans', sans-serif; letter-spacing:.06em; text-transform:uppercase; color:var(--muted); }
+.brand .dot { color:var(--accent-warm); }
+@media (max-width: 560px) { .brand .expand { display:none; } }
+.form-card h1 { margin:0 0 4px; font:700 26px/1.2 'Archivo SemiCondensed', sans-serif; }
+.form-card .sub { color:var(--muted); font-size:14px; margin:0 0 22px; }
+.field { margin-bottom:14px; }
+.field label { display:block; font-weight:500; font-size:13px; margin-bottom:6px; color:var(--ink); }
+.field input {
+    width:100%;
+    padding:12px 14px;
+    border-radius:12px;
+    border:1px solid var(--line);
+    font:15px 'IBM Plex Sans', system-ui, sans-serif;
+    color:var(--ink);
+    background:#fff;
+}
+.field input:focus { outline:2px solid var(--accent); outline-offset:-1px; border-color:var(--accent); }
+.field-forgot { text-align:right; font-size:13px; margin:-6px 0 16px; }
+.field-forgot a { color:var(--accent); text-decoration:none; }
+.field-forgot a:hover { text-decoration:underline; }
+.primary {
+    width:100%;
+    padding:14px;
+    border-radius:14px;
+    background:var(--accent);
+    color:#fff;
+    border:none;
+    font:600 16px 'IBM Plex Sans', system-ui, sans-serif;
+    cursor:pointer;
+}
+.primary:hover { background:var(--accent-deep); }
+.primary:disabled { opacity:.6; cursor:wait; }
+.error {
+    background:#fdeceb; border:1px solid #f1b5b0; color:var(--danger);
+    padding:10px 14px; border-radius:10px; font-size:13px; margin-bottom:14px; display:none;
+}
+.error.visible { display:block; }
+.divider { display:flex; align-items:center; gap:10px; margin:20px 0; color:var(--muted); font-size:12px; }
+.divider::before, .divider::after { content:''; height:1px; flex:1; background:var(--line); }
+.tablet-hint {
+    margin-top:4px; padding:16px; border-radius:14px;
+    background:#f6ebd8; border:1px solid #e8d9b6;
+    font-size:13px; color:#6a4d0a; line-height:1.55;
+}
+.tablet-hint strong { display:block; margin-bottom:4px; color:#4a3300; }
+.tablet-hint a { color:var(--accent-warm); text-decoration:none; font-weight:600; }
+.footer { text-align:center; font-size:14px; color:var(--muted); margin-top:18px; }
+.footer a { color:var(--accent); text-decoration:none; font-weight:500; }
+.footer a:hover { text-decoration:underline; }
+
+/* Picker step (multi-membership) — keeps the SKB palette; full-width buttons
+   so the screen reads like the illustration pane on the right. */
+.picker { display:grid; gap:8px; margin-top:4px; }
+.picker button {
+    display:flex; justify-content:space-between; align-items:center;
+    padding:12px 14px; border-radius:12px; border:1px solid var(--line);
+    background:#fff; color:var(--ink); font:15px 'IBM Plex Sans', sans-serif;
+    text-align:left; cursor:pointer;
+}
+.picker button:hover { border-color:var(--accent); background:rgba(31,106,93,.04); }
+.picker .loc-name { font-weight:600; }
+.picker .loc-role { color:var(--muted); font-size:12px; text-transform:uppercase; letter-spacing:.06em; margin-left:10px; }
+
+/* Right pane: illustration of the "which restaurant" picker for multi-membership
+   users. Cosmetic — shows what power users will see. Hides on narrow screens. */
+.pane-illus {
+    display:flex; flex-direction:column; justify-content:center; align-items:center;
+    padding:40px 28px;
+    background:rgba(31,106,93,.06);
+    border-left:1px solid var(--line);
+}
+.pane-illus h3 {
+    font:600 13px 'IBM Plex Sans', sans-serif;
+    text-transform:uppercase;
+    letter-spacing:.08em;
+    color:var(--muted);
+    margin:0 0 18px;
+}
+.picker-card {
+    background:var(--panel); border:1px solid var(--line); border-radius:22px; padding:20px;
+    width:100%; max-width:360px; box-shadow:0 18px 48px rgba(37,26,15,.08);
+}
+.picker-card h4 { margin:0 0 4px; font:700 18px 'Archivo SemiCondensed', sans-serif; }
+.picker-card p { margin:0 0 16px; color:var(--muted); font-size:13px; }
+.picker-row {
+    display:flex; justify-content:space-between; align-items:center;
+    padding:12px 14px; border-radius:12px; border:1px solid var(--line);
+    margin-bottom:8px;
+}
+.picker-row .left { display:flex; gap:10px; align-items:center; }
+.picker-row .avatar {
+    width:36px; height:36px; border-radius:10px; background:var(--accent-warm); color:#fff;
+    display:flex; align-items:center; justify-content:center; font-weight:600; font-size:14px;
+}
+.picker-row .info { font-size:14px; }
+.picker-row .info .role { color:var(--muted); font-size:12px; }
+.picker-row .arrow { color:var(--muted); }
+.illus-note { margin-top:22px; color:var(--muted); font-size:12px; max-width:360px; text-align:center; }
+
+@media (max-width: 780px) {
+    body { grid-template-columns:1fr; }
+    .pane-illus { display:none; }
+    .form-card { padding:28px 22px; border-radius:22px; }
+}
+</style>
+</head>
+<body>
+<div class="pane-auth">
+    <div class="form-card">
+        <div class="brand">OSH<span class="expand">OS for Hospitality</span></div>
+
+        <div id="login-step">
+            <h1>Welcome back</h1>
+            <p class="sub">Sign in to your restaurant's admin or host workspace.</p>
+            <div class="error" id="err" role="alert"></div>
+            <form id="login-form" novalidate>
+                <div class="field">
+                    <label for="email">Email</label>
+                    <input type="email" id="email" name="email" required autocomplete="email" autofocus />
+                </div>
+                <div class="field">
+                    <label for="password">Password</label>
+                    <input type="password" id="password" name="password" required autocomplete="current-password" minlength="10" />
+                </div>
+                <div class="field-forgot"><a href="#" id="forgot-link">Forgot your password?</a></div>
+                <button type="submit" class="primary" id="submit-btn">Sign in</button>
+            </form>
+
+            <div class="divider">on a shared tablet?</div>
+
+            <div class="tablet-hint">
+                <strong>Host-stand shortcut</strong>
+                Point the tablet at your restaurant's host URL and sign in with the 4-digit PIN the owner set up.
+            </div>
+
+            <p class="footer">New restaurant? <a href="/signup">Start one here.</a></p>
+        </div>
+
+        <div id="picker-step" style="display:none">
+            <h1>Which restaurant?</h1>
+            <p class="sub">You have access to more than one restaurant. Choose where to sign in.</p>
+            <div class="picker" id="picker"></div>
+            <p class="footer"><a href="#" id="back-to-login">Back to sign in</a></p>
+        </div>
+
+        <div id="forgot-step" style="display:none">
+            <h1>Reset your password</h1>
+            <p class="sub">Enter your email. We'll send a link to set a new password.</p>
+            <div class="error" id="forgot-err" role="alert"></div>
+            <form id="forgot-form" novalidate>
+                <div class="field">
+                    <label for="forgot-email">Email</label>
+                    <input type="email" id="forgot-email" required autocomplete="email" />
+                </div>
+                <button type="submit" class="primary">Send reset link</button>
+            </form>
+            <p class="footer"><a href="#" id="back-to-login-2">Back to sign in</a></p>
+        </div>
+
+        <div id="forgot-sent-step" style="display:none">
+            <h1>Check your email</h1>
+            <p class="sub">If that email matches an account, a reset link is on its way. The link expires in one hour.</p>
+            <p class="footer"><a href="/login">Back to sign in</a></p>
+        </div>
+    </div>
+</div>
+
+<div class="pane-illus" aria-hidden="true">
+    <h3>What staff see after login</h3>
+    <div class="picker-card">
+        <h4>Which restaurant?</h4>
+        <p>You're on staff at more than one restaurant. Pick one &mdash; you can switch later from the top bar.</p>
+        <div class="picker-row">
+            <div class="left">
+                <div class="avatar">RY</div>
+                <div class="info">
+                    <div><strong>Ramen Yokocho</strong></div>
+                    <div class="role">Admin &middot; Seattle</div>
+                </div>
+            </div>
+            <span class="arrow">&rarr;</span>
+        </div>
+        <div class="picker-row">
+            <div class="left">
+                <div class="avatar" style="background:var(--accent);">CB</div>
+                <div class="info">
+                    <div><strong>Capitol Bakehouse</strong></div>
+                    <div class="role">Host &middot; Seattle</div>
+                </div>
+            </div>
+            <span class="arrow">&rarr;</span>
+        </div>
+    </div>
+    <p class="illus-note">Rare in v1 &mdash; most users will have exactly one membership and skip this screen.</p>
+</div>
+
+<script>
+(function () {
+    'use strict';
+    var loginStep = document.getElementById('login-step');
+    var pickerStep = document.getElementById('picker-step');
+    var forgotStep = document.getElementById('forgot-step');
+    var forgotSent = document.getElementById('forgot-sent-step');
+    var err = document.getElementById('err');
+    var forgotErr = document.getElementById('forgot-err');
+    var submitBtn = document.getElementById('submit-btn');
+
+    function show(step) {
+        [loginStep, pickerStep, forgotStep, forgotSent].forEach(function (s) { s.style.display = 'none'; });
+        step.style.display = '';
+    }
+    function showError(el, msg) { el.textContent = msg; el.classList.add('visible'); }
+    function clearError(el) { el.classList.remove('visible'); }
+
+    function landingFor(role, loc) {
+        if (role === 'host') return '/r/' + encodeURIComponent(loc) + '/host.html';
+        return '/r/' + encodeURIComponent(loc) + '/admin.html';
+    }
+
+    async function submitLogin(email, password, locationId) {
+        var body = { email: email, password: password };
+        if (locationId) body.locationId = locationId;
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Signing in\u2026';
+        try {
+            var res = await fetch('/api/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'same-origin',
+                body: JSON.stringify(body),
+            });
+            if (res.status === 429) {
+                showError(err, 'Too many attempts. Try again in 15 minutes.');
+                return;
+            }
+            var data = null;
+            try { data = await res.json(); } catch (e) { /* fall through */ }
+            if (!res.ok) {
+                if (res.status === 403 && data && data.error === 'no membership') {
+                    showError(err, 'This account has no active restaurant yet. Contact the owner who invited you.');
+                } else {
+                    showError(err, (data && data.error) || 'Sign-in failed.');
+                }
+                return;
+            }
+            if (data && data.pickLocation) {
+                renderPicker(email, password, data.memberships || []);
+                show(pickerStep);
+                return;
+            }
+            window.location = landingFor(data.role, data.locationId);
+        } finally {
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Sign in';
+        }
+    }
+
+    function renderPicker(email, password, memberships) {
+        var picker = document.getElementById('picker');
+        picker.innerHTML = '';
+        memberships.forEach(function (m) {
+            var b = document.createElement('button');
+            b.type = 'button';
+            b.innerHTML = '<span class="loc-name">' + escapeHtml(m.locationId) + '</span>'
+                        + '<span class="loc-role">' + escapeHtml(m.role) + '</span>';
+            b.addEventListener('click', function () { submitLogin(email, password, m.locationId); });
+            picker.appendChild(b);
+        });
+    }
+
+    function escapeHtml(s) {
+        return String(s).replace(/[&<>"']/g, function (c) {
+            return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]);
+        });
+    }
+
+    document.getElementById('login-form').addEventListener('submit', function (e) {
+        e.preventDefault();
+        clearError(err);
+        var email = document.getElementById('email').value.trim();
+        var password = document.getElementById('password').value;
+        if (!email || !password) return;
+        submitLogin(email, password, null);
+    });
+
+    document.getElementById('forgot-link').addEventListener('click', function (e) {
+        e.preventDefault();
+        clearError(forgotErr);
+        show(forgotStep);
+    });
+    document.getElementById('back-to-login').addEventListener('click', function (e) {
+        e.preventDefault();
+        show(loginStep);
+    });
+    document.getElementById('back-to-login-2').addEventListener('click', function (e) {
+        e.preventDefault();
+        show(loginStep);
+    });
+
+    document.getElementById('forgot-form').addEventListener('submit', async function (e) {
+        e.preventDefault();
+        clearError(forgotErr);
+        var email = document.getElementById('forgot-email').value.trim();
+        if (!email) return;
+        try {
+            await fetch('/api/password-reset/request', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email: email }),
+            });
+            show(forgotSent);
+        } catch (ex) {
+            showError(forgotErr, 'Could not reach server. Try again.');
+        }
+    });
+})();
+</script>
+</body>
+</html>

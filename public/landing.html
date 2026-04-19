@@ -1,0 +1,344 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>OSH &mdash; the operating system for your restaurant</title>
+<meta name="description" content="Delight the guest. OSH handles the rest — waitlist, website, staff logins, hours, menu, phone, QR. Sign up in ten minutes." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Archivo+SemiCondensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=Georgia&display=swap" rel="stylesheet" />
+<style>
+:root {
+    --panel:#fffdf8;
+    --ink:#1d1b19;
+    --muted:#6a6258;
+    --accent:#1f6a5d;
+    --accent-warm:#cb6a34;
+    --accent-deep:#185246;
+    --line:#e5ddd0;
+}
+* { box-sizing:border-box; }
+html, body { margin:0; padding:0; }
+body {
+    font:16px/1.6 'IBM Plex Sans', sans-serif;
+    color:var(--ink);
+    min-height:100vh;
+    /* Warm-to-cool gradient — borrows hooks from both saffron + slate
+       templates so the marketing site reads as "platform", not any one
+       restaurant's look. Spec §10. */
+    background:
+        radial-gradient(circle at 10% -10%, rgba(203,106,52,.22), transparent 42%),
+        radial-gradient(circle at 110% 10%, rgba(31,106,93,.20), transparent 38%),
+        linear-gradient(135deg, #f7f1e8 0%, #edf4f2 60%, #e8efed 100%);
+    background-attachment:fixed;
+}
+.topbar {
+    display:flex; justify-content:space-between; align-items:center;
+    padding:22px 32px; max-width:1180px; margin:0 auto;
+}
+.brand {
+    font:700 26px/1 'Archivo SemiCondensed', sans-serif;
+    letter-spacing:.02em; color:var(--ink);
+    display:inline-flex; align-items:baseline; gap:10px;
+}
+.brand .expand {
+    font:500 13px/1 'IBM Plex Sans', sans-serif;
+    letter-spacing:.06em; text-transform:uppercase;
+    color:var(--muted);
+}
+.brand .dot { color:var(--accent-warm); }
+@media (max-width: 560px) {
+    .brand .expand { display:none; }
+}
+.topbar-right { display:flex; gap:22px; align-items:center; }
+.topbar-right a { color:var(--muted); text-decoration:none; font-size:14px; font-weight:500; }
+.topbar-right a:hover { color:var(--ink); }
+.topbar-cta {
+    background:var(--accent);
+    color:#fff !important;
+    padding:10px 18px;
+    border-radius:10px;
+    font-weight:600 !important;
+}
+.topbar-cta:hover { background:var(--accent-deep); }
+
+.hero {
+    max-width:1080px;
+    margin:24px auto 0;
+    padding:60px 32px 80px;
+    display:grid;
+    grid-template-columns:1.15fr 1fr;
+    gap:56px;
+    align-items:center;
+}
+.hero h1 {
+    font:700 56px/1.05 'Georgia', 'Archivo SemiCondensed', serif;
+    margin:0 0 22px;
+    letter-spacing:-.012em;
+    color:var(--ink);
+}
+.hero h1 em {
+    font-style:italic;
+    color:var(--accent-warm);
+    font-family:'Georgia', serif;
+}
+.hero p.lede {
+    font-size:19px;
+    color:var(--muted);
+    max-width:520px;
+    margin:0 0 32px;
+}
+.cta-row { display:flex; gap:16px; align-items:center; flex-wrap:wrap; }
+.cta-primary {
+    display:inline-block;
+    background:var(--accent);
+    color:#fff;
+    padding:16px 28px;
+    border-radius:14px;
+    font:600 17px 'IBM Plex Sans', sans-serif;
+    text-decoration:none;
+    box-shadow:0 10px 28px rgba(31,106,93,.25);
+    transition:background .15s, transform .15s;
+}
+.cta-primary:hover { background:var(--accent-deep); transform:translateY(-1px); }
+.cta-note { color:var(--muted); font-size:14px; }
+
+.hero-visual {
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:28px;
+    padding:28px;
+    box-shadow:0 22px 60px rgba(37,26,15,.10);
+    position:relative;
+}
+.hero-visual h3 {
+    margin:0 0 6px;
+    font:700 18px/1.2 'Archivo SemiCondensed', sans-serif;
+    letter-spacing:.01em;
+}
+.hero-visual p.mini { color:var(--muted); font-size:13px; margin:0 0 18px; }
+.queue-row {
+    display:flex; justify-content:space-between; align-items:center;
+    padding:12px 14px;
+    border:1px solid var(--line);
+    border-radius:12px;
+    margin-bottom:10px;
+    background:#fff;
+    font-size:14px;
+}
+.queue-row .who { font-weight:600; }
+.queue-row .meta { color:var(--muted); font-size:13px; }
+.pill {
+    display:inline-block;
+    padding:3px 10px;
+    border-radius:999px;
+    font-size:12px;
+    font-weight:600;
+    letter-spacing:.02em;
+}
+.pill.waiting { background:#fdf1e7; color:var(--accent-warm); }
+.pill.seated { background:#e9f3f0; color:var(--accent); }
+
+.three-up {
+    max-width:1080px;
+    margin:0 auto;
+    padding:40px 32px 80px;
+    display:grid;
+    grid-template-columns:repeat(3, 1fr);
+    gap:28px;
+}
+.feat {
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:22px;
+    padding:26px 24px;
+}
+.feat h3 {
+    margin:0 0 8px;
+    font:700 18px/1.2 'Archivo SemiCondensed', sans-serif;
+}
+.feat p { margin:0; color:var(--muted); font-size:14px; }
+.feat .ico {
+    width:40px; height:40px;
+    border-radius:10px;
+    background:#eef4f2;
+    color:var(--accent);
+    font:700 20px/40px 'Archivo SemiCondensed', sans-serif;
+    text-align:center;
+    margin-bottom:14px;
+}
+.feat:nth-child(2) .ico { background:#fbefe4; color:var(--accent-warm); }
+
+.how {
+    max-width:1080px;
+    margin:0 auto;
+    padding:0 32px 80px;
+}
+.how h2 {
+    font:700 34px/1.15 'Georgia', serif;
+    margin:0 0 32px;
+    color:var(--ink);
+}
+.steps { display:grid; grid-template-columns:repeat(4, 1fr); gap:20px; list-style:none; padding:0; margin:0; }
+.step {
+    padding:22px;
+    border-radius:18px;
+    background:rgba(255,253,248,.7);
+    border:1px solid var(--line);
+}
+.step .num {
+    font:700 22px 'Archivo SemiCondensed', sans-serif;
+    color:var(--accent-warm);
+    margin-bottom:8px;
+}
+.step h4 { margin:0 0 6px; font:600 16px 'Archivo SemiCondensed', sans-serif; }
+.step p { margin:0; color:var(--muted); font-size:14px; }
+
+.cta-strip {
+    max-width:960px;
+    margin:0 auto 40px;
+    padding:44px 32px;
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:28px;
+    text-align:center;
+    box-shadow:0 18px 46px rgba(37,26,15,.08);
+}
+.cta-strip h2 {
+    font:700 28px/1.2 'Georgia', serif;
+    margin:0 0 10px;
+}
+.cta-strip p { color:var(--muted); font-size:15px; margin:0 0 22px; }
+
+footer {
+    max-width:1080px;
+    margin:0 auto;
+    padding:28px 32px 40px;
+    color:var(--muted);
+    font-size:13px;
+    display:flex; justify-content:space-between; gap:18px; flex-wrap:wrap;
+}
+footer a { color:var(--muted); text-decoration:none; margin-right:14px; }
+footer a:hover { color:var(--ink); }
+.fallback {
+    margin-top:16px;
+    color:var(--muted);
+    font-size:14px;
+    text-align:center;
+}
+.fallback a { color:var(--accent-warm); font-weight:500; text-decoration:none; }
+
+@media (max-width: 860px) {
+    .hero { grid-template-columns:1fr; padding:32px 24px 60px; gap:32px; }
+    .hero h1 { font-size:42px; }
+    .three-up { grid-template-columns:1fr; padding:20px 24px 60px; }
+    .steps { grid-template-columns:1fr 1fr; }
+    .topbar { padding:18px 22px; }
+}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+    <div class="brand">OSH<span class="expand">OS for Hospitality</span></div>
+    <div class="topbar-right">
+        <a href="/login">Log in</a>
+        <a class="topbar-cta" href="/signup">Start free</a>
+    </div>
+</header>
+
+<section class="hero">
+    <div>
+        <h1>Delight <em>the guest</em>. OSH handles the rest.</h1>
+        <p class="lede">You opened a restaurant to make people feel at home, not to wrestle spreadsheets and phone menus. OSH is the operating system for your front of house &mdash; waitlist, website, hours, menu, staff logins, SMS, IVR, QR &mdash; so every minute of your shift goes to the guest in front of you.</p>
+        <div class="cta-row">
+            <a class="cta-primary" href="/signup">Start free</a>
+            <span class="cta-note">Live in ten minutes. No credit card. No sales call.</span>
+        </div>
+    </div>
+    <aside class="hero-visual" aria-hidden="true">
+        <h3>Tonight &middot; 6:42pm</h3>
+        <p class="mini">What your host sees. Live on every device at the restaurant.</p>
+        <div class="queue-row">
+            <div><div class="who">Patel, 4</div><div class="meta">Joined 12m ago &middot; by phone</div></div>
+            <span class="pill waiting">Waiting</span>
+        </div>
+        <div class="queue-row">
+            <div><div class="who">Nguyen, 2</div><div class="meta">Joined 8m ago &middot; QR</div></div>
+            <span class="pill waiting">Waiting</span>
+        </div>
+        <div class="queue-row">
+            <div><div class="who">Okafor, 3</div><div class="meta">Seated at 6:30pm &middot; table 12</div></div>
+            <span class="pill seated">Seated</span>
+        </div>
+    </aside>
+</section>
+
+<section class="three-up">
+    <div class="feat">
+        <div class="ico">F</div>
+        <h3>The front of house, handled</h3>
+        <p>Waitlist from a QR at the door, live place-in-line on every guest's phone, a text when the table is ready, SMS chat with the host when plans change. Your night, without the clipboard.</p>
+    </div>
+    <div class="feat">
+        <div class="ico">W</div>
+        <h3>Your website, built for you</h3>
+        <p>Pick a template, fill in hours, menu, and photos &mdash; OSH ships your public site, your door QR, your Google-map pin, your IVR phone answers, and the Google-rich-result markup. Custom domain on request.</p>
+    </div>
+    <div class="feat">
+        <div class="ico">S</div>
+        <h3>Your team, with real logins</h3>
+        <p>Name your hosts and managers. Roles keep hosts on the floor view and admins in the settings view. No shared passwords, no retraining when someone leaves.</p>
+    </div>
+    <div class="feat">
+        <div class="ico">AI</div>
+        <h3>Your numbers, in English</h3>
+        <p>OSH speaks <a href="https://modelcontextprotocol.io" target="_blank" rel="noopener">MCP</a> &mdash; plug it into Claude, ChatGPT, or any AI you already use and just ask. <em>"Who's waiting right now?"</em> · <em>"How many covers last Friday between 7 and 9?"</em> · <em>"Text Patel we're five minutes out."</em> No dashboards to learn.</p>
+    </div>
+</section>
+
+<section class="how">
+    <h2>How setup works</h2>
+    <ol class="steps">
+        <li class="step">
+            <div class="num">1</div>
+            <h4>Sign up</h4>
+            <p>Restaurant name, your name, a password. Takes a minute.</p>
+        </li>
+        <li class="step">
+            <div class="num">2</div>
+            <h4>Pick a template</h4>
+            <p>Two designs, editable later. Your name and address are already filled in.</p>
+        </li>
+        <li class="step">
+            <div class="num">3</div>
+            <h4>Print the QR</h4>
+            <p>Download your door sticker. Tape it at the entrance.</p>
+        </li>
+        <li class="step">
+            <div class="num">4</div>
+            <h4>Open tonight</h4>
+            <p>Your first guest can join the line from the sticker. You watch it fill up from the tablet.</p>
+        </li>
+    </ol>
+</section>
+
+<section class="cta-strip">
+    <h2>Tonight, just host. OSH handles everything else.</h2>
+    <p>Free while we're in beta. No contract, no seat minimums, no POS rip-and-replace.</p>
+    <a class="cta-primary" href="/signup">Start free</a>
+    <div class="fallback">Prefer to talk to someone? <a href="mailto:hello@example.com">hello@example.com</a></div>
+</section>
+
+<footer>
+    <div>&copy; OSH. Built for restaurants that want to stay independent.</div>
+    <div>
+        <a href="/login">Staff log in</a>
+        <a href="/privacy.html">Privacy</a>
+        <a href="/terms.html">Terms</a>
+    </div>
+</footer>
+
+</body>
+</html>

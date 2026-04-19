@@ -1,0 +1,277 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>SKB — Owner onboarding wizard (Issue #51 mock)</title>
+<link href="https://fonts.googleapis.com/css2?family=Archivo+SemiCondensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+:root {
+    --panel:#fffdf8;
+    --admin-bg:#eef3f1;
+    --ink:#1d1b19;
+    --muted:#6a6258;
+    --accent:#1f6a5d;
+    --accent-warm:#cb6a34;
+    --line:#dfd6c6;
+    --done:#1f8f5f;
+    --dim:#b8b0a3;
+}
+* { box-sizing:border-box; }
+body {
+    margin:0;
+    font:15px/1.5 'IBM Plex Sans', sans-serif;
+    color:var(--ink);
+    background:
+        radial-gradient(circle at top left, rgba(203,106,52,.1), transparent 28%),
+        radial-gradient(circle at top right, rgba(31,106,93,.14), transparent 26%),
+        linear-gradient(135deg, #f7f1e8 0%, #edf4f2 100%);
+}
+.shell { max-width:1400px; margin:0 auto; padding:20px; }
+.topbar {
+    display:flex; justify-content:space-between; align-items:center;
+    padding:16px 22px; background:rgba(255,253,248,.78);
+    border:1px solid var(--line); border-radius:22px; margin-bottom:16px;
+    backdrop-filter:blur(6px);
+}
+.topbar .brand { font:700 20px/1 'Archivo SemiCondensed', sans-serif; }
+.topbar .brand .accent { color:var(--accent-warm); }
+.topbar .restaurant { color:var(--muted); font-size:14px; }
+.topbar .restaurant strong { color:var(--ink); }
+.topbar .user { display:flex; align-items:center; gap:10px; font-size:13px; color:var(--muted); }
+.topbar .avatar { width:32px; height:32px; border-radius:50%; background:var(--accent); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:600; font-size:13px; }
+
+.grid { display:grid; grid-template-columns:260px 1fr; gap:16px; }
+
+.nav {
+    background:rgba(255,253,248,.86); border:1px solid var(--line); border-radius:22px; padding:16px;
+}
+.nav h3 { margin:4px 0 10px; font:700 12px 'IBM Plex Sans'; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); }
+.nav ul { list-style:none; padding:0; margin:0; }
+.nav li {
+    padding:10px 12px; border-radius:12px; margin-bottom:2px; color:var(--ink);
+    display:flex; justify-content:space-between; align-items:center; cursor:pointer; font-size:14px;
+}
+.nav li:hover { background:rgba(31,106,93,.06); }
+.nav li.active { background:var(--accent); color:#fff; font-weight:600; }
+.nav li.active .count { color:#fff; }
+.nav li .count { color:var(--muted); font-size:12px; font-weight:500; }
+
+.main { display:grid; grid-template-columns:1.1fr 1fr; gap:16px; align-items:start; }
+
+.wizard {
+    background:var(--panel); border:1px solid var(--line); border-radius:28px; padding:28px;
+    box-shadow:0 18px 48px rgba(37,26,15,.08);
+}
+.wizard-head { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:18px; }
+.wizard-head h2 { margin:0 0 4px; font:700 26px/1.1 'Archivo SemiCondensed', sans-serif; }
+.wizard-head p { color:var(--muted); font-size:14px; margin:0; }
+.wizard-head .dismiss { background:none; border:none; color:var(--muted); font-size:20px; cursor:pointer; }
+
+.steps { list-style:none; padding:0; margin:0; }
+.step {
+    display:flex; gap:14px; padding:16px; border-radius:18px; border:1px solid transparent;
+    margin-bottom:10px;
+}
+.step.current { border-color:rgba(31,106,93,.28); background:rgba(31,106,93,.05); }
+.step.done .badge { background:var(--done); color:#fff; }
+.step.current .badge { background:var(--accent); color:#fff; }
+.step.todo .badge { background:#efe8da; color:var(--muted); }
+.badge {
+    flex-shrink:0; width:32px; height:32px; border-radius:50%;
+    display:flex; align-items:center; justify-content:center; font-weight:700; font-size:14px;
+}
+.step h4 { margin:0 0 4px; font:600 16px 'IBM Plex Sans'; }
+.step p { margin:0; color:var(--muted); font-size:13px; }
+.step .meta { margin-top:8px; font-size:13px; color:var(--done); font-weight:500; }
+.step .action { margin-top:10px; }
+.step button.continue {
+    background:var(--accent); color:#fff; border:none; padding:10px 18px; border-radius:12px;
+    font:600 14px 'IBM Plex Sans'; cursor:pointer;
+}
+.step button.skip {
+    background:transparent; color:var(--muted); border:none; padding:10px 4px; font:500 13px 'IBM Plex Sans'; cursor:pointer; margin-left:4px; text-decoration:underline;
+}
+.step .form {
+    margin-top:14px; display:grid; gap:10px;
+}
+.step .form-row { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+.step .form label { font-size:12px; color:var(--muted); font-weight:500; display:block; margin-bottom:4px; }
+.step .form input, .step .form select {
+    width:100%; padding:10px 12px; border-radius:10px; border:1px solid var(--line); font:14px 'IBM Plex Sans';
+}
+
+.preview {
+    background:var(--panel); border:1px solid var(--line); border-radius:28px; padding:18px;
+    box-shadow:0 18px 48px rgba(37,26,15,.08); position:sticky; top:20px;
+}
+.preview-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; }
+.preview-head h3 { margin:0; font:600 13px 'IBM Plex Sans'; text-transform:uppercase; letter-spacing:.08em; color:var(--muted); }
+.preview-head a { font-size:12px; color:var(--accent); text-decoration:none; }
+.phone-frame {
+    margin:0 auto; width:280px; height:560px; border-radius:36px; background:#222; padding:10px;
+    box-shadow:0 10px 30px rgba(0,0,0,.16);
+}
+.phone-screen {
+    width:100%; height:100%; border-radius:28px; background:#faf7f2; overflow:hidden;
+    display:flex; flex-direction:column;
+}
+.phone-screen .banner { background:#2a2a2a; color:#fef7e4; font-size:10px; text-align:center; padding:6px; }
+.phone-screen .hero { padding:20px 18px 12px; text-align:center; }
+.phone-screen .hero .rest-name { font:700 20px 'Archivo SemiCondensed', serif; color:#2a2a2a; }
+.phone-screen .hero .tag { font-size:11px; color:#78716c; margin-top:4px; }
+.phone-screen .hero h4 { font:600 18px/1.2 Georgia, serif; margin:14px 0 6px; color:#2a2a2a; }
+.phone-screen .hero p { font-size:11px; color:#6a6258; margin:0 0 10px; }
+.phone-screen .cta { display:inline-block; background:#cb6a34; color:#fff; padding:8px 18px; border-radius:22px; font-size:12px; font-weight:600; }
+.phone-screen .dishes { padding:16px; }
+.phone-screen .dishes h5 { font:600 10px; color:#78716c; letter-spacing:.1em; text-transform:uppercase; margin:0 0 8px; }
+.phone-screen .dish { display:flex; gap:10px; padding:8px 0; border-bottom:1px solid #e5ddd0; font-size:11px; }
+.phone-screen .dish .dot { width:24px; height:24px; border-radius:50%; background:#e08a2e; flex-shrink:0; }
+.phone-screen .info { padding:12px 16px; font-size:10px; color:#6a6258; }
+
+.badge-pill { display:inline-block; padding:3px 8px; border-radius:999px; font-size:11px; font-weight:600; background:rgba(31,106,93,.12); color:var(--accent); }
+</style>
+</head>
+<body>
+
+<div class="shell">
+    <div class="topbar">
+        <div style="display:flex; align-items:center; gap:16px;">
+            <div class="brand">SKB</div>
+            <div class="restaurant">Admin · <strong>Ramen Yokocho</strong></div>
+        </div>
+        <div style="display:flex; gap:10px; align-items:center;">
+            <span class="badge-pill">Setup · 1 of 4 done</span>
+            <div class="user"><div class="avatar">PM</div>Priya Menon (owner)</div>
+        </div>
+    </div>
+
+    <div class="grid">
+        <aside class="nav">
+            <h3>Admin</h3>
+            <ul>
+                <li class="active"><span>⚡ Setup</span><span class="count">1/4</span></li>
+                <li><span>📊 Analytics</span></li>
+                <li><span>🌐 Website</span></li>
+                <li><span>👥 Staff</span></li>
+                <li><span>⚙️ Settings</span></li>
+                <li><span>💳 Billing</span><span class="count">soon</span></li>
+            </ul>
+            <h3 style="margin-top:24px;">Quick links</h3>
+            <ul>
+                <li><span>🍽️ Host stand</span></li>
+                <li><span>🔗 Public site ↗</span></li>
+            </ul>
+        </aside>
+
+        <div class="main">
+            <section class="wizard">
+                <div class="wizard-head">
+                    <div>
+                        <h2>Welcome, Priya — let's set up Ramen Yokocho.</h2>
+                        <p>Your restaurant is already live — these are optional polish steps. You can dismiss this and come back anytime.</p>
+                    </div>
+                    <button class="dismiss" aria-label="Dismiss">✕</button>
+                </div>
+
+                <ol class="steps">
+                    <li class="step done">
+                        <div class="badge">✓</div>
+                        <div style="flex:1">
+                            <h4>Account created</h4>
+                            <p>Owner: Priya Menon · Slug: ramen-yokocho · Host PIN: <strong>4812</strong> (printed on the door-poster PDF)</p>
+                            <div class="meta">Done automatically at signup</div>
+                        </div>
+                    </li>
+
+                    <li class="step current">
+                        <div class="badge">2</div>
+                        <div style="flex:1">
+                            <h4>Restaurant basics</h4>
+                            <p>Your address, phone, and weekly hours — used on your public site and in the IVR greeting.</p>
+                            <div class="form">
+                                <div>
+                                    <label>Street address</label>
+                                    <input type="text" value="1402 12th Ave, Seattle, WA 98122" />
+                                </div>
+                                <div class="form-row">
+                                    <div>
+                                        <label>Front desk phone</label>
+                                        <input type="text" value="(206) 555-0142" />
+                                    </div>
+                                    <div>
+                                        <label>Party-size limit (voice IVR)</label>
+                                        <input type="text" value="8" />
+                                    </div>
+                                </div>
+                                <div>
+                                    <label>Weekly hours</label>
+                                    <input type="text" value="Tue–Sun · Lunch 11:30–2:30 · Dinner 5:00–10:00 · Closed Mon" readonly style="background:#f7f3ec;" />
+                                    <div style="font-size:12px; color:var(--muted); margin-top:4px;">Full hours editor opens on click →</div>
+                                </div>
+                            </div>
+                            <div class="action">
+                                <button class="continue">Save and continue</button>
+                                <button class="skip">Skip</button>
+                            </div>
+                        </div>
+                    </li>
+
+                    <li class="step todo">
+                        <div class="badge">3</div>
+                        <div style="flex:1">
+                            <h4>Pick a website template</h4>
+                            <p>Two designs. Pick one, preview it live, change your mind later.</p>
+                        </div>
+                    </li>
+
+                    <li class="step todo">
+                        <div class="badge">4</div>
+                        <div style="flex:1">
+                            <h4>Add your menu</h4>
+                            <p>Upload a PDF or paste a link. Optional — your menu page will say "coming soon" until you add one.</p>
+                        </div>
+                    </li>
+
+                    <li class="step todo">
+                        <div class="badge">5</div>
+                        <div style="flex:1">
+                            <h4>Invite your staff</h4>
+                            <p>Give your hosts and managers their own login.</p>
+                        </div>
+                    </li>
+                </ol>
+            </section>
+
+            <aside class="preview">
+                <div class="preview-head">
+                    <h3>Live preview</h3>
+                    <a href="#" target="_blank">Open in new tab ↗</a>
+                </div>
+                <div class="phone-frame">
+                    <div class="phone-screen">
+                        <div class="banner">Last orders daily at 9:40 PM</div>
+                        <div class="hero">
+                            <div class="rest-name">Ramen Yokocho</div>
+                            <div class="tag">Modern ramen · Seattle</div>
+                            <h4>Slow-simmered tonkotsu, ready tonight.</h4>
+                            <p>No app, no reservation line — just join from your phone.</p>
+                            <span class="cta">Join the Waitlist</span>
+                        </div>
+                        <div class="dishes">
+                            <h5>What we're known for</h5>
+                            <div class="dish"><div class="dot"></div><div><strong>Tonkotsu Shio</strong><br/><span style="color:#78716c">36-hour pork broth</span></div></div>
+                            <div class="dish"><div class="dot"></div><div><strong>Spicy Miso</strong><br/><span style="color:#78716c">House blend, medium heat</span></div></div>
+                            <div class="dish"><div class="dot"></div><div><strong>Chicken Shoyu</strong><br/><span style="color:#78716c">Clear broth, ginger finish</span></div></div>
+                        </div>
+                        <div class="info">1402 12th Ave · Open until 10 PM tonight</div>
+                    </div>
+                </div>
+                <p style="font-size:12px; color:var(--muted); margin-top:12px; text-align:center;">Updates as you fill in the form.</p>
+            </aside>
+        </div>
+    </div>
+</div>
+
+</body>
+</html>

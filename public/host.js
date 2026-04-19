@@ -1009,12 +1009,41 @@
     function showQueue() {
         loginView.style.display = 'none';
         queueView.style.display = '';
+        loadRestaurantBrand();
         refreshAll();
         if (pollTimer) clearInterval(pollTimer);
         pollTimer = setInterval(refreshAll, 5000);
     }
 
+    // Issue #57: fill the restaurant name into the topbar + document
+    // title. Uses the unauthenticated /public-config endpoint so the
+    // brand appears on the PIN-login card too (before the host has
+    // entered the PIN). Fails silently — the fallback copy ("Host
+    // Stand") is still correct branding for a restaurant-specific
+    // surface.
+    async function loadRestaurantBrand() {
+        try {
+            const r = await fetch('api/public-config');
+            if (!r.ok) return;
+            const data = await r.json();
+            const name = (data && data.name) ? String(data.name) : '';
+            if (!name) return;
+            const nameEl = document.getElementById('host-restaurant-name');
+            const sepEl = document.getElementById('host-restaurant-name-sep');
+            if (nameEl) nameEl.textContent = name;
+            if (sepEl) sepEl.style.display = '';
+            const loginNameEl = document.getElementById('host-login-restaurant-name');
+            if (loginNameEl) loginNameEl.textContent = name + ' \u00b7 Host Stand';
+            document.title = name + ' \u2014 Host Stand';
+        } catch {
+            // non-blocking — fallback brand already in DOM
+        }
+    }
+
     (async function boot() {
+        // Load brand immediately so the PIN-login card shows the
+        // restaurant's name even before the host authenticates.
+        loadRestaurantBrand();
         if (await checkAuth()) showQueue(); else showLogin();
     })();
 })();

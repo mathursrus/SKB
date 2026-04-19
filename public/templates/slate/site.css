@@ -1,0 +1,250 @@
+/* ============================================================================
+   SKB — Slate website template (issue #56)
+   ============================================================================
+   Modern, cocktail-forward restaurant theme. Cool off-white + slate blue +
+   teal accent. Archivo SemiCondensed for headers, IBM Plex Sans for body.
+   Sourced from docs/feature-specs/mocks/51-public-template-gallery.html.
+   ============================================================================ */
+
+:root {
+    --slate-bg: #f4f6f4;
+    --slate-ink: #1d2d28;
+    --slate-muted: #4a5550;
+    --slate-muted-2: #6a7570;
+    --slate-line: #d8dfd9;
+    --slate-accent: #1f6a5d;
+    --slate-accent-dark: #185246;
+    --slate-panel: #ffffff;
+}
+
+* { box-sizing: border-box; }
+
+body.slate-site {
+    margin: 0;
+    font: 15px/1.5 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    color: var(--slate-ink);
+    background: var(--slate-bg);
+}
+
+a { color: var(--slate-accent); }
+
+.slate-banner {
+    background: var(--slate-accent);
+    color: var(--slate-bg);
+    font-size: 12px;
+    text-align: center;
+    padding: 8px;
+    letter-spacing: 0.02em;
+    font-weight: 500;
+}
+
+.slate-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 18px 28px;
+    border-bottom: 1px solid var(--slate-line);
+    background: var(--slate-bg);
+    max-width: 1200px;
+    margin: 0 auto;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+.slate-brand-name {
+    font: 700 22px/1.1 'Archivo SemiCondensed', 'IBM Plex Sans', sans-serif;
+    letter-spacing: -0.01em;
+    color: var(--slate-ink);
+}
+.slate-brand-tag {
+    font-size: 11px;
+    color: var(--slate-muted-2);
+    margin-top: 2px;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+}
+
+.slate-nav ul {
+    list-style: none;
+    display: flex;
+    gap: 22px;
+    padding: 0;
+    margin: 0;
+    font-size: 13px;
+    flex-wrap: wrap;
+}
+.slate-nav a {
+    color: var(--slate-muted);
+    text-decoration: none;
+    font-weight: 500;
+    padding-bottom: 2px;
+}
+.slate-nav a[aria-current="page"] {
+    color: var(--slate-accent);
+    font-weight: 600;
+    border-bottom: 2px solid var(--slate-accent);
+}
+
+.slate-hero {
+    padding: 56px 28px;
+    display: grid;
+    grid-template-columns: 1.1fr 1fr;
+    gap: 24px;
+    align-items: center;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+.slate-hero h1 {
+    font: 700 36px/1.1 'Archivo SemiCondensed', 'IBM Plex Sans', sans-serif;
+    margin: 0 0 12px;
+    letter-spacing: -0.01em;
+}
+.slate-hero p {
+    color: var(--slate-muted);
+    margin: 0 0 18px;
+    font-size: 15px;
+}
+.slate-cta {
+    display: inline-block;
+    background: var(--slate-accent);
+    color: #fff;
+    padding: 12px 26px;
+    border-radius: 6px;
+    font-weight: 600;
+    font-size: 14px;
+    text-decoration: none;
+    letter-spacing: 0.02em;
+}
+.slate-cta:hover { background: var(--slate-accent-dark); }
+.slate-cta.ghost {
+    background: transparent;
+    color: var(--slate-accent);
+    border: 1.5px solid var(--slate-accent);
+}
+
+.slate-hero-img {
+    height: 220px;
+    border-radius: 10px;
+    background: linear-gradient(135deg, #9fb6ad, var(--slate-accent));
+}
+
+.slate-section {
+    padding: 28px;
+    border-top: 1px solid var(--slate-line);
+    max-width: 1200px;
+    margin: 0 auto;
+}
+.slate-section h2 {
+    font: 700 24px 'Archivo SemiCondensed', 'IBM Plex Sans', sans-serif;
+    margin: 0 0 18px;
+    letter-spacing: -0.01em;
+}
+.slate-section p { color: var(--slate-muted); }
+
+.slate-dishes {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 18px;
+}
+.slate-dish { text-align: left; }
+.slate-dish .swatch,
+.slate-dish-swatch {
+    height: 140px;
+    border-radius: 6px;
+    margin-bottom: 10px;
+    background: linear-gradient(135deg, #dde4e0, var(--slate-accent));
+}
+.slate-dish img,
+.slate-dish-img {
+    width: 100%;
+    height: 140px;
+    object-fit: cover;
+    border-radius: 6px;
+    margin-bottom: 10px;
+    display: block;
+}
+.slate-dish h3 {
+    margin: 0 0 4px;
+    font: 700 15px 'Archivo SemiCondensed', 'IBM Plex Sans', sans-serif;
+}
+.slate-dish p {
+    margin: 0;
+    font-size: 12px;
+    color: var(--slate-muted-2);
+}
+
+.slate-info-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+}
+.slate-info-block h3 {
+    margin: 0 0 8px;
+    font: 700 16px 'Archivo SemiCondensed', 'IBM Plex Sans', sans-serif;
+}
+.slate-info-block p { margin: 4px 0; }
+
+.slate-hours-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 16px;
+}
+.slate-hours-table td {
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--slate-line);
+}
+.slate-hours-table td.closed-day { color: var(--slate-muted-2); }
+
+.slate-address {
+    padding: 14px 18px;
+    background: #fff;
+    border: 1px solid var(--slate-line);
+    border-radius: 8px;
+    margin-bottom: 14px;
+}
+.slate-address .line { margin: 2px 0; }
+
+.slate-footer {
+    padding: 28px;
+    border-top: 1px solid var(--slate-line);
+    text-align: center;
+    color: var(--slate-muted-2);
+    font-size: 13px;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+.slate-footer .fnav {
+    display: flex;
+    justify-content: center;
+    gap: 18px;
+    flex-wrap: wrap;
+    margin-bottom: 8px;
+}
+.slate-footer .fnav a {
+    color: var(--slate-muted);
+    text-decoration: none;
+    font-weight: 500;
+}
+
+.slate-contact-line { margin: 8px 0; font-size: 16px; }
+.slate-contact-line a { color: var(--slate-accent); }
+
+.slate-map-block {
+    width: 100%;
+    height: 320px;
+    border-radius: 8px;
+    overflow: hidden;
+    margin-bottom: 12px;
+    border: 1px solid var(--slate-line);
+}
+.slate-map-block iframe {
+    width: 100%;
+    height: 100%;
+    border: 0;
+}
+
+@media (max-width: 720px) {
+    .slate-hero { grid-template-columns: 1fr; }
+    .slate-hero-img { height: 180px; }
+    .slate-dishes { grid-template-columns: 1fr; }
+    .slate-info-grid { grid-template-columns: 1fr; }
+}

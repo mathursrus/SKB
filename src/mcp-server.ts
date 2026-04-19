@@ -23,9 +23,14 @@ import { hostRouter } from './routes/host.js';
 import { healthRouter } from './routes/health.js';
 import { voiceRouter } from './routes/voice.js';
 import { smsRouter, smsStatusRouter } from './routes/sms.js';
+import { authRouter } from './routes/auth.js';
+import { signupRouter } from './routes/signup.js';
+import { onboardingRouter } from './routes/onboarding.js';
+import { googleRouter, googleOauthCallbackRouter } from './routes/google.js';
 import { renderQueuePage } from './services/queue-template.js';
 import { resolveVisit } from './services/visit-page.js';
-import { listLocations, ensureLocation } from './services/locations.js';
+import { listLocations, ensureLocation, getLocation } from './services/locations.js';
+import { renderSitePage, type TemplatePageKey } from './services/site-renderer.js';
 
 const SERVER_NAME = 'skb-mcp';
 const SERVER_VERSION = '0.2.0';
@@ -60,6 +65,7 @@ app.use(async (req: Request, _res: Response, next: () => void) => {
         || req.url.startsWith('/api')
         || req.url.startsWith('/mcp')
         || req.url.startsWith('/health')
+        || req.url.startsWith('/assets/')
         || req.url === '/queue'
         || req.url === '/queue.html'
         || req.url === '/'
@@ -96,16 +102,91 @@ app.use(async (req: Request, _res: Response, next: () => void) => {
 // Global health
 app.use(healthRouter(SERVER_NAME));
 
-// Landing page — list locations
-app.get('/', async (_req: Request, res: Response) => {
-    try {
-        const locs = await listLocations();
-        const links = locs.map(l => `<li><a href="/r/${l._id}/queue.html">${l.name}</a> — <a href="/r/${l._id}/host.html">Host</a> · <a href="/r/${l._id}/admin.html">Admin</a></li>`).join('\n');
-        res.type('html').send(`<!doctype html><html><head><title>SKB — Locations</title><link href="https://fonts.googleapis.com/css2?family=Fira+Sans:wght@400;600;700&display=swap" rel="stylesheet"><style>body{font-family:'Fira Sans',sans-serif;max-width:600px;margin:40px auto;padding:0 20px}h1{font-size:24px}li{margin:8px 0;font-size:16px}a{color:#b45309}</style></head><body><h1>SKB Waitlist</h1><ul>${links || '<li>No locations configured.</li>'}</ul></body></html>`);
-    } catch {
-        res.status(503).send('Service unavailable');
-    }
+// Per-tenant site assets (signature dish photos, hero images) — mounted at a
+// tenant-agnostic root so URLs work under host-rewritten domains and under
+// the platform domain alike. Files live under public/assets/<slug>/<kind>/…
+// and are written by the website-config POST handler.
+app.use('/assets', express.static(path.join(publicDir, 'assets'), {
+    maxAge: '7d',
+    immutable: true,
+    fallthrough: false,
+}));
+
+// Platform-level auth (issue #53): unified named-user login, logout,
+// whoami, password reset. Lives at /api/* (no :loc prefix) because the
+// login URL is shared across tenants — the cookie it mints IS
+// tenant-scoped (encodes `lid`), the URL is not.
+app.use('/api', authRouter());
+app.use('/api', signupRouter());
+
+// Per-location onboarding endpoints (issue #54). Mounted at /r/:loc/api/
+// so requireRole can extract the `loc` param and enforce tenant scoping.
+app.use('/r/:loc/api', onboardingRouter());
+
+// Google Business Profile OAuth + sync (issue #51 Phase D). The per-tenant
+// endpoints (/status, /oauth/start, /disconnect, /sync, /link) are mounted
+// under /r/:loc/api/ so requireRole's tenant-binding applies. The OAuth
+// callback itself is GLOBAL (/api/google/oauth/callback) because Google
+// Cloud registers ONE exact redirect URI per OAuth client — per-tenant
+// paths would be unworkable. Tenant info rides in the signed `state` param.
+app.use('/r/:loc/api', googleRouter());
+app.use('/api', googleOauthCallbackRouter());
+
+// Friendly URLs for the public auth pages — /login and /reset-password
+// without `.html`. Spec §6.4: the marketing domain entry point is
+// `app.example.com/login`.
+app.get('/login', (_req: Request, res: Response) => {
+    res.sendFile(path.join(publicDir, 'login.html'));
 });
+app.get('/reset-password', (_req: Request, res: Response) => {
+    res.sendFile(path.join(publicDir, 'reset-password.html'));
+});
+app.get('/signup', (_req: Request, res: Response) => {
+    res.sendFile(path.join(publicDir, 'signup.html'));
+});
+
+// Static JSON catalog of available website templates — spec #51 §8.5.
+// Public (no auth): just a hint surface for the admin template picker and
+// future clients. Keys map to the site-renderer's TemplateKey union.
+const TEMPLATE_CATALOG = [
+    { key: 'saffron', name: 'Saffron', fit: 'Warm, casual, neighborhood-spot energy.' },
+    { key: 'slate', name: 'Slate', fit: 'Modern, considered, cocktail-forward.' },
+];
+app.get('/templates', (_req: Request, res: Response) => {
+    res.json({ templates: TEMPLATE_CATALOG });
+});
+// Issue #55: accept-invite landing page — clicked from an emailed link.
+app.get('/accept-invite', (_req: Request, res: Response) => {
+    res.sendFile(path.join(publicDir, 'accept-invite.html'));
+});
+
+// Marketing landing — naked '/' on the platform domain (issue #57).
+// The host-rewrite middleware above already handles the custom-domain
+// case: if the incoming Host matches a location's `publicHost` (e.g.
+// skbbellevue.com), the URL is rewritten to `/r/{loc}/home.html` before
+// we ever reach this handler. So when this route fires, we know the
+// visitor is on a naked/platform domain — serve the marketing page.
+app.get('/', (_req: Request, res: Response) => {
+    res.sendFile(path.join(publicDir, 'landing.html'));
+});
+
+// Operator console — legacy locations-list page, now gated behind
+// SKB_OPERATOR_CONSOLE=true (issue #57, spec §5 non-goals — no in-app
+// super-admin view for v1). When the flag is off, the route 404s so it
+// doesn't surface in crawls or accidental visits. The operator still
+// manages the platform through MongoDB / MCP tools.
+if (process.env.SKB_OPERATOR_CONSOLE === 'true') {
+    app.get('/admin/locations', async (_req: Request, res: Response) => {
+        try {
+            const locs = await listLocations();
+            const links = locs.map(l => `<li><a href="/r/${l._id}/queue.html">${l.name}</a> — <a href="/r/${l._id}/host.html">Host</a> · <a href="/r/${l._id}/admin.html">Admin</a></li>`).join('\n');
+            res.type('html').send(`<!doctype html><html><head><title>OSH — Operator Console</title><link href="https://fonts.googleapis.com/css2?family=Fira+Sans:wght@400;600;700&display=swap" rel="stylesheet"><style>body{font-family:'Fira Sans',sans-serif;max-width:600px;margin:40px auto;padding:0 20px}h1{font-size:24px}li{margin:8px 0;font-size:16px}a{color:#b45309}</style></head><body><h1>OSH &mdash; Operator Console</h1><p style="color:#78716c;font-size:14px">All configured restaurants. Operator-only.</p><ul>${links || '<li>No locations configured.</li>'}</ul></body></html>`);
+        } catch {
+            res.status(503).send('Service unavailable');
+        }
+    });
+    console.log('[MCP Server] Operator console enabled at /admin/locations');
+}
 
 // Per-location routes: /r/:loc/...
 app.use('/r/:loc/api', queueRouter());
@@ -153,24 +234,45 @@ app.get('/r/:loc/visit', async (req: Request, res: Response) => {
     }
 });
 
-// ─── Per-location public website routes (issue #45) ───────────────────
+// ─── Per-location public website routes (issue #45 + #56) ─────────────
 // Friendly URLs for the replacement skbbellevue.com pages. `/r/:loc/` is
-// the home page; `/r/:loc/menu` is the menu page (served from the
-// `menu-page.html` file — `menu.html` would collide with the existing
-// menu-page static asset used as visitMode=menu fallback in PR #42).
-const SITE_PAGE_MAP: Record<string, string> = {
-    '': 'home.html',
-    'menu': 'menu-page.html',
-    'about': 'about.html',
-    'hours': 'hours-location.html',
-    'contact': 'contact.html',
+// the home page; other pages are /menu, /about, /hours, /contact. Each
+// request picks the right template (`saffron` vs `slate`) based on the
+// location's `websiteTemplate` field and substitutes structured content
+// into the template HTML. See src/services/site-renderer.ts.
+const SITE_PAGE_MAP: Record<string, TemplatePageKey> = {
+    '': 'home',
+    'menu': 'menu',
+    'about': 'about',
+    'hours': 'hours',
+    'contact': 'contact',
 };
-const servePage = (relPath: string) => (_req: Request, res: Response) => {
-    res.sendFile(path.join(publicDir, relPath));
-};
-for (const [route, file] of Object.entries(SITE_PAGE_MAP)) {
+
+function servePage(pageKey: TemplatePageKey) {
+    return async (req: Request, res: Response) => {
+        try {
+            const locationId = String(req.params.loc);
+            const location = await getLocation(locationId);
+            if (!location) {
+                res.status(404).type('text/plain').send('Location not found');
+                return;
+            }
+            const html = await renderSitePage(publicDir, location, pageKey);
+            if (html === null) {
+                res.status(404).type('text/plain').send('Page not found');
+                return;
+            }
+            res.type('html').send(html);
+        } catch (err) {
+            console.error('[MCP Server] site render error:', err);
+            res.status(500).send('Internal server error');
+        }
+    };
+}
+
+for (const [route, pageKey] of Object.entries(SITE_PAGE_MAP)) {
     const url = route ? `/r/:loc/${route}` : '/r/:loc';
-    app.get(url, servePage(file));
+    app.get(url, servePage(pageKey));
 }
 
 // Static assets — served under /r/:loc/ so JS fetch() calls use relative paths

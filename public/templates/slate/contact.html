@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Contact — {{brandName}}</title>
+    <link rel="stylesheet" href="templates/slate/site.css">
+    <link href="https://fonts.googleapis.com/css2?family=Archivo+SemiCondensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+</head>
+<body class="slate-site">
+    <div class="slate-banner">Kitchen open until 10:00 PM · Walk-ins welcome</div>
+
+    <header class="slate-header">
+        <div>
+            <div class="slate-brand-name" id="brand-name">{{brandName}}</div>
+            <div class="slate-brand-tag">Modern cuisine</div>
+        </div>
+        <nav class="slate-nav" aria-label="Primary navigation">
+            <ul>
+                <li><a href="./">Home</a></li>
+                <li><a href="./menu">Menu</a></li>
+                <li><a href="./about">About</a></li>
+                <li><a href="./hours">Hours &amp; Location</a></li>
+                <li><a href="./contact" aria-current="page">Contact</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <section class="slate-section">
+        <h2>Contact</h2>
+        <p class="slate-contact-line">
+            <a href="mailto:{{contactEmail}}">{{contactEmail}}</a>
+        </p>
+        <p class="slate-contact-line">
+            Follow us: <a href="https://instagram.com/{{instagramHandle}}" rel="noopener">{{instagramHandle}}</a>
+        </p>
+        <p class="slate-contact-line">
+            <a data-front-desk-phone="display" href="#">Phone coming soon</a>
+        </p>
+
+        <div class="slate-address" id="hours-address-lines">
+            <div class="line"><strong id="address-brand">{{brandName}}</strong></div>
+            <div class="line">Address coming soon</div>
+        </div>
+
+        <p class="slate-contact-line">{{reservationsNote}}</p>
+        <p class="slate-contact-line">
+            <a class="slate-cta ghost" href="./hours">See Hours &amp; Directions</a>
+        </p>
+    </section>
+
+    <footer class="slate-footer">
+        <div class="fnav">
+            <a href="./">Home</a>
+            <a href="./menu">Menu</a>
+            <a href="./about">About</a>
+            <a href="./hours">Hours &amp; Location</a>
+            <a href="./contact">Contact</a>
+        </div>
+        <div>© 2026 {{brandName}}</div>
+    </footer>
+
+    <script src="site-config.js"></script>
+</body>
+</html>

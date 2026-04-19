@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>SKB — Sign up (Issue #51 mock)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Archivo+SemiCondensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+:root {
+    --panel:#fffdf8;
+    --ink:#1d1b19;
+    --muted:#6a6258;
+    --accent:#1f6a5d;
+    --accent-warm:#cb6a34;
+    --line:#e5ddd0;
+    --danger:#b42318;
+}
+* { box-sizing:border-box; }
+body {
+    margin:0;
+    font:15px/1.5 'IBM Plex Sans', sans-serif;
+    color:var(--ink);
+    min-height:100vh;
+    background:
+        radial-gradient(circle at top left, rgba(203,106,52,.16), transparent 28%),
+        radial-gradient(circle at top right, rgba(31,106,93,.18), transparent 26%),
+        linear-gradient(135deg, #f7f1e8 0%, #edf4f2 100%);
+}
+.topbar { display:flex; justify-content:space-between; align-items:center; padding:20px 28px; }
+.brand { font:700 24px/1 'Archivo SemiCondensed', sans-serif; letter-spacing:.02em; color:var(--ink); }
+.brand .dot { color:var(--accent-warm); }
+.topbar-right a { color:var(--muted); text-decoration:none; font-size:14px; }
+.topbar-right a:hover { color:var(--ink); }
+.page { max-width:1080px; margin:0 auto; padding:32px 28px 80px; display:grid; grid-template-columns:1.1fr 1fr; gap:40px; align-items:start; }
+.pitch { padding-top:24px; }
+.pitch h1 { font:700 46px/1.1 'Archivo SemiCondensed', sans-serif; margin:0 0 18px; letter-spacing:-.01em; }
+.pitch p { color:var(--muted); font-size:17px; margin:0 0 18px; max-width:460px; }
+.pitch ul { list-style:none; padding:0; margin:24px 0 0; }
+.pitch li { display:flex; align-items:center; gap:12px; padding:10px 0; color:var(--ink); font-size:15px; }
+.pitch li::before { content:'✓'; color:var(--accent); font-weight:700; font-size:16px; width:22px; }
+.card {
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:28px;
+    padding:32px;
+    box-shadow:0 18px 48px rgba(37,26,15,.08);
+}
+.card h2 { margin:0 0 4px; font:700 22px/1.2 'Archivo SemiCondensed', sans-serif; }
+.card .sub { color:var(--muted); font-size:14px; margin:0 0 22px; }
+.field { margin-bottom:16px; }
+.field label { display:block; font-weight:500; font-size:13px; margin-bottom:6px; color:var(--ink); }
+.field input {
+    width:100%;
+    padding:12px 14px;
+    border-radius:12px;
+    border:1px solid var(--line);
+    font:15px 'IBM Plex Sans', sans-serif;
+    color:var(--ink);
+    background:#fff;
+}
+.field input:focus { outline:2px solid var(--accent); outline-offset:-1px; border-color:var(--accent); }
+.field-row { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+.slug-preview {
+    margin:4px 0 16px;
+    padding:12px 14px;
+    border-radius:10px;
+    background:#f3efea;
+    font-size:13px;
+    color:var(--muted);
+    display:flex; justify-content:space-between; align-items:center;
+}
+.slug-preview strong { color:var(--ink); font-weight:600; font-family:'IBM Plex Sans',monospace; }
+.slug-preview button { background:none; border:none; color:var(--accent); font-weight:600; font-size:13px; cursor:pointer; }
+.tos { display:flex; align-items:flex-start; gap:10px; margin:18px 0 20px; color:var(--muted); font-size:13px; }
+.tos input { margin-top:3px; }
+.tos a { color:var(--accent); }
+.primary {
+    width:100%;
+    padding:14px;
+    border-radius:14px;
+    background:var(--accent);
+    color:#fff;
+    border:none;
+    font:600 16px 'IBM Plex Sans', sans-serif;
+    cursor:pointer;
+}
+.primary:hover { background:#185246; }
+.fallback { text-align:center; font-size:13px; color:var(--muted); margin-top:18px; }
+.fallback a { color:var(--accent-warm); font-weight:500; text-decoration:none; }
+.foot-login { text-align:center; margin-top:18px; font-size:14px; color:var(--muted); }
+.foot-login a { color:var(--accent); font-weight:500; text-decoration:none; }
+@media (max-width:800px) {
+    .page { grid-template-columns:1fr; gap:24px; }
+    .pitch h1 { font-size:36px; }
+}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+    <div class="brand">SKB</div>
+    <div class="topbar-right"><a href="./51-staff-login.html">Already on the platform? Log in</a></div>
+</header>
+
+<main class="page">
+    <section class="pitch">
+        <h1>Put your waitlist on every phone at your door.</h1>
+        <p>No app. No sales call. No POS to replace. Your guests join the line from a QR sticker, you run the floor from a tablet, and everything — hours, menu, website — is yours to edit.</p>
+        <ul>
+            <li>Live in ten minutes. Free while we're in beta.</li>
+            <li>Your own website, your own hours, your own menu.</li>
+            <li>Named logins for your staff, with roles.</li>
+            <li>Works on the phone already in your pocket.</li>
+        </ul>
+    </section>
+
+    <section class="card">
+        <h2>Start your restaurant</h2>
+        <p class="sub">Takes about a minute. You can edit everything later.</p>
+
+        <form>
+            <div class="field">
+                <label for="restaurant-name">Restaurant name</label>
+                <input id="restaurant-name" type="text" value="Ramen Yokocho" />
+            </div>
+            <div class="field">
+                <label for="city">City</label>
+                <input id="city" type="text" value="Seattle" />
+            </div>
+
+            <div class="slug-preview">
+                <span>You'll be at <strong>app.example.com/r/ramen-yokocho</strong></span>
+                <button type="button">Change</button>
+            </div>
+
+            <div class="field-row">
+                <div class="field">
+                    <label for="owner-name">Your name</label>
+                    <input id="owner-name" type="text" value="Priya Menon" />
+                </div>
+                <div class="field">
+                    <label for="email">Email</label>
+                    <input id="email" type="email" value="priya@ramenyokocho.com" />
+                </div>
+            </div>
+
+            <div class="field">
+                <label for="password">Password</label>
+                <input id="password" type="password" value="••••••••••••" />
+            </div>
+
+            <label class="tos">
+                <input type="checkbox" checked />
+                <span>I agree to the <a href="#">Terms of Service</a> and <a href="#">Privacy Policy</a>.</span>
+            </label>
+
+            <button type="submit" class="primary">Create my restaurant</button>
+
+            <p class="fallback">Prefer to talk to someone? <a href="mailto:hello@example.com">Email hello@example.com</a>.</p>
+        </form>
+
+        <p class="foot-login">Already on the platform? <a href="./51-staff-login.html">Log in</a></p>
+    </section>
+</main>
+
+</body>
+</html>

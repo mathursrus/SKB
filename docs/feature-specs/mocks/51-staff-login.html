@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>SKB — Staff login (Issue #51 mock)</title>
+<link href="https://fonts.googleapis.com/css2?family=Archivo+SemiCondensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+:root {
+    --panel:#fffdf8;
+    --ink:#1d1b19;
+    --muted:#6a6258;
+    --accent:#1f6a5d;
+    --accent-warm:#cb6a34;
+    --line:#e5ddd0;
+    --danger:#b42318;
+}
+* { box-sizing:border-box; }
+body {
+    margin:0; min-height:100vh;
+    font:15px/1.5 'IBM Plex Sans', sans-serif;
+    color:var(--ink);
+    display:grid; grid-template-columns:1fr 1fr;
+    background:
+        radial-gradient(circle at top left, rgba(203,106,52,.14), transparent 28%),
+        radial-gradient(circle at top right, rgba(31,106,93,.18), transparent 26%),
+        linear-gradient(135deg, #f7f1e8 0%, #edf4f2 100%);
+}
+.pane-auth { display:flex; align-items:center; justify-content:center; padding:40px 28px; }
+.form-card {
+    background:var(--panel); border:1px solid var(--line); border-radius:28px; padding:36px;
+    box-shadow:0 18px 48px rgba(37,26,15,.08); width:100%; max-width:420px;
+}
+.brand { font:700 24px/1 'Archivo SemiCondensed', sans-serif; margin-bottom:28px; }
+.brand .dot { color:var(--accent-warm); }
+.form-card h2 { margin:0 0 4px; font:700 26px 'Archivo SemiCondensed', sans-serif; }
+.form-card .sub { color:var(--muted); font-size:14px; margin:0 0 22px; }
+.field { margin-bottom:14px; }
+.field label { display:block; font-weight:500; font-size:13px; margin-bottom:6px; }
+.field input { width:100%; padding:12px 14px; border-radius:12px; border:1px solid var(--line); font:15px 'IBM Plex Sans'; background:#fff; }
+.field input:focus { outline:2px solid var(--accent); outline-offset:-1px; border-color:var(--accent); }
+.field-forgot { text-align:right; font-size:13px; margin-top:-8px; margin-bottom:16px; }
+.field-forgot a { color:var(--accent); text-decoration:none; }
+.primary {
+    width:100%; padding:14px; border-radius:14px; background:var(--accent); color:#fff; border:none;
+    font:600 16px 'IBM Plex Sans'; cursor:pointer;
+}
+.primary:hover { background:#185246; }
+.divider { display:flex; align-items:center; gap:10px; margin:20px 0; color:var(--muted); font-size:12px; }
+.divider::before, .divider::after { content:''; height:1px; flex:1; background:var(--line); }
+.footer { text-align:center; font-size:14px; color:var(--muted); margin-top:18px; }
+.footer a { color:var(--accent); text-decoration:none; font-weight:500; }
+
+.tablet-hint {
+    margin-top:20px; padding:16px; border-radius:14px; background:#f6ebd8; border:1px solid #e8d9b6;
+    font-size:13px; color:#6a4d0a;
+}
+.tablet-hint strong { display:block; margin-bottom:4px; color:#4a3300; }
+.tablet-hint a { color:var(--accent-warm); text-decoration:none; font-weight:600; }
+
+/* Right pane: illustration of the "which restaurant" picker (if multiple memberships) */
+.pane-illus {
+    display:flex; flex-direction:column; justify-content:center; align-items:center;
+    padding:40px 28px; background:rgba(31,106,93,.06); border-left:1px solid var(--line);
+}
+.pane-illus h3 { font:600 13px 'IBM Plex Sans'; text-transform:uppercase; letter-spacing:.08em; color:var(--muted); margin:0 0 18px; }
+.picker-card {
+    background:var(--panel); border:1px solid var(--line); border-radius:22px; padding:20px;
+    width:100%; max-width:360px; box-shadow:0 18px 48px rgba(37,26,15,.08);
+}
+.picker-card h4 { margin:0 0 4px; font:700 18px 'Archivo SemiCondensed', sans-serif; }
+.picker-card p { margin:0 0 16px; color:var(--muted); font-size:13px; }
+.picker-row {
+    display:flex; justify-content:space-between; align-items:center;
+    padding:12px 14px; border-radius:12px; border:1px solid var(--line); margin-bottom:8px; cursor:pointer;
+}
+.picker-row:hover { border-color:var(--accent); background:rgba(31,106,93,.04); }
+.picker-row .left { display:flex; gap:10px; align-items:center; }
+.picker-row .avatar { width:36px; height:36px; border-radius:10px; background:var(--accent-warm); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:600; font-size:14px; }
+.picker-row .info { font-size:14px; }
+.picker-row .info .role { color:var(--muted); font-size:12px; }
+.picker-row .arrow { color:var(--muted); }
+
+.illus-note { margin-top:22px; color:var(--muted); font-size:12px; max-width:360px; text-align:center; }
+
+@media (max-width:780px) {
+    body { grid-template-columns:1fr; }
+    .pane-illus { display:none; }
+}
+</style>
+</head>
+<body>
+
+<div class="pane-auth">
+    <div class="form-card">
+        <div class="brand">SKB</div>
+        <h2>Welcome back</h2>
+        <p class="sub">Sign in to your restaurant's admin or host workspace.</p>
+
+        <form>
+            <div class="field">
+                <label>Email</label>
+                <input type="email" value="jamie@ramenyokocho.com" />
+            </div>
+            <div class="field">
+                <label>Password</label>
+                <input type="password" value="••••••••••••" />
+            </div>
+            <div class="field-forgot"><a href="#">Forgot your password?</a></div>
+            <button class="primary" type="submit">Sign in</button>
+        </form>
+
+        <div class="divider">on a shared tablet?</div>
+
+        <div class="tablet-hint">
+            <strong>Host-stand shortcut</strong>
+            Point the tablet at your restaurant's host URL and sign in with the 4-digit PIN the owner set up.
+            <br/><a href="#">Find your URL →</a>
+        </div>
+
+        <p class="footer">New restaurant? <a href="./51-owner-signup.html">Start one here.</a></p>
+    </div>
+</div>
+
+<div class="pane-illus">
+    <h3>What staff see after login</h3>
+    <div class="picker-card">
+        <h4>Which restaurant?</h4>
+        <p>You're on staff at more than one restaurant. Pick one — you can switch later from the top bar.</p>
+
+        <div class="picker-row">
+            <div class="left">
+                <div class="avatar">RY</div>
+                <div class="info">
+                    <div><strong>Ramen Yokocho</strong></div>
+                    <div class="role">Admin · Seattle</div>
+                </div>
+            </div>
+            <span class="arrow">→</span>
+        </div>
+
+        <div class="picker-row">
+            <div class="left">
+                <div class="avatar" style="background:var(--accent);">CB</div>
+                <div class="info">
+                    <div><strong>Capitol Bakehouse</strong></div>
+                    <div class="role">Host · Seattle</div>
+                </div>
+            </div>
+            <span class="arrow">→</span>
+        </div>
+    </div>
+
+    <p class="illus-note">Rare in v1 — most users will have exactly one membership and skip this screen.</p>
+</div>
+
+</body>
+</html>

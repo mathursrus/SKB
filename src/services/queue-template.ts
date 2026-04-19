@@ -82,8 +82,49 @@ function escapeAttr(s: string): string {
         .replace(/>/g, '&gt;');
 }
 
+/** Substitute the diner-brand placeholders using the location's name / city.
+ * Falls back to safe generic copy when a location is missing (e.g., DB down).
+ *
+ * The queue page is the diner entry point for every tenant — leaking another
+ * restaurant's name here would show up as a P0 multi-tenant bug, so we
+ * aggressively HTML-escape and default everything.
+ */
+function substituteBranding(html: string, location: Location | null): string {
+    const name = (location?.name ?? '').trim();
+    const brandName = name || 'Waitlist';
+    const brandMark = (() => {
+        // A short 2-3 letter mark for the top-left chip. Prefer initials
+        // from the restaurant name words; fall back to the first 3 letters
+        // of the slug; finally a generic glyph.
+        const words = brandName.split(/\s+/).filter(Boolean);
+        if (words.length >= 2) {
+            return (words[0][0] + words[1][0] + (words[2]?.[0] ?? '')).toUpperCase().slice(0, 3);
+        }
+        if (words.length === 1 && words[0].length >= 2) {
+            return words[0].slice(0, 3).toUpperCase();
+        }
+        return (location?._id ?? '').slice(0, 3).toUpperCase() || '•';
+    })();
+    const city = (location?.address?.city ?? '').trim();
+    const cityLine = city ? `${city} · ` : '';
+    return html
+        .replace(/\{\{brandName\}\}/g, escapeHtml(brandName))
+        .replace(/\{\{brandMark\}\}/g, escapeHtml(brandMark))
+        .replace(/\{\{cityLine\}\}/g, escapeHtml(cityLine));
+}
+
+function escapeHtml(s: string): string {
+    return s
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
 /**
- * Render queue.html with injected JSON-LD and meta tags.
+ * Render queue.html with injected JSON-LD and meta tags plus per-tenant
+ * branding (name, city, monogram) substituted into the page body.
  *
  * Fetches both queue state and location data in parallel. If either fails,
  * serves the page with fallback meta tags and no JSON-LD. Never throws.
@@ -91,19 +132,21 @@ function escapeAttr(s: string): string {
 export async function renderQueuePage(locationId: string, now?: Date): Promise<string> {
     const template = loadTemplate();
     let injection: string;
+    let location: Location | null = null;
 
     try {
-        const [state, location] = await Promise.all([
+        const [state, loc] = await Promise.all([
             getQueueState(locationId, now),
             getLocation(locationId),
         ]);
+        location = loc;
         injection = buildHeadInjection(state, location);
     } catch {
         injection = buildFallbackHeadInjection();
     }
 
-    // Inject before </head>
-    return template.replace('</head>', `${injection}\n</head>`);
+    const withHead = template.replace('</head>', `${injection}\n</head>`);
+    return substituteBranding(withHead, location);
 }
 
 /**

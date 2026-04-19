@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>SKB — Place in Line</title>
+<title>{{brandName}} — Place in Line</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Fira+Sans:wght@400;600;700&display=swap" rel="stylesheet" />
@@ -12,9 +12,9 @@
 </head>
 <body class="diner queue-boot">
 <header>
-    <div class="mark">SKB</div>
-    <h1>Shri Krishna Bhavan</h1>
-    <div class="sub">Bellevue · Place in Line</div>
+    <div class="mark">{{brandMark}}</div>
+    <h1>{{brandName}}</h1>
+    <div class="sub">{{cityLine}}Place in Line</div>
     <button type="button" id="theme-toggle" class="theme-toggle-btn" aria-label="Toggle theme">&#9728;</button>
 </header>
 <main>
@@ -47,7 +47,7 @@
                 <input type="checkbox" id="sms-consent" />
                 <span>
                     <strong>Text me updates</strong> — I agree to receive SMS
-                    waitlist messages from Shri Krishna Bhavan at the number
+                    waitlist messages from {{brandName}} at the number
                     above (typically 1–3 per visit). Msg &amp; data rates may
                     apply. Reply <strong>STOP</strong> to opt out or
                     <strong>HELP</strong> for help. See our
@@ -108,7 +108,7 @@
         <div class="public-list-footer">Updates automatically · First name and last initial only</div>
     </section>
 </main>
-<footer>No app needed · No account · Your data stays with SKB</footer>
+<footer>No app needed · No account · Your data stays with {{brandName}}</footer>
 <script src="queue.js"></script>
 </body>
 </html>

@@ -55,6 +55,59 @@ export interface Location {
     visitMode?: 'auto' | 'queue' | 'menu' | 'closed';
     menuUrl?: string;         // external URL to redirect to in 'menu' mode
     closedMessage?: string;   // shown to scanners in 'closed' mode
+    // Public website template + structured content (issue #56). Absent
+    // template ⇒ 'saffron' (preserves existing SKB look). Absent content
+    // fields fall back to template defaults.
+    websiteTemplate?: WebsiteTemplateKey;
+    content?: LocationContent;
+    menu?: LocationMenu;       // structured menu (sections + items, issue #51)
+
+    // Owner-onboarding wizard state (issue #54, spec §6.2). Each completed
+    // step ID is pushed in. Wizard is hidden client-side once all four are
+    // present. Possible values: 'basics', 'template', 'menu', 'staff'.
+    onboardingSteps?: string[];
+}
+
+// Website template key + structured editable content (issue #56). The owner
+// picks a template; the renderer resolves per-page HTML and substitutes
+// `content` fields. Absent fields fall back to template defaults.
+export type WebsiteTemplateKey = 'saffron' | 'slate';
+
+export interface LocationKnownForItem {
+    title: string;  // "Tonkotsu Shio"
+    desc: string;   // "36-hour pork broth."
+    image: string;  // "/r/<slug>/assets/<file>" or absolute URL
+}
+
+export interface LocationContent {
+    heroHeadline?: string;      // one line, shown in the hero
+    heroSubhead?: string;       // two lines, shown under the hero
+    knownFor?: LocationKnownForItem[]; // up to 3 cards
+    about?: string;             // free text, markdown-lite (paragraphs only in v1)
+    contactEmail?: string;      // optional override for the contact page
+    instagramHandle?: string;   // "@example" with or without the leading @
+    reservationsNote?: string;  // "Walk-ins welcome" etc.
+}
+
+// Structured menu (issue #51 follow-up). The restaurant can author an
+// ordered list of sections, each holding items with name / description /
+// price. The public /menu route reads this directly if present; the legacy
+// `menuUrl` still works as an external-link alternative for operators who
+// keep their menu elsewhere (PDF / Squarespace / etc).
+export interface MenuItem {
+    id: string;                 // short random id, client-minted
+    name: string;
+    description?: string;
+    price?: string;             // display string ("$12.50", "12", "market price")
+}
+export interface MenuSection {
+    id: string;                 // short random id, client-minted
+    title: string;              // "Appetizers", "Dosas", "Drinks", ...
+    items: MenuItem[];
+}
+export interface LocationMenu {
+    sections: MenuSection[];
+    updatedAt?: Date;
 }
 
 // A safe projection of Location suitable for exposure via the public config
@@ -66,6 +119,8 @@ export interface PublicLocation {
     hours?: WeeklyHours;
     frontDeskPhone?: string;
     publicUrl?: string;
+    websiteTemplate?: WebsiteTemplateKey;
+    content?: LocationContent;
 }
 
 export type VisitMode = 'auto' | 'queue' | 'menu' | 'closed';

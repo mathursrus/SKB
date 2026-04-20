@@ -4,14 +4,15 @@
 
 import { Router, type Request, type Response } from 'express';
 
-import { buildQueueStatusUrl } from '../core/utils/url.js';
 import { getBoardEntries, getQueueState, joinQueue, getStatusByCode, acknowledgeOnMyWay } from '../services/queue.js';
 import { rateLimit } from '../middleware/rateLimit.js';
 import { sendSms } from '../services/sms.js';
 import { joinConfirmationMessage } from '../services/smsTemplates.js';
+import { buildQueueStatusUrlForSms } from '../services/queueStatusUrl.js';
 import { appendInboundFromCode, getChatThreadByCode } from '../services/chat.js';
 import { getGuestCartByCode, placeGuestOrder, upsertGuestCart } from '../services/orders.js';
 import type { ErrorDTO, GuestCartLineInputDTO } from '../types/queue.js';
+import { getLocation } from '../services/locations.js';
 
 const JOIN_WINDOW_MS = 10 * 60 * 1000; // 10 min
 const JOIN_MAX = 5;
@@ -96,9 +97,15 @@ export function queueRouter(): Router {
                 // explicitly opted in (TFV 30513). Diners who don't opt in
                 // watch the status card on /queue.html?code=... instead.
                 if (smsConsent) {
-                    const proto = req.headers['x-forwarded-proto'] ?? req.protocol ?? 'https';
-                    const host = req.headers['x-forwarded-host'] ?? req.headers.host ?? '';
-                    const statusUrl = buildQueueStatusUrl(`${proto}://${host}`, loc(req), result.code);
+                    const location = await getLocation(loc(req));
+                    const statusUrl = buildQueueStatusUrlForSms({
+                        locationId: loc(req),
+                        code: result.code,
+                        requestProto: String(req.headers['x-forwarded-proto'] ?? req.protocol ?? 'https'),
+                        requestHost: String(req.headers['x-forwarded-host'] ?? req.headers.host ?? ''),
+                        locationPublicUrl: location?.publicUrl ?? '',
+                        appPublicBaseUrl: process.env.SKB_PUBLIC_BASE_URL ?? '',
+                    });
                     sendSms(phone, joinConfirmationMessage(result.code, statusUrl))
                         .catch(e => console.log(JSON.stringify({ t: new Date().toISOString(), level: 'error', msg: 'sms.join_confirm_failed', error: e instanceof Error ? e.message : String(e) })));
                 }

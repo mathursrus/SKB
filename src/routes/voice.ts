@@ -7,11 +7,11 @@
 // ============================================================================
 
 import { Router, type Request, type Response } from 'express';
-import { buildQueueStatusUrl } from '../core/utils/url.js';
 import { getQueueState, joinQueue } from '../services/queue.js';
 import { getLocation } from '../services/locations.js';
 import { sendSms } from '../services/sms.js';
 import { joinConfirmationMessage } from '../services/smsTemplates.js';
+import { buildQueueStatusUrlForSms } from '../services/queueStatusUrl.js';
 import {
     escXml,
     formatEtaForSpeech,
@@ -42,13 +42,6 @@ function action(req: Request, path: string, params: Record<string, string> = {})
         .map(([k, v]) => `${k}=${encodeURIComponent(v)}`)
         .join('&amp;');
     return `/r/${loc(req)}/api/voice/${path}${qs ? '?' + qs : ''}`;
-}
-
-/** Build the base URL for SMS status links */
-function baseUrl(req: Request): string {
-    const proto = req.headers['x-forwarded-proto'] ?? req.protocol ?? 'https';
-    const host = req.headers['x-forwarded-host'] ?? req.headers.host ?? '';
-    return `${proto}://${host}`;
 }
 
 export function voiceRouter(): Router {
@@ -442,7 +435,15 @@ export function voiceRouter(): Router {
             console.log(JSON.stringify({ t: new Date().toISOString(), level: 'info', msg: 'voice.join.complete', loc: loc(req), code: result.code, position: result.position, partySize: size }));
 
             // Fire-and-forget SMS confirmation
-            const statusUrl = buildQueueStatusUrl(baseUrl(req), loc(req), result.code);
+            const location = await getLocation(loc(req));
+            const statusUrl = buildQueueStatusUrlForSms({
+                locationId: loc(req),
+                code: result.code,
+                requestProto: String(req.headers['x-forwarded-proto'] ?? req.protocol ?? 'https'),
+                requestHost: String(req.headers['x-forwarded-host'] ?? req.headers.host ?? ''),
+                locationPublicUrl: location?.publicUrl ?? '',
+                appPublicBaseUrl: process.env.SKB_PUBLIC_BASE_URL ?? '',
+            });
             sendSms(phone, joinConfirmationMessage(result.code, statusUrl))
                 .catch(e => console.log(JSON.stringify({ t: new Date().toISOString(), level: 'error', msg: 'voice.sms_confirm_failed', error: e instanceof Error ? e.message : String(e) })));
 

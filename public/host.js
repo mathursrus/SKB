@@ -234,9 +234,13 @@
         const el = $('timeline-' + id);
         if (!el) return;
         try {
-            const r = await fetch('api/host/queue/' + encodeURIComponent(id) + '/timeline');
-            if (!r.ok) { el.textContent = 'Could not load timeline.'; return; }
-            const tl = r.json ? await r.json() : {};
+            const [timelineRes, orderRes] = await Promise.all([
+                fetch('api/host/queue/' + encodeURIComponent(id) + '/timeline'),
+                fetch('api/host/queue/' + encodeURIComponent(id) + '/order'),
+            ]);
+            if (!timelineRes.ok) { el.textContent = 'Could not load timeline.'; return; }
+            const tl = timelineRes.json ? await timelineRes.json() : {};
+            const order = orderRes.ok && orderRes.json ? await orderRes.json() : null;
             const ts = tl.timestamps || {};
             const steps = [
                 { label: 'Joined', time: ts.joinedAt },
@@ -247,17 +251,33 @@
                 { label: 'Checkout', time: ts.checkoutAt },
                 { label: 'Departed', time: ts.departedAt },
             ].filter(s => s.time != null);
-            if (steps.length === 0) {
-                el.textContent = 'No timeline data.';
-                return;
-            }
-            el.innerHTML = steps.map(s =>
-                '<div class="timeline-step">' +
-                    '<span class="timeline-dot"></span>' +
-                    '<span class="timeline-label">' + s.label + '</span>' +
-                    '<span class="timeline-time">' + fmtTime(s.time) + '</span>' +
-                '</div>'
-            ).join('');
+            const timelineHtml = steps.length === 0
+                ? '<div>No timeline data.</div>'
+                : steps.map(s =>
+                    '<div class="timeline-step">' +
+                        '<span class="timeline-dot"></span>' +
+                        '<span class="timeline-label">' + s.label + '</span>' +
+                        '<span class="timeline-time">' + fmtTime(s.time) + '</span>' +
+                    '</div>'
+                ).join('');
+            const orderLines = Array.isArray(order?.lines) ? order.lines : [];
+            const orderHtml = order && order.state !== 'none'
+                ? '<div class="host-order-detail"><div class="host-order-head"><strong>Guest order</strong><span>' + (order.state === 'placed' ? 'Placed' : 'Draft') + '</span></div>'
+                    + '<div class="host-order-sub">' + (order.placedAt ? ('Placed at ' + fmtTime(order.placedAt)) : 'Not placed yet') + '</div>'
+                    + (orderLines.length > 0
+                        ? '<div class="host-order-lines">' + orderLines.map(line =>
+                            '<div class="host-order-line">'
+                                + '<div><strong>' + line.quantity + '× ' + escapeHtml(line.name) + '</strong>'
+                                + ((line.selectedOptions || []).length ? '<div class="host-order-line-meta">Optional: ' + line.selectedOptions.map(escapeHtml).join(', ') + '</div>' : '')
+                                + (line.notes ? '<div class="host-order-line-meta">Notes: ' + escapeHtml(line.notes) + '</div>' : '')
+                                + '</div>'
+                                + (line.price ? '<span>' + escapeHtml(line.price) + '</span>' : '')
+                            + '</div>'
+                        ).join('') + '</div>'
+                        : '<div class="host-order-sub">No items in the cart.</div>')
+                    + '</div>'
+                : '<div class="host-order-detail"><div class="host-order-head"><strong>Guest order</strong><span>None</span></div><div class="host-order-sub">No guest-submitted order yet.</div></div>';
+            el.innerHTML = '<div class="timeline-detail-grid"><div>' + timelineHtml + '</div>' + orderHtml + '</div>';
         } catch (e) {
             if (el) el.textContent = 'Error loading timeline.';
         }

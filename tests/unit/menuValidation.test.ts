@@ -21,7 +21,7 @@ const GOOD: LocationMenu = {
             id: 's1',
             title: 'Appetizers',
             items: [
-                { id: 'i1', name: 'Samosa' },
+                { id: 'i1', name: 'Samosa', requiredIngredients: ['Potato', 'Peas'], optionalIngredients: ['Mint chutney'], image: '/assets/skb/menu/samosa.jpg' },
                 { id: 'i2', name: 'Pakora', description: 'Spiced, fried.', price: '$8' },
             ],
         },
@@ -114,6 +114,22 @@ const cases: BaseTestCase[] = [
             'item.price must be <= 40 chars',
         ),
     },
+    {
+        name: 'rejects item.image >500 chars',
+        tags: ['unit', 'menu', 'validation', 'limits'],
+        testFn: async () => throws(
+            () => validateMenu({ sections: [{ id: 's1', title: 'X', items: [{ id: 'i1', name: 'A', image: 'x'.repeat(501) }] }] }),
+            'item.image must be <= 500 chars',
+        ),
+    },
+    {
+        name: 'rejects >16 required ingredients',
+        tags: ['unit', 'menu', 'validation', 'limits'],
+        testFn: async () => throws(
+            () => validateMenu({ sections: [{ id: 's1', title: 'X', items: [{ id: 'i1', name: 'A', requiredIngredients: Array.from({ length: 17 }, (_, i) => 'x' + i) }] }] }),
+            'item.requiredIngredients must be <= 16 items',
+        ),
+    },
 
     // ── Required fields ────────────────────────────────────────────────
     {
@@ -197,6 +213,14 @@ const cases: BaseTestCase[] = [
         testFn: async () => throws(
             () => validateMenu({ sections: [{ id: 's1', title: 'X', items: [{ id: 'i1', name: 'A', description: 42 as unknown as string }] }] }),
             'item.description must be a string',
+        ),
+    },
+    {
+        name: 'rejects invalid item availability',
+        tags: ['unit', 'menu', 'validation'],
+        testFn: async () => throws(
+            () => validateMenu({ sections: [{ id: 's1', title: 'X', items: [{ id: 'i1', name: 'A', availability: 'hidden' as unknown as 'available' }] }] }),
+            'item.availability must be one of',
         ),
     },
 ];

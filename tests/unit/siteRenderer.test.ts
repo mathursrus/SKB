@@ -257,6 +257,33 @@ const cases: BaseTestCase[] = [
             return renderTemplate(tpl, loc) === 'Hello|A,B,C,';
         },
     },
+    {
+        name: 'menu renderer expands image and ingredient blocks for each item',
+        tags: ['unit', 'site-renderer', 'menu'],
+        testFn: async () => {
+            const tpl = '{{#each menu.sections}}<section>{{#items}}<article>{{#if image}}<img src="{{image}}" />{{/if}}<h4>{{name}}</h4>{{#if hasRequiredIngredients}}{{#requiredIngredients}}<span>{{.}}</span>{{/requiredIngredients}}{{/if}}{{#if hasOptionalIngredients}}{{#optionalIngredients}}<em>{{.}}</em>{{/optionalIngredients}}{{/if}}</article>{{/items}}</section>{{/each}}';
+            const loc: Location = {
+                ...baseLocation,
+                menu: {
+                    sections: [{
+                        id: 's1',
+                        title: 'Apps',
+                        items: [{
+                            id: 'i1',
+                            name: 'Samosa',
+                            image: '/assets/skb/menu/samosa.jpg',
+                            requiredIngredients: ['Potato'],
+                            optionalIngredients: ['Mint chutney'],
+                        }],
+                    }],
+                },
+            };
+            const out = renderTemplate(tpl, loc);
+            return out.includes('img src="/assets/skb/menu/samosa.jpg"')
+                && out.includes('<span>Potato</span>')
+                && out.includes('<em>Mint chutney</em>');
+        },
+    },
 ];
 
 void runTests(cases, 'Site renderer');

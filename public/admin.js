@@ -507,21 +507,76 @@
         return Math.random().toString(36).slice(2, 10);
     }
 
+    const menuPendingUploads = new Map();
+
+    function splitIngredientInput(raw) {
+        return String(raw || '')
+            .split(/\r?\n|,/)
+            .map(part => part.trim())
+            .filter(Boolean);
+    }
+
+    function ingredientText(items) {
+        return Array.isArray(items) ? items.join('\n') : '';
+    }
+
+    function readImageUpload(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => {
+                const result = String(reader.result || '');
+                const match = /^data:([^;]+);base64,(.+)$/.exec(result);
+                if (!match) { reject(new Error('Could not read image')); return; }
+                const [, mime, data] = match;
+                resolve({ preview: result, upload: { mime: mime, data: data } });
+            };
+            reader.onerror = () => reject(new Error('Could not read image'));
+            reader.readAsDataURL(file);
+        });
+    }
+
+    function renderMenuImageFrame(item) {
+        const image = typeof item.image === 'string' ? item.image : '';
+        if (image) {
+            return '<img class="menu-item-image-preview has-image" alt="" src="' + esc(image) + '" />';
+        }
+        return '<div class="menu-item-image-preview menu-item-image-empty">No photo</div>';
+    }
+
     function renderMenuItemRow(item) {
         const iid = item.id || menuUid();
         const name = esc(item.name || '');
         const desc = esc(item.description || '');
         const price = esc(item.price || '');
-        return '<div class="menu-item" data-iid="' + esc(iid) + '">'
+        const requiredIngredients = esc(ingredientText(item.requiredIngredients));
+        const optionalIngredients = esc(ingredientText(item.optionalIngredients));
+        const availability = item.availability === 'sold_out' ? 'sold_out' : 'available';
+        const image = typeof item.image === 'string' ? item.image : '';
+        return '<div class="menu-item" data-iid="' + esc(iid) + '" data-image="' + esc(image) + '">'
+            + '<div class="menu-item-image-stack">'
+            + '<div class="menu-item-image-frame">' + renderMenuImageFrame(item) + '</div>'
+            + '<input type="file" class="menu-item-image-file" accept="image/*" hidden />'
+            + '<div class="menu-item-image-actions">'
+            + '<button type="button" class="secondary menu-item-image-pick">Pick photo</button>'
+            + '<button type="button" class="menu-item-image-clear admin-danger-inline">Clear photo</button>'
+            + '</div>'
+            + '<div class="menu-item-image-note">Shown to guests on the ordering screen.</div>'
+            + '</div>'
             + '<div class="menu-item-grid">'
             + '<label class="visit-field"><span class="visit-label">Item name</span>'
             + '<input type="text" class="menu-item-name" maxlength="120" value="' + name + '" placeholder="e.g. Masala Dosa" /></label>'
-            + '<label class="visit-field visit-field-small"><span class="visit-label">Price</span>'
+            + '<label class="visit-field visit-field-small menu-item-price-field"><span class="visit-label">Price</span>'
             + '<input type="text" class="menu-item-price" maxlength="40" value="' + price + '" placeholder="$12" /></label>'
+            + '<label class="visit-field visit-field-small menu-item-availability-field"><span class="visit-label">Availability</span>'
+            + '<select class="menu-item-availability"><option value="available"' + (availability === 'available' ? ' selected' : '') + '>Available</option><option value="sold_out"' + (availability === 'sold_out' ? ' selected' : '') + '>Sold out</option></select></label>'
             + '<label class="visit-field visit-field-full"><span class="visit-label">Description <span class="visit-sub-help">optional</span></span>'
             + '<textarea class="menu-item-desc" maxlength="500" rows="2" placeholder="Crispy rice-and-lentil crepe with spiced potato filling.">' + desc + '</textarea></label>'
+            + '<label class="visit-field"><span class="visit-label">Included ingredients</span>'
+            + '<textarea class="menu-item-required" maxlength="800" rows="3" placeholder="One per line">' + requiredIngredients + '</textarea></label>'
+            + '<label class="visit-field"><span class="visit-label">Optional add-ons</span>'
+            + '<textarea class="menu-item-optional" maxlength="800" rows="3" placeholder="One per line">' + optionalIngredients + '</textarea></label>'
+            + '<div class="menu-item-row-actions visit-field-full"><button type="button" class="menu-item-delete admin-danger-inline" aria-label="Delete item">Remove item</button></div>'
             + '</div>'
-            + '<button type="button" class="menu-item-delete admin-danger-inline" aria-label="Delete item">Remove</button>'
             + '</div>';
     }
 
@@ -561,9 +616,19 @@
                 const name = (it.querySelector('.menu-item-name')?.value || '').trim();
                 const description = (it.querySelector('.menu-item-desc')?.value || '').trim();
                 const price = (it.querySelector('.menu-item-price')?.value || '').trim();
+                const availability = (it.querySelector('.menu-item-availability')?.value || 'available').trim();
+                const requiredIngredients = splitIngredientInput(it.querySelector('.menu-item-required')?.value || '');
+                const optionalIngredients = splitIngredientInput(it.querySelector('.menu-item-optional')?.value || '');
                 const out = { id: iid, name };
                 if (description) out.description = description;
                 if (price) out.price = price;
+                if (availability === 'sold_out') out.availability = 'sold_out';
+                if (requiredIngredients.length > 0) out.requiredIngredients = requiredIngredients;
+                if (optionalIngredients.length > 0) out.optionalIngredients = optionalIngredients;
+                const pendingUpload = menuPendingUploads.get(iid);
+                const image = it.getAttribute('data-image') || '';
+                if (pendingUpload) out.image = pendingUpload;
+                else if (image) out.image = image;
                 return out;
             }).filter(it => it.name.length > 0);
             return { id: sid, title, items };
@@ -602,7 +667,23 @@
                 const items = sec.querySelector('.menu-items-list');
                 if (items) items.insertAdjacentHTML('beforeend', renderMenuItemRow({ id: menuUid() }));
             } else if (t.classList.contains('menu-item-delete')) {
+                const item = t.closest('.menu-item');
+                const iid = item?.getAttribute('data-iid');
+                if (iid) menuPendingUploads.delete(iid);
                 t.closest('.menu-item')?.remove();
+            } else if (t.classList.contains('menu-item-image-pick')) {
+                const item = t.closest('.menu-item');
+                item?.querySelector('.menu-item-image-file')?.click();
+            } else if (t.classList.contains('menu-item-image-clear')) {
+                const item = t.closest('.menu-item');
+                if (!item) return;
+                const iid = item.getAttribute('data-iid');
+                if (iid) menuPendingUploads.delete(iid);
+                item.setAttribute('data-image', '');
+                const preview = item.querySelector('.menu-item-image-frame');
+                if (preview) preview.innerHTML = renderMenuImageFrame({});
+                const file = item.querySelector('.menu-item-image-file');
+                if (file) file.value = '';
             } else if (t.classList.contains('menu-section-delete')) {
                 // Prevent the summary from also toggling open/closed.
                 e.preventDefault();
@@ -612,6 +693,24 @@
                     const empty = document.getElementById('admin-menu-empty');
                     if (empty && !document.querySelector('.menu-section')) empty.style.display = 'block';
                 }
+            }
+        });
+
+        container.addEventListener('change', async (e) => {
+            const t = e.target;
+            if (!(t instanceof HTMLInputElement) || !t.classList.contains('menu-item-image-file')) return;
+            const item = t.closest('.menu-item');
+            const iid = item?.getAttribute('data-iid');
+            const file = t.files?.[0];
+            if (!item || !iid || !file) return;
+            try {
+                const result = await readImageUpload(file);
+                menuPendingUploads.set(iid, result.upload);
+                item.setAttribute('data-image', '');
+                const preview = item.querySelector('.menu-item-image-frame');
+                if (preview) preview.innerHTML = '<img class="menu-item-image-preview has-image" alt="" src="' + esc(result.preview) + '" />';
+            } catch (err) {
+                setStatus(statusEl, err && err.message ? err.message : 'Could not read photo', 'error');
             }
         });
 
@@ -637,6 +736,8 @@
                 });
                 const data = await r.json().catch(() => ({}));
                 if (!r.ok) { setStatus(statusEl, data.error || 'Save failed', 'error'); return; }
+                menuPendingUploads.clear();
+                await loadMenuBuilder();
                 flashSaved(statusEl);
             } catch {
                 setStatus(statusEl, 'Network error', 'error');

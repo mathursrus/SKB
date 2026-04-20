@@ -1,0 +1,247 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Issue #11 - Admin Rich Menu Builder Mock</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Fira+Sans:wght@400;600;700&display=swap" rel="stylesheet" />
+<style>
+:root {
+    --bg:#f6f2eb;
+    --panel:#fffdf8;
+    --ink:#211d18;
+    --muted:#6f6559;
+    --line:#ddd3c4;
+    --accent:#1f6a5d;
+    --accent-soft:#e2f0eb;
+    --warn:#cb6a34;
+}
+* { box-sizing:border-box; }
+body { margin:0; font:15px/1.45 'Fira Sans', sans-serif; color:var(--ink); background:var(--bg); }
+.shell { max-width:1380px; margin:0 auto; padding:20px; }
+.topbar {
+    display:flex; align-items:center; justify-content:space-between; gap:16px;
+    background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:14px 18px;
+}
+.brand { font-weight:700; font-size:20px; }
+.brand small { color:var(--muted); font-weight:600; font-size:14px; }
+.actions { display:flex; gap:10px; align-items:center; }
+button {
+    font:600 14px 'Fira Sans', sans-serif; min-height:42px; padding:0 14px; border-radius:8px; cursor:pointer;
+}
+.ghost { background:#fff; color:var(--muted); border:1px solid var(--line); }
+.primary { background:var(--accent); color:#fff; border:1px solid var(--accent); }
+.saved { color:var(--accent); font-size:13px; font-weight:600; }
+.layout { display:grid; grid-template-columns:260px 1fr; gap:16px; margin-top:16px; }
+.nav, .panel { background:var(--panel); border:1px solid var(--line); border-radius:8px; }
+.nav { padding:14px; }
+.nav h3 { margin:4px 0 10px; font-size:12px; text-transform:uppercase; letter-spacing:.08em; color:var(--muted); }
+.nav a {
+    display:block; padding:10px 12px; border-radius:8px; color:var(--ink); text-decoration:none; margin-bottom:4px;
+}
+.nav a.active { background:var(--accent-soft); color:var(--accent); font-weight:700; }
+.panel { padding:18px; }
+.panel-head { display:flex; justify-content:space-between; gap:16px; align-items:flex-start; margin-bottom:18px; }
+.panel-head h1 { margin:0 0 6px; font-size:24px; }
+.panel-head p { margin:0; color:var(--muted); max-width:720px; }
+.section {
+    border:1px solid var(--line); border-radius:8px; padding:14px; margin-bottom:14px; background:#fff;
+}
+.section-head { display:flex; justify-content:space-between; gap:12px; align-items:center; margin-bottom:12px; }
+.section-head h2 { margin:0; font-size:18px; }
+.section-head .meta { color:var(--muted); font-size:13px; }
+.dish-grid { display:grid; grid-template-columns:1.05fr 1.2fr; gap:14px; }
+.dish-card {
+    border:1px solid var(--line); border-radius:8px; overflow:hidden; background:#fff;
+}
+.photo {
+    aspect-ratio: 16 / 10;
+    background:
+        linear-gradient(180deg, rgba(0,0,0,.05), rgba(0,0,0,.2)),
+        url('https://images.unsplash.com/photo-1512058564366-18510be2db19?auto=format&fit=crop&w=900&q=80') center/cover;
+}
+.dish-body { padding:12px; }
+.dish-body h3 { margin:0 0 6px; font-size:18px; }
+.price { color:var(--accent); font-weight:700; margin-bottom:8px; }
+.chips { display:flex; flex-wrap:wrap; gap:8px; margin-top:8px; }
+.chip {
+    border:1px solid var(--line); border-radius:999px; padding:5px 10px; font-size:12px; background:#faf7f2;
+}
+.chip.required { background:#efe4d6; border-color:#e7d5bd; }
+.chip.optional { background:#e8f3ef; border-color:#cde2da; color:var(--accent); }
+.editor { display:grid; gap:12px; }
+.row2 { display:grid; grid-template-columns:1fr 150px; gap:12px; }
+.field label { display:block; font-size:13px; font-weight:700; margin-bottom:4px; }
+.field input, .field textarea {
+    width:100%; border:1px solid var(--line); border-radius:8px; padding:10px 12px; font:14px 'Fira Sans', sans-serif;
+}
+.field textarea { min-height:78px; resize:vertical; }
+.subgrid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+.mini-list { display:grid; gap:8px; }
+.mini-item {
+    display:grid; grid-template-columns:1fr 86px 92px; gap:8px; align-items:center;
+}
+.mini-item input { width:100%; border:1px solid var(--line); border-radius:8px; padding:8px 10px; }
+.toggle {
+    display:flex; align-items:center; gap:10px; padding:11px 12px; border:1px solid var(--line); border-radius:8px; background:#faf7f2;
+}
+.toggle .pill {
+    padding:4px 10px; border-radius:999px; background:#dff1e9; color:var(--accent); font-size:12px; font-weight:700;
+}
+.footer-row { display:flex; justify-content:space-between; gap:12px; align-items:center; }
+.hint { color:var(--muted); font-size:13px; }
+@media (max-width: 980px) {
+    .layout { grid-template-columns:1fr; }
+    .dish-grid, .subgrid, .row2, .mini-item { grid-template-columns:1fr; }
+}
+</style>
+</head>
+<body>
+<div class="shell">
+    <div class="topbar">
+        <div class="brand">OSH <small>Admin - Shri Krishna Bhavan</small></div>
+        <div class="actions">
+            <span class="saved">Saved 2m ago</span>
+            <button class="ghost">Preview menu</button>
+            <button class="primary">Save menu</button>
+        </div>
+    </div>
+
+    <div class="layout">
+        <aside class="nav">
+            <h3>Admin</h3>
+            <a href="#">Analytics</a>
+            <a href="#">Website</a>
+            <a href="#" class="active">Menu</a>
+            <a href="#">Staff</a>
+            <a href="#">Front Desk</a>
+        </aside>
+
+        <main class="panel">
+            <div class="panel-head">
+                <div>
+                    <h1>Menu builder</h1>
+                    <p>Each dish now reads like a real ordering surface: hero image, what comes with it, and what the guest can optionally add before sending the order.</p>
+                </div>
+                <button class="ghost">+ Add section</button>
+            </div>
+
+            <section class="section">
+                <div class="section-head">
+                    <div>
+                        <h2>Dosas</h2>
+                        <div class="meta">6 dishes in this section</div>
+                    </div>
+                    <button class="ghost">+ Add dish</button>
+                </div>
+
+                <div class="dish-grid">
+                    <article class="dish-card">
+                        <div class="photo"></div>
+                        <div class="dish-body">
+                            <h3>Mysore Masala Dosa</h3>
+                            <div class="price">$15.95</div>
+                            <div>Thin rice-lentil crepe with house potato masala and red chutney spread.</div>
+                            <div class="chips">
+                                <span class="chip required">potato masala</span>
+                                <span class="chip required">red chutney</span>
+                                <span class="chip required">sambar</span>
+                                <span class="chip required">coconut chutney</span>
+                            </div>
+                            <div class="chips">
+                                <span class="chip optional">extra podi +$1</span>
+                                <span class="chip optional">ghee roast +$2</span>
+                                <span class="chip optional">cheese +$2</span>
+                            </div>
+                        </div>
+                    </article>
+
+                    <div class="editor">
+                        <div class="row2">
+                            <div class="field">
+                                <label>Dish name</label>
+                                <input type="text" value="Mysore Masala Dosa" />
+                            </div>
+                            <div class="field">
+                                <label>Base price</label>
+                                <input type="text" value="$15.95" />
+                            </div>
+                        </div>
+
+                        <div class="field">
+                            <label>Description</label>
+                            <textarea>Thin rice-lentil crepe with house potato masala and red chutney spread.</textarea>
+                        </div>
+
+                        <div class="field">
+                            <label>Dish image</label>
+                            <div class="toggle">
+                                <span class="pill">image ready</span>
+                                <span>mmdosa-2026-04.jpg</span>
+                                <button class="ghost" style="margin-left:auto">Replace photo</button>
+                            </div>
+                        </div>
+
+                        <div class="subgrid">
+                            <div class="field">
+                                <label>Required ingredients (guest sees "comes with")</label>
+                                <div class="mini-list">
+                                    <div class="mini-item">
+                                        <input type="text" value="Potato masala" />
+                                        <input type="text" value="$0" />
+                                        <button class="ghost">Remove</button>
+                                    </div>
+                                    <div class="mini-item">
+                                        <input type="text" value="Red chutney" />
+                                        <input type="text" value="$0" />
+                                        <button class="ghost">Remove</button>
+                                    </div>
+                                    <div class="mini-item">
+                                        <input type="text" value="Sambar" />
+                                        <input type="text" value="$0" />
+                                        <button class="ghost">Remove</button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="field">
+                                <label>Optional ingredients / add-ons</label>
+                                <div class="mini-list">
+                                    <div class="mini-item">
+                                        <input type="text" value="Extra podi" />
+                                        <input type="text" value="+$1" />
+                                        <button class="ghost">Remove</button>
+                                    </div>
+                                    <div class="mini-item">
+                                        <input type="text" value="Ghee roast" />
+                                        <input type="text" value="+$2" />
+                                        <button class="ghost">Remove</button>
+                                    </div>
+                                    <div class="mini-item">
+                                        <input type="text" value="Cheese" />
+                                        <input type="text" value="+$2" />
+                                        <button class="ghost">Remove</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="footer-row">
+                            <div class="hint">Guest preview: photo card + ingredient chips + modifier choices.</div>
+                            <div class="actions">
+                                <div class="toggle">
+                                    <span>Availability</span>
+                                    <span class="pill">available</span>
+                                </div>
+                                <button class="ghost">Delete dish</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+</div>
+</body>
+</html>

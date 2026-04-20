@@ -12,6 +12,7 @@
 // ============================================================================
 
 import path from 'node:path';
+import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 import express, { type Request, type Response } from 'express';
@@ -37,6 +38,37 @@ const SERVER_VERSION = '0.2.0';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const publicDir = path.resolve(__dirname, '..', 'public');
+
+function loadEnvFile(filePath: string): void {
+    if (!fs.existsSync(filePath)) return;
+    const content = fs.readFileSync(filePath, 'utf8');
+    for (const rawLine of content.split(/\r?\n/)) {
+        const line = rawLine.trim();
+        if (!line || line.startsWith('#')) continue;
+        const eq = line.indexOf('=');
+        if (eq <= 0) continue;
+        const key = line.slice(0, eq).trim();
+        if (!key || process.env[key] !== undefined) continue;
+        let value = line.slice(eq + 1).trim();
+        const commentIndex = value.search(/\s+#/);
+        if (commentIndex >= 0) value = value.slice(0, commentIndex).trim();
+        if (
+            (value.startsWith('"') && value.endsWith('"'))
+            || (value.startsWith('\'') && value.endsWith('\''))
+        ) {
+            value = value.slice(1, -1);
+        }
+        process.env[key] = value;
+    }
+}
+
+function loadLocalEnv(): void {
+    const rootDir = path.resolve(__dirname, '..');
+    loadEnvFile(path.join(rootDir, '.env'));
+    loadEnvFile(path.join(rootDir, '.env.local'));
+}
+
+loadLocalEnv();
 
 const app = express();
 app.use(express.json({ limit: '10mb' }));

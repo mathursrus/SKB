@@ -10,7 +10,8 @@ import { rateLimit } from '../middleware/rateLimit.js';
 import { sendSms } from '../services/sms.js';
 import { joinConfirmationMessage } from '../services/smsTemplates.js';
 import { appendInboundFromCode, getChatThreadByCode } from '../services/chat.js';
-import type { ErrorDTO } from '../types/queue.js';
+import { getGuestCartByCode, placeGuestOrder, upsertGuestCart } from '../services/orders.js';
+import type { ErrorDTO, GuestCartLineInputDTO } from '../types/queue.js';
 
 const JOIN_WINDOW_MS = 10 * 60 * 1000; // 10 min
 const JOIN_MAX = 5;
@@ -27,6 +28,8 @@ const CHAT_READ_MAX = 1;
 const CHAT_WRITE_WINDOW_MS = 3_000;
 const CHAT_WRITE_MAX = 1;
 const MAX_CHAT_BODY = 500;
+const ORDER_WINDOW_MS = 2_000;
+const ORDER_MAX = 2;
 
 /** Extract locationId from req.params.loc (set by parent router mount). */
 function loc(req: Request): string {
@@ -222,6 +225,77 @@ export function queueRouter(): Router {
             handleDbError(res, err);
         }
     });
+
+    r.get('/queue/order', async (req: Request, res: Response) => {
+        const code = String(req.query.code ?? '').trim();
+        if (!code) {
+            res.status(400).json({ error: 'code required', field: 'code' });
+            return;
+        }
+        try {
+            res.json(await getGuestCartByCode(loc(req), code));
+        } catch (err) {
+            if (err instanceof Error && err.message.startsWith('order.')) {
+                res.status(404).json({ error: 'not found' });
+                return;
+            }
+            handleDbError(res, err);
+        }
+    });
+
+    r.post(
+        '/queue/order/draft',
+        rateLimit({
+            windowMs: ORDER_WINDOW_MS,
+            max: ORDER_MAX,
+            keyFn: (req) => `${loc(req)}:order-draft:${String(req.body?.code ?? '')}`,
+        }),
+        async (req: Request, res: Response) => {
+            const code = String(req.body?.code ?? '').trim();
+            const lines = ((req.body as { lines?: unknown })?.lines ?? []) as GuestCartLineInputDTO[];
+            if (!code) {
+                res.status(400).json({ error: 'code required', field: 'code' });
+                return;
+            }
+            try {
+                res.json(await upsertGuestCart(loc(req), code, Array.isArray(lines) ? lines : ([] as GuestCartLineInputDTO[])));
+            } catch (err) {
+                if (err instanceof Error && (
+                    err.message.startsWith('cart.')
+                    || err.message.startsWith('order.')
+                )) {
+                    res.status(400).json({ error: err.message });
+                    return;
+                }
+                handleDbError(res, err);
+            }
+        },
+    );
+
+    r.post(
+        '/queue/order/place',
+        rateLimit({
+            windowMs: ORDER_WINDOW_MS,
+            max: ORDER_MAX,
+            keyFn: (req) => `${loc(req)}:order-place:${String(req.body?.code ?? '')}`,
+        }),
+        async (req: Request, res: Response) => {
+            const code = String(req.body?.code ?? '').trim();
+            if (!code) {
+                res.status(400).json({ error: 'code required', field: 'code' });
+                return;
+            }
+            try {
+                res.json(await placeGuestOrder(loc(req), code));
+            } catch (err) {
+                if (err instanceof Error && err.message.startsWith('order.')) {
+                    res.status(400).json({ error: err.message });
+                    return;
+                }
+                handleDbError(res, err);
+            }
+        },
+    );
 
     return r;
 }

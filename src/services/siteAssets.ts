@@ -26,7 +26,7 @@ import { createHash } from 'node:crypto';
 import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
-import type { LocationContent, LocationKnownForItem } from '../types/queue.js';
+import type { LocationContent, LocationKnownForItem, LocationMenu } from '../types/queue.js';
 
 const MAX_IMAGE_BYTES = 2 * 1024 * 1024; // 2 MiB decoded
 const ALLOWED_MIME: Record<string, string> = {
@@ -112,6 +112,29 @@ export async function processKnownForImages(
         }
     }
     content.knownFor = next;
+}
+
+/**
+ * Walk the structured menu and persist any inline item-image uploads,
+ * replacing the `image` field with the resulting URL string. Mutates `menu`.
+ */
+export async function processMenuImages(
+    publicDir: string,
+    locationId: string,
+    menu: LocationMenu,
+): Promise<void> {
+    if (!menu || !Array.isArray(menu.sections)) return;
+    for (const section of menu.sections) {
+        if (!Array.isArray(section.items)) continue;
+        for (const item of section.items) {
+            const current = (item as { image?: unknown }).image;
+            if (isImageUpload(current)) {
+                item.image = await persistImage(publicDir, locationId, 'menu', current);
+            } else if (typeof current !== 'string') {
+                delete (item as { image?: unknown }).image;
+            }
+        }
+    }
 }
 
 export const __TEST__ = { MAX_IMAGE_BYTES, ALLOWED_MIME, safeSlug };

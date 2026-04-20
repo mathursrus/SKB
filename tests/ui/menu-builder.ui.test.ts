@@ -16,7 +16,7 @@ process.env.SKB_HOST_PIN ??= '1234';
 process.env.SKB_SIGNUP_MAX_PER_WINDOW ??= '200';
 
 import { runTests, type BaseTestCase } from '../test-utils.js';
-import { startTestServer, getTestServerUrl } from '../shared-server-utils.js';
+import { startTestServer, stopTestServer, getTestServerUrl } from '../shared-server-utils.js';
 
 const BASE = () => getTestServerUrl();
 
@@ -74,6 +74,18 @@ const cases: BaseTestCase[] = [
                 && /id="admin-menu-url-card"/.test(html)
                 && /id="admin-menu-url"/.test(html)
                 && /id="admin-menu-url-save"/.test(html);
+        },
+    },
+    {
+        name: 'admin.js rich menu builder includes image + ingredient controls',
+        tags: ['ui', 'menu-builder', 'rich-fields'],
+        testFn: async () => {
+            const r = await fetch(`${BASE()}/admin.js`);
+            const js = await r.text();
+            return js.includes('menu-item-image-pick')
+                && js.includes('menu-item-required')
+                && js.includes('menu-item-optional')
+                && js.includes('menu-item-availability');
         },
     },
     {
@@ -165,11 +177,46 @@ const cases: BaseTestCase[] = [
                 && it.price === undefined;
         },
     },
+    {
+        name: 'menu save round-trips image, availability, and ingredient arrays',
+        tags: ['ui', 'menu-builder', 'rich-roundtrip'],
+        testFn: async () => {
+            const save = await fetch(`${BASE()}/r/${slug}/api/host/menu`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Cookie': sessionCookie },
+                body: JSON.stringify({
+                    menu: {
+                        sections: [{
+                            id: 's-rich',
+                            title: 'Specials',
+                            items: [{
+                                id: 'i-rich',
+                                name: 'Paneer Kathi Roll',
+                                availability: 'sold_out',
+                                image: '/assets/demo/menu/paneer-roll.jpg',
+                                requiredIngredients: ['Paneer', 'Onion'],
+                                optionalIngredients: ['Extra mint chutney'],
+                            }],
+                        }],
+                    },
+                }),
+            });
+            if (!save.ok) return false;
+            const read = await fetch(`${BASE()}/r/${slug}/api/menu`);
+            const data = await read.json();
+            const item = data.menu.sections[0].items[0];
+            return item.availability === 'sold_out'
+                && item.image === '/assets/demo/menu/paneer-roll.jpg'
+                && Array.isArray(item.requiredIngredients)
+                && item.requiredIngredients[0] === 'Paneer'
+                && item.optionalIngredients[0] === 'Extra mint chutney';
+        },
+    },
 
     {
         name: 'teardown',
         tags: ['ui', 'menu-builder', 'teardown'],
-        testFn: async () => true, // startTestServer is shared; harness teardown handled in main runner
+        testFn: async () => { await stopTestServer(); return true; },
     },
 ];
 

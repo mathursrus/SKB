@@ -27,6 +27,7 @@ import { firstCallMessage, repeatCallMessage } from './smsTemplates.js';
 import { maskPhone } from './sms.js';
 import { redactName } from './nameRedact.js';
 import { countUnreadForEntries } from './chat.js';
+import { getGuestCartByCode } from './orders.js';
 
 const MAX_CODE_RETRIES = 5;
 
@@ -136,8 +137,22 @@ export async function getStatusByCode(
     const entry = await queueEntries(db).findOne({ code });
     const empty = { queue: [] as PublicQueueRowDTO[], totalParties: 0 };
     if (!entry) {
-        return { code, position: 0, etaAt: null, etaMinutes: null, state: 'not_found', callsMinutesAgo: [], ...empty };
+        return {
+            code,
+            position: 0,
+            etaAt: null,
+            etaMinutes: null,
+            state: 'not_found',
+            callsMinutesAgo: [],
+            ...empty,
+            order: null,
+            canManageOrder: false,
+            canPlaceOrder: false,
+        };
     }
+    const order = await getGuestCartByCode(entry.locationId, code);
+    const canManageOrder = ['waiting', 'called', 'seated'].includes(entry.state);
+    const canPlaceOrder = entry.state === 'seated' && order.state !== 'placed' && order.lines.length > 0;
     if (entry.state === 'seated') {
         // Terminal: surface the assigned table but keep the queue empty (R7)
         return {
@@ -149,15 +164,40 @@ export async function getStatusByCode(
             callsMinutesAgo: [],
             ...empty,
             tableNumber: entry.tableNumber,
+            order,
+            canManageOrder,
+            canPlaceOrder,
         };
     }
     const postQueueStates: PartyState[] = ['ordered', 'served', 'checkout', 'departed', 'no_show'];
     if (postQueueStates.includes(entry.state)) {
-        return { code, position: 0, etaAt: null, etaMinutes: null, state: entry.state, callsMinutesAgo: [], ...empty };
+        return {
+            code,
+            position: 0,
+            etaAt: null,
+            etaMinutes: null,
+            state: entry.state,
+            callsMinutesAgo: [],
+            ...empty,
+            order,
+            canManageOrder: false,
+            canPlaceOrder: false,
+        };
     }
     const today = serviceDay(now);
     if (entry.serviceDay !== today) {
-        return { code, position: 0, etaAt: null, etaMinutes: null, state: 'not_found', callsMinutesAgo: [], ...empty };
+        return {
+            code,
+            position: 0,
+            etaAt: null,
+            etaMinutes: null,
+            state: 'not_found',
+            callsMinutesAgo: [],
+            ...empty,
+            order: null,
+            canManageOrder: false,
+            canPlaceOrder: false,
+        };
     }
     const ahead = await queueEntries(db).countDocuments({
         locationId: entry.locationId,
@@ -179,6 +219,9 @@ export async function getStatusByCode(
         queue: publicQueue,
         totalParties: publicQueue.length,
         onMyWayAt: entry.onMyWayAt ? entry.onMyWayAt.toISOString() : undefined,
+        order,
+        canManageOrder,
+        canPlaceOrder,
     };
 }
 

@@ -180,7 +180,7 @@
             const code = localStorage.getItem(STORAGE_KEY);
             if (!code) { startPolling('state'); return; }
             const left = await loadStatus(code);
-            if (left) startPolling('state');
+            if (left === true) startPolling('state');
         } else {
             await loadState();
         }
@@ -226,10 +226,12 @@
             const res = await fetch('api/queue/state');
             if (!res.ok) throw new Error('state failed');
             const s = await res.json();
+            syncGuestTabs(null);
             lineLen.textContent = String(s.partiesWaiting);
             etaNew.textContent =
                 `Estimated wait for a new party: ~${s.etaForNewPartyMinutes} min`;
         } catch {
+            syncGuestTabs(null);
             etaNew.textContent = 'Wait time temporarily unavailable.';
         }
     }
@@ -240,9 +242,65 @@
     const waitElapsed = document.getElementById('wait-elapsed');
     const waitElapsedVal = document.getElementById('wait-elapsed-val');
     const ackBtn = document.getElementById('ack-btn');
+    const queueTabs = document.getElementById('queue-tabs');
+    const queueTabWaitlist = document.getElementById('queue-tab-waitlist');
+    const queueTabOrder = document.getElementById('queue-tab-order');
+    const queuePanelWaitlist = document.getElementById('queue-panel-waitlist');
+    const queuePanelOrder = document.getElementById('queue-panel-order');
     const publicListCard = document.getElementById('public-list-card');
     const publicListRows = document.getElementById('public-list-rows');
     const publicListCount = document.getElementById('public-list-count');
+    const orderCard = document.getElementById('order-card');
+    const orderMenu = document.getElementById('order-menu');
+    const orderCartLines = document.getElementById('order-cart-lines');
+    const orderCartCount = document.getElementById('order-cart-count');
+    const orderStatus = document.getElementById('order-status');
+    const orderPlaceBtn = document.getElementById('order-place-btn');
+    const orderLock = document.getElementById('order-lock');
+    const orderBadge = document.getElementById('order-badge');
+    const orderCardSub = document.getElementById('order-card-sub');
+    const ORDER_STATUS_RETRY = 'retry';
+    let menuData = null;
+    let orderDraft = [];
+    let orderPlaced = false;
+    let orderCode = null;
+    let activeGuestTab = 'waitlist';
+    let orderDraftDirty = false;
+    let orderDraftSaveTimer = null;
+    let lastSyncedDraftSignature = '[]';
+    const orderPendingEdits = new Map();
+
+    function hasOrderTab(status) {
+        return Boolean(status && ['waiting', 'called', 'seated', 'ordered', 'served', 'checkout'].includes(status.state));
+    }
+
+    function setGuestTab(tab, force) {
+        const allowOrder = force === true || !queueTabOrder || !queueTabOrder.disabled;
+        const nextTab = tab === 'order' && allowOrder ? 'order' : 'waitlist';
+        activeGuestTab = nextTab;
+        if (queueTabWaitlist) {
+            queueTabWaitlist.classList.toggle('is-active', nextTab === 'waitlist');
+            queueTabWaitlist.setAttribute('aria-selected', nextTab === 'waitlist' ? 'true' : 'false');
+        }
+        if (queueTabOrder) {
+            queueTabOrder.classList.toggle('is-active', nextTab === 'order');
+            queueTabOrder.setAttribute('aria-selected', nextTab === 'order' ? 'true' : 'false');
+        }
+        if (queuePanelWaitlist) queuePanelWaitlist.hidden = nextTab !== 'waitlist';
+        if (queuePanelOrder) queuePanelOrder.hidden = nextTab !== 'order';
+    }
+
+    function syncGuestTabs(status) {
+        const showOrderTab = hasOrderTab(status);
+        if (queueTabs) queueTabs.style.display = showOrderTab ? '' : 'none';
+        if (queueTabOrder) {
+            queueTabOrder.disabled = !showOrderTab;
+            queueTabOrder.setAttribute('aria-disabled', showOrderTab ? 'false' : 'true');
+        }
+        if (!showOrderTab && activeGuestTab !== 'waitlist') setGuestTab('waitlist', true);
+        if (!showOrderTab && queuePanelWaitlist) queuePanelWaitlist.hidden = false;
+        if (!showOrderTab && queuePanelOrder) queuePanelOrder.hidden = true;
+    }
 
     function fmtDuration(seconds) {
         if (!Number.isFinite(seconds) || seconds < 0) return '00:00';
@@ -313,6 +371,282 @@
         }).join('');
     }
 
+    function setInlineStatus(el, text, kind) {
+        if (!el) return;
+        el.textContent = text || '';
+        el.className = 'visit-status' + (kind ? ' ' + kind : '');
+    }
+
+    function flashInlineSaved(el, text) {
+        setInlineStatus(el, text || 'Saved', 'success');
+        setTimeout(() => {
+            if (el && el.textContent === (text || 'Saved')) setInlineStatus(el, '', '');
+        }, 1800);
+    }
+
+    function menuItemById(menuItemId) {
+        const sections = menuData?.menu?.sections || [];
+        for (const section of sections) {
+            for (const item of (section.items || [])) {
+                if (item.id === menuItemId) return { section, item };
+            }
+        }
+        return null;
+    }
+
+    function draftLineFor(menuItemId) {
+        return orderDraft.find(line => line.menuItemId === menuItemId) || null;
+    }
+
+    function pendingLineFor(menuItemId) {
+        return orderPendingEdits.get(menuItemId) || null;
+    }
+
+    function displayedLineFor(menuItemId) {
+        return pendingLineFor(menuItemId) || draftLineFor(menuItemId) || null;
+    }
+
+    function draftSignature(lines) {
+        return JSON.stringify((Array.isArray(lines) ? lines : []).map(line => ({
+            menuItemId: String(line.menuItemId || ''),
+            quantity: Number(line.quantity || 0),
+            notes: String(line.notes || ''),
+            selectedOptions: Array.isArray(line.selectedOptions) ? [...line.selectedOptions].map(String).sort() : [],
+        })));
+    }
+
+    function menuSectionAnchor(section, index) {
+        const raw = String(section?.id || section?.title || ('section-' + index)).toLowerCase();
+        const slug = raw.replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+        return 'order-section-' + (slug || String(index + 1));
+    }
+
+    async function ensureMenuLoaded() {
+        if (menuData) return menuData;
+        const res = await fetch('api/menu');
+        if (!res.ok) throw new Error('menu unavailable');
+        menuData = await res.json();
+        return menuData;
+    }
+
+    async function loadStatusWithRetry(code, attempts = 4, delayMs = 1200) {
+        let result = ORDER_STATUS_RETRY;
+        for (let attempt = 0; attempt < attempts; attempt += 1) {
+            result = await loadStatus(code);
+            if (result !== ORDER_STATUS_RETRY) return result;
+            if (attempt < attempts - 1) {
+                await new Promise((resolve) => setTimeout(resolve, delayMs));
+            }
+        }
+        return result;
+    }
+
+    function clearOrderDraftSaveTimer() {
+        if (orderDraftSaveTimer) {
+            clearTimeout(orderDraftSaveTimer);
+            orderDraftSaveTimer = null;
+        }
+    }
+
+    function updateLocalDraft(lines) {
+        orderDraft = lines;
+        orderDraftDirty = true;
+    }
+
+    function setPendingLine(line) {
+        if (!line || !line.menuItemId) return;
+        orderPendingEdits.set(line.menuItemId, line);
+    }
+
+    function clearPendingLine(menuItemId) {
+        if (!menuItemId) return;
+        orderPendingEdits.delete(menuItemId);
+    }
+
+    function upsertDraftLine(nextLine) {
+        const existingIndex = orderDraft.findIndex(line => line.menuItemId === nextLine.menuItemId);
+        if (existingIndex >= 0) orderDraft.splice(existingIndex, 1, nextLine);
+        else orderDraft.push(nextLine);
+    }
+
+    function scheduleOrderDraftSave() {
+        if (orderPlaced || !orderCode) return;
+        clearOrderDraftSaveTimer();
+        setInlineStatus(orderStatus, 'Saving...', '');
+        orderDraftSaveTimer = setTimeout(() => {
+            orderDraftSaveTimer = null;
+            persistOrderDraft(false);
+        }, 450);
+    }
+
+    function renderOrderCard(status) {
+        if (!orderCard) return;
+        const menuSections = menuData?.menu?.sections || [];
+        const activeState = hasOrderTab(status);
+        syncGuestTabs(status);
+        if (!activeState) {
+            orderCard.style.display = 'none';
+            return;
+        }
+        orderCard.style.display = '';
+        orderPlaced = status?.order?.state === 'placed';
+        orderCode = status?.code || orderCode;
+        orderBadge.textContent = orderPlaced ? 'Placed' : (orderDraft.length > 0 ? 'Draft' : 'Empty');
+        if (orderPlaced) {
+            orderCardSub.textContent = 'The kitchen-facing order below is locked in.';
+        } else if (status?.state === 'seated') {
+            orderCardSub.textContent = 'Your table is ready. Review and place your order when you are ready.';
+        } else {
+            orderCardSub.textContent = 'Choose options, then add items to your cart. Cart changes save automatically, and place-order unlocks once you are seated.';
+        }
+        if (menuSections.length === 0) {
+            orderMenu.innerHTML = '<div class="order-empty">This restaurant has not published a structured menu yet.</div>';
+        } else {
+            const sectionNav = '<nav class="order-section-nav" aria-label="Jump to menu section">'
+                + '<a class="order-section-link order-section-link-cart" href="#order-cart">Cart</a>'
+                + menuSections.map((section, index) => (
+                    '<a class="order-section-link" href="#' + escapeHtml(menuSectionAnchor(section, index)) + '">'
+                    + escapeHtml(section.title || ('Section ' + (index + 1)))
+                    + '</a>'
+                )).join('')
+                + '</nav>';
+            orderMenu.innerHTML = sectionNav + menuSections.map((section, index) => {
+                return '<section class="order-section" id="' + escapeHtml(menuSectionAnchor(section, index)) + '">'
+                    + '<h3>' + escapeHtml(section.title) + '</h3>'
+                    + '<div class="order-item-list">' + (section.items || []).map(item => {
+                        const line = displayedLineFor(item.id);
+                        const lineInCart = draftLineFor(item.id);
+                        const qty = line ? line.quantity : 1;
+                        const notes = line?.notes || '';
+                        const selected = new Set(line?.selectedOptions || []);
+                        const soldOut = item.availability === 'sold_out';
+                        return '<article class="order-item-card' + (soldOut ? ' is-sold-out' : '') + '" data-menu-item-id="' + escapeHtml(item.id) + '">'
+                            + (item.image ? '<img class="order-item-image" src="' + escapeHtml(item.image) + '" alt="" />' : '<div class="order-item-image order-item-image-empty">No photo</div>')
+                            + '<div class="order-item-body">'
+                            + '<div class="order-item-head"><strong>' + escapeHtml(item.name) + '</strong>' + (item.price ? '<span>' + escapeHtml(item.price) + '</span>' : '') + '</div>'
+                            + (item.description ? '<p class="order-item-desc">' + escapeHtml(item.description) + '</p>' : '')
+                            + ((item.requiredIngredients || []).length ? '<div class="order-item-meta"><span>Included</span><div class="order-tags">' + item.requiredIngredients.map(name => '<span class="order-tag">' + escapeHtml(name) + '</span>').join('') + '</div></div>' : '')
+                            + ((item.optionalIngredients || []).length ? '<div class="order-item-meta"><span>Optional</span><div class="order-options">' + item.optionalIngredients.map(name => '<label><input type="checkbox" class="order-option" value="' + escapeHtml(name) + '"' + (selected.has(name) ? ' checked' : '') + (orderPlaced || soldOut ? ' disabled' : '') + ' /> ' + escapeHtml(name) + '</label>').join('') + '</div></div>' : '')
+                            + '<div class="order-item-controls">'
+                            + '<label>Qty <input type="number" min="1" max="20" class="order-qty" value="' + qty + '"' + (orderPlaced || soldOut ? ' disabled' : '') + ' /></label>'
+                            + '<label class="order-notes">Notes<textarea class="order-item-notes" rows="2" maxlength="280"' + (orderPlaced || soldOut ? ' disabled' : '') + '>' + escapeHtml(notes) + '</textarea></label>'
+                            + '</div>'
+                            + (!orderPlaced ? '<div class="order-item-actions"><button type="button" class="secondary order-add-btn"' + (soldOut ? ' disabled' : '') + '>' + (lineInCart ? 'Update item' : 'Add to cart') + '</button>' + (lineInCart ? '<button type="button" class="order-remove-btn">Remove</button>' : '') + '</div>' : '')
+                            + (soldOut ? '<div class="order-sold-out">Sold out</div>' : '')
+                            + '</div>'
+                            + '</article>';
+                    }).join('') + '</div>'
+                    + '</section>';
+            }).join('');
+        }
+
+        if (orderDraft.length === 0) {
+            orderCartLines.innerHTML = '<div class="order-empty">No items in your cart yet.</div>';
+        } else {
+            orderCartLines.innerHTML = orderDraft.map(line => {
+                return '<div class="order-cart-line">'
+                    + '<div><strong>' + line.quantity + '× ' + escapeHtml(line.name || menuItemById(line.menuItemId)?.item?.name || line.menuItemId) + '</strong>'
+                    + (line.sectionTitle ? '<div class="order-cart-line-meta">' + escapeHtml(line.sectionTitle) + '</div>' : '')
+                    + ((line.selectedOptions || []).length ? '<div class="order-cart-line-meta">Optional: ' + line.selectedOptions.map(escapeHtml).join(', ') + '</div>' : '')
+                    + (line.notes ? '<div class="order-cart-line-meta">Notes: ' + escapeHtml(line.notes) + '</div>' : '')
+                    + '</div>'
+                    + (line.price ? '<span>' + escapeHtml(line.price) + '</span>' : '')
+                    + '</div>';
+            }).join('');
+        }
+
+        const totalQty = orderDraft.reduce((sum, line) => sum + Number(line.quantity || 0), 0);
+        orderCartCount.textContent = totalQty + (totalQty === 1 ? ' item' : ' items');
+        if (orderPlaced) {
+            orderLock.style.display = '';
+            orderLock.textContent = status?.order?.placedAt ? ('Placed at ' + fmtTime(status.order.placedAt)) : 'Placed';
+        } else if (status?.state !== 'seated') {
+            orderLock.style.display = '';
+            orderLock.textContent = 'Add, update, and remove save to your draft automatically. Final place-order unlocks after seating.';
+        } else {
+            orderLock.style.display = 'none';
+            orderLock.textContent = '';
+        }
+        orderPlaceBtn.disabled = orderPlaced || !(status?.canPlaceOrder || (status?.state === 'seated' && totalQty > 0));
+    }
+
+    function syncDraftFromStatus(status) {
+        const lines = Array.isArray(status?.order?.lines) ? status.order.lines : [];
+        const nextDraft = lines.map(line => ({
+            menuItemId: line.menuItemId,
+            quantity: line.quantity,
+            notes: line.notes || '',
+            selectedOptions: Array.isArray(line.selectedOptions) ? line.selectedOptions : [],
+            name: line.name,
+            price: line.price,
+            sectionTitle: line.sectionTitle,
+        }));
+        const nextSignature = draftSignature(nextDraft);
+        const shouldAcceptServerDraft = status?.order?.state === 'placed'
+            || nextSignature === lastSyncedDraftSignature
+            || (!orderDraftDirty && draftSignature(orderDraft) === '[]');
+        if (!shouldAcceptServerDraft) return;
+        orderDraft = nextDraft;
+        lastSyncedDraftSignature = nextSignature;
+        orderDraftDirty = false;
+    }
+
+    function collectCardDraft(itemCard) {
+        const menuItemId = itemCard.getAttribute('data-menu-item-id');
+        const qty = Number(itemCard.querySelector('.order-qty')?.value || 1);
+        const notes = (itemCard.querySelector('.order-item-notes')?.value || '').trim();
+        const selectedOptions = Array.from(itemCard.querySelectorAll('.order-option:checked')).map(el => el.value);
+        const lookup = menuItemById(menuItemId);
+        return {
+            menuItemId: menuItemId,
+            quantity: Number.isFinite(qty) && qty > 0 ? qty : 1,
+            notes: notes,
+            selectedOptions: selectedOptions,
+            name: lookup?.item?.name || '',
+            price: lookup?.item?.price || '',
+            sectionTitle: lookup?.section?.title || '',
+        };
+    }
+
+    async function persistOrderDraft(placeAfter) {
+        if (!orderCode) return;
+        clearOrderDraftSaveTimer();
+        setInlineStatus(orderStatus, placeAfter ? 'Placing...' : 'Saving...', '');
+        const draftPayload = orderDraft.map(line => ({
+            menuItemId: line.menuItemId,
+            quantity: line.quantity,
+            notes: line.notes || undefined,
+            selectedOptions: Array.isArray(line.selectedOptions) ? line.selectedOptions : [],
+        }));
+        try {
+            const draftRes = await fetch('api/queue/order/draft', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ code: orderCode, lines: draftPayload }),
+            });
+            const draftBody = await draftRes.json().catch(() => ({}));
+            if (!draftRes.ok) throw new Error(draftBody.error || 'Could not save draft');
+            lastSyncedDraftSignature = draftSignature(orderDraft);
+            orderDraftDirty = false;
+            if (!placeAfter) {
+                flashInlineSaved(orderStatus, 'Saved');
+                return;
+            }
+            const placeRes = await fetch('api/queue/order/place', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ code: orderCode }),
+            });
+            const placeBody = await placeRes.json().catch(() => ({}));
+            if (!placeRes.ok) throw new Error(placeBody.error || 'Could not place order');
+            await loadStatusWithRetry(orderCode);
+            flashInlineSaved(orderStatus, 'Order placed');
+        } catch (err) {
+            orderDraftDirty = true;
+            setInlineStatus(orderStatus, err && err.message ? err.message : 'Could not save order', 'error');
+        }
+    }
+
     function escapeHtml(s) {
         return String(s).replace(/[&<>"']/g, (c) => ({
             '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
@@ -339,7 +673,7 @@
             const res = await fetch('api/queue/status?code=' + encodeURIComponent(code));
             if (res.status === 429) {
                 // Rate limited — just skip this cycle; next poll will retry.
-                return false;
+                return ORDER_STATUS_RETRY;
             }
             if (!res.ok) throw new Error('status failed');
             const s = await res.json();
@@ -362,15 +696,35 @@
                 calledCallout.style.display = 'none';
                 if (waitElapsed) waitElapsed.style.display = 'none';
                 renderPublicList([]);
-                stopLiveTick();
-                stopPolling();
-                stopChatPoll();
-                if (chatCard()) chatCard().style.display = 'none';
-                localStorage.removeItem(STORAGE_KEY);
+                syncDraftFromStatus(s);
+                try { await ensureMenuLoaded(); } catch {}
+                renderOrderCard(s);
+                lastSeenState = s.state;
+                return false;
+            }
+            if (['ordered', 'served', 'checkout'].includes(s.state)) {
+                statusCard.style.display = 'none';
+                joinCard.style.display = 'none';
+                confCard.style.display = '';
+                confCard.classList.add('is-seated');
+                document.getElementById('conf-pos-label').textContent = 'status';
+                confPos.textContent = s.state === 'ordered' ? 'Order placed' : (s.state === 'served' ? 'Food served' : 'Checkout');
+                confCode.textContent = s.code;
+                document.getElementById('conf-eta-line').style.display = 'none';
+                document.getElementById('conf-hint').style.display = 'none';
+                document.getElementById('seated-caption').style.display = '';
+                calledCallout.style.display = 'none';
+                if (waitElapsed) waitElapsed.style.display = 'none';
+                renderPublicList([]);
+                syncDraftFromStatus(s);
+                try { await ensureMenuLoaded(); } catch {}
+                renderOrderCard(s);
+                lastSeenState = s.state;
                 return false;
             }
             if (s.state === 'not_found' || s.state === 'no_show' || s.state === 'departed') {
                 localStorage.removeItem(STORAGE_KEY);
+                syncGuestTabs(null);
                 joinCard.style.display = '';
                 confCard.style.display = 'none';
                 confCard.classList.remove('next-up');
@@ -379,6 +733,7 @@
                 stopLiveTick();
                 stopChatPoll();
                 if (chatCard()) chatCard().style.display = 'none';
+                if (orderCard) orderCard.style.display = 'none';
                 return true; // caller should still reload state
             }
             // In queue — hide the "should I join?" card
@@ -413,6 +768,9 @@
             // Start (or keep running) the chat poll for every active state
             // (waiting/called), so host messages surface in-page in ~4s.
             startChatPoll(s.code);
+            syncDraftFromStatus(s);
+            try { await ensureMenuLoaded(); } catch {}
+            renderOrderCard(s);
             if (s.state === 'called') {
                 const currentCallCount = (s.callsMinutesAgo || []).length;
                 calledCallout.style.display = '';
@@ -475,6 +833,7 @@
             return false; // skip reloading state
         } catch {
             // fall back to join view
+            syncGuestTabs(null);
             joinCard.style.display = '';
             confCard.style.display = 'none';
             confCard.classList.remove('next-up');
@@ -553,7 +912,7 @@
             }
             // Fire an immediate status refresh to populate the public list +
             // live wait counter without waiting for the first poll tick.
-            await loadStatus(r.code);
+            await loadStatusWithRetry(r.code);
             startPolling('status');
         } catch (err) {
             joinError.textContent = err && err.message ? err.message : 'Join failed';
@@ -564,13 +923,69 @@
     }
 
     joinForm.addEventListener('submit', onJoin);
+    if (queueTabs) {
+        queueTabs.addEventListener('click', (e) => {
+            const target = e.target;
+            if (!(target instanceof HTMLElement)) return;
+            const nextTab = target.getAttribute('data-queue-tab');
+            if (!nextTab) return;
+            setGuestTab(nextTab);
+        });
+    }
     // "Check now" button removed — the page auto-polls every 10s. The
     // button was a leftover from before polling was added and confused
     // diners into thinking the page doesn't update itself.
     if (ackBtn) ackBtn.addEventListener('click', onAcknowledge);
+    if (orderMenu) {
+        const rerenderDraftCard = () => {
+            renderOrderCard({ state: lastSeenState, order: { state: orderPlaced ? 'placed' : 'draft' }, canPlaceOrder: lastSeenState === 'seated' });
+        };
+        const syncPendingFromCard = (itemCard) => {
+            if (!itemCard || orderPlaced) return;
+            const nextLine = collectCardDraft(itemCard);
+            setPendingLine(nextLine);
+        };
+        orderMenu.addEventListener('click', (e) => {
+            const target = e.target;
+            if (!(target instanceof HTMLElement)) return;
+            const itemCard = target.closest('.order-item-card');
+            if (!itemCard) return;
+            if (target.classList.contains('order-add-btn')) {
+                const nextLine = collectCardDraft(itemCard);
+                const existingIndex = orderDraft.findIndex(line => line.menuItemId === nextLine.menuItemId);
+                upsertDraftLine(nextLine);
+                orderDraftDirty = true;
+                clearPendingLine(nextLine.menuItemId);
+                rerenderDraftCard();
+                scheduleOrderDraftSave();
+                flashInlineSaved(orderStatus, existingIndex >= 0 ? 'Cart updated' : 'Added to cart');
+            } else if (target.classList.contains('order-remove-btn')) {
+                const menuItemId = itemCard.getAttribute('data-menu-item-id');
+                updateLocalDraft(orderDraft.filter(line => line.menuItemId !== menuItemId));
+                clearPendingLine(menuItemId);
+                rerenderDraftCard();
+                scheduleOrderDraftSave();
+                flashInlineSaved(orderStatus, 'Removed from cart');
+            }
+        });
+        orderMenu.addEventListener('change', (e) => {
+            const target = e.target;
+            if (!(target instanceof HTMLElement)) return;
+            if (!target.classList.contains('order-option') && !target.classList.contains('order-qty')) return;
+            syncPendingFromCard(target.closest('.order-item-card'));
+        });
+        orderMenu.addEventListener('input', (e) => {
+            const target = e.target;
+            if (!(target instanceof HTMLElement)) return;
+            if (!target.classList.contains('order-item-notes')) return;
+            syncPendingFromCard(target.closest('.order-item-card'));
+        });
+    }
+    if (orderPlaceBtn) orderPlaceBtn.addEventListener('click', () => persistOrderDraft(true));
 
     // Boot
     (async function () {
+        setGuestTab('waitlist', true);
         // Allow ?code=SKB-XXX in the URL to override localStorage so shared
         // deep links (and the join confirmation SMS) just work.
         const params = new URLSearchParams(window.location.search);
@@ -582,7 +997,8 @@
         let needStateLoad = true;
         try {
             if (existing) {
-                needStateLoad = await loadStatus(existing);
+                const statusResult = await loadStatusWithRetry(existing);
+                needStateLoad = statusResult === ORDER_STATUS_RETRY ? false : statusResult;
             }
             if (needStateLoad) await loadState();
         } finally {

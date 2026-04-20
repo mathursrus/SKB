@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Issue #11 - Guest Ordering Mock</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Fira+Sans:wght@400;600;700&display=swap" rel="stylesheet" />
+<style>
+:root {
+    --bg:#f6f2eb;
+    --panel:#fffdf8;
+    --ink:#221d18;
+    --muted:#70675b;
+    --line:#ddd3c4;
+    --accent:#1f6a5d;
+    --accent-soft:#e3f0eb;
+    --warm:#cb6a34;
+}
+* { box-sizing:border-box; }
+body { margin:0; font:15px/1.45 'Fira Sans', sans-serif; background:var(--bg); color:var(--ink); }
+.app { max-width:430px; margin:0 auto; min-height:100vh; background:var(--panel); }
+.hero {
+    padding:18px 16px 12px;
+    background:
+        linear-gradient(180deg, rgba(31,106,93,.06), rgba(31,106,93,0)),
+        var(--panel);
+    border-bottom:1px solid var(--line);
+}
+.hero h1 { margin:0 0 6px; font-size:24px; }
+.hero p { margin:0; color:var(--muted); }
+.status {
+    margin-top:14px; display:grid; grid-template-columns:1fr 1fr; gap:10px;
+}
+.status-card {
+    border:1px solid var(--line); border-radius:8px; padding:10px 12px; background:#fff;
+}
+.status-card strong { display:block; font-size:13px; color:var(--muted); margin-bottom:4px; }
+.status-card span { font-weight:700; font-size:18px; }
+.order-rail {
+    position:sticky; top:0; z-index:3; background:rgba(255,253,248,.96); backdrop-filter:blur(8px);
+    border-bottom:1px solid var(--line); padding:10px 16px;
+}
+.rail-note {
+    border:1px solid #e7d5bd; background:#fbf3e8; color:#6b4b30; border-radius:8px; padding:10px 12px; font-size:13px;
+}
+.section { padding:14px 16px 96px; }
+.section-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; }
+.section-head h2 { margin:0; font-size:19px; }
+.section-head a { color:var(--accent); font-weight:700; text-decoration:none; }
+.cards { display:grid; gap:12px; }
+.card { border:1px solid var(--line); border-radius:8px; overflow:hidden; background:#fff; }
+.photo {
+    aspect-ratio: 16 / 10;
+    background:
+        linear-gradient(180deg, rgba(0,0,0,.05), rgba(0,0,0,.22)),
+        url('https://images.unsplash.com/photo-1631452180519-c014fe946bc7?auto=format&fit=crop&w=900&q=80') center/cover;
+}
+.card-body { padding:12px; }
+.title-row { display:flex; justify-content:space-between; gap:10px; align-items:flex-start; }
+.title-row h3 { margin:0; font-size:18px; }
+.price { color:var(--accent); font-weight:700; white-space:nowrap; }
+.desc { margin:6px 0 0; color:var(--muted); font-size:14px; }
+.chips { display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; }
+.chip {
+    border-radius:999px; padding:5px 10px; font-size:12px; border:1px solid var(--line); background:#faf7f2;
+}
+.chip.required { background:#f2e6d8; border-color:#e7d5bd; }
+.cta-row { display:flex; justify-content:space-between; gap:10px; align-items:center; margin-top:12px; }
+.cta-row button, .bar button, .qty button {
+    min-height:44px; border-radius:8px; font:700 14px 'Fira Sans', sans-serif; cursor:pointer;
+}
+.ghost { background:#fff; color:var(--muted); border:1px solid var(--line); padding:0 12px; }
+.primary { background:var(--accent); color:#fff; border:1px solid var(--accent); padding:0 14px; }
+.sheet {
+    position:fixed; left:50%; bottom:0; transform:translateX(-50%);
+    width:min(430px, 100vw); background:var(--panel); border-top:1px solid var(--line);
+    padding:16px 16px 96px; box-shadow:0 -14px 40px rgba(0,0,0,.16);
+}
+.handle { width:54px; height:5px; border-radius:999px; background:#d8cec1; margin:0 auto 14px; }
+.sheet h3 { margin:0 0 8px; font-size:21px; }
+.sheet p { margin:0 0 10px; color:var(--muted); }
+.sheet-photo {
+    aspect-ratio: 16 / 10; border-radius:8px; background:
+        linear-gradient(180deg, rgba(0,0,0,.05), rgba(0,0,0,.18)),
+        url('https://images.unsplash.com/photo-1631452180519-c014fe946bc7?auto=format&fit=crop&w=900&q=80') center/cover;
+    margin-bottom:12px;
+}
+.group { margin-bottom:14px; }
+.group label { display:block; font-size:13px; font-weight:700; margin-bottom:6px; }
+.opts { display:grid; gap:8px; }
+.opt {
+    display:flex; justify-content:space-between; gap:10px; align-items:center; border:1px solid var(--line);
+    border-radius:8px; padding:10px 12px; background:#fff;
+}
+.opt.active { border-color:#b8d3ca; background:var(--accent-soft); }
+.qty { display:flex; align-items:center; gap:10px; }
+.qty button { width:44px; border:1px solid var(--line); background:#fff; }
+.qty strong { min-width:24px; text-align:center; }
+textarea {
+    width:100%; border:1px solid var(--line); border-radius:8px; padding:10px 12px; font:14px 'Fira Sans', sans-serif; min-height:78px; resize:none;
+}
+.bar {
+    position:fixed; left:50%; bottom:0; transform:translateX(-50%);
+    width:min(430px, 100vw); background:rgba(255,253,248,.98); border-top:1px solid var(--line);
+    padding:12px 16px; display:flex; justify-content:space-between; gap:12px; align-items:center;
+}
+.bar strong { display:block; font-size:14px; }
+.bar span { color:var(--muted); font-size:13px; }
+.bar .primary { min-width:160px; }
+</style>
+</head>
+<body>
+<div class="app">
+    <header class="hero">
+        <h1>Your order</h1>
+        <p>Build the cart now. Submit unlocks once your party is seated.</p>
+        <div class="status">
+            <div class="status-card">
+                <strong>Party</strong>
+                <span>Patel - 4</span>
+            </div>
+            <div class="status-card">
+                <strong>Queue state</strong>
+                <span>Called</span>
+            </div>
+        </div>
+    </header>
+
+    <div class="order-rail">
+        <div class="rail-note">Your cart is saved while you wait. Once the host seats you, <strong>Place order</strong> becomes available.</div>
+    </div>
+
+    <main class="section">
+        <div class="section-head">
+            <h2>Dosas</h2>
+            <a href="#">Cart (3)</a>
+        </div>
+
+        <div class="cards">
+            <article class="card">
+                <div class="photo"></div>
+                <div class="card-body">
+                    <div class="title-row">
+                        <h3>Mysore Masala Dosa</h3>
+                        <div class="price">$15.95</div>
+                    </div>
+                    <p class="desc">Thin rice-lentil crepe with potato masala and red chutney spread.</p>
+                    <div class="chips">
+                        <span class="chip required">potato masala</span>
+                        <span class="chip required">red chutney</span>
+                        <span class="chip required">sambar</span>
+                    </div>
+                    <div class="cta-row">
+                        <button class="ghost">View ingredients</button>
+                        <button class="primary">Customize</button>
+                    </div>
+                </div>
+            </article>
+        </div>
+    </main>
+</div>
+
+<section class="sheet" aria-label="Dish detail">
+    <div class="handle"></div>
+    <div class="sheet-photo"></div>
+    <h3>Mysore Masala Dosa</h3>
+    <p>Comes with potato masala, red chutney, sambar, and coconut chutney.</p>
+
+    <div class="group">
+        <label>Optional add-ons</label>
+        <div class="opts">
+            <div class="opt active"><span>Extra podi</span><strong>+$1</strong></div>
+            <div class="opt"><span>Ghee roast</span><strong>+$2</strong></div>
+            <div class="opt active"><span>Cheese</span><strong>+$2</strong></div>
+        </div>
+    </div>
+
+    <div class="group">
+        <label>Quantity</label>
+        <div class="qty">
+            <button>-</button>
+            <strong>2</strong>
+            <button>+</button>
+        </div>
+    </div>
+
+    <div class="group">
+        <label>Notes for the host</label>
+        <textarea>One dosa cut in half for kids.</textarea>
+    </div>
+</section>
+
+<div class="bar">
+    <div>
+        <strong>3 items in cart</strong>
+        <span>Submit unlocks after seating</span>
+    </div>
+    <button class="ghost">Save cart</button>
+</div>
+</body>
+</html>

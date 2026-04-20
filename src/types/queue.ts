@@ -99,6 +99,10 @@ export interface MenuItem {
     name: string;
     description?: string;
     price?: string;             // display string ("$12.50", "12", "market price")
+    image?: string;             // "/assets/<slug>/menu/<file>" or absolute URL
+    availability?: 'available' | 'sold_out';
+    requiredIngredients?: string[];
+    optionalIngredients?: string[];
 }
 export interface MenuSection {
     id: string;                 // short random id, client-minted
@@ -186,6 +190,47 @@ export interface QueueStateDTO {
     avgTurnTimeMinutes: number;
 }
 
+export interface GuestCartLineInputDTO {
+    menuItemId: string;
+    quantity: number;
+    notes?: string;
+    selectedOptions?: string[];
+}
+
+export interface GuestCartLineDTO {
+    menuItemId: string;
+    sectionId: string;
+    sectionTitle: string;
+    name: string;
+    description?: string;
+    price?: string;
+    image?: string;
+    quantity: number;
+    notes?: string;
+    requiredIngredients: string[];
+    optionalIngredients: string[];
+    selectedOptions: string[];
+    availability: 'available' | 'sold_out';
+}
+
+export interface GuestCartDTO {
+    code: string;
+    state: 'draft' | 'placed' | 'none';
+    lines: GuestCartLineDTO[];
+    totalQuantity: number;
+    updatedAt: string | null;
+    placedAt?: string;
+}
+
+export interface HostPartyOrderDTO {
+    code: string;
+    state: 'draft' | 'placed' | 'none';
+    lines: GuestCartLineDTO[];
+    totalQuantity: number;
+    updatedAt: string | null;
+    placedAt?: string;
+}
+
 export interface JoinRequestDTO {
     name: string;
     partySize: number;
@@ -221,6 +266,9 @@ export interface StatusResponseDTO {
     totalParties: number; // length of `queue`
     tableNumber?: number; // present iff viewer is seated
     onMyWayAt?: string; // ISO8601; set after diner clicks "I'm on my way"
+    order?: GuestCartDTO | null;
+    canManageOrder?: boolean;
+    canPlaceOrder?: boolean;
 }
 
 export interface HostPartyDTO {

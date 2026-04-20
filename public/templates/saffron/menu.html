@@ -32,17 +32,40 @@
     </div>
 
     <main class="saffron-menu-main" id="menu-main">
+        <div class="saffron-menu-subnav" id="menu-section-nav" hidden>
+            <div class="saffron-menu-subnav-label">Browse by section</div>
+            <div class="saffron-menu-subnav-track" id="menu-section-nav-links"></div>
+        </div>
         {{#each menu.sections}}
         <section class="saffron-menu-section">
             <h2 class="saffron-menu-section-title">{{title}}</h2>
             <ul class="saffron-menu-items">
                 {{#items}}
                 <li class="saffron-menu-item">
-                    <div class="saffron-menu-item-head">
-                        <span class="saffron-menu-item-name">{{name}}</span>
-                        {{#if price}}<span class="saffron-menu-item-price">{{price}}</span>{{/if}}
+                    {{#if image}}
+                    <div class="saffron-menu-item-media">
+                        <img class="saffron-menu-item-image" src="{{image}}" alt="" />
                     </div>
+                    {{/if}}
+                    <div class="saffron-menu-item-body">
+                        <div class="saffron-menu-item-head">
+                            <span class="saffron-menu-item-name">{{name}}</span>
+                            {{#if price}}<span class="saffron-menu-item-price">{{price}}</span>{{/if}}
+                        </div>
                     {{#if description}}<p class="saffron-menu-item-desc">{{description}}</p>{{/if}}
+                        {{#if hasRequiredIngredients}}
+                        <div class="saffron-menu-item-meta">
+                            <strong>Included</strong>
+                            <span class="saffron-menu-tags">{{#requiredIngredients}}<span class="saffron-menu-tag">{{.}}</span>{{/requiredIngredients}}</span>
+                        </div>
+                        {{/if}}
+                        {{#if hasOptionalIngredients}}
+                        <div class="saffron-menu-item-meta">
+                            <strong>Optional</strong>
+                            <span class="saffron-menu-tags">{{#optionalIngredients}}<span class="saffron-menu-tag is-optional">{{.}}</span>{{/optionalIngredients}}</span>
+                        </div>
+                        {{/if}}
+                    </div>
                 </li>
                 {{/items}}
             </ul>
@@ -68,6 +91,25 @@
         <div class="fcopy">© 2026 {{brandName}}</div>
     </footer>
 
+    <script>
+    (function () {
+        const sections = Array.from(document.querySelectorAll('.saffron-menu-section'));
+        const nav = document.getElementById('menu-section-nav');
+        const links = document.getElementById('menu-section-nav-links');
+        if (!nav || !links || sections.length < 2) return;
+        const slugify = (value, index) => {
+            const slug = String(value || ('section-' + index)).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+            return 'menu-section-' + (slug || String(index + 1));
+        };
+        links.innerHTML = sections.map((section, index) => {
+            const title = section.querySelector('.saffron-menu-section-title')?.textContent?.trim() || ('Section ' + (index + 1));
+            const id = slugify(title, index);
+            section.id = id;
+            return '<a class="saffron-menu-subnav-link" href="#' + id + '">' + title + '</a>';
+        }).join('');
+        nav.hidden = false;
+    })();
+    </script>
     <script src="site-config.js"></script>
 </body>
 </html>

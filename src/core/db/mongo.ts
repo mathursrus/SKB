@@ -5,10 +5,22 @@
 import { MongoClient, type Db, type Collection } from 'mongodb';
 
 import { determineDatabaseName } from '../utils/git-utils.js';
-import type { Location, QueueEntry, Settings } from '../../types/queue.js';
+import type { Location, QueueEntry, Settings, GuestCartLineDTO } from '../../types/queue.js';
 import type { ChatMessage } from '../../types/chat.js';
 import type { User, Membership, PasswordReset, Invite } from '../../types/identity.js';
 import type { GoogleToken } from '../../services/googleBusiness.js';
+
+export interface PartyOrder {
+    locationId: string;
+    code: string;
+    serviceDay: string;
+    entryId: string;
+    state: 'draft' | 'placed';
+    lines: GuestCartLineDTO[];
+    totalQuantity: number;
+    updatedAt: Date;
+    placedAt?: Date;
+}
 
 let client: MongoClient | null = null;
 let db: Db | null = null;
@@ -70,6 +82,10 @@ export function googleTokens(db: Db): Collection<GoogleToken> {
     return db.collection<GoogleToken>('google_tokens');
 }
 
+export function partyOrders(db: Db): Collection<PartyOrder> {
+    return db.collection<PartyOrder>('party_orders');
+}
+
 async function bootstrapIndexes(db: Db): Promise<void> {
     await queueEntries(db).createIndex(
         { locationId: 1, serviceDay: 1, state: 1, joinedAt: 1 },
@@ -117,6 +133,18 @@ async function bootstrapIndexes(db: Db): Promise<void> {
     await queueMessages(db).createIndex(
         { locationId: 1, entryCode: 1, direction: 1, readByHostAt: 1 },
         { name: 'unread_lookup' },
+    );
+    await partyOrders(db).createIndex(
+        { code: 1 },
+        { name: 'party_order_code_unique', unique: true },
+    );
+    await partyOrders(db).createIndex(
+        { locationId: 1, serviceDay: 1, state: 1, updatedAt: -1 },
+        { name: 'party_order_loc_day_state_updated' },
+    );
+    await partyOrders(db).createIndex(
+        { entryId: 1 },
+        { name: 'party_order_entry_id' },
     );
 
     // Identity collections (issue #53):

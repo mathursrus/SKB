@@ -204,9 +204,29 @@ function expandMenuSection(tmpl: string, section: { title: string; items: Array<
     return out;
 }
 
-function expandMenuItem(tmpl: string, item: { name: string; description?: string; price?: string }): string {
+function renderStringListBlock(tmpl: string, key: string, values: string[]): string {
+    const re = new RegExp(`\\{\\{#${key}\\s*\\}\\}([\\s\\S]*?)\\{\\{\\/${key}\\}\\}`, 'g');
+    return tmpl.replace(re, (_full, body: string) => values.map((value) => (
+        body.replace(/\{\{\s*\.\s*\}\}/g, escHtml(value))
+    )).join(''));
+}
+
+function expandMenuItem(
+    tmpl: string,
+    item: {
+        name: string;
+        description?: string;
+        price?: string;
+        image?: string;
+        requiredIngredients?: string[];
+        optionalIngredients?: string[];
+    },
+): string {
     const hasPrice = !!(item.price && String(item.price).trim());
     const hasDesc = !!(item.description && String(item.description).trim());
+    const hasImage = !!(item.image && String(item.image).trim());
+    const requiredIngredients = item.requiredIngredients ?? [];
+    const optionalIngredients = item.optionalIngredients ?? [];
     let out = tmpl;
     out = out.replace(
         /\{\{#if\s+price\s*\}\}([\s\S]*?)\{\{\/if\}\}/g,
@@ -216,8 +236,27 @@ function expandMenuItem(tmpl: string, item: { name: string; description?: string
         /\{\{#if\s+description\s*\}\}([\s\S]*?)\{\{\/if\}\}/g,
         (_full, body: string) => (hasDesc ? body : ''),
     );
-    return out.replace(/\{\{\s*(name|price|description)\s*\}\}/g, (_m, key: string) => {
-        const v = (item as Record<string, string | undefined>)[key] ?? '';
+    out = out.replace(
+        /\{\{#if\s+image\s*\}\}([\s\S]*?)\{\{\/if\}\}/g,
+        (_full, body: string) => (hasImage ? body : ''),
+    );
+    out = out.replace(
+        /\{\{#if\s+hasRequiredIngredients\s*\}\}([\s\S]*?)\{\{\/if\}\}/g,
+        (_full, body: string) => (requiredIngredients.length > 0 ? body : ''),
+    );
+    out = out.replace(
+        /\{\{#if\s+hasOptionalIngredients\s*\}\}([\s\S]*?)\{\{\/if\}\}/g,
+        (_full, body: string) => (optionalIngredients.length > 0 ? body : ''),
+    );
+    out = renderStringListBlock(out, 'requiredIngredients', requiredIngredients);
+    out = renderStringListBlock(out, 'optionalIngredients', optionalIngredients);
+    return out.replace(/\{\{\s*(name|price|description|image)\s*\}\}/g, (_m, key: string) => {
+        const v = ({
+            name: item.name,
+            price: item.price,
+            description: item.description,
+            image: item.image,
+        } as Record<string, string | undefined>)[key] ?? '';
         return escHtml(String(v));
     });
 }

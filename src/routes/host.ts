@@ -32,7 +32,8 @@ import {
     DEFAULT_WEBSITE_TEMPLATE,
     type WebsiteConfigUpdate,
 } from '../services/locations.js';
-import { processKnownForImages } from '../services/siteAssets.js';
+import { processKnownForImages, processMenuImages } from '../services/siteAssets.js';
+import { getHostPartyOrder } from '../services/orders.js';
 import { pushToGbpBackground } from '../services/googleBusiness.js';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -368,6 +369,18 @@ export function hostRouter(): Router {
         }
     });
 
+    r.get('/host/queue/:id/order', requireHost, async (req: Request, res: Response) => {
+        const id = String(req.params.id);
+        try {
+            const order = await getHostPartyOrder(id);
+            if (!order) { res.status(404).json({ error: 'not found' }); return; }
+            res.json(order);
+        } catch (err) {
+            if (err instanceof Error && err.message === 'invalid id') { res.status(400).json({ error: 'invalid id' }); return; }
+            dbError(res, err);
+        }
+    });
+
     r.post('/host/queue/:id/advance', requireHost, async (req: Request, res: Response) => {
         const id = String(req.params.id);
         const targetState = String(req.body?.state ?? '');
@@ -473,6 +486,7 @@ export function hostRouter(): Router {
             return;
         }
         try {
+            await processMenuImages(publicDirForAssets, loc(req), body.menu as LocationMenu);
             const updated = await updateLocationMenu(loc(req), body.menu as LocationMenu);
             console.log(JSON.stringify({
                 t: new Date().toISOString(),
@@ -488,6 +502,7 @@ export function hostRouter(): Router {
                 err.message.startsWith('menu.')
                 || err.message.startsWith('section.')
                 || err.message.startsWith('item.')
+                || err.message.startsWith('image ')
             )) {
                 res.status(400).json({ error: err.message });
                 return;

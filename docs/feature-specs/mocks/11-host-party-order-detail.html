@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Issue #11 - Host Order Detail Mock</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Fira+Sans:wght@400;600;700&display=swap" rel="stylesheet" />
+<style>
+:root {
+    --bg:#f5f2ec;
+    --panel:#fffdf8;
+    --ink:#211d18;
+    --muted:#6f665a;
+    --line:#ded5c8;
+    --accent:#1f6a5d;
+    --accent-soft:#e4f1ec;
+    --order:#fef0dc;
+}
+* { box-sizing:border-box; }
+body { margin:0; font:15px/1.45 'Fira Sans', sans-serif; color:var(--ink); background:var(--bg); }
+.shell { max-width:1360px; margin:0 auto; padding:20px; }
+.topbar {
+    display:flex; align-items:center; justify-content:space-between; gap:12px;
+    padding:14px 18px; border:1px solid var(--line); border-radius:8px; background:var(--panel);
+}
+.topbar .brand { font-size:20px; font-weight:700; }
+.counts { display:flex; gap:18px; color:var(--muted); }
+.counts strong { color:var(--ink); }
+.tabs { display:flex; gap:8px; margin-top:14px; }
+.tab {
+    border:1px solid var(--line); background:#fff; color:var(--muted); padding:10px 14px; border-radius:8px; font-weight:700;
+}
+.tab.active { background:var(--accent-soft); color:var(--accent); border-color:#b9d4cb; }
+.layout { display:grid; grid-template-columns:1.1fr .9fr; gap:16px; margin-top:16px; }
+.card { border:1px solid var(--line); border-radius:8px; background:var(--panel); overflow:hidden; }
+table { width:100%; border-collapse:collapse; }
+th, td { padding:12px 14px; border-bottom:1px solid var(--line); text-align:left; }
+th { font-size:12px; text-transform:uppercase; letter-spacing:.08em; color:var(--muted); background:#faf7f2; }
+tr:last-child td { border-bottom:none; }
+tr.selected { background:var(--accent-soft); }
+.badge {
+    display:inline-flex; align-items:center; gap:6px; padding:4px 10px; border-radius:999px; font-size:12px; font-weight:700;
+}
+.badge.order { background:var(--order); color:#8a5a1d; }
+.badge.state { background:#e6eef8; color:#2b5fa5; }
+.detail { padding:16px; display:grid; gap:16px; }
+.head { display:flex; justify-content:space-between; gap:12px; align-items:flex-start; }
+.head h1 { margin:0 0 4px; font-size:24px; }
+.head p { margin:0; color:var(--muted); }
+.meta { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; }
+.meta-card {
+    border:1px solid var(--line); border-radius:8px; padding:10px 12px; background:#fff;
+}
+.meta-card strong { display:block; font-size:12px; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); margin-bottom:6px; }
+.timeline, .order-box {
+    border:1px solid var(--line); border-radius:8px; background:#fff; padding:12px;
+}
+.timeline h2, .order-box h2 { margin:0 0 10px; font-size:18px; }
+.tl-step { display:flex; justify-content:space-between; gap:12px; padding:10px 0; border-bottom:1px solid #efe7db; }
+.tl-step:last-child { border-bottom:none; }
+.tl-step span:last-child { color:var(--muted); }
+.line-item { border:1px solid var(--line); border-radius:8px; padding:12px; margin-bottom:10px; background:#faf7f2; }
+.line-item:last-child { margin-bottom:0; }
+.line-item .title { display:flex; justify-content:space-between; gap:10px; font-weight:700; margin-bottom:8px; }
+.opts { display:flex; flex-wrap:wrap; gap:8px; margin:8px 0; }
+.opt { border-radius:999px; padding:5px 10px; font-size:12px; background:var(--accent-soft); color:var(--accent); }
+.note { color:var(--muted); font-size:14px; }
+.actions { display:flex; gap:10px; }
+button {
+    min-height:42px; border-radius:8px; font:700 14px 'Fira Sans', sans-serif; padding:0 14px; cursor:pointer;
+}
+.ghost { background:#fff; color:var(--muted); border:1px solid var(--line); }
+.primary { background:var(--accent); color:#fff; border:1px solid var(--accent); }
+@media (max-width: 980px) {
+    .layout { grid-template-columns:1fr; }
+    .meta { grid-template-columns:1fr 1fr; }
+}
+</style>
+</head>
+<body>
+<div class="shell">
+    <div class="topbar">
+        <div class="brand">Shri Krishna Bhavan - Host</div>
+        <div class="counts">
+            <div><strong>2</strong> waiting</div>
+            <div><strong>5</strong> dining</div>
+            <div><strong>12m</strong> oldest</div>
+        </div>
+    </div>
+
+    <div class="tabs">
+        <div class="tab">Waiting</div>
+        <div class="tab active">Seated</div>
+        <div class="tab">Complete</div>
+    </div>
+
+    <div class="layout">
+        <section class="card">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Table</th>
+                        <th>Party</th>
+                        <th>State</th>
+                        <th>Order</th>
+                        <th>Time in state</th>
+                        <th>Total</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr class="selected">
+                        <td><strong>12</strong></td>
+                        <td>Patel - 4</td>
+                        <td><span class="badge state">ordered</span></td>
+                        <td><span class="badge order">Order placed</span></td>
+                        <td>2m</td>
+                        <td>21m</td>
+                    </tr>
+                    <tr>
+                        <td><strong>9</strong></td>
+                        <td>Kumar - 2</td>
+                        <td><span class="badge state">seated</span></td>
+                        <td>-</td>
+                        <td>6m</td>
+                        <td>18m</td>
+                    </tr>
+                    <tr>
+                        <td><strong>6</strong></td>
+                        <td>Mehra - 3</td>
+                        <td><span class="badge state">served</span></td>
+                        <td><span class="badge order">Order placed</span></td>
+                        <td>10m</td>
+                        <td>37m</td>
+                    </tr>
+                </tbody>
+            </table>
+        </section>
+
+        <aside class="card detail">
+            <div class="head">
+                <div>
+                    <h1>Patel - table 12</h1>
+                    <p>Guest order submitted from phone at 7:14 PM.</p>
+                </div>
+                <div class="actions">
+                    <button class="ghost">Open timeline</button>
+                    <button class="primary">Served</button>
+                </div>
+            </div>
+
+            <div class="meta">
+                <div class="meta-card">
+                    <strong>Party size</strong>
+                    <div>4 guests</div>
+                </div>
+                <div class="meta-card">
+                    <strong>Current state</strong>
+                    <div>ordered</div>
+                </div>
+                <div class="meta-card">
+                    <strong>Time in state</strong>
+                    <div>2 minutes</div>
+                </div>
+                <div class="meta-card">
+                    <strong>Total at table</strong>
+                    <div>21 minutes</div>
+                </div>
+            </div>
+
+            <section class="order-box">
+                <h2>Placed order</h2>
+
+                <div class="line-item">
+                    <div class="title">
+                        <span>2 x Mysore Masala Dosa</span>
+                        <span>$37.90</span>
+                    </div>
+                    <div class="opts">
+                        <span class="opt">extra podi</span>
+                        <span class="opt">cheese</span>
+                    </div>
+                    <div class="note">Note: One dosa cut in half for kids.</div>
+                </div>
+
+                <div class="line-item">
+                    <div class="title">
+                        <span>1 x Filter Coffee</span>
+                        <span>$4.50</span>
+                    </div>
+                    <div class="note">No note.</div>
+                </div>
+            </section>
+
+            <section class="timeline">
+                <h2>Party timeline</h2>
+                <div class="tl-step"><span>Joined</span><span>6:37 PM</span></div>
+                <div class="tl-step"><span>Called</span><span>6:52 PM</span></div>
+                <div class="tl-step"><span>Seated</span><span>6:55 PM</span></div>
+                <div class="tl-step"><span>Ordered</span><span>7:14 PM</span></div>
+            </section>
+        </aside>
+    </div>
+</div>
+</body>
+</html>

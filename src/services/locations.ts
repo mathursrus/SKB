@@ -561,6 +561,28 @@ const MENU_MAX_TITLE = 80;
 const MENU_MAX_NAME = 120;
 const MENU_MAX_DESC = 500;
 const MENU_MAX_PRICE = 40;
+const MENU_MAX_IMAGE = 500;
+const MENU_MAX_INGREDIENTS = 16;
+const MENU_MAX_INGREDIENT_LEN = 60;
+const VALID_MENU_AVAILABILITY = ['available', 'sold_out'] as const;
+
+function validateIngredientList(
+    value: unknown,
+    label: string,
+): asserts value is string[] | undefined {
+    if (value === undefined || value === null) return;
+    if (!Array.isArray(value)) throw new Error(`${label} must be an array`);
+    if (value.length > MENU_MAX_INGREDIENTS) {
+        throw new Error(`${label} must be <= ${MENU_MAX_INGREDIENTS} items`);
+    }
+    for (const [index, item] of value.entries()) {
+        if (typeof item !== 'string') throw new Error(`${label}[${index}] must be a string`);
+        if (item.trim().length === 0) throw new Error(`${label}[${index}] is required`);
+        if (item.trim().length > MENU_MAX_INGREDIENT_LEN) {
+            throw new Error(`${label}[${index}] must be <= ${MENU_MAX_INGREDIENT_LEN} chars`);
+        }
+    }
+}
 
 export function validateMenu(menu: LocationMenu): void {
     if (!menu || !Array.isArray(menu.sections)) {
@@ -611,8 +633,29 @@ export function validateMenu(menu: LocationMenu): void {
                     throw new Error(`item.price must be <= ${MENU_MAX_PRICE} chars`);
                 }
             }
+            if (it.image !== undefined && it.image !== null) {
+                if (typeof it.image !== 'string') throw new Error('item.image must be a string');
+                if (it.image.length > MENU_MAX_IMAGE) {
+                    throw new Error(`item.image must be <= ${MENU_MAX_IMAGE} chars`);
+                }
+            }
+            if (it.availability !== undefined && it.availability !== null) {
+                if (!(VALID_MENU_AVAILABILITY as readonly string[]).includes(it.availability)) {
+                    throw new Error(`item.availability must be one of: ${VALID_MENU_AVAILABILITY.join(', ')}`);
+                }
+            }
+            validateIngredientList(it.requiredIngredients, 'item.requiredIngredients');
+            validateIngredientList(it.optionalIngredients, 'item.optionalIngredients');
         }
     }
+}
+
+function normalizeIngredientList(items: string[] | undefined): string[] | undefined {
+    if (!Array.isArray(items)) return undefined;
+    const cleaned = items
+        .map((item) => String(item ?? '').trim())
+        .filter(Boolean);
+    return cleaned.length > 0 ? cleaned : undefined;
 }
 
 /** Normalize for storage: trim strings, drop empty description/price. */
@@ -627,6 +670,13 @@ function normalizeMenu(menu: LocationMenu): LocationMenu {
                 if (d) out.description = d;
                 const p = typeof it.price === 'string' ? it.price.trim() : '';
                 if (p) out.price = p;
+                const image = typeof it.image === 'string' ? it.image.trim() : '';
+                if (image) out.image = image;
+                if (it.availability === 'sold_out') out.availability = 'sold_out';
+                const requiredIngredients = normalizeIngredientList(it.requiredIngredients);
+                if (requiredIngredients) out.requiredIngredients = requiredIngredients;
+                const optionalIngredients = normalizeIngredientList(it.optionalIngredients);
+                if (optionalIngredients) out.optionalIngredients = optionalIngredients;
                 return out;
             }),
         })),

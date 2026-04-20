@@ -126,6 +126,7 @@ const cases: BaseTestCase[] = [
                 && html.includes('$8')
                 && html.includes('Biryani')
                 && html.includes('$18')
+                && html.includes('menu-section-nav')
                 // Fallback must NOT render when sections exist.
                 && !html.includes('Menu coming soon');
         },
@@ -148,6 +149,36 @@ const cases: BaseTestCase[] = [
             return html.includes('Ask your server')
                 && !/saffron-menu-item-price[^>]*>\s*<\/span>/.test(html)
                 && !/slate-menu-item-price[^>]*>\s*<\/span>/.test(html);
+        },
+    },
+    {
+        name: 'rich menu fields render image and ingredient content on the public menu page',
+        tags: ['integration', 'menu-render', 'rich-menu'],
+        testFn: async () => {
+            await fetch(`${getTestServerUrl()}/r/${LOC}/api/host/menu`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Cookie': ownerCookie! },
+                body: JSON.stringify({
+                    menu: {
+                        sections: [{
+                            id: 's-rich',
+                            title: 'Specials',
+                            items: [{
+                                id: 'i-rich',
+                                name: 'Masala Dosa',
+                                image: '/assets/skb/menu/masala-dosa.jpg',
+                                requiredIngredients: ['Potato masala'],
+                                optionalIngredients: ['Extra ghee'],
+                            }],
+                        }],
+                    },
+                }),
+            });
+            const r = await fetch(`${getTestServerUrl()}/r/${LOC}/menu`);
+            const html = await r.text();
+            return html.includes('/assets/skb/menu/masala-dosa.jpg')
+                && html.includes('Potato masala')
+                && html.includes('Extra ghee');
         },
     },
 

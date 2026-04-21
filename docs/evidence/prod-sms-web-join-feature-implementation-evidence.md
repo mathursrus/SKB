@@ -24,6 +24,32 @@
   - follow-up docs deploy run `24696852865` succeeded for commit `15375cafa36f415d10d40e5a905e728973f29a7f`
   - live web join produced delivered Twilio SMS with body using `https://skb-waitlist.azurewebsites.net/r/skb/queue.html?...`
 
+### Feature Requirement Traceability Matrix
+
+| Requirement / Acceptance Criteria | Implemented File / Function | Proof | Status |
+| --- | --- | --- | --- |
+| Web join confirmation SMS must stop inheriting the inbound request host. | `src/services/queueStatusUrl.ts` / `resolveQueueStatusBaseUrl` | `npx tsx tests/unit/queueStatusUrl.test.ts` | Met |
+| Web join and IVR join must continue to share the same outbound sender configuration. | `src/services/sms.ts` / `getConfig`, `sendSms` | Prod config check: `TWILIO_PHONE_NUMBER=+14254284231`; live Twilio message from `+14254284231` | Met |
+| Canonical URL precedence must prefer `Location.publicUrl`, then `SKB_PUBLIC_BASE_URL`, then request host fallback. | `src/services/queueStatusUrl.ts` / `resolveQueueStatusBaseUrl` | `npx tsx tests/unit/queueStatusUrl.test.ts` | Met |
+| Queue deep links must retain `/r/:loc/queue.html?code=...` shape. | `src/services/queueStatusUrl.ts` / `buildQueueStatusUrlForSms` | `npx tsx tests/unit/queueStatusUrl.test.ts`; `npx tsx tests/unit/url.test.ts` | Met |
+| A production web join with SMS consent must yield a canonical-host SMS body. | `src/routes/queue.ts` / join confirmation path | Live POST to `https://skb-waitlist.azurewebsites.net/r/skb/api/queue/join`; Twilio delivered body for `SKB-2ZR` | Met |
+
+### Technical Design Traceability Matrix
+
+| Design / Constraint | Implemented File / Function | Proof | Status |
+| --- | --- | --- | --- |
+| Keep the fix narrow and avoid changing sender-number selection. | `src/routes/queue.ts`, `src/routes/voice.ts`, `src/services/queueStatusUrl.ts` | Diff review; `src/services/sms.ts` unchanged | Met |
+| Reuse existing canonical public URL patterns already present in the codebase. | `src/services/queueStatusUrl.ts` with `locationPublicUrl` and `appPublicBaseUrl` inputs | Diff review; prod config verification | Met |
+| Keep both web and IVR flows consistent through a shared URL builder. | `src/routes/queue.ts`, `src/routes/voice.ts`, `src/services/queueStatusUrl.ts` | Diff review; `npx tsx tests/unit/queueStatusUrl.test.ts` | Met |
+| Validate with automated tests plus manual prod verification. | `tests/unit/queueStatusUrl.test.ts`, `docs/evidence/prod-sms-web-join-validation.md` | `npx tsx tests/unit/queueStatusUrl.test.ts`; `npm test`; live Twilio verification | Met |
+
+### Feedback Verification
+
+- Feedback file reviewed: `docs/evidence/prod-sms-web-join-feature-implementation-feedback.md`
+- Total feedback items: 0
+- Unaddressed items: 0
+- Result: all feedback addressed.
+
 ## Security Review
 
 ### Executive Summary

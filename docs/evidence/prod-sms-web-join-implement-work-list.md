@@ -30,11 +30,11 @@ Issue type: `bug`
 
 ## Implementation Checklist
 
-- [ ] `src/services/queueStatusUrl.ts` - Centralize canonical queue status URL resolution with `Location.publicUrl`, `SKB_PUBLIC_BASE_URL`, and request-host fallback ordering.
-- [ ] `src/routes/queue.ts` - Switch web join confirmation SMS to the shared canonical builder.
-- [ ] `src/routes/voice.ts` - Switch IVR join confirmation SMS to the shared canonical builder.
-- [ ] `tests/unit/queueStatusUrl.test.ts` - Cover canonical URL precedence and request-host fallback behavior.
-- [ ] `docs/evidence/prod-sms-web-join-validation.md` - Record prod verification, including sender-number confirmation and Twilio delivery outcome after deploy.
+- [x] `src/services/queueStatusUrl.ts` - Centralize canonical queue status URL resolution with `Location.publicUrl`, `SKB_PUBLIC_BASE_URL`, and request-host fallback ordering.
+- [x] `src/routes/queue.ts` - Switch web join confirmation SMS to the shared canonical builder.
+- [x] `src/routes/voice.ts` - Switch IVR join confirmation SMS to the shared canonical builder.
+- [x] `tests/unit/queueStatusUrl.test.ts` - Cover canonical URL precedence and request-host fallback behavior.
+- [x] `docs/evidence/prod-sms-web-join-validation.md` - Record prod verification, including sender-number confirmation and Twilio delivery outcome after deploy.
 
 ## Quality Requirements
 

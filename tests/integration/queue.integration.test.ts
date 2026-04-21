@@ -35,7 +35,7 @@ const cases: BaseTestCase[] = [
         testFn: async () => {
             await resetDb();
             const r = await joinQueue('test', { name: 'Alice', partySize: 2, phone: '2065551234' }, new Date('2026-04-05T20:00:00Z'));
-            return r.position === 1 && r.etaMinutes === 8 && r.etaAt === '2026-04-05T20:08:00.000Z' && /^SKB-[A-Z2-9]{3}$/.test(r.code);
+            return r.position === 1 && r.etaMinutes === 8 && r.etaAt === '2026-04-05T20:08:00.000Z' && /^TEST-[A-Z2-9]{3}$/.test(r.code);
         },
     },
     {

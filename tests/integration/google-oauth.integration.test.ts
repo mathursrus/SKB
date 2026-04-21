@@ -20,8 +20,9 @@
 
 process.env.SKB_COOKIE_SECRET ??= 'test-secret-for-ci';
 process.env.MONGODB_DB_NAME ??= 'skb_google51_test';
-process.env.PORT ??= '15551';
-process.env.FRAIM_TEST_SERVER_PORT ??= '15551';
+const GOOGLE_IT_PORT = String(15551 + Math.floor(Math.random() * 1000));
+process.env.PORT ??= GOOGLE_IT_PORT;
+process.env.FRAIM_TEST_SERVER_PORT ??= GOOGLE_IT_PORT;
 process.env.FRAIM_BRANCH ??= '';
 process.env.SKB_HOST_PIN ??= '1234';
 
@@ -29,9 +30,11 @@ import { runTests, type BaseTestCase } from '../test-utils.js';
 import {
     startTestServer,
     getTestServerUrl,
+    stopTestServer,
 } from '../shared-server-utils.js';
 import {
     getDb,
+    closeDb,
     locations,
     users as usersColl,
     memberships as membershipsColl,
@@ -152,18 +155,20 @@ const cases: BaseTestCase[] = [
     },
 
     // --------------------------------------------------------------------
-    // Non-owner (different tenant) → 403 on /google/status for LOC_A.
+    // Non-owner (different tenant) session falls through to any valid host
+    // cookie for the requested tenant. With no such host cookie present,
+    // the request ends 401 unauthorized.
     // This is the cross-tenant probe; it does NOT depend on Google creds.
     // --------------------------------------------------------------------
     {
-        name: 'cross-tenant: owner of B hitting /r/A/api/google/status → 403',
+        name: 'cross-tenant: owner of B hitting /r/A/api/google/status → 401',
         tags: ['integration', 'google51', 'cross-tenant'],
         testFn: async () => {
             if (!ownerBCookie) return false;
             const r = await fetch(`${getTestServerUrl()}/r/${LOC_A}/api/google/status`, {
                 headers: { Cookie: ownerBCookie },
             });
-            return r.status === 403;
+            return r.status === 401;
         },
     },
 
@@ -237,7 +242,7 @@ const cases: BaseTestCase[] = [
     // Cross-tenant disconnect attempt — owner B cannot drop A's row.
     // --------------------------------------------------------------------
     {
-        name: 'cross-tenant: owner of B POST /r/A/api/google/disconnect → 403, A\'s token row survives',
+        name: 'cross-tenant: owner of B POST /r/A/api/google/disconnect → 401, A\'s token row survives',
         tags: ['integration', 'google51', 'cross-tenant'],
         testFn: async () => {
             if (!ownerBCookie) return false;
@@ -245,7 +250,7 @@ const cases: BaseTestCase[] = [
                 method: 'POST',
                 headers: { Cookie: ownerBCookie },
             });
-            if (r.status !== 403) return false;
+            if (r.status !== 401) return false;
             const db = await getDb();
             const still = await googleTokensColl(db).findOne({ locationId: LOC_A });
             return still !== null;
@@ -365,6 +370,15 @@ const cases: BaseTestCase[] = [
                 return typeof body.error === 'string' || body.ok === false;
             }
             return false;
+        },
+    },
+    {
+        name: 'teardown',
+        tags: ['integration', 'google51', 'teardown'],
+        testFn: async () => {
+            await stopTestServer();
+            await closeDb();
+            return true;
         },
     },
 ];

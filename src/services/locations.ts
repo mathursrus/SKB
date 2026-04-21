@@ -10,6 +10,7 @@ import type {
     WeeklyHours,
     DayHours,
     DayOfWeek,
+    GuestFeatures,
     PublicLocation,
     WebsiteTemplateKey,
     LocationContent,
@@ -37,6 +38,19 @@ export function normalizeFrontDeskPhone(input: string): string | null {
 }
 const MIN_VOICE_LARGE_PARTY_THRESHOLD = 6;
 const MAX_VOICE_LARGE_PARTY_THRESHOLD = 20;
+export const DEFAULT_GUEST_FEATURES: GuestFeatures = {
+    sms: true,
+    chat: true,
+    order: true,
+};
+
+export function getGuestFeatures(location?: Pick<Location, 'guestFeatures'> | null): GuestFeatures {
+    return {
+        sms: location?.guestFeatures?.sms !== false,
+        chat: location?.guestFeatures?.chat !== false,
+        order: location?.guestFeatures?.order !== false,
+    };
+}
 
 export async function getLocation(locationId: string): Promise<Location | null> {
     const db = await getDb();
@@ -56,6 +70,7 @@ export function toPublicLocation(location: Location): PublicLocation {
     if (location.publicUrl) out.publicUrl = location.publicUrl;
     if (location.websiteTemplate) out.websiteTemplate = location.websiteTemplate;
     if (location.content) out.content = location.content;
+    out.guestFeatures = getGuestFeatures(location);
     return out;
 }
 
@@ -96,6 +111,12 @@ export interface SiteConfigUpdate {
     address?: LocationAddress | null;
     hours?: WeeklyHours | null;
     publicHost?: string | null;
+}
+
+export interface GuestFeaturesUpdate {
+    sms?: boolean;
+    chat?: boolean;
+    order?: boolean;
 }
 
 export function validateVoiceConfigUpdate(update: VoiceConfigUpdate): void {
@@ -184,6 +205,16 @@ export function validateSiteConfigUpdate(update: SiteConfigUpdate): void {
         const h = String(update.publicHost).trim().toLowerCase();
         if (!PUBLIC_HOST_RE.test(h)) {
             throw new Error('publicHost must be a bare domain like "skbbellevue.com"');
+        }
+    }
+}
+
+export function validateGuestFeaturesUpdate(update: GuestFeaturesUpdate): void {
+    const keys: Array<keyof GuestFeaturesUpdate> = ['sms', 'chat', 'order'];
+    for (const key of keys) {
+        const value = update[key];
+        if (value !== undefined && typeof value !== 'boolean') {
+            throw new Error(`guestFeatures.${key} must be a boolean`);
         }
     }
 }
@@ -346,6 +377,29 @@ export async function updateLocationSiteConfig(
     const result = await locations(db).findOneAndUpdate(
         { _id: locationId },
         updateDoc,
+        { returnDocument: 'after' },
+    );
+    if (!result) throw new Error('location not found');
+    return result;
+}
+
+export async function updateLocationGuestFeatures(
+    locationId: string,
+    update: GuestFeaturesUpdate,
+): Promise<Location> {
+    validateGuestFeaturesUpdate(update);
+
+    const db = await getDb();
+    const result = await locations(db).findOneAndUpdate(
+        { _id: locationId },
+        {
+            $set: {
+                guestFeatures: {
+                    ...DEFAULT_GUEST_FEATURES,
+                    ...update,
+                },
+            },
+        },
         { returnDocument: 'after' },
     );
     if (!result) throw new Error('location not found');

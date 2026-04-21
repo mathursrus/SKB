@@ -1,9 +1,14 @@
-// Unit tests for src/services/locations.ts — pure validation + public
+// Unit tests for src/services/locations.ts â€” pure validation + public
 // projection. DB-bound paths (updateLocationSiteConfig, getLocation) are
 // exercised by the integration suite.
 import { runTests, type BaseTestCase } from '../test-utils.js';
-import { validateSiteConfigUpdate, toPublicLocation } from '../../src/services/locations.js';
-import type { Location, LocationAddress, WeeklyHours } from '../../src/types/queue.js';
+import {
+    getGuestFeatures,
+    toPublicLocation,
+    validateGuestFeaturesUpdate,
+    validateSiteConfigUpdate,
+} from '../../src/services/locations.js';
+import type { GuestFeatures, Location, LocationAddress, WeeklyHours } from '../../src/types/queue.js';
 
 const GOOD_ADDRESS: LocationAddress = {
     street: '12 Bellevue Way SE',
@@ -22,6 +27,12 @@ const GOOD_HOURS: WeeklyHours = {
     sun: { lunch: { open: '11:30', close: '14:30' }, dinner: { open: '17:30', close: '21:30' } },
 };
 
+const GOOD_GUEST_FEATURES: GuestFeatures = {
+    sms: true,
+    chat: false,
+    order: true,
+};
+
 function throws(fn: () => void, match?: string): boolean {
     try {
         fn();
@@ -33,7 +44,6 @@ function throws(fn: () => void, match?: string): boolean {
 }
 
 const cases: BaseTestCase[] = [
-    // Valid updates — must NOT throw
     {
         name: 'valid empty update passes',
         tags: ['unit', 'locations'],
@@ -86,8 +96,14 @@ const cases: BaseTestCase[] = [
             return true;
         },
     },
-
-    // Invalid inputs — must throw with specific messages
+    {
+        name: 'valid guest features update passes',
+        tags: ['unit', 'locations'],
+        testFn: async () => {
+            validateGuestFeaturesUpdate({ sms: false, chat: true, order: false });
+            return true;
+        },
+    },
     {
         name: 'address missing street throws',
         tags: ['unit', 'locations'],
@@ -193,8 +209,15 @@ const cases: BaseTestCase[] = [
             'bare domain',
         ),
     },
-
-    // toPublicLocation projection
+    {
+        name: 'guest features must be booleans',
+        tags: ['unit', 'locations'],
+        testFn: async () => throws(
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            () => validateGuestFeaturesUpdate({ sms: 'yes' as any }),
+            'guestFeatures.sms must be a boolean',
+        ),
+    },
     {
         name: 'toPublicLocation strips pin',
         tags: ['unit', 'locations'],
@@ -210,7 +233,7 @@ const cases: BaseTestCase[] = [
         },
     },
     {
-        name: 'toPublicLocation includes address/hours/frontDeskPhone when present',
+        name: 'toPublicLocation includes address, hours, phone, and guest features when present',
         tags: ['unit', 'locations'],
         testFn: async () => {
             const full: Location = {
@@ -221,15 +244,17 @@ const cases: BaseTestCase[] = [
                 address: GOOD_ADDRESS,
                 hours: GOOD_HOURS,
                 frontDeskPhone: '2065551234',
+                guestFeatures: GOOD_GUEST_FEATURES,
             };
             const pub = toPublicLocation(full);
             return pub.address?.street === '12 Bellevue Way SE'
                 && pub.hours?.mon === 'closed'
-                && pub.frontDeskPhone === '2065551234';
+                && pub.frontDeskPhone === '2065551234'
+                && pub.guestFeatures?.chat === false;
         },
     },
     {
-        name: 'toPublicLocation omits unset optional fields',
+        name: 'toPublicLocation defaults guest features when unset',
         tags: ['unit', 'locations'],
         testFn: async () => {
             const full: Location = {
@@ -239,7 +264,20 @@ const cases: BaseTestCase[] = [
                 createdAt: new Date(),
             };
             const pub = toPublicLocation(full);
-            return pub.address === undefined && pub.hours === undefined && pub.frontDeskPhone === undefined;
+            return pub.address === undefined
+                && pub.hours === undefined
+                && pub.frontDeskPhone === undefined
+                && pub.guestFeatures?.sms === true
+                && pub.guestFeatures?.chat === true
+                && pub.guestFeatures?.order === true;
+        },
+    },
+    {
+        name: 'getGuestFeatures falls back to defaults',
+        tags: ['unit', 'locations'],
+        testFn: async () => {
+            const features = getGuestFeatures(null);
+            return features.sms === true && features.chat === true && features.order === true;
         },
     },
 ];

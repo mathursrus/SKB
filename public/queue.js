@@ -12,8 +12,11 @@
     const joinForm = $('join-form');
     const joinError = $('join-error');
     const submitBtn = $('submit-btn');
+    const smsConsentBlock = $('sms-consent-block');
 
     const STORAGE_KEY = 'skb_queue_code';
+    const DEFAULT_GUEST_FEATURES = { order: true, chat: true, sms: true };
+    let guestFeatures = { ...DEFAULT_GUEST_FEATURES };
 
     // --- Auto-refresh polling ---
     // We poll aggressively while the diner is in the queue so state changes
@@ -40,6 +43,22 @@
     function chatThreadEl() { return document.getElementById('chat-thread'); }
     function chatInputEl() { return document.getElementById('chat-input'); }
     function chatErrorEl() { return document.getElementById('chat-error'); }
+    function orderEnabled() { return guestFeatures.order !== false; }
+    function chatEnabled() { return guestFeatures.chat !== false; }
+    function smsEnabled() { return guestFeatures.sms !== false; }
+
+    function applyGuestFeatureVisibility() {
+        if (smsConsentBlock) smsConsentBlock.style.display = smsEnabled() ? '' : 'none';
+        if (!chatEnabled()) {
+            stopChatPoll();
+            if (chatCard()) chatCard().style.display = 'none';
+        }
+        if (!orderEnabled()) {
+            if (orderCard) orderCard.style.display = 'none';
+            setGuestTab('waitlist', true);
+        }
+        syncGuestTabs(null);
+    }
 
     function escHtml(s) {
         return String(s).replace(/[&<>"']/g, (c) => ({
@@ -52,6 +71,21 @@
             const d = new Date(iso);
             return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
         } catch { return ''; }
+    }
+
+    async function loadPublicConfig() {
+        try {
+            const res = await fetch('api/public-config');
+            if (!res.ok) return;
+            const data = await res.json();
+            guestFeatures = {
+                ...DEFAULT_GUEST_FEATURES,
+                ...(data && data.guestFeatures ? data.guestFeatures : {}),
+            };
+        } catch {
+            guestFeatures = { ...DEFAULT_GUEST_FEATURES };
+        }
+        applyGuestFeatureVisibility();
     }
 
     function renderChatThread(messages) {
@@ -74,8 +108,14 @@
     }
 
     async function loadChat(code) {
+        if (!chatEnabled()) return;
         try {
             const res = await fetch('api/queue/chat/' + encodeURIComponent(code));
+            if (res.status === 403) {
+                if (chatCard()) chatCard().style.display = 'none';
+                stopChatPoll();
+                return;
+            }
             if (res.status === 404) {
                 if (chatCard()) chatCard().style.display = 'none';
                 chatPollDelayMs = CHAT_POLL_BASE_MS;
@@ -122,6 +162,7 @@
     }
 
     function startChatPoll(code) {
+        if (!chatEnabled()) return;
         if (chatPollTimer) clearTimeout(chatPollTimer);
         chatPollDelayMs = CHAT_POLL_BASE_MS;
         loadChat(code);
@@ -271,7 +312,8 @@
     const orderPendingEdits = new Map();
 
     function hasOrderTab(status) {
-        return Boolean(status && ['waiting', 'called', 'seated', 'ordered', 'served', 'checkout'].includes(status.state));
+        return orderEnabled()
+            && Boolean(status && ['waiting', 'called', 'seated', 'ordered', 'served', 'checkout'].includes(status.state));
     }
 
     function setGuestTab(tab, force) {
@@ -422,6 +464,7 @@
     }
 
     async function ensureMenuLoaded() {
+        if (!orderEnabled()) return null;
         if (menuData) return menuData;
         const res = await fetch('api/menu');
         if (!res.ok) throw new Error('menu unavailable');
@@ -697,7 +740,9 @@
                 if (waitElapsed) waitElapsed.style.display = 'none';
                 renderPublicList([]);
                 syncDraftFromStatus(s);
-                try { await ensureMenuLoaded(); } catch {}
+                if (orderEnabled()) {
+                    try { await ensureMenuLoaded(); } catch {}
+                }
                 renderOrderCard(s);
                 lastSeenState = s.state;
                 return false;
@@ -717,7 +762,9 @@
                 if (waitElapsed) waitElapsed.style.display = 'none';
                 renderPublicList([]);
                 syncDraftFromStatus(s);
-                try { await ensureMenuLoaded(); } catch {}
+                if (orderEnabled()) {
+                    try { await ensureMenuLoaded(); } catch {}
+                }
                 renderOrderCard(s);
                 lastSeenState = s.state;
                 return false;
@@ -767,9 +814,12 @@
             startLiveTick();
             // Start (or keep running) the chat poll for every active state
             // (waiting/called), so host messages surface in-page in ~4s.
-            startChatPoll(s.code);
+            if (chatEnabled()) startChatPoll(s.code);
+            else if (chatCard()) chatCard().style.display = 'none';
             syncDraftFromStatus(s);
-            try { await ensureMenuLoaded(); } catch {}
+            if (orderEnabled()) {
+                try { await ensureMenuLoaded(); } catch {}
+            }
             renderOrderCard(s);
             if (s.state === 'called') {
                 const currentCallCount = (s.callsMinutesAgo || []).length;
@@ -871,7 +921,7 @@
         const name = $('name').value.trim();
         const partySize = Number($('size').value);
         const phone = $('phone').value.trim();
-        const smsConsent = !!($('sms-consent') && $('sms-consent').checked);
+        const smsConsent = smsEnabled() && !!($('sms-consent') && $('sms-consent').checked);
         if (!/^\d{10}$/.test(phone)) {
             joinError.textContent = 'Please enter a valid 10-digit phone number.';
             joinError.style.display = '';
@@ -986,6 +1036,7 @@
     // Boot
     (async function () {
         setGuestTab('waitlist', true);
+        await loadPublicConfig();
         // Allow ?code=SKB-XXX in the URL to override localStorage so shared
         // deep links (and the join confirmation SMS) just work.
         const params = new URLSearchParams(window.location.search);

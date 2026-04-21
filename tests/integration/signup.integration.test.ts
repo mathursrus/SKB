@@ -20,8 +20,9 @@
 
 process.env.SKB_COOKIE_SECRET ??= 'test-secret-for-ci';
 process.env.MONGODB_DB_NAME ??= 'skb_signup54_test';
-process.env.PORT ??= '15402';
-process.env.FRAIM_TEST_SERVER_PORT ??= '15402';
+const SIGNUP_IT_PORT = String(15402 + Math.floor(Math.random() * 1000));
+process.env.PORT ??= SIGNUP_IT_PORT;
+process.env.FRAIM_TEST_SERVER_PORT ??= SIGNUP_IT_PORT;
 process.env.FRAIM_BRANCH ??= '';
 process.env.SKB_HOST_PIN ??= '1234';
 // Keep welcome-email body out of the captured stdout for a cleaner log.
@@ -36,8 +37,10 @@ import { runTests, type BaseTestCase } from '../test-utils.js';
 import {
     startTestServer,
     getTestServerUrl,
+    stopTestServer,
 } from '../shared-server-utils.js';
 import {
+    closeDb,
     getDb,
     locations,
     users as usersColl,
@@ -329,7 +332,7 @@ const cases: BaseTestCase[] = [
             const body = await res.json() as Record<string, any>;
             return Array.isArray(body.steps)
                 && body.steps.length === 0
-                && body.total === 4
+                && body.total === 6
                 && body.done === false;
         },
     },
@@ -397,7 +400,7 @@ const cases: BaseTestCase[] = [
             const res = await fetch(`${BASE()}/r/signup-54-clash/api/onboarding/steps`, {
                 headers: { Cookie: cookie },
             });
-            return res.status === 403;
+            return res.status === 401;
         },
     },
 
@@ -419,6 +422,15 @@ const cases: BaseTestCase[] = [
     // client IPs via X-Forwarded-For, which requires `trust proxy`. The
     // middleware behavior is identical for any route that uses it, so the
     // unit-level coverage is sufficient.
+    {
+        name: 'teardown',
+        tags: ['integration', 'signup54', 'teardown'],
+        testFn: async () => {
+            await stopTestServer();
+            await closeDb();
+            return true;
+        },
+    },
 ];
 
 runTests(cases, 'POST /api/signup + onboarding wizard (issue #54)');

@@ -102,7 +102,7 @@ async function main(): Promise<void> {
         await page.waitForTimeout(500);
 
         const title = await page.title();
-        assert(title === 'SKB — Place in Line', `page title=${title}`);
+        assert(title === 'Shri Krishna Bhavan — Place in Line', `page title=${title}`);
 
         const statusCardVisible = await page.locator('#conf-card').isVisible();
         const joinCardVisible = await page.locator('#join-card').isVisible();

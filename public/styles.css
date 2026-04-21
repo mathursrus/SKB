@@ -1451,6 +1451,18 @@ body.queue-boot::before {
 }
 .visit-field { display: flex; flex-direction: column; gap: 4px; }
 .visit-field-full { grid-column: 1 / -1; }
+.guest-feature-grid { align-items: start; }
+.guest-feature-field {
+    padding: 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: #fafaf9;
+}
+.guest-feature-help {
+    font-size: 12px;
+    line-height: 1.45;
+    color: var(--muted);
+}
 .visit-label {
     font-size: 11px;
     text-transform: uppercase;
@@ -2598,6 +2610,10 @@ a#custom-call-confirm[aria-disabled="true"] {
     background: var(--card);
     border-color: var(--border);
     color: var(--fg);
+}
+.theme-dark .guest-feature-field {
+    background: var(--surface-alt);
+    border-color: var(--border);
 }
 .theme-dark .admin-card-head h2,
 .theme-dark .admin-card-head h3,

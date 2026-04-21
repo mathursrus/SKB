@@ -23,8 +23,10 @@ import { getHostStats } from '../services/stats.js';
 import { getAnalytics } from '../services/analytics.js';
 import {
     getLocation,
+    getGuestFeatures,
     updateLocationVisitConfig,
     updateLocationVoiceConfig,
+    updateLocationGuestFeatures,
     updateLocationSiteConfig,
     updateLocationWebsiteConfig,
     updateLocationMenu,
@@ -255,6 +257,7 @@ export function hostRouter(): Router {
             res.json({ ok: true, smsStatus: result.smsStatus });
         } catch (err) {
             if (err instanceof Error && err.message === 'invalid id') { res.status(400).json({ error: 'invalid id' }); return; }
+            if (err instanceof Error && err.message === 'chat.disabled') { res.status(403).json({ error: err.message }); return; }
             dbError(res, err);
         }
     });
@@ -275,6 +278,7 @@ export function hostRouter(): Router {
             res.json({ ok: true });
         } catch (err) {
             if (err instanceof Error && err.message === 'invalid id') { res.status(400).json({ error: 'invalid id' }); return; }
+            if (err instanceof Error && err.message === 'chat.disabled') { res.status(403).json({ error: err.message }); return; }
             dbError(res, err);
         }
     });
@@ -303,6 +307,7 @@ export function hostRouter(): Router {
             res.json({ ok: true, smsStatus: result.smsStatus, message: result.message });
         } catch (err) {
             if (err instanceof Error && err.message === 'invalid id') { res.status(400).json({ error: 'invalid id' }); return; }
+            if (err instanceof Error && err.message === 'chat.disabled') { res.status(403).json({ error: err.message }); return; }
             dbError(res, err);
         }
     });
@@ -340,6 +345,10 @@ export function hostRouter(): Router {
     r.get('/host/chat/templates', requireHost, async (req: Request, res: Response) => {
         const code = String(req.query.code ?? '');
         if (!code) { res.status(400).json({ error: 'code required', field: 'code' }); return; }
+        if (!getGuestFeatures(await getLocation(loc(req))).chat) {
+            res.status(403).json({ error: 'chat.disabled' });
+            return;
+        }
         res.json({
             almostReady: chatAlmostReadyMessage(code),
             needMoreTime: chatNeedMoreTimeMessage(code),
@@ -695,6 +704,51 @@ export function hostRouter(): Router {
             if (err instanceof Error && (
                 err.message.startsWith('frontDeskPhone') || err.message.startsWith('voiceLargePartyThreshold')
             )) {
+                res.status(400).json({ error: err.message });
+                return;
+            }
+            if (err instanceof Error && err.message === 'location not found') {
+                res.status(404).json({ error: 'location not found' });
+                return;
+            }
+            dbError(res, err);
+        }
+    });
+
+    r.get('/host/guest-features', requireHost, async (req: Request, res: Response) => {
+        try {
+            const location = await getLocation(loc(req));
+            res.json(getGuestFeatures(location));
+        } catch (err) { dbError(res, err); }
+    });
+
+    r.post('/host/guest-features', requireAdmin, async (req: Request, res: Response) => {
+        const body = (req.body ?? {}) as {
+            sms?: unknown;
+            chat?: unknown;
+            order?: unknown;
+        };
+        const update: {
+            sms?: boolean;
+            chat?: boolean;
+            order?: boolean;
+        } = {};
+        if (body.sms !== undefined) update.sms = body.sms as boolean;
+        if (body.chat !== undefined) update.chat = body.chat as boolean;
+        if (body.order !== undefined) update.order = body.order as boolean;
+        try {
+            const updated = await updateLocationGuestFeatures(loc(req), update);
+            const guestFeatures = getGuestFeatures(updated);
+            console.log(JSON.stringify({
+                t: new Date().toISOString(),
+                level: 'info',
+                msg: 'host.guest_features.updated',
+                loc: loc(req),
+                guestFeatures,
+            }));
+            res.json(guestFeatures);
+        } catch (err) {
+            if (err instanceof Error && err.message.startsWith('guestFeatures.')) {
                 res.status(400).json({ error: err.message });
                 return;
             }

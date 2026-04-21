@@ -22,6 +22,11 @@
     const largePartyThreshold = $('admin-large-party-threshold');
     const voiceStatus = $('admin-voice-status');
     const voiceSave = $('admin-voice-save');
+    const guestFeatureOrder = $('admin-guest-feature-order');
+    const guestFeatureChat = $('admin-guest-feature-chat');
+    const guestFeatureSms = $('admin-guest-feature-sms');
+    const guestFeaturesStatus = $('admin-guest-features-status');
+    const guestFeaturesSave = $('admin-guest-features-save');
 
     // Site config (issue #45)
     const siteStreet = $('admin-site-street');
@@ -314,6 +319,22 @@
         }
     }
 
+    async function loadGuestFeatures() {
+        try {
+            const r = await fetch('api/host/guest-features');
+            if (!r.ok) return;
+            const data = await r.json();
+            if (guestFeatureOrder) guestFeatureOrder.value = String(data.order !== false);
+            if (guestFeatureChat) guestFeatureChat.value = String(data.chat !== false);
+            if (guestFeatureSms) guestFeatureSms.value = String(data.sms !== false);
+        } catch {
+            if (guestFeaturesStatus) {
+                guestFeaturesStatus.textContent = 'Failed to load guest experience settings';
+                guestFeaturesStatus.className = 'visit-status error';
+            }
+        }
+    }
+
     function setStatus(el, text, kind) {
         el.textContent = text;
         el.className = 'visit-status' + (kind ? ' ' + kind : '');
@@ -368,6 +389,32 @@
             setStatus(voiceStatus, 'Network error', 'error');
         } finally {
             voiceSave.disabled = false;
+        }
+    });
+
+    guestFeaturesSave.addEventListener('click', async () => {
+        setStatus(guestFeaturesStatus, 'Saving\u2026', '');
+        guestFeaturesSave.disabled = true;
+        try {
+            const r = await fetch('api/host/guest-features', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    order: guestFeatureOrder?.value === 'true',
+                    chat: guestFeatureChat?.value === 'true',
+                    sms: guestFeatureSms?.value === 'true',
+                }),
+            });
+            const data = await r.json().catch(() => ({}));
+            if (!r.ok) {
+                setStatus(guestFeaturesStatus, data.error || 'Save failed', 'error');
+                return;
+            }
+            flashSaved(guestFeaturesStatus);
+        } catch {
+            setStatus(guestFeaturesStatus, 'Network error', 'error');
+        } finally {
+            guestFeaturesSave.disabled = false;
         }
     });
 
@@ -806,6 +853,7 @@
         }
     }
     const devicePinSave = $('admin-device-pin-save');
+    const devicePinRegenerate = $('admin-device-pin-regen');
     if (devicePinSave) {
         devicePinSave.addEventListener('click', async () => {
             const statusEl = $('admin-device-pin-status');
@@ -834,6 +882,11 @@
             } finally {
                 devicePinSave.disabled = false;
             }
+        });
+    }
+    if (devicePinRegenerate) {
+        devicePinRegenerate.addEventListener('click', () => {
+            showToast('PIN regeneration is not wired yet. Set a new PIN above for now.', 'info');
         });
     }
 
@@ -1381,7 +1434,7 @@
         profile: async () => { await loadSiteConfig(); },
         website: async () => { await loadWebsiteConfig(); },
         menu: async () => { await loadMenuBuilder(); },
-        frontdesk: async () => { await Promise.all([loadVisitConfig(), loadVoiceConfig(), loadDevicePin()]); },
+        frontdesk: async () => { await Promise.all([loadVisitConfig(), loadVoiceConfig(), loadGuestFeatures(), loadDevicePin()]); },
         staff: async () => { await loadStaff(); },
         integrations: async () => { await loadMcpConfig(); await loadGoogleCard(); },
     };

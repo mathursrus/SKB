@@ -5,7 +5,7 @@
 import { ObjectId } from 'mongodb';
 
 import { getDb, partyOrders, queueEntries, type PartyOrder } from '../core/db/mongo.js';
-import { getLocation } from './locations.js';
+import { getGuestFeatures, getLocation } from './locations.js';
 import type {
     GuestCartDTO,
     GuestCartLineDTO,
@@ -129,9 +129,16 @@ async function getOrderByCode(code: string): Promise<PartyOrder | null> {
     return partyOrders(db).findOne({ code });
 }
 
+async function assertOrderingEnabled(locationId: string): Promise<Location | null> {
+    const location = await getLocation(locationId);
+    if (location && !getGuestFeatures(location).order) throw new Error('order.disabled');
+    return location;
+}
+
 export async function getGuestCartByCode(locationId: string, code: string): Promise<GuestCartDTO> {
     const entry = await getEntryByCode(code);
     if (!entry || entry.locationId !== locationId) throw new Error('order.not_found');
+    await assertOrderingEnabled(entry.locationId);
     return toCartDto(code, await getOrderByCode(code));
 }
 
@@ -150,12 +157,14 @@ export async function upsertGuestCart(
     const entry = await getEntryByCode(code);
     if (!entry) throw new Error('order.not_found');
     if (entry.locationId !== locationId) throw new Error('order.not_found');
+    const location = await assertOrderingEnabled(entry.locationId);
     if (!CART_EDITABLE_STATES.includes(entry.state)) {
         throw new Error(`order.state cannot edit while ${entry.state}`);
     }
 
-    const location = await getLocation(entry.locationId);
-    if (!location) throw new Error('order.location_not_found');
+    if (!location) {
+        throw new Error('order.menu_unavailable');
+    }
     if (!location.menu || !Array.isArray(location.menu.sections) || location.menu.sections.length === 0) {
         throw new Error('order.menu_unavailable');
     }
@@ -203,6 +212,7 @@ export async function placeGuestOrder(
     const entry = await getEntryByCode(code);
     if (!entry) throw new Error('order.not_found');
     if (entry.locationId !== locationId) throw new Error('order.not_found');
+    await assertOrderingEnabled(entry.locationId);
     if (!CART_PLACEABLE_STATES.includes(entry.state)) {
         throw new Error(`order.state cannot place while ${entry.state}`);
     }

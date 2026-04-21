@@ -1046,6 +1046,42 @@
                 <button type="button" id="admin-visit-save" class="primary">Save QR Routing</button>
             </div>
         </details>
+        <details class="admin-card" id="admin-guest-features-card">
+            <summary class="admin-card-head">
+                <h2>Guest Experience</h2>
+                <p>Turn guest-facing options on or off without changing the rest of the waitlist flow.</p>
+            </summary>
+            <div class="visit-grid guest-feature-grid">
+                <label class="visit-field guest-feature-field">
+                    <span class="visit-label">Ordering</span>
+                    <select id="admin-guest-feature-order">
+                        <option value="true">On</option>
+                        <option value="false">Off</option>
+                    </select>
+                    <span class="guest-feature-help">Shows the Order tab and cart on the guest waitlist page.</span>
+                </label>
+                <label class="visit-field guest-feature-field">
+                    <span class="visit-label">Chat</span>
+                    <select id="admin-guest-feature-chat">
+                        <option value="true">On</option>
+                        <option value="false">Off</option>
+                    </select>
+                    <span class="guest-feature-help">Lets guests and hosts use the shared chat thread.</span>
+                </label>
+                <label class="visit-field guest-feature-field">
+                    <span class="visit-label">SMS updates</span>
+                    <select id="admin-guest-feature-sms">
+                        <option value="true">On</option>
+                        <option value="false">Off</option>
+                    </select>
+                    <span class="guest-feature-help">Shows guest SMS opt-in and allows text delivery when a host messages or notifies.</span>
+                </label>
+            </div>
+            <div class="visit-actions admin-actions-row">
+                <span class="visit-status" id="admin-guest-features-status"></span>
+                <button type="button" id="admin-guest-features-save" class="primary">Save Guest Experience</button>
+            </div>
+        </details>
 
         <!-- Device PIN card. Owner/admin can view the current PIN and set
              a new one. Admin-only (requireAdmin) on both GET and POST. -->
@@ -1066,6 +1102,7 @@
             </div>
             <div class="visit-actions admin-actions-row">
                 <span class="visit-status" id="admin-device-pin-status"></span>
+                <button type="button" id="admin-device-pin-regen" class="secondary">Regenerate PIN</button>
                 <button type="button" id="admin-device-pin-save" class="primary">Set PIN</button>
             </div>
             <p style="margin-top:12px;font-size:12px;color:#78716c">Changing the PIN doesn&rsquo;t log out tablets already unlocked, but future unlocks require the new value. The PIN is also printed on the door-poster PDF.</p>

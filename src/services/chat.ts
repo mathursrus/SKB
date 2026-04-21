@@ -12,12 +12,18 @@
 import { ObjectId } from 'mongodb';
 
 import { getDb, queueEntries, queueMessages } from '../core/db/mongo.js';
+import { getGuestFeatures, getLocation } from './locations.js';
 import { sendSms } from './sms.js';
 import { serviceDay } from '../core/utils/time.js';
 import type { ChatMessage, ChatMessageDTO, ChatThreadDTO } from '../types/chat.js';
 
 const MAX_THREAD_LIMIT = 200;
 const DEFAULT_THREAD_LIMIT = 50;
+
+async function assertChatEnabled(locationId: string): Promise<void> {
+    const location = await getLocation(locationId);
+    if (location && !getGuestFeatures(location).chat) throw new Error('chat.disabled');
+}
 
 export interface SendChatResult {
     ok: boolean;
@@ -35,6 +41,7 @@ export async function sendChatMessage(
     try { _id = new ObjectId(id); } catch { throw new Error('invalid id'); }
     const entry = await queueEntries(db).findOne({ _id });
     if (!entry) return { ok: false };
+    await assertChatEnabled(entry.locationId);
     if (!entry.phone) return { ok: false };
 
     // TFV 30513: only text diners who explicitly opted in. Non-consenting
@@ -78,6 +85,7 @@ export async function getChatThread(
     try { _id = new ObjectId(id); } catch { throw new Error('invalid id'); }
     const entry = await queueEntries(db).findOne({ _id });
     if (!entry) return null;
+    await assertChatEnabled(entry.locationId);
     const limit = Math.min(Math.max(1, opts.limit ?? DEFAULT_THREAD_LIMIT), MAX_THREAD_LIMIT);
     const filter: Record<string, unknown> = { locationId: entry.locationId, entryCode: entry.code };
     if (opts.before) filter.createdAt = { $lt: opts.before };
@@ -112,6 +120,7 @@ export async function markThreadRead(id: string, now: Date = new Date()): Promis
     try { _id = new ObjectId(id); } catch { throw new Error('invalid id'); }
     const entry = await queueEntries(db).findOne({ _id });
     if (!entry) return { updated: 0 };
+    await assertChatEnabled(entry.locationId);
     const res = await queueMessages(db).updateMany(
         {
             locationId: entry.locationId,
@@ -177,6 +186,7 @@ export async function appendInboundFromCode(
     now: Date = new Date(),
 ): Promise<{ ok: boolean; state?: string }> {
     const db = await getDb();
+    await assertChatEnabled(locationId);
     const entry = await queueEntries(db).findOne({ locationId, code });
     if (!entry) return { ok: false };
     // Only accept diner-side messages while the party is still live. After
@@ -207,6 +217,7 @@ export async function getChatThreadByCode(
     opts: GetThreadOptions = {},
 ): Promise<ChatThreadDTO | null> {
     const db = await getDb();
+    await assertChatEnabled(locationId);
     const entry = await queueEntries(db).findOne({ locationId, code });
     if (!entry) return null;
     const limit = Math.min(Math.max(1, opts.limit ?? DEFAULT_THREAD_LIMIT), MAX_THREAD_LIMIT);

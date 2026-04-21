@@ -27,6 +27,12 @@ export interface DayHours {
 
 export type DayOfWeek = 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun';
 
+export interface GuestFeatures {
+    sms: boolean;
+    chat: boolean;
+    order: boolean;
+}
+
 export type WeeklyHours = {
     [K in DayOfWeek]?: DayHours | 'closed';
 };
@@ -61,6 +67,7 @@ export interface Location {
     websiteTemplate?: WebsiteTemplateKey;
     content?: LocationContent;
     menu?: LocationMenu;       // structured menu (sections + items, issue #51)
+    guestFeatures?: GuestFeatures; // admin-controlled guest capability toggles
 
     // Owner-onboarding wizard state (issue #54, spec §6.2). Each completed
     // step ID is pushed in. Wizard is hidden client-side once all four are
@@ -125,6 +132,7 @@ export interface PublicLocation {
     publicUrl?: string;
     websiteTemplate?: WebsiteTemplateKey;
     content?: LocationContent;
+    guestFeatures?: GuestFeatures;
 }
 
 export type VisitMode = 'auto' | 'queue' | 'menu' | 'closed';

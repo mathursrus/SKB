@@ -205,7 +205,7 @@ const cases: BaseTestCase[] = [
     // Holds everything about how guests physically reach the host stand:
     // IVR (phone entry), Door QR routing, Device PIN.
     {
-        name: 'Front desk panel holds IVR + Door QR + Device PIN (no Google card)',
+        name: 'Front desk panel holds IVR + Door QR + Guest Experience + Device PIN (no Google card)',
         tags: ['unit', 'admin-tabs', 'frontdesk'],
         testFn: async () => {
             const body = panelBody('frontdesk');
@@ -213,6 +213,11 @@ const cases: BaseTestCase[] = [
                 && body.includes('admin-front-desk-phone')
                 && body.includes('admin-qr-image')
                 && body.includes('admin-visit-mode')
+                && body.includes('admin-guest-features-card')
+                && body.includes('admin-guest-feature-order')
+                && body.includes('admin-guest-feature-chat')
+                && body.includes('admin-guest-feature-sms')
+                && body.includes('admin-guest-features-save')
                 && body.includes('admin-device-pin-display')
                 && body.includes('admin-device-pin-new')
                 && body.includes('admin-device-pin-save')

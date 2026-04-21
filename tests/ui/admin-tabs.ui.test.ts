@@ -24,7 +24,7 @@ process.env.SKB_LOG_EMAIL_BODY = '0';
 process.env.SKB_SIGNUP_MAX_PER_WINDOW ??= '200';
 
 import { runTests, type BaseTestCase } from '../test-utils.js';
-import { startTestServer, getTestServerUrl } from '../shared-server-utils.js';
+import { startTestServer, stopTestServer, getTestServerUrl } from '../shared-server-utils.js';
 
 const BASE = () => getTestServerUrl();
 
@@ -113,6 +113,18 @@ const cases: BaseTestCase[] = [
                 && /Regenerate PIN/.test(html);
         },
     },
+    {
+        name: 'served admin.html has guest experience toggle controls',
+        tags: ['ui', 'admin-tabs', 'frontdesk', 'guest-capabilities'],
+        testFn: async () => {
+            const html = await (await fetch(`${BASE()}/r/${slug}/admin.html`)).text();
+            return /id="admin-guest-features-card"/.test(html)
+                && /id="admin-guest-feature-order"/.test(html)
+                && /id="admin-guest-feature-chat"/.test(html)
+                && /id="admin-guest-feature-sms"/.test(html)
+                && /id="admin-guest-features-save"/.test(html);
+        },
+    },
 
     // ─── Website save: mixed knownFor payload round-trips ─────────────
     {
@@ -195,6 +207,35 @@ const cases: BaseTestCase[] = [
                 headers: { 'Cookie': sessionCookie },
             })).json();
             return verify.menuUrl === 'https://example.com/menu';
+        },
+    },
+    {
+        name: 'POST /r/:loc/api/host/guest-features persists and flows to public-config',
+        tags: ['ui', 'admin-tabs', 'guest-capabilities'],
+        testFn: async () => {
+            const save = await fetch(`${BASE()}/r/${slug}/api/host/guest-features`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Cookie': sessionCookie,
+                },
+                body: JSON.stringify({ order: false, chat: true, sms: false }),
+            });
+            if (!save.ok) return false;
+            const publicConfig = await fetch(`${BASE()}/r/${slug}/api/public-config`);
+            if (!publicConfig.ok) return false;
+            const body = await publicConfig.json();
+            return body.guestFeatures?.order === false
+                && body.guestFeatures?.chat === true
+                && body.guestFeatures?.sms === false;
+        },
+    },
+    {
+        name: 'teardown',
+        tags: ['ui', 'admin-tabs', 'teardown'],
+        testFn: async () => {
+            await stopTestServer();
+            return true;
         },
     },
 ];

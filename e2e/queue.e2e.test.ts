@@ -20,8 +20,12 @@ import {
     stopTestServer,
     getTestServerUrl,
 } from '../tests/shared-server-utils.js';
+import { closeDb, getDb, memberships as membershipsColl, users as usersColl } from '../src/core/db/mongo.js';
+import { createOwnerUser } from '../src/services/users.js';
 
 const BASE = getTestServerUrl();
+const OWNER_EMAIL = 'queue-e2e-owner@example.test';
+const OWNER_PASS = 'queue-e2e-owner-password-long';
 
 async function post(path: string, body: unknown, cookie?: string): Promise<{ status: number; data: Record<string, unknown>; cookie?: string }> {
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
@@ -44,6 +48,18 @@ async function get(path: string, cookie?: string): Promise<{ status: number; dat
     return { status: res.status, data };
 }
 
+async function loginOwner(locationId: string): Promise<string> {
+    const res = await post('/api/login', {
+        email: OWNER_EMAIL,
+        password: OWNER_PASS,
+        locationId,
+    });
+    if (res.status !== 200 || !res.cookie) {
+        throw new Error(`owner login failed: status=${res.status}`);
+    }
+    return res.cookie;
+}
+
 function assert(condition: boolean, msg: string): void {
     if (!condition) throw new Error(`ASSERTION FAILED: ${msg}`);
 }
@@ -51,6 +67,10 @@ function assert(condition: boolean, msg: string): void {
 async function main(): Promise<void> {
     console.log('[E2E] queue.e2e.test: starting server');
     await startTestServer();
+    const db = await getDb();
+    await usersColl(db).deleteMany({ email: OWNER_EMAIL });
+    await membershipsColl(db).deleteMany({ locationId: 'skb' });
+    await createOwnerUser({ email: OWNER_EMAIL, password: OWNER_PASS, name: 'Queue E2E Owner', locationId: 'skb' });
 
     // Clean any leftover queue entries via host API
     const loginRes = await post('/api/host/login', { pin: '1234' });
@@ -96,6 +116,7 @@ async function main(): Promise<void> {
         assert(login.status === 200, `login status=${login.status}`);
         assert(!!login.cookie, 'no cookie set on login');
         const hostCookie = login.cookie!;
+        const adminCookie = await loginOwner('skb');
         console.log(`[E2E] PASS: host login successful`);
 
         // 5. Host queue — verify 3 parties
@@ -187,38 +208,40 @@ async function main(): Promise<void> {
         console.log(`[E2E] PASS: GET /host/settings returns extended payload (mode=${settings0.data.etaMode})`);
 
         // 17. POST /host/settings — partial update, mode only
-        const setMode = await post('/api/host/settings', { etaMode: 'dynamic' }, hostCookie);
+        const setMode = await post('/api/host/settings', { etaMode: 'dynamic' }, adminCookie);
         assert(setMode.status === 200 && setMode.data.etaMode === 'dynamic', `setMode status=${setMode.status} mode=${setMode.data.etaMode}`);
         console.log(`[E2E] PASS: POST /host/settings accepts partial update (mode only)`);
 
         // 18. POST /host/settings — partial update, avgTurnTime only (mode should persist from step 17)
-        const setTurn = await post('/api/host/settings', { avgTurnTimeMinutes: 11 }, hostCookie);
+        const setTurn = await post('/api/host/settings', { avgTurnTimeMinutes: 11 }, adminCookie);
         assert(setTurn.status === 200 && setTurn.data.avgTurnTimeMinutes === 11 && setTurn.data.etaMode === 'dynamic',
             `setTurn status=${setTurn.status} avg=${setTurn.data.avgTurnTimeMinutes} mode=${setTurn.data.etaMode}`);
         console.log(`[E2E] PASS: POST /host/settings partial update preserves the other field`);
 
         // 19. POST /host/settings — empty body rejected
-        const setEmpty = await post('/api/host/settings', {}, hostCookie);
+        const setEmpty = await post('/api/host/settings', {}, adminCookie);
         assert(setEmpty.status === 400, `setEmpty status=${setEmpty.status} (expected 400)`);
         console.log(`[E2E] PASS: POST /host/settings rejects empty body`);
 
         // 20. POST /host/settings — invalid mode rejected
-        const setBadMode = await post('/api/host/settings', { etaMode: 'turbo' }, hostCookie);
+        const setBadMode = await post('/api/host/settings', { etaMode: 'turbo' }, adminCookie);
         assert(setBadMode.status === 400, `setBadMode status=${setBadMode.status} (expected 400)`);
         console.log(`[E2E] PASS: POST /host/settings rejects invalid mode`);
 
         // 21. Reset mode to manual for subsequent test runs (polite cleanup)
-        await post('/api/host/settings', { etaMode: 'manual', avgTurnTimeMinutes: 8 }, hostCookie);
+        await post('/api/host/settings', { etaMode: 'manual', avgTurnTimeMinutes: 8 }, adminCookie);
         console.log(`[E2E] PASS: reset settings to manual/8 for cleanup`);
 
         console.log('\n[E2E] ✅ ALL 21 CHECKS PASSED — critical waitlist path is green');
     } finally {
         await stopTestServer();
+        await closeDb();
     }
 }
 
 main().catch((err) => {
     console.error('[E2E] FAIL:', err);
     void stopTestServer();
+    void closeDb();
     process.exit(1);
 });

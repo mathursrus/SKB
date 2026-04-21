@@ -12,7 +12,7 @@ import { buildQueueStatusUrlForSms } from '../services/queueStatusUrl.js';
 import { appendInboundFromCode, getChatThreadByCode } from '../services/chat.js';
 import { getGuestCartByCode, placeGuestOrder, upsertGuestCart } from '../services/orders.js';
 import type { ErrorDTO, GuestCartLineInputDTO } from '../types/queue.js';
-import { getLocation } from '../services/locations.js';
+import { getGuestFeatures, getLocation } from '../services/locations.js';
 
 const JOIN_WINDOW_MS = 10 * 60 * 1000; // 10 min
 const JOIN_MAX = 5;
@@ -35,6 +35,10 @@ const ORDER_MAX = 2;
 /** Extract locationId from req.params.loc (set by parent router mount). */
 function loc(req: Request): string {
     return String(req.params.loc ?? 'skb');
+}
+
+async function guestFeaturesFor(req: Request) {
+    return getGuestFeatures(await getLocation(loc(req)));
 }
 
 export function queueRouter(): Router {
@@ -74,7 +78,8 @@ export function queueRouter(): Router {
             }
             try {
                 const phone = String(body.phone).trim();
-                const smsConsent = (body as { smsConsent?: unknown }).smsConsent === true;
+                const smsEnabled = (await guestFeaturesFor(req)).sms;
+                const smsConsent = smsEnabled && (body as { smsConsent?: unknown }).smsConsent === true;
                 const result = await joinQueue(loc(req), {
                     name: String(body.name).trim(),
                     partySize: Number(body.partySize),
@@ -154,6 +159,10 @@ export function queueRouter(): Router {
                 return;
             }
             try {
+                if (!(await guestFeaturesFor(req)).chat) {
+                    res.status(403).json({ error: 'chat.disabled' });
+                    return;
+                }
                 const thread = await getChatThreadByCode(loc(req), code);
                 if (!thread) {
                     res.status(404).json({ error: 'thread not found' });
@@ -188,6 +197,10 @@ export function queueRouter(): Router {
                 return;
             }
             try {
+                if (!(await guestFeaturesFor(req)).chat) {
+                    res.status(403).json({ error: 'chat.disabled' });
+                    return;
+                }
                 const result = await appendInboundFromCode(loc(req), code, body);
                 if (!result.ok) {
                     res.status(404).json({ error: 'thread not found or closed', state: result.state });
@@ -240,8 +253,16 @@ export function queueRouter(): Router {
             return;
         }
         try {
+            if (!(await guestFeaturesFor(req)).order) {
+                res.status(403).json({ error: 'order.disabled' });
+                return;
+            }
             res.json(await getGuestCartByCode(loc(req), code));
         } catch (err) {
+            if (err instanceof Error && err.message === 'order.disabled') {
+                res.status(403).json({ error: err.message });
+                return;
+            }
             if (err instanceof Error && err.message.startsWith('order.')) {
                 res.status(404).json({ error: 'not found' });
                 return;
@@ -265,8 +286,16 @@ export function queueRouter(): Router {
                 return;
             }
             try {
+                if (!(await guestFeaturesFor(req)).order) {
+                    res.status(403).json({ error: 'order.disabled' });
+                    return;
+                }
                 res.json(await upsertGuestCart(loc(req), code, Array.isArray(lines) ? lines : ([] as GuestCartLineInputDTO[])));
             } catch (err) {
+                if (err instanceof Error && err.message === 'order.disabled') {
+                    res.status(403).json({ error: err.message });
+                    return;
+                }
                 if (err instanceof Error && (
                     err.message.startsWith('cart.')
                     || err.message.startsWith('order.')
@@ -293,8 +322,16 @@ export function queueRouter(): Router {
                 return;
             }
             try {
+                if (!(await guestFeaturesFor(req)).order) {
+                    res.status(403).json({ error: 'order.disabled' });
+                    return;
+                }
                 res.json(await placeGuestOrder(loc(req), code));
             } catch (err) {
+                if (err instanceof Error && err.message === 'order.disabled') {
+                    res.status(403).json({ error: err.message });
+                    return;
+                }
                 if (err instanceof Error && err.message.startsWith('order.')) {
                     res.status(400).json({ error: err.message });
                     return;

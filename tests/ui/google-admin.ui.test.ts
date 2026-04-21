@@ -25,8 +25,8 @@ process.env.SKB_LOG_EMAIL_BODY = '0';
 process.env.SKB_SIGNUP_MAX_PER_WINDOW ??= '200';
 
 import { runTests, type BaseTestCase } from '../test-utils.js';
-import { startTestServer, getTestServerUrl } from '../shared-server-utils.js';
-import { getDb, users as usersColl, googleTokens as googleTokensColl } from '../../src/core/db/mongo.js';
+import { startTestServer, stopTestServer, getTestServerUrl } from '../shared-server-utils.js';
+import { closeDb, getDb, users as usersColl, googleTokens as googleTokensColl } from '../../src/core/db/mongo.js';
 
 const BASE = () => getTestServerUrl();
 
@@ -167,15 +167,15 @@ const cases: BaseTestCase[] = [
 
     // ---- (d) cross-tenant ----
     {
-        name: 'owner B cannot read owner A\'s /google/status (403)',
+        name: 'owner B cannot read owner A\'s /google/status (401)',
         tags: ['ui', 'google-admin', 'cross-tenant'],
         testFn: async () => {
             const r = await fetch(`${BASE()}/r/${slugA}/api/google/status`, { headers: { Cookie: sessionB } });
-            return r.status === 403;
+            return r.status === 401;
         },
     },
     {
-        name: 'owner B cannot disconnect owner A (403, row stays)',
+        name: 'owner B cannot disconnect owner A (401, row stays)',
         tags: ['ui', 'google-admin', 'cross-tenant'],
         testFn: async () => {
             // Belt-and-suspenders: re-assert the token row exists before we
@@ -200,9 +200,18 @@ const cases: BaseTestCase[] = [
             const r = await fetch(`${BASE()}/r/${slugA}/api/google/disconnect`, {
                 method: 'POST', headers: { Cookie: sessionB },
             });
-            if (r.status !== 403) return false;
+            if (r.status !== 401) return false;
             const still = await googleTokensColl(db).findOne({ locationId: slugA });
             return still !== null;
+        },
+    },
+    {
+        name: 'teardown',
+        tags: ['ui', 'google-admin', 'teardown'],
+        testFn: async () => {
+            await stopTestServer();
+            await closeDb();
+            return true;
         },
     },
 ];

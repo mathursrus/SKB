@@ -21,9 +21,18 @@
     const tabBadgeComplete = $('tab-badge-complete');
     const completeSummary = $('complete-summary');
     const WORKSPACE_KEY_PREFIX = 'skb:lastWorkspace:';
+    const DEFAULT_GUEST_FEATURES = { order: true, chat: true, sms: true };
+    let publicConfig = { guestFeatures: { ...DEFAULT_GUEST_FEATURES } };
 
     let pollTimer = null;
     let expandedTimelineId = null;
+
+    function guestFeatures() {
+        return {
+            ...DEFAULT_GUEST_FEATURES,
+            ...(publicConfig?.guestFeatures || {}),
+        };
+    }
 
     function fmtTime(iso) {
         try {
@@ -70,6 +79,7 @@
                 rows.innerHTML = '<tr><td colspan="7" class="empty">Nobody waiting.</td></tr>';
                 return;
             }
+            const features = guestFeatures();
             rows.innerHTML = data.parties.map(p => {
                 const callsList = Array.isArray(p.calls) ? p.calls : [];
                 const calledBadge = p.state === 'called'
@@ -92,6 +102,19 @@
                 const callHref = hasPhone && p.phoneForDial ? 'tel:' + p.phoneForDial : '#';
                 const callDisabled = hasPhone ? '' : ' aria-disabled="true"';
                 const phoneForDial = p.phoneForDial || '';
+                const rowActions = [
+                    '<button class="seat-btn" data-action="seat" aria-label="Seat ' + safeName + '">Seat</button>',
+                    '<button class="notify-btn" data-action="notify" aria-label="' + notifyLabel + ' ' + safeName + '"' + disabledAttr + '>' + notifyLabel + '</button>',
+                    features.chat
+                        ? '<button class="chat-btn" data-action="chat" aria-label="Chat with ' + safeName + (unread ? ', ' + unread + ' unread' : '') + '"' + disabledAttr + '>Chat' + unreadDot + '</button>'
+                        : '',
+                    '<a class="call-dial-btn rowbtn" data-action="call" href="' + callHref + '" aria-label="Call ' + safeName + '"' + callDisabled + '>Call</a>',
+                    features.sms
+                        ? '<button class="custom-sms-btn more-btn" data-action="custom-sms" aria-label="Custom message to ' + safeName + '"' + disabledAttr + ' title="Custom message">\u2709</button>'
+                        : '',
+                    '<button class="custom-call-btn more-btn" data-action="custom-call" aria-label="Confirm-and-call ' + safeName + '"' + disabledAttr + ' title="Confirm call">\u260E</button>',
+                    '<button class="remove" data-reason="no_show" aria-label="Mark ' + safeName + ' as no-show">No-show</button>',
+                ].filter(Boolean).join('');
                 return '<tr data-id="' + p.id + '" data-code="' + escapeHtml(p.code || '') + '" data-name="' + safeName + '" data-size="' + p.partySize + '" data-wait="' + p.waitingMinutes + '" data-phone-mask="' + (p.phoneMasked || '') + '" data-phone-dial="' + escapeHtml(phoneForDial) + '" class="' + (p.state === 'called' ? 'row-called' : '') + '">' +
                     '<td class="num">' + p.position + '</td>' +
                     '<td>' + safeName + calledBadge + onWayBadge + '</td>' +
@@ -99,15 +122,7 @@
                     '<td class="phone">' + (p.phoneMasked || '\u2014') + '</td>' +
                     '<td class="eta">' + fmtTime(p.etaAt) + '</td>' +
                     '<td class="wait">' + p.waitingMinutes + 'm</td>' +
-                    '<td class="actions">' +
-                        '<button class="seat-btn" data-action="seat" aria-label="Seat ' + safeName + '">Seat</button>' +
-                        '<button class="notify-btn" data-action="notify" aria-label="' + notifyLabel + ' ' + safeName + '"' + disabledAttr + '>' + notifyLabel + '</button>' +
-                        '<button class="chat-btn" data-action="chat" aria-label="Chat with ' + safeName + (unread ? ', ' + unread + ' unread' : '') + '"' + disabledAttr + '>Chat' + unreadDot + '</button>' +
-                        '<a class="call-dial-btn rowbtn" data-action="call" href="' + callHref + '" aria-label="Call ' + safeName + '"' + callDisabled + '>Call</a>' +
-                        '<button class="custom-sms-btn more-btn" data-action="custom-sms" aria-label="Custom message to ' + safeName + '"' + disabledAttr + ' title="Custom message">\u2709</button>' +
-                        '<button class="custom-call-btn more-btn" data-action="custom-call" aria-label="Confirm-and-call ' + safeName + '"' + disabledAttr + ' title="Confirm call">\u260E</button>' +
-                        '<button class="remove" data-reason="no_show" aria-label="Mark ' + safeName + ' as no-show">No-show</button>' +
-                    '</td></tr>';
+                    '<td class="actions">' + rowActions + '</td></tr>';
             }).join('');
         } catch (e) {
             console.error('refresh error', e);
@@ -261,6 +276,7 @@
                     '</div>'
                 ).join('');
             const orderLines = Array.isArray(order?.lines) ? order.lines : [];
+            const features = guestFeatures();
             const orderHtml = order && order.state !== 'none'
                 ? '<div class="host-order-detail"><div class="host-order-head"><strong>Guest order</strong><span>' + (order.state === 'placed' ? 'Placed' : 'Draft') + '</span></div>'
                     + '<div class="host-order-sub">' + (order.placedAt ? ('Placed at ' + fmtTime(order.placedAt)) : 'Not placed yet') + '</div>'
@@ -276,7 +292,7 @@
                         ).join('') + '</div>'
                         : '<div class="host-order-sub">No items in the cart.</div>')
                     + '</div>'
-                : '<div class="host-order-detail"><div class="host-order-head"><strong>Guest order</strong><span>None</span></div><div class="host-order-sub">No guest-submitted order yet.</div></div>';
+                : '<div class="host-order-detail"><div class="host-order-head"><strong>Guest order</strong><span>' + (features.order ? 'None' : 'Off') + '</span></div><div class="host-order-sub">' + (features.order ? 'No guest-submitted order yet.' : 'Guest ordering is turned off for this location.') + '</div></div>';
             el.innerHTML = '<div class="timeline-detail-grid"><div>' + timelineHtml + '</div>' + orderHtml + '</div>';
         } catch (e) {
             if (el) el.textContent = 'Error loading timeline.';
@@ -1006,7 +1022,7 @@
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ pin }),
         });
-        if (r.ok) { showQueue(); return; }
+        if (r.ok) { await showQueue(); return; }
         const body = await r.json().catch(() => ({}));
         loginError.textContent = body.error || 'Login failed';
         loginError.style.display = '';
@@ -1026,10 +1042,10 @@
         queueView.style.display = 'none';
     }
 
-    function showQueue() {
+    async function showQueue() {
         loginView.style.display = 'none';
         queueView.style.display = '';
-        loadRestaurantBrand();
+        await loadRestaurantBrand();
         refreshAll();
         if (pollTimer) clearInterval(pollTimer);
         pollTimer = setInterval(refreshAll, 5000);
@@ -1046,6 +1062,14 @@
             const r = await fetch('api/public-config');
             if (!r.ok) return;
             const data = await r.json();
+            publicConfig = {
+                ...publicConfig,
+                ...(data || {}),
+                guestFeatures: {
+                    ...DEFAULT_GUEST_FEATURES,
+                    ...((data && data.guestFeatures) || {}),
+                },
+            };
             const name = (data && data.name) ? String(data.name) : '';
             if (!name) return;
             const nameEl = document.getElementById('host-restaurant-name');
@@ -1064,6 +1088,6 @@
         // Load brand immediately so the PIN-login card shows the
         // restaurant's name even before the host authenticates.
         loadRestaurantBrand();
-        if (await checkAuth()) showQueue(); else showLogin();
+        if (await checkAuth()) await showQueue(); else showLogin();
     })();
 })();

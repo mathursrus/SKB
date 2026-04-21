@@ -19,8 +19,9 @@
 
 process.env.SKB_COOKIE_SECRET ??= 'test-secret-for-ci';
 process.env.MONGODB_DB_NAME ??= 'skb_invites55_test';
-process.env.PORT ??= '15501';
-process.env.FRAIM_TEST_SERVER_PORT ??= '15501';
+const INVITES_IT_PORT = String(15501 + Math.floor(Math.random() * 1000));
+process.env.PORT ??= INVITES_IT_PORT;
+process.env.FRAIM_TEST_SERVER_PORT ??= INVITES_IT_PORT;
 process.env.FRAIM_BRANCH ??= '';
 process.env.SKB_HOST_PIN ??= '1234';
 
@@ -487,7 +488,7 @@ const cases: BaseTestCase[] = [
         testFn: async () => {
             if (!ownerCookie) return false;
             const r = await fetch(`${getTestServerUrl()}/r/${OTHER_LOC}/api/staff`, { headers: { Cookie: ownerCookie } });
-            return r.status === 403;
+            return r.status === 401;
         },
     },
 

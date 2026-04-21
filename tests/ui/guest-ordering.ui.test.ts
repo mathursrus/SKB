@@ -29,6 +29,7 @@ const cases: BaseTestCase[] = [
                 && /id="order-card"/.test(html)
                 && /id="order-menu"/.test(html)
                 && /id="order-cart-lines"/.test(html)
+                && /id="sms-consent-block"/.test(html)
                 && !/id="order-save-btn"/.test(html)
                 && /id="order-place-btn"/.test(html);
         },
@@ -41,6 +42,8 @@ const cases: BaseTestCase[] = [
             const js = await r.text();
             return js.includes('api/queue/order/draft')
                 && js.includes('api/queue/order/place')
+                && js.includes('api/public-config')
+                && js.includes('guestFeatures')
                 && js.includes('scheduleOrderDraftSave')
                 && js.includes('order-item-card')
                 && js.includes('order-section-nav')
@@ -55,6 +58,7 @@ const cases: BaseTestCase[] = [
             const js = await r.text();
             return js.includes("/order'")
                 && js.includes('host-order-detail')
+                && js.includes('guestFeatures')
                 && js.includes('timeline-detail-grid');
         },
     },

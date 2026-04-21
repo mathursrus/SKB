@@ -28,6 +28,7 @@ import { maskPhone } from './sms.js';
 import { redactName } from './nameRedact.js';
 import { countUnreadForEntries } from './chat.js';
 import { getGuestCartByCode } from './orders.js';
+import { getGuestFeatures, getLocation } from './locations.js';
 
 const MAX_CODE_RETRIES = 5;
 
@@ -150,9 +151,17 @@ export async function getStatusByCode(
             canPlaceOrder: false,
         };
     }
-    const order = await getGuestCartByCode(entry.locationId, code);
-    const canManageOrder = ['waiting', 'called', 'seated'].includes(entry.state);
-    const canPlaceOrder = entry.state === 'seated' && order.state !== 'placed' && order.lines.length > 0;
+    const location = await getLocation(entry.locationId);
+    const guestFeatures = getGuestFeatures(location);
+    const order = guestFeatures.order
+        ? await getGuestCartByCode(entry.locationId, code).catch(() => null)
+        : null;
+    const canManageOrder = guestFeatures.order && ['waiting', 'called', 'seated'].includes(entry.state);
+    const canPlaceOrder = guestFeatures.order
+        && !!order
+        && entry.state === 'seated'
+        && order.state !== 'placed'
+        && order.lines.length > 0;
     if (entry.state === 'seated') {
         // Terminal: surface the assigned table but keep the queue empty (R7)
         return {
@@ -425,7 +434,8 @@ export async function callParty(
     const message = callCount === 1
         ? firstCallMessage(entry.code)
         : repeatCallMessage(entry.code, callCount);
-    const smsResult = entry.smsConsent === true
+    const smsEnabled = getGuestFeatures(await getLocation(entry.locationId)).sms;
+    const smsResult = smsEnabled && entry.smsConsent === true
         ? await sendSms(entry.phone, message)
         : { successful: false, status: 'not_configured' as const, messageId: '' };
 

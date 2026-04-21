@@ -225,8 +225,11 @@ const cases: BaseTestCase[] = [
     },
 
     // ---- skb_session cross-tenant rejection (mirrors #52's cookie probe) ----
+    // Wrong-tenant named sessions now fall through to any valid host PIN for
+    // the requested tenant. With no such PIN cookie present here, the final
+    // result is 401 unauthorized.
     {
-        name: 'skb_session from LOC_A cannot read /r/LOC_B/api/host/queue → 403',
+        name: 'skb_session from LOC_A cannot read /r/LOC_B/api/host/queue → 401',
         tags: ['integration', 'auth53', 'cross-tenant'],
         testFn: async () => {
             const login = await fetch(`${getTestServerUrl()}/api/login`, {
@@ -239,7 +242,7 @@ const cases: BaseTestCase[] = [
             const res = await fetch(`${getTestServerUrl()}/r/${LOC_B}/api/host/queue`, {
                 headers: { Cookie: cookie },
             });
-            return res.status === 403;
+            return res.status === 401;
         },
     },
 

@@ -24,7 +24,7 @@ process.env.SKB_LOG_EMAIL_BODY = '0';
 process.env.SKB_SIGNUP_MAX_PER_WINDOW ??= '200';
 
 import { runTests, type BaseTestCase } from '../test-utils.js';
-import { startTestServer, getTestServerUrl } from '../shared-server-utils.js';
+import { startTestServer, stopTestServer, getTestServerUrl } from '../shared-server-utils.js';
 
 const BASE = () => getTestServerUrl();
 
@@ -375,6 +375,14 @@ const cases: BaseTestCase[] = [
             // Source-level markers that prove Save starts disabled + is toggled on change.
             return /markCleanEnabled\(['"]basics['"], false\)/.test(html)
                 && /recomputeDirty/.test(html);
+        },
+    },
+    {
+        name: 'teardown',
+        tags: ['ui', 'onboarding-wizard', 'teardown'],
+        testFn: async () => {
+            await stopTestServer();
+            return true;
         },
     },
 ];

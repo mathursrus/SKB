@@ -22,7 +22,7 @@ import {
     stopTestServer,
     getTestServerUrl,
 } from '../shared-server-utils.js';
-import { getDb, locations } from '../../src/core/db/mongo.js';
+import { closeDb, getDb, locations } from '../../src/core/db/mongo.js';
 import { ensureLocation } from '../../src/services/locations.js';
 
 async function loginCookie(loc: string): Promise<string> {
@@ -44,8 +44,8 @@ const cases: BaseTestCase[] = [
             // Bootstrap two tenants with the same PIN so login works for both.
             await ensureLocation('skb', 'Shri Krishna Bhavan', '1234');
             await ensureLocation('ramen', 'Ramen Yokocho', '1234');
-            // Wipe any lingering template/content state from prior runs.
             const db = await getDb();
+            // Wipe any lingering template/content state from prior runs.
             await locations(db).updateMany(
                 { _id: { $in: ['skb', 'ramen'] } },
                 { $unset: { websiteTemplate: '', content: '' } },
@@ -326,7 +326,11 @@ const cases: BaseTestCase[] = [
     {
         name: 'site-renderer: teardown',
         tags: ['integration', 'site-renderer'],
-        testFn: async () => { await stopTestServer(); return true; },
+        testFn: async () => {
+            await stopTestServer();
+            await closeDb();
+            return true;
+        },
     },
 ];
 

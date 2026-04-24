@@ -1,22 +1,34 @@
 // ============================================================================
 // SKB - SMS webhooks (Twilio)
 // ============================================================================
-// Two routers are exported:
+// Three routers are exported:
 //
-//   smsRouter()       — tenant-scoped, mounted at /r/:loc/api in mcp-server.
-//                       Currently handles inbound SMS (/sms/inbound).
+//   smsRouter()              — tenant-scoped, mounted at /r/:loc/api. Legacy
+//                              path; stays wired for the SKB long code until
+//                              the post-TFV shared-number cutover (#69).
 //
-//   smsStatusRouter() — tenant-global, mounted at /api in mcp-server. Handles
-//                       Twilio message delivery statusCallback events
-//                       (/sms/status). We don't need /r/:loc because Twilio
-//                       provides MessageSid in every callback and the handler
-//                       only logs — it does not touch queue state.
+//   smsGlobalInboundRouter() — tenant-agnostic, mounted at /api. Receives
+//                              inbound on the shared OSH toll-free number
+//                              (#69). Handles STOP/START/HELP at the platform
+//                              level, then resolves the tenant by phone via
+//                              resolveInboundTenant(), then delegates to
+//                              appendInbound() with the resolved locationId.
+//
+//   smsStatusRouter()        — tenant-global, mounted at /api. Handles Twilio
+//                              message delivery statusCallback events. We
+//                              don't need /r/:loc because Twilio provides
+//                              MessageSid in every callback and the handler
+//                              only logs — it does not touch queue state.
 // ============================================================================
 
 import { Router, type Request, type Response } from 'express';
 
-import { appendInbound } from '../services/chat.js';
+import { appendInbound, resolveInboundTenant } from '../services/chat.js';
+import { recordOptOut, clearOptOut } from '../services/smsOptOuts.js';
 import { validateTwilioSignature } from '../middleware/twilioValidation.js';
+import { isStopKeyword, isStartKeyword, isHelpKeyword } from '../utils/smsKeywords.js';
+import { normalizePhone } from '../utils/smsPhone.js';
+import { serviceDay } from '../core/utils/time.js';
 
 function loc(req: Request): string {
     return String(req.params.loc ?? 'skb');
@@ -29,6 +41,100 @@ function twiml(): string {
 function maskPhone(phone: string): string {
     if (!phone) return '';
     return '******' + phone.slice(-4);
+}
+
+function twimlHelp(): string {
+    const body = 'OSH: Msgs about your restaurant waitlist. Reply STOP to unsubscribe. Support: support@osh.example.com. Msg&data rates may apply.';
+    return `<?xml version="1.0" encoding="UTF-8"?><Response><Message>${body}</Message></Response>`;
+}
+
+/**
+ * Tenant-agnostic inbound handler for the shared OSH toll-free number (#69).
+ * Twilio POSTs here when the shared number receives an SMS. We:
+ *   1. Honor STOP/START/HELP at the platform level, before tenant resolution.
+ *   2. Resolve the tenant from the sender's phone via active queue entries.
+ *   3. On single match, delegate to appendInbound(locationId, ...).
+ *   4. On collision or no match, log and drop (R6 disambiguation is tracked
+ *      separately; it activates only once we have real multi-tenant traffic).
+ */
+export function smsGlobalInboundRouter(): Router {
+    const r = Router();
+
+    r.post('/sms/inbound', validateTwilioSignature, async (req: Request, res: Response) => {
+        const from = String((req.body as Record<string, unknown>)?.From ?? '');
+        const body = String((req.body as Record<string, unknown>)?.Body ?? '');
+        const sid  = String((req.body as Record<string, unknown>)?.MessageSid ?? '');
+        if (!from || !body) {
+            res.status(400).type('text/xml').send(twiml());
+            return;
+        }
+        const normalized = normalizePhone(from);
+
+        // 1. STOP / START / HELP handling (before any tenant resolution).
+        if (isStopKeyword(body)) {
+            await recordOptOut(normalized);
+            console.log(JSON.stringify({
+                t: new Date().toISOString(), level: 'info',
+                msg: 'sms.inbound.stop_received', from: maskPhone(from),
+            }));
+            res.type('text/xml').send(twiml());
+            return;
+        }
+        if (isStartKeyword(body)) {
+            await clearOptOut(normalized);
+            console.log(JSON.stringify({
+                t: new Date().toISOString(), level: 'info',
+                msg: 'sms.inbound.start_received', from: maskPhone(from),
+            }));
+            res.type('text/xml').send(twiml());
+            return;
+        }
+        if (isHelpKeyword(body)) {
+            console.log(JSON.stringify({
+                t: new Date().toISOString(), level: 'info',
+                msg: 'sms.inbound.help_responded', from: maskPhone(from),
+            }));
+            res.type('text/xml').send(twimlHelp());
+            return;
+        }
+
+        // 2. Resolve which tenant this reply belongs to.
+        try {
+            const outcome = await resolveInboundTenant(normalized, serviceDay(new Date()));
+            if (outcome.kind === 'match') {
+                await appendInbound(outcome.locationId, from, body, sid);
+                console.log(JSON.stringify({
+                    t: new Date().toISOString(), level: 'info',
+                    msg: 'chat.inbound', loc: outcome.locationId,
+                    code: outcome.entryCode, from: maskPhone(from), len: body.length, sid,
+                }));
+            } else if (outcome.kind === 'collision') {
+                // R6 disambiguation is tracked as a follow-up; for now, log and
+                // drop so the host-side UX doesn't silently mis-route.
+                console.log(JSON.stringify({
+                    t: new Date().toISOString(), level: 'warn',
+                    msg: 'sms.inbound.collision',
+                    from: maskPhone(from),
+                    candidates: outcome.candidateLocationIds,
+                }));
+            } else {
+                console.log(JSON.stringify({
+                    t: new Date().toISOString(), level: 'warn',
+                    msg: 'sms.inbound.unmatched', from: maskPhone(from), len: body.length,
+                }));
+            }
+            res.type('text/xml').send(twiml());
+        } catch (err) {
+            console.log(JSON.stringify({
+                t: new Date().toISOString(), level: 'error',
+                msg: 'sms.inbound.error',
+                detail: err instanceof Error ? err.message : String(err),
+            }));
+            res.status(503).type('text/xml').send(twiml());
+        }
+    });
+
+    return r;
 }
 
 export function smsRouter(): Router {

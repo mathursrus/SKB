@@ -49,7 +49,7 @@ export async function sendChatMessage(
     // but the outbound leg doesn't go over SMS — the host must speak to
     // them in person.
     const smsResult = entry.smsConsent === true
-        ? await sendSms(entry.phone, body)
+        ? await sendSms(entry.phone, body, { locationId: entry.locationId })
         : { successful: false, status: 'not_configured' as const, messageId: '' };
     const msg: ChatMessage = {
         locationId: entry.locationId,
@@ -131,6 +131,62 @@ export async function markThreadRead(id: string, now: Date = new Date()): Promis
         { $set: { readByHostAt: now } },
     );
     return { updated: res.modifiedCount };
+}
+
+const ACTIVE_INBOUND_STATES = ['waiting', 'called', 'seated', 'ordered', 'served', 'checkout'] as const;
+
+export type ResolveInboundOutcome =
+    | { kind: 'match'; locationId: string; entryCode: string }
+    | { kind: 'none' }
+    | { kind: 'collision'; candidateLocationIds: string[] };
+
+/**
+ * Tenant-agnostic resolver for inbound SMS on the shared OSH number (#69).
+ * Given only the sender's phone and today's service day, find which
+ * location's queue the reply belongs to.
+ *
+ *   - 0 active entries → `{kind: 'none'}` (cold inbound; caller logs and
+ *     drops).
+ *   - Exactly 1 active entry → `{kind: 'match', locationId, entryCode}`.
+ *   - 2+ active entries across different locations → `{kind: 'collision',
+ *     candidateLocationIds}`. Caller owns the disambiguation flow (R6 in
+ *     spec #69; deferred to a later patch).
+ *
+ * Each-location duplicate matches collapse to the most recent `joinedAt`
+ * — the same location can't collide with itself in the resolver's view.
+ */
+export async function resolveInboundTenant(
+    fromPhone: string,
+    today: string,
+): Promise<ResolveInboundOutcome> {
+    const db = await getDb();
+    const normalized = fromPhone.replace(/\D/g, '').replace(/^1/, '').slice(-10);
+    if (!normalized) return { kind: 'none' };
+
+    const entries = await queueEntries(db).find(
+        {
+            serviceDay: today,
+            phone: normalized,
+            state: { $in: [...ACTIVE_INBOUND_STATES] },
+        },
+        { sort: { joinedAt: -1 } },
+    ).toArray();
+
+    if (entries.length === 0) return { kind: 'none' };
+
+    // Collapse to one entry per location (most recent wins).
+    const perLocation = new Map<string, { code: string }>();
+    for (const e of entries) {
+        if (!perLocation.has(e.locationId)) {
+            perLocation.set(e.locationId, { code: e.code });
+        }
+    }
+
+    if (perLocation.size === 1) {
+        const [[locationId, { code }]] = [...perLocation.entries()];
+        return { kind: 'match', locationId, entryCode: code };
+    }
+    return { kind: 'collision', candidateLocationIds: [...perLocation.keys()] };
 }
 
 /**

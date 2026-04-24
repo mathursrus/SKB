@@ -111,7 +111,7 @@ export function queueRouter(): Router {
                         locationPublicUrl: location?.publicUrl ?? '',
                         appPublicBaseUrl: process.env.SKB_PUBLIC_BASE_URL ?? '',
                     });
-                    sendSms(phone, joinConfirmationMessage(result.code, statusUrl))
+                    sendSms(phone, joinConfirmationMessage(result.code, statusUrl), { locationId: loc(req) })
                         .catch(e => console.log(JSON.stringify({ t: new Date().toISOString(), level: 'error', msg: 'sms.join_confirm_failed', error: e instanceof Error ? e.message : String(e) })));
                 }
                 res.json(result);

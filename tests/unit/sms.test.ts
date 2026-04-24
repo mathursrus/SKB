@@ -1,6 +1,7 @@
 // Unit tests for SMS service — maskPhone + sendSms behavior
 import { runTests } from '../test-utils.js';
 import { maskPhone, sendSms } from '../../src/services/sms.js';
+import { closeDb } from '../../src/core/db/mongo.js';
 
 // Save and clear Twilio env vars to test not-configured path
 const savedSid = process.env.TWILIO_ACCOUNT_SID;
@@ -119,6 +120,15 @@ const cases = [
                 restoreTwilioEnv();
             }
         },
+    },
+    // Cleanup: close the Mongo connection opened by the opt-out check
+    // in the valid-credentials / invalid-credentials paths (#69). Without
+    // this, Node keeps the event loop alive and the `&&`-chained test
+    // runner in package.json stalls on the next test file.
+    {
+        name: 'cleanup: closeDb',
+        tags: ['unit', 'sms', 'cleanup'],
+        testFn: async () => { await closeDb(); return true; },
     },
 ];
 

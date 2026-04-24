@@ -9,6 +9,7 @@ import type { Location, QueueEntry, Settings, GuestCartLineDTO } from '../../typ
 import type { ChatMessage } from '../../types/chat.js';
 import type { User, Membership, PasswordReset, Invite } from '../../types/identity.js';
 import type { GoogleToken } from '../../services/googleBusiness.js';
+import type { SmsOptOut } from '../../types/sms.js';
 
 export interface PartyOrder {
     locationId: string;
@@ -84,6 +85,10 @@ export function googleTokens(db: Db): Collection<GoogleToken> {
 
 export function partyOrders(db: Db): Collection<PartyOrder> {
     return db.collection<PartyOrder>('party_orders');
+}
+
+export function smsOptOuts(db: Db): Collection<SmsOptOut> {
+    return db.collection<SmsOptOut>('sms_opt_outs');
 }
 
 async function bootstrapIndexes(db: Db): Promise<void> {
@@ -222,6 +227,14 @@ async function bootstrapIndexes(db: Db): Promise<void> {
             // and only unredeemed invites reach this TTL branch.
             expireAfterSeconds: 0,
         },
+    );
+
+    // SMS opt-outs (issue #69): unique on the normalized phone. We always
+    // look up by phone before sending, and every STOP inbound upserts on
+    // the same key.
+    await smsOptOuts(db).createIndex(
+        { phone: 1 },
+        { name: 'sms_optout_phone_unique', unique: true },
     );
 
     // Google Business Profile tokens (issue #51 Phase D):

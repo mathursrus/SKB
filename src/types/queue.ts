@@ -28,6 +28,7 @@ export interface DayHours {
 export type DayOfWeek = 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun';
 
 export interface GuestFeatures {
+    menu: boolean;
     sms: boolean;
     chat: boolean;
     order: boolean;

@@ -15,7 +15,7 @@
     const smsConsentBlock = $('sms-consent-block');
 
     const STORAGE_KEY = 'skb_queue_code';
-    const DEFAULT_GUEST_FEATURES = { order: true, chat: true, sms: true };
+    const DEFAULT_GUEST_FEATURES = { menu: true, order: true, chat: true, sms: true };
     let guestFeatures = { ...DEFAULT_GUEST_FEATURES };
 
     // --- Auto-refresh polling ---
@@ -43,6 +43,7 @@
     function chatThreadEl() { return document.getElementById('chat-thread'); }
     function chatInputEl() { return document.getElementById('chat-input'); }
     function chatErrorEl() { return document.getElementById('chat-error'); }
+    function menuEnabled() { return guestFeatures.menu !== false; }
     function orderEnabled() { return guestFeatures.order !== false; }
     function chatEnabled() { return guestFeatures.chat !== false; }
     function smsEnabled() { return guestFeatures.sms !== false; }
@@ -53,7 +54,7 @@
             stopChatPoll();
             if (chatCard()) chatCard().style.display = 'none';
         }
-        if (!orderEnabled()) {
+        if (!menuEnabled()) {
             if (orderCard) orderCard.style.display = 'none';
             setGuestTab('waitlist', true);
         }
@@ -312,7 +313,7 @@
     const orderPendingEdits = new Map();
 
     function hasOrderTab(status) {
-        return orderEnabled()
+        return menuEnabled()
             && Boolean(status && ['waiting', 'called', 'seated', 'ordered', 'served', 'checkout'].includes(status.state));
     }
 
@@ -464,7 +465,7 @@
     }
 
     async function ensureMenuLoaded() {
-        if (!orderEnabled()) return null;
+        if (!menuEnabled()) return null;
         if (menuData) return menuData;
         const res = await fetch('api/menu');
         if (!res.ok) throw new Error('menu unavailable');
@@ -526,6 +527,7 @@
         if (!orderCard) return;
         const menuSections = menuData?.menu?.sections || [];
         const activeState = hasOrderTab(status);
+        const browsingOnly = !orderEnabled();
         syncGuestTabs(status);
         if (!activeState) {
             orderCard.style.display = 'none';
@@ -534,8 +536,11 @@
         orderCard.style.display = '';
         orderPlaced = status?.order?.state === 'placed';
         orderCode = status?.code || orderCode;
+        if (queueTabOrder) queueTabOrder.textContent = browsingOnly ? 'Menu' : 'Order';
         orderBadge.textContent = orderPlaced ? 'Placed' : (orderDraft.length > 0 ? 'Draft' : 'Empty');
-        if (orderPlaced) {
+        if (browsingOnly) {
+            orderCardSub.textContent = 'Browse the menu while you wait. Ordering from your phone is turned off right now.';
+        } else if (orderPlaced) {
             orderCardSub.textContent = 'The kitchen-facing order below is locked in.';
         } else if (status?.state === 'seated') {
             orderCardSub.textContent = 'Your table is ready. Review and place your order when you are ready.';
@@ -546,7 +551,7 @@
             orderMenu.innerHTML = '<div class="order-empty">This restaurant has not published a structured menu yet.</div>';
         } else {
             const sectionNav = '<nav class="order-section-nav" aria-label="Jump to menu section">'
-                + '<a class="order-section-link order-section-link-cart" href="#order-cart">Cart</a>'
+                + (browsingOnly ? '' : '<a class="order-section-link order-section-link-cart" href="#order-cart">Cart</a>')
                 + menuSections.map((section, index) => (
                     '<a class="order-section-link" href="#' + escapeHtml(menuSectionAnchor(section, index)) + '">'
                     + escapeHtml(section.title || ('Section ' + (index + 1)))
@@ -563,18 +568,19 @@
                         const notes = line?.notes || '';
                         const selected = new Set(line?.selectedOptions || []);
                         const soldOut = item.availability === 'sold_out';
+                        const orderingLocked = browsingOnly || orderPlaced || soldOut;
                         return '<article class="order-item-card' + (soldOut ? ' is-sold-out' : '') + '" data-menu-item-id="' + escapeHtml(item.id) + '">'
                             + (item.image ? '<img class="order-item-image" src="' + escapeHtml(item.image) + '" alt="" />' : '<div class="order-item-image order-item-image-empty">No photo</div>')
                             + '<div class="order-item-body">'
                             + '<div class="order-item-head"><strong>' + escapeHtml(item.name) + '</strong>' + (item.price ? '<span>' + escapeHtml(item.price) + '</span>' : '') + '</div>'
                             + (item.description ? '<p class="order-item-desc">' + escapeHtml(item.description) + '</p>' : '')
                             + ((item.requiredIngredients || []).length ? '<div class="order-item-meta"><span>Included</span><div class="order-tags">' + item.requiredIngredients.map(name => '<span class="order-tag">' + escapeHtml(name) + '</span>').join('') + '</div></div>' : '')
-                            + ((item.optionalIngredients || []).length ? '<div class="order-item-meta"><span>Optional</span><div class="order-options">' + item.optionalIngredients.map(name => '<label><input type="checkbox" class="order-option" value="' + escapeHtml(name) + '"' + (selected.has(name) ? ' checked' : '') + (orderPlaced || soldOut ? ' disabled' : '') + ' /> ' + escapeHtml(name) + '</label>').join('') + '</div></div>' : '')
-                            + '<div class="order-item-controls">'
-                            + '<label>Qty <input type="number" min="1" max="20" class="order-qty" value="' + qty + '"' + (orderPlaced || soldOut ? ' disabled' : '') + ' /></label>'
-                            + '<label class="order-notes">Notes<textarea class="order-item-notes" rows="2" maxlength="280"' + (orderPlaced || soldOut ? ' disabled' : '') + '>' + escapeHtml(notes) + '</textarea></label>'
-                            + '</div>'
-                            + (!orderPlaced ? '<div class="order-item-actions"><button type="button" class="secondary order-add-btn"' + (soldOut ? ' disabled' : '') + '>' + (lineInCart ? 'Update item' : 'Add to cart') + '</button>' + (lineInCart ? '<button type="button" class="order-remove-btn">Remove</button>' : '') + '</div>' : '')
+                            + ((item.optionalIngredients || []).length ? '<div class="order-item-meta"><span>Optional</span><div class="order-options">' + item.optionalIngredients.map(name => '<label><input type="checkbox" class="order-option" value="' + escapeHtml(name) + '"' + (selected.has(name) ? ' checked' : '') + (orderingLocked ? ' disabled' : '') + ' /> ' + escapeHtml(name) + '</label>').join('') + '</div></div>' : '')
+                            + (browsingOnly ? '' : '<div class="order-item-controls">'
+                                + '<label>Qty <input type="number" min="1" max="20" class="order-qty" value="' + qty + '"' + (orderingLocked ? ' disabled' : '') + ' /></label>'
+                                + '<label class="order-notes">Notes<textarea class="order-item-notes" rows="2" maxlength="280"' + (orderingLocked ? ' disabled' : '') + '>' + escapeHtml(notes) + '</textarea></label>'
+                                + '</div>')
+                            + (!browsingOnly && !orderPlaced ? '<div class="order-item-actions"><button type="button" class="secondary order-add-btn"' + (soldOut ? ' disabled' : '') + '>' + (lineInCart ? 'Update item' : 'Add to cart') + '</button>' + (lineInCart ? '<button type="button" class="order-remove-btn">Remove</button>' : '') + '</div>' : '')
                             + (soldOut ? '<div class="order-sold-out">Sold out</div>' : '')
                             + '</div>'
                             + '</article>';
@@ -583,9 +589,11 @@
             }).join('');
         }
 
-        if (orderDraft.length === 0) {
+        const orderCart = document.getElementById('order-cart');
+        if (orderCart) orderCart.style.display = browsingOnly ? 'none' : '';
+        if (!browsingOnly && orderDraft.length === 0) {
             orderCartLines.innerHTML = '<div class="order-empty">No items in your cart yet.</div>';
-        } else {
+        } else if (!browsingOnly) {
             orderCartLines.innerHTML = orderDraft.map(line => {
                 return '<div class="order-cart-line">'
                     + '<div><strong>' + line.quantity + '× ' + escapeHtml(line.name || menuItemById(line.menuItemId)?.item?.name || line.menuItemId) + '</strong>'
@@ -600,7 +608,10 @@
 
         const totalQty = orderDraft.reduce((sum, line) => sum + Number(line.quantity || 0), 0);
         orderCartCount.textContent = totalQty + (totalQty === 1 ? ' item' : ' items');
-        if (orderPlaced) {
+        if (browsingOnly) {
+            orderLock.style.display = '';
+            orderLock.textContent = 'Menu browsing is on. Ordering from the waitlist page is turned off for this restaurant.';
+        } else if (orderPlaced) {
             orderLock.style.display = '';
             orderLock.textContent = status?.order?.placedAt ? ('Placed at ' + fmtTime(status.order.placedAt)) : 'Placed';
         } else if (status?.state !== 'seated') {
@@ -610,7 +621,7 @@
             orderLock.style.display = 'none';
             orderLock.textContent = '';
         }
-        orderPlaceBtn.disabled = orderPlaced || !(status?.canPlaceOrder || (status?.state === 'seated' && totalQty > 0));
+        orderPlaceBtn.disabled = browsingOnly || orderPlaced || !(status?.canPlaceOrder || (status?.state === 'seated' && totalQty > 0));
     }
 
     function syncDraftFromStatus(status) {
@@ -652,7 +663,7 @@
     }
 
     async function persistOrderDraft(placeAfter) {
-        if (!orderCode) return;
+        if (!orderCode || !orderEnabled()) return;
         clearOrderDraftSaveTimer();
         setInlineStatus(orderStatus, placeAfter ? 'Placing...' : 'Saving...', '');
         const draftPayload = orderDraft.map(line => ({
@@ -740,7 +751,7 @@
                 if (waitElapsed) waitElapsed.style.display = 'none';
                 renderPublicList([]);
                 syncDraftFromStatus(s);
-                if (orderEnabled()) {
+                if (menuEnabled()) {
                     try { await ensureMenuLoaded(); } catch {}
                 }
                 renderOrderCard(s);
@@ -762,7 +773,7 @@
                 if (waitElapsed) waitElapsed.style.display = 'none';
                 renderPublicList([]);
                 syncDraftFromStatus(s);
-                if (orderEnabled()) {
+                if (menuEnabled()) {
                     try { await ensureMenuLoaded(); } catch {}
                 }
                 renderOrderCard(s);
@@ -817,7 +828,7 @@
             if (chatEnabled()) startChatPoll(s.code);
             else if (chatCard()) chatCard().style.display = 'none';
             syncDraftFromStatus(s);
-            if (orderEnabled()) {
+            if (menuEnabled()) {
                 try { await ensureMenuLoaded(); } catch {}
             }
             renderOrderCard(s);

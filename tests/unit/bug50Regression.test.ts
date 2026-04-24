@@ -421,7 +421,8 @@ const cases: BaseTestCase[] = [
                 path.resolve(__dirname, '..', '..', 'ios', 'src', 'net', 'client.ts'),
                 'utf-8',
             );
-            return iosClient.includes('/r/${loc}/api${suffix}');
+            return /buildTenantUrl\(.*\): string \{[\s\S]*return `\$\{base\}\/r\/\$\{encodeURIComponent\(.+?\)\}\/api\$\{suffix\}`;/.test(iosClient)
+                && /export function buildUrl\(path: string\): string \{[\s\S]*return buildTenantUrl\(defaultLocationId\(\), path\);/.test(iosClient);
         },
     },
     {
@@ -453,9 +454,8 @@ const cases: BaseTestCase[] = [
                 path.resolve(__dirname, '..', '..', 'ios', 'app', '(host)', 'settings.tsx'),
                 'utf-8',
             );
-            // editable={etaMode === 'manual'} + conditional disabled style
-            return /editable=\{etaMode\s*===\s*['"]manual['"]\}/.test(settings)
-                && /etaMode\s*!==\s*['"]manual['"].*inputDisabled/.test(settings);
+            return /editable=\{[^}]*etaMode\s*===\s*['"]manual['"][^}]*\}/.test(settings)
+                && /\(\s*!canEdit\s*\|\|\s*etaMode\s*!==\s*['"]manual['"]\s*\)\s*&&\s*styles\.inputDisabled/.test(settings);
         },
     },
     {

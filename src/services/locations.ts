@@ -39,6 +39,7 @@ export function normalizeFrontDeskPhone(input: string): string | null {
 const MIN_VOICE_LARGE_PARTY_THRESHOLD = 6;
 const MAX_VOICE_LARGE_PARTY_THRESHOLD = 20;
 export const DEFAULT_GUEST_FEATURES: GuestFeatures = {
+    menu: true,
     sms: true,
     chat: true,
     order: true,
@@ -46,6 +47,7 @@ export const DEFAULT_GUEST_FEATURES: GuestFeatures = {
 
 export function getGuestFeatures(location?: Pick<Location, 'guestFeatures'> | null): GuestFeatures {
     return {
+        menu: location?.guestFeatures?.menu !== false,
         sms: location?.guestFeatures?.sms !== false,
         chat: location?.guestFeatures?.chat !== false,
         order: location?.guestFeatures?.order !== false,
@@ -114,6 +116,7 @@ export interface SiteConfigUpdate {
 }
 
 export interface GuestFeaturesUpdate {
+    menu?: boolean;
     sms?: boolean;
     chat?: boolean;
     order?: boolean;
@@ -284,7 +287,7 @@ export function validateSiteConfigUpdate(update: SiteConfigUpdate): void {
 }
 
 export function validateGuestFeaturesUpdate(update: GuestFeaturesUpdate): void {
-    const keys: Array<keyof GuestFeaturesUpdate> = ['sms', 'chat', 'order'];
+    const keys: Array<keyof GuestFeaturesUpdate> = ['menu', 'sms', 'chat', 'order'];
     for (const key of keys) {
         const value = update[key];
         if (value !== undefined && typeof value !== 'boolean') {
@@ -462,17 +465,17 @@ export async function updateLocationGuestFeatures(
     update: GuestFeaturesUpdate,
 ): Promise<Location> {
     validateGuestFeaturesUpdate(update);
+    const nextFeatures: GuestFeatures = {
+        ...DEFAULT_GUEST_FEATURES,
+        ...update,
+    };
+    if (nextFeatures.order) nextFeatures.menu = true;
 
     const db = await getDb();
     const result = await locations(db).findOneAndUpdate(
         { _id: locationId },
         {
-            $set: {
-                guestFeatures: {
-                    ...DEFAULT_GUEST_FEATURES,
-                    ...update,
-                },
-            },
+            $set: { guestFeatures: nextFeatures },
         },
         { returnDocument: 'after' },
     );

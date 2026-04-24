@@ -44,6 +44,7 @@ const cases: BaseTestCase[] = [
                 && js.includes('api/queue/order/place')
                 && js.includes('api/public-config')
                 && js.includes('guestFeatures')
+                && js.includes('menuEnabled')
                 && js.includes('scheduleOrderDraftSave')
                 && js.includes('order-item-card')
                 && js.includes('order-section-nav')

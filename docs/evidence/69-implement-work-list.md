@@ -45,8 +45,18 @@ Code changes are backward-compatible with the existing SKB long-code deployment.
 
 ### Deferred (tracked here, out of scope for this session)
 
-- Admin UI: Sender-name field in admin Settings → Messaging (mock exists; wiring + form deferred).
-- Join-form consent-copy update to explicitly name OSH as sender.
+> **Tripwire — BLOCKS `/ui-polish` and `/bug-bash`.** The two items tagged
+> `ui-surface` below are user-facing UI surfaces. Until they are implemented
+> as a running, Playwright-drivable admin page and join form, the
+> `ui-polish-validation` and `user-testing-and-bug-bash` phases have **no
+> valid target**. If a future session invokes either phase while these
+> surfaces are still deferred, surface this tripwire and ask the user
+> whether to (a) wire the UI first, then run polish/bash against the real
+> thing, or (b) scope polish/bash out of the current PR. Do not fabricate
+> a substitute target (e.g., a static design mock).
+
+- `ui-surface` Admin UI: Sender-name field in admin Settings → Messaging (mock exists; wiring + form deferred).
+- `ui-surface` Join-form consent-copy update to explicitly name OSH as sender.
 - Disambiguation flow (R6) — only activates with a shared number in prod.
 - Integration tests for `/api/sms/inbound` against an ephemeral Mongo.
 - E2E test via Twilio magic test credentials.

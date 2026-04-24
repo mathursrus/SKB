@@ -1,6 +1,18 @@
 # UI Polish Validation — Issue #69
 
-**Surface:** `docs/feature-specs/mocks/69-admin-sms-settings.html` (static admin Settings → Messaging mock)
+> **⚠️ ERRATA — 2026-04-24:** This document is **invalid as UI polish evidence**.
+> It was produced against the static design mock, not a real running feature.
+> A proper `ui-polish-validation` phase requires Playwright to drive a live
+> user-facing surface the feature actually exposes; this PR defers the admin
+> Settings → Messaging page and the join-form consent-copy update, so **no
+> such surface exists yet**. The content below is retained as a mock-level
+> sanity review (legitimate at spec time; not a substitute for polish). A
+> real UI polish run will be filed when the admin wiring lands.
+>
+> *Root-cause analysis and coaching moment:
+> `fraim/personalized-employee/learnings/raw/sid.mathur@gmail.com-2026-04-24T03-04-02-validate-real-ui-not-mocks.md`.*
+
+**Surface (retained for reference):** `docs/feature-specs/mocks/69-admin-sms-settings.html` (static admin Settings → Messaging mock)
 **Tool:** Playwright MCP via `localhost:8077`
 **Date:** 2026-04-23
 **Design standards:** Generic UI baseline (no project-specific design system configured in `fraim/config.json`).
@@ -90,12 +102,6 @@ The blue "Mock — Admin SMS Settings (Issue #69)" banner is a mock artifact onl
 
 No `aria-live` region on the toast; screen-reader users might miss the save confirmation. Not a blocker — document for the real-admin wiring PR to add `role="status" aria-live="polite"` on the `.toast` element.
 
-## Signoff
+## Signoff — retracted
 
-- [x] Desktop baseline renders clean.
-- [x] Interactive wiring validated (live preview, save toast, empty-state fallback).
-- [x] Console health clean (only favicon 404).
-- [x] No P0 defects. Two non-blocking defects (P1 no responsive design; P2 no over-limit indicator) filed as polish follow-ups for the real-admin wiring PR.
-- [x] Evidence artifacts under `docs/evidence/ui-polish/69/`.
-
-Mock is fit-for-purpose as a design intent document. Shipping is blocked only on wiring, not on mock polish.
+The prior "no P0 defects" signoff is **retracted**. Mock-level sanity review was passed (layout / interaction / console), but that is not what a UI polish signoff is supposed to attest to. No feature-level polish has been verified. A proper signoff will follow a run against the real wired admin surface once that's implemented.

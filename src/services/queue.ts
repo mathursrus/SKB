@@ -436,7 +436,7 @@ export async function callParty(
         : repeatCallMessage(entry.code, callCount);
     const smsEnabled = getGuestFeatures(await getLocation(entry.locationId)).sms;
     const smsResult = smsEnabled && entry.smsConsent === true
-        ? await sendSms(entry.phone, message)
+        ? await sendSms(entry.phone, message, { locationId: entry.locationId })
         : { successful: false, status: 'not_configured' as const, messageId: '' };
 
     // 3. Update state + push CallRecord (SMS failure does NOT block this)

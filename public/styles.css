@@ -1508,6 +1508,77 @@ body.queue-boot::before {
     font-size: 13px;
 }
 
+/* Small metadata pill (e.g. "19 / 30") that floats to the right of the
+   visit-label. Issue #69 messaging tab; reusable elsewhere if a field
+   needs an inline character counter or hint. */
+.visit-label-meta {
+    float: right;
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+    text-transform: none;
+    color: var(--muted);
+}
+.visit-label-meta.over-limit { color: var(--danger); font-weight: 600; }
+
+/* Hint text shown under a visit-field input, smaller and lighter than the
+   field content. */
+.visit-hint {
+    font-size: 11px;
+    color: var(--muted);
+    line-height: 1.4;
+}
+
+/* ---------- Messaging tab SMS preview (issue #69) ---------- */
+.sms-preview {
+    background: #f5f3ee;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+    margin-top: 16px;
+}
+.sms-preview-label {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    margin-bottom: 12px;
+}
+.sms-preview-bubble {
+    max-width: 320px;
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 10px 14px;
+    font-size: 14px;
+    line-height: 1.45;
+}
+.sms-preview-bubble + .sms-preview-bubble { margin-top: 8px; }
+.sms-preview-from {
+    font-size: 11px;
+    color: var(--muted);
+    margin-bottom: 4px;
+}
+.sms-preview-sender { font-weight: 600; color: var(--fg); }
+.sms-preview-body { word-break: break-word; }
+
+/* Responsive: collapse admin tabs on narrow viewports so the admin surface
+   doesn't overflow horizontally on a phone. Generic collapse — affects
+   all admin panels, not just messaging. */
+@media (max-width: 720px) {
+    .admin-tabs-workspace {
+        flex-wrap: wrap;
+        gap: 4px;
+    }
+    .visit-grid {
+        grid-template-columns: 1fr;
+    }
+    .sms-preview-bubble {
+        max-width: 100%;
+    }
+}
+
 /* ---------- Host admin: location & hours subsections (issue #45) ---------- */
 .visit-subhead {
     font-size: 13px;

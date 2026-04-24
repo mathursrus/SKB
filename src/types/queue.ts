@@ -69,6 +69,16 @@ export interface Location {
     menu?: LocationMenu;       // structured menu (sections + items, issue #51)
     guestFeatures?: GuestFeatures; // admin-controlled guest capability toggles
 
+    // Multi-tenant SMS via shared OSH number (issue #69). `smsSenderName` is
+    // prefixed onto every outbound SMS body so diners can tell which restaurant
+    // a text is about even though many restaurants share the platform number.
+    // Defaults to `name` if absent. `twilioVoiceNumber*` fields are populated
+    // only when a tenant opts into their own dedicated IVR long code; voice
+    // is not subject to TFV/10DLC so provisioning is fast.
+    smsSenderName?: string;
+    twilioVoiceNumber?: string;      // E.164, e.g. "+12065550142"
+    twilioVoiceNumberSid?: string;   // Twilio IncomingPhoneNumber SID
+
     // Owner-onboarding wizard state (issue #54, spec §6.2). Each completed
     // step ID is pushed in. Wizard is hidden client-side once all four are
     // present. Possible values: 'basics', 'template', 'menu', 'staff'.

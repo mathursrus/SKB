@@ -19,16 +19,21 @@ import twilio from 'twilio';
  * triage and docs/evidence/37-bug-bash.md for the rationale).
  */
 export function validateTwilioSignature(req: Request, res: Response, next: NextFunction): void {
+    // Local-dev / test escape hatch. Explicit opt-in via env var; never set in
+    // production. Applies regardless of whether TWILIO_AUTH_TOKEN is present —
+    // integration tests often set a fake token to enable the outbound sendSms
+    // path while still wanting the inbound path to accept unsigned fixtures.
+    if (process.env.SKB_ALLOW_UNSIGNED_TWILIO === '1') {
+        console.log(JSON.stringify({
+            t: new Date().toISOString(), level: 'warn',
+            msg: 'twilio.signature_bypassed_dev', path: req.originalUrl,
+        }));
+        next();
+        return;
+    }
+
     const authToken = process.env.TWILIO_AUTH_TOKEN;
     if (!authToken) {
-        if (process.env.SKB_ALLOW_UNSIGNED_TWILIO === '1') {
-            console.log(JSON.stringify({
-                t: new Date().toISOString(), level: 'warn',
-                msg: 'twilio.signature_bypassed_dev', path: req.originalUrl,
-            }));
-            next();
-            return;
-        }
         console.log(JSON.stringify({
             t: new Date().toISOString(), level: 'error',
             msg: 'twilio.not_configured', path: req.originalUrl,

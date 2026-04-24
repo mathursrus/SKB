@@ -1,4 +1,9 @@
 // Unit tests for SMS message templates
+//
+// Templates now return plain body text only. The per-tenant "${name}: "
+// prefix is applied by sendSms at dispatch time (#69), so tests assert
+// the body content but explicitly that the template does NOT embed a
+// hardcoded "SKB:" prefix.
 import { runTests } from '../test-utils.js';
 import {
     joinConfirmationMessage,
@@ -11,26 +16,27 @@ import {
 
 const cases = [
     {
-        name: 'joinConfirmationMessage includes code and status URL',
+        name: 'joinConfirmationMessage includes code and status URL, no hardcoded prefix',
         tags: ['unit', 'sms'],
         testFn: async () => {
             const msg = joinConfirmationMessage('SKB-7Q3', 'https://skb.app/r/skb/queue?code=SKB-7Q3');
             return (
                 msg.includes('SKB-7Q3') &&
                 msg.includes('https://skb.app/r/skb/queue?code=SKB-7Q3') &&
-                msg.startsWith('SKB:')
+                !msg.startsWith('SKB:') &&
+                !msg.startsWith('OSH:')
             );
         },
     },
     {
-        name: 'firstCallMessage includes code and table-ready language',
+        name: 'firstCallMessage includes code and table-ready language, no hardcoded prefix',
         tags: ['unit', 'sms'],
         testFn: async () => {
             const msg = firstCallMessage('SKB-ABC');
             return (
                 msg.includes('SKB-ABC') &&
                 msg.includes('table is ready') &&
-                msg.startsWith('SKB:')
+                !msg.startsWith('SKB:')
             );
         },
     },
@@ -56,33 +62,33 @@ const cases = [
     },
     // --- Chat quick-reply templates (R10) ---
     {
-        name: 'chatAlmostReadyMessage includes code and "almost ready"',
+        name: 'chatAlmostReadyMessage includes code and "almost ready", no hardcoded prefix',
         tags: ['unit', 'sms', 'chat'],
         testFn: async () => {
             const msg = chatAlmostReadyMessage('SKB-ALM');
-            return msg.startsWith('SKB:')
+            return !msg.startsWith('SKB:')
                 && msg.includes('SKB-ALM')
                 && /almost ready/i.test(msg)
                 && /5 more minutes/i.test(msg);
         },
     },
     {
-        name: 'chatNeedMoreTimeMessage includes code and YES-reply ask',
+        name: 'chatNeedMoreTimeMessage includes code and YES-reply ask, no hardcoded prefix',
         tags: ['unit', 'sms', 'chat'],
         testFn: async () => {
             const msg = chatNeedMoreTimeMessage('SKB-NMT');
-            return msg.startsWith('SKB:')
+            return !msg.startsWith('SKB:')
                 && msg.includes('SKB-NMT')
                 && /more minutes/i.test(msg)
                 && /Reply YES/.test(msg);
         },
     },
     {
-        name: 'chatLostYouMessage includes code and YES-reply ask',
+        name: 'chatLostYouMessage includes code and YES-reply ask, no hardcoded prefix',
         tags: ['unit', 'sms', 'chat'],
         testFn: async () => {
             const msg = chatLostYouMessage('SKB-LST');
-            return msg.startsWith('SKB:')
+            return !msg.startsWith('SKB:')
                 && msg.includes('SKB-LST')
                 && /didn't see you/i.test(msg)
                 && /Reply YES/.test(msg);

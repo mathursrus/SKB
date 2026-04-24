@@ -30,6 +30,7 @@ import {
     updateLocationSiteConfig,
     updateLocationWebsiteConfig,
     updateLocationMenu,
+    updateLocationMessagingConfig,
     toPublicLocation,
     DEFAULT_WEBSITE_TEMPLATE,
     type WebsiteConfigUpdate,
@@ -704,6 +705,53 @@ export function hostRouter(): Router {
             if (err instanceof Error && (
                 err.message.startsWith('frontDeskPhone') || err.message.startsWith('voiceLargePartyThreshold')
             )) {
+                res.status(400).json({ error: err.message });
+                return;
+            }
+            if (err instanceof Error && err.message === 'location not found') {
+                res.status(404).json({ error: 'location not found' });
+                return;
+            }
+            dbError(res, err);
+        }
+    });
+
+    // Messaging config (#69): per-tenant display name prefixed onto every
+    // outbound SMS on the shared OSH number. Read: host+ (everyone needs
+    // to see how their texts identify). Write: owner/admin only.
+    r.get('/host/messaging-config', requireHost, async (req: Request, res: Response) => {
+        try {
+            const location = await getLocation(loc(req));
+            res.json({
+                smsSenderName: location?.smsSenderName ?? location?.name ?? '',
+                sharedNumber: process.env.TWILIO_PHONE_NUMBER ?? '',
+                twilioVoiceNumber: location?.twilioVoiceNumber ?? '',
+            });
+        } catch (err) { dbError(res, err); }
+    });
+
+    r.post('/host/messaging-config', requireAdmin, async (req: Request, res: Response) => {
+        const body = (req.body ?? {}) as { smsSenderName?: unknown };
+        try {
+            const update: { smsSenderName?: string | null } = {};
+            if (body.smsSenderName !== undefined) {
+                update.smsSenderName = body.smsSenderName === null ? null : String(body.smsSenderName);
+            }
+            const updated = await updateLocationMessagingConfig(loc(req), update);
+            console.log(JSON.stringify({
+                t: new Date().toISOString(),
+                level: 'info',
+                msg: 'host.messaging_config.updated',
+                loc: loc(req),
+                smsSenderNameSet: !!updated.smsSenderName,
+            }));
+            res.json({
+                smsSenderName: updated.smsSenderName ?? updated.name ?? '',
+                sharedNumber: process.env.TWILIO_PHONE_NUMBER ?? '',
+                twilioVoiceNumber: updated.twilioVoiceNumber ?? '',
+            });
+        } catch (err) {
+            if (err instanceof Error && err.message.startsWith('smsSenderName')) {
                 res.status(400).json({ error: err.message });
                 return;
             }

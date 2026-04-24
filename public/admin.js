@@ -28,6 +28,17 @@
     const guestFeaturesStatus = $('admin-guest-features-status');
     const guestFeaturesSave = $('admin-guest-features-save');
 
+    // Messaging tab (issue #69): shared-number SMS settings.
+    const smsSenderName = $('admin-sms-sender-name');
+    const smsSenderCount = $('admin-sms-sender-count');
+    const smsSenderStatus = $('admin-sms-sender-status');
+    const smsSenderSave = $('admin-sms-sender-save');
+    const smsPreviewName1 = $('admin-sms-preview-name-1');
+    const smsPreviewName2 = $('admin-sms-preview-name-2');
+    const smsPreviewFromNumber = $('admin-sms-preview-from-number');
+    const smsSharedNumber = $('admin-sms-shared-number');
+    const voiceNumberDisplay = $('admin-voice-number-display');
+
     // Site config (issue #45)
     const siteStreet = $('admin-site-street');
     const siteCity = $('admin-site-city');
@@ -333,6 +344,99 @@
                 guestFeaturesStatus.className = 'visit-status error';
             }
         }
+    }
+
+    // ─── Messaging config (issue #69) ────────────────────────────────────
+    // Drives the sender-name field, char counter, live SMS preview, and the
+    // read-only sender/voice number display on the Messaging tab.
+    const SMS_SENDER_NAME_MAX = 30;
+
+    function syncSmsPreview() {
+        if (!smsSenderName) return;
+        const raw = smsSenderName.value;
+        const trimmed = raw.trim();
+        const effective = trimmed || 'OSH';
+        if (smsSenderCount) {
+            smsSenderCount.textContent = raw.length + ' / ' + SMS_SENDER_NAME_MAX;
+            smsSenderCount.classList.toggle('over-limit', raw.length > SMS_SENDER_NAME_MAX);
+        }
+        if (smsPreviewName1) smsPreviewName1.textContent = effective;
+        if (smsPreviewName2) smsPreviewName2.textContent = effective;
+    }
+
+    function formatUSPhone(e164OrDigits) {
+        if (!e164OrDigits) return '';
+        const digits = String(e164OrDigits).replace(/\D/g, '').replace(/^1/, '');
+        if (digits.length !== 10) return String(e164OrDigits);
+        return '(' + digits.slice(0, 3) + ') ' + digits.slice(3, 6) + '-' + digits.slice(6);
+    }
+
+    function applyMessagingNumbers(data) {
+        const prettyShared = formatUSPhone(data && data.sharedNumber);
+        if (smsSharedNumber) smsSharedNumber.value = prettyShared;
+        const fromText = prettyShared || 'your sending number';
+        if (smsPreviewFromNumber) smsPreviewFromNumber.textContent = fromText;
+        document.querySelectorAll('.sms-preview-from-number-twin').forEach((el) => { el.textContent = fromText; });
+        if (voiceNumberDisplay) voiceNumberDisplay.value = formatUSPhone(data && data.twilioVoiceNumber);
+    }
+
+    async function loadMessagingConfig() {
+        try {
+            const r = await fetch('api/host/messaging-config');
+            if (!r.ok) return;
+            const data = await r.json();
+            if (smsSenderName) smsSenderName.value = String(data.smsSenderName || '');
+            applyMessagingNumbers(data);
+            syncSmsPreview();
+        } catch {
+            if (smsSenderStatus) {
+                smsSenderStatus.textContent = 'Failed to load messaging settings';
+                smsSenderStatus.className = 'visit-status error';
+            }
+        }
+    }
+
+    if (smsSenderName) {
+        smsSenderName.addEventListener('input', syncSmsPreview);
+        // Initialize the preview to the empty-state fallback so the placeholder
+        // state looks intentional before the first load.
+        syncSmsPreview();
+    }
+
+    if (smsSenderSave) {
+        smsSenderSave.addEventListener('click', async () => {
+            const raw = smsSenderName ? smsSenderName.value.trim() : '';
+            if (raw.length === 0) {
+                setStatus(smsSenderStatus, 'Display name cannot be blank', 'error');
+                return;
+            }
+            if (raw.length > SMS_SENDER_NAME_MAX) {
+                setStatus(smsSenderStatus, 'Display name must be ' + SMS_SENDER_NAME_MAX + ' characters or fewer', 'error');
+                return;
+            }
+            setStatus(smsSenderStatus, 'Saving…', '');
+            smsSenderSave.disabled = true;
+            try {
+                const r = await fetch('api/host/messaging-config', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ smsSenderName: raw }),
+                });
+                const data = await r.json().catch(() => ({}));
+                if (!r.ok) {
+                    setStatus(smsSenderStatus, data.error || 'Save failed', 'error');
+                    return;
+                }
+                if (smsSenderName) smsSenderName.value = String(data.smsSenderName || '');
+                applyMessagingNumbers(data);
+                syncSmsPreview();
+                flashSaved(smsSenderStatus);
+            } catch {
+                setStatus(smsSenderStatus, 'Network error', 'error');
+            } finally {
+                smsSenderSave.disabled = false;
+            }
+        });
     }
 
     function setStatus(el, text, kind) {
@@ -1416,7 +1520,7 @@
     // are aliased in `rememberWorkspace` / URL parsing so pre-rename
     // bookmarks + Google OAuth redirects still land somewhere sensible.
     // ------------------------------------------------------------------
-    const TAB_KEYS = ['dashboard', 'profile', 'website', 'menu', 'frontdesk', 'staff', 'integrations'];
+    const TAB_KEYS = ['dashboard', 'profile', 'website', 'menu', 'frontdesk', 'messaging', 'staff', 'integrations'];
     const LEGACY_TAB_ALIAS = { site: 'profile', ai: 'integrations', settings: 'frontdesk' };
     const loadedPanels = new Set();
 
@@ -1435,6 +1539,7 @@
         website: async () => { await loadWebsiteConfig(); },
         menu: async () => { await loadMenuBuilder(); },
         frontdesk: async () => { await Promise.all([loadVisitConfig(), loadVoiceConfig(), loadGuestFeatures(), loadDevicePin()]); },
+        messaging: async () => { await loadMessagingConfig(); },
         staff: async () => { await loadStaff(); },
         integrations: async () => { await loadMcpConfig(); await loadGoogleCard(); },
     };

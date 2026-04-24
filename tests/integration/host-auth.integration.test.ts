@@ -160,6 +160,48 @@ const cases: BaseTestCase[] = [
         },
     },
     {
+        name: 'host-auth: /api/host/messaging-config with valid cookie returns 200 (#69)',
+        tags: ['integration', 'auth', 'messaging'],
+        testFn: async () => {
+            const loginRes = await fetch(`${getTestServerUrl()}/api/host/login`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ pin: '1234' }),
+            });
+            const cookieValue = (loginRes.headers.get('set-cookie') ?? '').split(';')[0];
+
+            const res = await fetch(`${getTestServerUrl()}/api/host/messaging-config`, {
+                headers: { Cookie: cookieValue },
+            });
+            if (!res.ok) return false;
+            const body = await res.json() as { smsSenderName?: unknown; sharedNumber?: unknown };
+            // Response shape sanity: strings (possibly empty) for all fields.
+            return typeof body.smsSenderName === 'string' && typeof body.sharedNumber === 'string';
+        },
+    },
+    {
+        name: 'host-auth: POST /api/host/messaging-config requires admin+ (host PIN → 403, #69)',
+        tags: ['integration', 'auth', 'messaging'],
+        testFn: async () => {
+            const loginRes = await fetch(`${getTestServerUrl()}/api/host/login`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ pin: '1234' }),
+            });
+            const cookieValue = (loginRes.headers.get('set-cookie') ?? '').split(';')[0];
+
+            const res = await fetch(`${getTestServerUrl()}/api/host/messaging-config`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Cookie: cookieValue,
+                },
+                body: JSON.stringify({ smsSenderName: 'Nope' }),
+            });
+            return res.status === 403;
+        },
+    },
+    {
         name: 'host-auth: POST /api/host/voice-config requires admin+ (host PIN → 403 per #55)',
         tags: ['integration', 'auth', 'voice'],
         testFn: async () => {

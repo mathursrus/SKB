@@ -1,0 +1,354 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Mock — Admin SMS Settings (Issue #69)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fira+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: 'Fira Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font-size: 15px;
+    line-height: 1.5;
+    background: #f5f6f8;
+    color: #1a1a1a;
+    padding-top: 40px;
+  }
+  .mock-banner {
+    position: fixed; top: 0; left: 0; right: 0;
+    background: #2563eb; color: #fff;
+    text-align: center; padding: 8px 16px;
+    font-size: 13px; font-weight: 600; z-index: 10;
+  }
+  .layout {
+    display: grid;
+    grid-template-columns: 240px 1fr;
+    min-height: calc(100vh - 40px);
+  }
+  .sidebar {
+    background: #fff;
+    border-right: 1px solid #e4e6eb;
+    padding: 24px 0;
+  }
+  .sidebar h3 {
+    margin: 0 0 12px 24px;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    color: #6b7280;
+    font-weight: 700;
+  }
+  .nav-item {
+    display: block;
+    padding: 10px 24px;
+    color: #374151;
+    text-decoration: none;
+    font-weight: 500;
+    border-left: 3px solid transparent;
+  }
+  .nav-item:hover { background: #f3f4f6; }
+  .nav-item.active {
+    background: #eef2ff;
+    color: #1d4ed8;
+    border-left-color: #1d4ed8;
+    font-weight: 600;
+  }
+  .main {
+    padding: 32px 40px;
+    max-width: 860px;
+  }
+  .crumbs {
+    font-size: 13px;
+    color: #6b7280;
+    margin-bottom: 8px;
+  }
+  h1 {
+    margin: 0 0 6px;
+    font-size: 24px;
+    font-weight: 700;
+  }
+  .subtitle {
+    color: #4b5563;
+    margin: 0 0 28px;
+  }
+  .card {
+    background: #fff;
+    border: 1px solid #e4e6eb;
+    border-radius: 10px;
+    padding: 24px;
+    margin-bottom: 20px;
+  }
+  .card h2 {
+    margin: 0 0 4px;
+    font-size: 17px;
+    font-weight: 600;
+  }
+  .card .card-sub {
+    color: #6b7280;
+    font-size: 13px;
+    margin-bottom: 20px;
+  }
+  .field {
+    display: block;
+    margin-bottom: 18px;
+  }
+  .field label {
+    display: block;
+    font-weight: 600;
+    font-size: 13px;
+    margin-bottom: 6px;
+    color: #374151;
+  }
+  .field .hint {
+    font-size: 12px;
+    color: #6b7280;
+    margin-top: 4px;
+  }
+  .field input[type="text"] {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    font-size: 15px;
+    font-family: inherit;
+  }
+  .field input[type="text"]:focus {
+    outline: none;
+    border-color: #1d4ed8;
+    box-shadow: 0 0 0 3px rgba(29,78,216,0.15);
+  }
+  .char-count {
+    float: right;
+    font-size: 12px;
+    color: #6b7280;
+  }
+  .readonly-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 14px;
+    background: #f9fafb;
+    border: 1px solid #e4e6eb;
+    border-radius: 6px;
+  }
+  .readonly-row .number {
+    font-family: ui-monospace, SFMono-Regular, monospace;
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: 0.2px;
+  }
+  .pill {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
+    padding: 3px 8px;
+    border-radius: 999px;
+    background: #e0e7ff;
+    color: #1e3a8a;
+  }
+  .preview {
+    margin-top: 14px;
+    background: #f3f4f6;
+    border-radius: 10px;
+    padding: 16px;
+  }
+  .preview-label {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #6b7280;
+    margin-bottom: 10px;
+  }
+  .sms {
+    max-width: 300px;
+    background: #fff;
+    border-radius: 14px;
+    padding: 12px 14px;
+    border: 1px solid #e4e6eb;
+    font-size: 14.5px;
+    line-height: 1.5;
+    position: relative;
+  }
+  .sms + .sms { margin-top: 8px; }
+  .sms .from {
+    font-size: 11px;
+    color: #6b7280;
+    margin-bottom: 4px;
+  }
+  .sender-name { font-weight: 600; }
+  details.upgrade {
+    margin-top: 8px;
+    padding: 14px 18px;
+    background: #fff;
+    border: 1px dashed #cbd5e1;
+    border-radius: 8px;
+  }
+  details.upgrade summary {
+    cursor: pointer;
+    font-weight: 600;
+    color: #1d4ed8;
+  }
+  details.upgrade[open] summary { margin-bottom: 12px; }
+  .upgrade-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 0;
+    border-top: 1px solid #e4e6eb;
+  }
+  .upgrade-item:first-of-type { border-top: 0; }
+  .upgrade-item .desc {
+    font-size: 13px;
+    color: #4b5563;
+    max-width: 520px;
+  }
+  .upgrade-item .desc strong { color: #111; }
+  .btn {
+    padding: 8px 14px;
+    border-radius: 6px;
+    font-weight: 600;
+    font-size: 13px;
+    cursor: pointer;
+    border: 1px solid transparent;
+  }
+  .btn-primary {
+    background: #1d4ed8;
+    color: #fff;
+    border-color: #1d4ed8;
+  }
+  .btn-secondary {
+    background: #fff;
+    color: #1d4ed8;
+    border-color: #1d4ed8;
+  }
+  .save-bar {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+    margin-top: 8px;
+  }
+  .toast {
+    margin-top: 10px;
+    padding: 10px 14px;
+    background: #ecfdf5;
+    color: #065f46;
+    border: 1px solid #a7f3d0;
+    border-radius: 6px;
+    font-size: 13px;
+    display: none;
+  }
+</style>
+</head>
+<body>
+<div class="mock-banner">Mock — Admin SMS Settings (Issue #69)</div>
+
+<div class="layout">
+  <aside class="sidebar">
+    <h3>Settings</h3>
+    <a class="nav-item" href="#">General</a>
+    <a class="nav-item" href="#">Hours & Address</a>
+    <a class="nav-item" href="#">Website</a>
+    <a class="nav-item" href="#">Menu</a>
+    <a class="nav-item active" href="#">Messaging</a>
+    <a class="nav-item" href="#">Staff</a>
+    <a class="nav-item" href="#">Billing</a>
+  </aside>
+
+  <main class="main">
+    <div class="crumbs">Settings &rsaquo; Messaging</div>
+    <h1>Messaging</h1>
+    <p class="subtitle">Control how guests see and receive texts from your restaurant.</p>
+
+    <div class="card">
+      <h2>Sender display name</h2>
+      <div class="card-sub">Shown at the start of every text your guests receive. Keep it short and recognizable.</div>
+
+      <div class="field">
+        <label for="senderName">Display name <span class="char-count" id="count">19 / 30</span></label>
+        <input type="text" id="senderName" value="Shri Krishna Bhavan" maxlength="30" />
+        <div class="hint">Letters, numbers, and spaces only. No emoji.</div>
+      </div>
+
+      <div class="preview">
+        <div class="preview-label">Preview — what your guests will see</div>
+        <div class="sms">
+          <div class="from">From (855) 555-0199 &middot; Today 6:42 PM</div>
+          <span class="sender-name" id="previewName1">Shri Krishna Bhavan</span>: You&rsquo;re on the list! Track your place in line here: https://skbbellevue.com/status/ABC1. Code: ABC1
+        </div>
+        <div class="sms">
+          <div class="from">From (855) 555-0199 &middot; Today 7:28 PM</div>
+          <span class="sender-name" id="previewName2">Shri Krishna Bhavan</span>: Your table is ready! Please head to the front whenever you&rsquo;re ready. Show code ABC1 to the host.
+        </div>
+      </div>
+
+      <div class="save-bar">
+        <button class="btn btn-secondary" type="button">Send me a test text</button>
+        <button class="btn btn-primary" type="button" id="saveBtn">Save</button>
+      </div>
+      <div class="toast" id="toast">Saved. Future messages will use &ldquo;<span id="toastName">Shri Krishna Bhavan</span>&rdquo;.</div>
+    </div>
+
+    <div class="card">
+      <h2>Sending number</h2>
+      <div class="card-sub">All OSH restaurants send from the same number. Guests identify yours by the name at the top of each message.</div>
+
+      <div class="readonly-row">
+        <div>
+          <div class="number">(855) 555-0199</div>
+          <div class="hint" style="margin-top:4px;">Shared across all restaurants on OSH &middot; Toll-free verified</div>
+        </div>
+        <span class="pill">Shared</span>
+      </div>
+    </div>
+
+    <details class="upgrade">
+      <summary>Upgrade options</summary>
+
+      <div class="upgrade-item">
+        <div class="desc">
+          <strong>Your own local SMS number.</strong> Get a dedicated local phone number for your restaurant's texts. Guests see your number instead of the shared toll-free. Adds ~$2/month plus a one-time registration of your business with carriers (A2P 10DLC, 1&ndash;3 weeks).
+        </div>
+        <button class="btn btn-secondary" type="button">Contact support</button>
+      </div>
+
+      <div class="upgrade-item">
+        <div class="desc">
+          <strong>Voice &amp; IVR.</strong> Let guests call to hear wait times and join the list over the phone. Adds ~$1/month per number. Available in about 5 minutes &mdash; no carrier approval required.
+        </div>
+        <button class="btn btn-primary" type="button">Set up voice</button>
+      </div>
+    </details>
+
+  </main>
+</div>
+
+<script>
+  const input = document.getElementById('senderName');
+  const count = document.getElementById('count');
+  const p1 = document.getElementById('previewName1');
+  const p2 = document.getElementById('previewName2');
+  const saveBtn = document.getElementById('saveBtn');
+  const toast = document.getElementById('toast');
+  const toastName = document.getElementById('toastName');
+  function sync() {
+    const v = input.value.trim() || 'OSH';
+    count.textContent = input.value.length + ' / 30';
+    p1.textContent = v;
+    p2.textContent = v;
+  }
+  input.addEventListener('input', sync);
+  saveBtn.addEventListener('click', () => {
+    toastName.textContent = input.value.trim() || 'OSH';
+    toast.style.display = 'block';
+    setTimeout(() => { toast.style.display = 'none'; }, 3000);
+  });
+</script>
+</body>
+</html>

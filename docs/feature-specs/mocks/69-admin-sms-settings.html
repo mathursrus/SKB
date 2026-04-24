@@ -308,21 +308,43 @@
       </div>
     </div>
 
+    <div class="card">
+      <h2>Voice &amp; IVR <span class="pill" style="background:#dcfce7;color:#065f46;">Active</span></h2>
+      <div class="card-sub">Guests can call to hear your current wait time and join the list over the phone. Voice numbers are unique to each restaurant &mdash; your guests see your local number on caller ID, not the shared toll-free.</div>
+
+      <div class="readonly-row" style="margin-bottom:14px;">
+        <div>
+          <div class="hint" style="margin-bottom:2px;">Your restaurant's call-in number</div>
+          <div class="number">(206) 555-0142</div>
+          <div class="hint" style="margin-top:4px;">Dedicated to Shri Krishna Bhavan &middot; Local Seattle area code</div>
+        </div>
+        <button class="btn btn-secondary" type="button">Call now to test</button>
+      </div>
+
+      <div class="preview">
+        <div class="preview-label">What guests hear when they call</div>
+        <div style="background:#fff;border:1px solid #e4e6eb;border-radius:10px;padding:14px 16px;font-size:14.5px;line-height:1.55;">
+          <div style="color:#6b7280;font-size:12px;margin-bottom:6px;">&ldquo;Ring&hellip; ring&hellip;&rdquo;</div>
+          &ldquo;Hello, and thank you for calling <span class="sender-name" id="previewName3">Shri Krishna Bhavan</span>. There are currently <strong>5 parties</strong> ahead of you, with an estimated wait of about <strong>40 minutes</strong>.
+          <div style="margin-top:8px;">To add your name to the list, press <strong>1</strong>. To hear the wait time again, press <strong>2</strong>. Or stay on the line to speak with our host.&rdquo;</div>
+        </div>
+        <div class="hint" style="margin-top:10px;">Greeting uses your display name above. For parties larger than 10, the call transfers to your front desk: <strong>(425) 555-0100</strong> (configurable in <em>General</em>).</div>
+      </div>
+
+      <div class="save-bar">
+        <button class="btn btn-secondary" type="button">Change greeting</button>
+        <button class="btn btn-secondary" type="button">Update front-desk transfer</button>
+      </div>
+    </div>
+
     <details class="upgrade">
-      <summary>Upgrade options</summary>
+      <summary>Other upgrade options</summary>
 
       <div class="upgrade-item">
         <div class="desc">
           <strong>Your own local SMS number.</strong> Get a dedicated local phone number for your restaurant's texts. Guests see your number instead of the shared toll-free. Adds ~$2/month plus a one-time registration of your business with carriers (A2P 10DLC, 1&ndash;3 weeks).
         </div>
         <button class="btn btn-secondary" type="button">Contact support</button>
-      </div>
-
-      <div class="upgrade-item">
-        <div class="desc">
-          <strong>Voice &amp; IVR.</strong> Let guests call to hear wait times and join the list over the phone. Adds ~$1/month per number. Available in about 5 minutes &mdash; no carrier approval required.
-        </div>
-        <button class="btn btn-primary" type="button">Set up voice</button>
       </div>
     </details>
 
@@ -334,6 +356,7 @@
   const count = document.getElementById('count');
   const p1 = document.getElementById('previewName1');
   const p2 = document.getElementById('previewName2');
+  const p3 = document.getElementById('previewName3');
   const saveBtn = document.getElementById('saveBtn');
   const toast = document.getElementById('toast');
   const toastName = document.getElementById('toastName');
@@ -342,6 +365,7 @@
     count.textContent = input.value.length + ' / 30';
     p1.textContent = v;
     p2.textContent = v;
+    if (p3) p3.textContent = v;
   }
   input.addEventListener('input', sync);
   saveBtn.addEventListener('click', () => {

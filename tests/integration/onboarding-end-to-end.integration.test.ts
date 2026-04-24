@@ -40,11 +40,18 @@ process.env.SKB_HOST_PIN ??= '9999';
 process.env.SKB_SIGNUP_MAX_PER_WINDOW ??= '200';
 process.env.SKB_LOG_EMAIL_BODY = '0';
 process.env.SKB_ALLOW_UNSIGNED_TWILIO = '1';
-// Explicitly clear any Twilio creds so sendSms short-circuits and we don't
-// accidentally dispatch to real Twilio from a CI environment.
-delete process.env.TWILIO_ACCOUNT_SID;
-delete process.env.TWILIO_AUTH_TOKEN;
-delete process.env.TWILIO_PHONE_NUMBER;
+// Install the test-only Twilio fake: sendSms routes through an in-memory
+// capture array instead of contacting real Twilio. This lets the outbound
+// leg (sender-name prefix + opt-out suppression + from-number) be asserted
+// end-to-end without burning a single Twilio credit. See src/services/sms.ts
+// `__getCapturedSmsCalls` and src/routes/testHooks.ts for the moving parts.
+process.env.SKB_ENABLE_SMS_TEST_HOOK = '1';
+// Provide Twilio-shaped-but-fake creds so getConfig() returns non-null and
+// sendSms runs the full code path (prefix, opt-out check, client.create).
+// No network call is made because the fake factory takes over at client.
+process.env.TWILIO_ACCOUNT_SID = 'ACtest00000000000000000000000000';
+process.env.TWILIO_AUTH_TOKEN = 'testtoken00000000000000000000000';
+process.env.TWILIO_PHONE_NUMBER = '+18445550199'; // shared OSH toll-free (fake)
 
 import { runTests, type BaseTestCase } from '../test-utils.js';
 import {
@@ -274,22 +281,48 @@ const cases: BaseTestCase[] = [
         },
     },
 
-    // ---------- 8. Host triggers first-call (outbound SMS reaches chokepoint) ----------
+    // ---------- 8. Host triggers first-call: full outbound path with Twilio fake ----------
     {
-        name: 'step 8: host calls the party; sendSms chokepoint reached (mocked Twilio → not_configured)',
-        tags: ['integration', 'onboarding', 'host-call'],
+        name: 'step 8: host call invokes Twilio with prefixed body from shared number',
+        tags: ['integration', 'onboarding', 'host-call', 'outbound'],
         testFn: async () => {
+            // Clear any capture noise from prior test suites running in the same server.
+            await fetch(`${BASE()}/__test__/sms-captured`, { method: 'DELETE' });
+
             const res = await fetch(`${BASE()}/r/${EXPECTED_SLUG}/api/host/queue/${dinerEntryId}/call`, {
                 method: 'POST',
                 headers: authedHeaders(),
             });
             if (!res.ok) return false;
             const body = await res.json() as Record<string, any>;
-            // With Twilio creds stripped (mocked), sendSms returns not_configured.
-            // The important bit: the host-call wire went through and the queue
-            // state advanced without error. (Real delivery is covered by the
-            // prod-validation suite.)
-            return body.ok === true && body.smsStatus === 'not_configured';
+            if (body.ok !== true || body.smsStatus !== 'sent') return false;
+
+            const cap = await fetch(`${BASE()}/__test__/sms-captured`).then(r => r.json()) as { calls: any[] };
+            if (cap.calls.length !== 1) return false;
+            const [c] = cap.calls;
+            return c.from === '+18445550199'                       // shared OSH toll-free
+                && c.to === `+1${DINER_PHONE}`
+                && c.locationId === EXPECTED_SLUG
+                && typeof c.body === 'string'
+                && c.body.startsWith('Onboard Bistro: ')           // per-tenant display-name prefix
+                && c.body.includes(dinerCode)                      // template content survives prefix
+                && c.body.includes('Your table is ready');         // firstCallMessage copy survives
+        },
+    },
+    {
+        name: 'step 8b: second outbound (host calls again) still prefixed, captures grow',
+        tags: ['integration', 'onboarding', 'host-call', 'outbound'],
+        testFn: async () => {
+            const res = await fetch(`${BASE()}/r/${EXPECTED_SLUG}/api/host/queue/${dinerEntryId}/call`, {
+                method: 'POST',
+                headers: authedHeaders(),
+            });
+            if (!res.ok) return false;
+            const cap = await fetch(`${BASE()}/__test__/sms-captured`).then(r => r.json()) as { calls: any[] };
+            if (cap.calls.length !== 2) return false;
+            // Second call uses repeatCallMessage (callCount=2), not firstCallMessage.
+            return cap.calls[1].body.startsWith('Onboard Bistro: ')
+                && cap.calls[1].body.includes('2 times');
         },
     },
 
@@ -326,6 +359,25 @@ const cases: BaseTestCase[] = [
             const db = await getDb();
             const opt = await smsOptOuts(db).findOne({ phone: DINER_PHONE });
             return !!opt && opt.phone === DINER_PHONE;
+        },
+    },
+    {
+        name: 'step 10b: post-STOP host call is suppressed; Twilio capture array does not grow',
+        tags: ['integration', 'onboarding', 'outbound', 'opt-out'],
+        testFn: async () => {
+            const capBefore = await fetch(`${BASE()}/__test__/sms-captured`).then(r => r.json()) as { calls: any[] };
+            const beforeCount = capBefore.calls.length;
+
+            const res = await fetch(`${BASE()}/r/${EXPECTED_SLUG}/api/host/queue/${dinerEntryId}/call`, {
+                method: 'POST',
+                headers: authedHeaders(),
+            });
+            if (!res.ok) return false;
+            const body = await res.json() as Record<string, any>;
+            if (body.smsStatus !== 'failed') return false; // opt-out surfaces as non-sent smsStatus to the host UI
+
+            const capAfter = await fetch(`${BASE()}/__test__/sms-captured`).then(r => r.json()) as { calls: any[] };
+            return capAfter.calls.length === beforeCount; // suppressed — no Twilio create call made
         },
     },
 

@@ -24,6 +24,7 @@ import { hostRouter } from './routes/host.js';
 import { healthRouter } from './routes/health.js';
 import { voiceRouter } from './routes/voice.js';
 import { smsRouter, smsStatusRouter, smsGlobalInboundRouter } from './routes/sms.js';
+import { testHooksRouter } from './routes/testHooks.js';
 import { authRouter } from './routes/auth.js';
 import { signupRouter } from './routes/signup.js';
 import { onboardingRouter } from './routes/onboarding.js';
@@ -226,6 +227,7 @@ app.use('/r/:loc/api', hostRouter());
 app.use('/r/:loc/api', smsRouter()); // legacy tenant-scoped inbound SMS (Twilio, SKB long code)
 app.use('/api', smsGlobalInboundRouter()); // shared-number inbound (Twilio, post-TFV OSH toll-free) — #69
 app.use('/api', smsStatusRouter()); // outbound SMS delivery statusCallback (Twilio, tenant-global)
+app.use('/', testHooksRouter()); // gated test-only endpoints (#69) — no-op unless SKB_ENABLE_SMS_TEST_HOOK=1
 // Voice IVR routes (conditionally enabled)
 if (process.env.TWILIO_VOICE_ENABLED === 'true') {
     app.use('/r/:loc/api', voiceRouter());

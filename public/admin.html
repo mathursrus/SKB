@@ -440,6 +440,7 @@
         <button type="button" class="admin-tab" data-tab="website">Website</button>
         <button type="button" class="admin-tab" data-tab="menu">Menu</button>
         <button type="button" class="admin-tab" data-tab="frontdesk">Front desk</button>
+        <button type="button" class="admin-tab" data-tab="messaging">Messaging</button>
         <button type="button" class="admin-tab" data-tab="staff" id="admin-tab-staff" data-role-owner-only="true" style="display:none">Staff</button>
         <button type="button" class="admin-tab" data-tab="integrations">Integrations</button>
     </nav>
@@ -1106,6 +1107,64 @@
                 <button type="button" id="admin-device-pin-save" class="primary">Set PIN</button>
             </div>
             <p style="margin-top:12px;font-size:12px;color:#78716c">Changing the PIN doesn&rsquo;t log out tablets already unlocked, but future unlocks require the new value. The PIN is also printed on the door-poster PDF.</p>
+        </details>
+    </main>
+
+    <!-- ═══════════════════════════════════════════════════════════════
+         Messaging tab: shared-number SMS settings (issue #69).
+         One card for the editable display name + live preview.
+         One card for the read-only sender/voice numbers.
+         ═══════════════════════════════════════════════════════════════ -->
+    <main class="admin-main admin-panel" id="admin-panel-messaging" data-panel="messaging" style="display:none">
+        <details class="admin-card" open>
+            <summary class="admin-card-head">
+                <h2>Sender display name</h2>
+                <p>Every text to your guests starts with this name so they know which restaurant it&rsquo;s from. Keep it short and recognizable.</p>
+            </summary>
+            <div class="visit-grid">
+                <label class="visit-field visit-field-full">
+                    <span class="visit-label">
+                        Display name
+                        <span id="admin-sms-sender-count" class="visit-label-meta">0 / 30</span>
+                    </span>
+                    <input type="text" id="admin-sms-sender-name" maxlength="30" autocomplete="off" placeholder="Shri Krishna Bhavan" />
+                    <span class="visit-hint">Letters, numbers, spaces, and basic punctuation. No emoji.</span>
+                </label>
+            </div>
+            <div class="sms-preview" id="admin-sms-preview-block">
+                <div class="sms-preview-label">Preview — what your guests will see</div>
+                <div class="sms-preview-bubble">
+                    <div class="sms-preview-from">Text from <span id="admin-sms-preview-from-number">your sending number</span></div>
+                    <div class="sms-preview-body"><span class="sms-preview-sender" id="admin-sms-preview-name-1">—</span>: You&rsquo;re on the list! Track your place in line here: https://&hellip;/status/ABC1. Code: ABC1</div>
+                </div>
+                <div class="sms-preview-bubble">
+                    <div class="sms-preview-from">Text from <span class="sms-preview-from-number-twin">your sending number</span></div>
+                    <div class="sms-preview-body"><span class="sms-preview-sender" id="admin-sms-preview-name-2">—</span>: Your table is ready! Please head to the front whenever you&rsquo;re ready. Show code ABC1 to the host.</div>
+                </div>
+            </div>
+            <div class="visit-actions admin-actions-row">
+                <span class="visit-status" id="admin-sms-sender-status"></span>
+                <button type="button" id="admin-sms-sender-save" class="primary">Save</button>
+            </div>
+        </details>
+
+        <details class="admin-card">
+            <summary class="admin-card-head">
+                <h2>Sending numbers</h2>
+                <p>Your SMS is sent from a shared OSH number; voice IVR, if configured, uses a dedicated local number.</p>
+            </summary>
+            <div class="visit-grid">
+                <label class="visit-field">
+                    <span class="visit-label">SMS sending number</span>
+                    <input type="text" id="admin-sms-shared-number" readonly value="" placeholder="(not configured)" aria-label="Shared SMS number" />
+                    <span class="visit-hint">Shared across all OSH restaurants. Guests identify yours by the name above.</span>
+                </label>
+                <label class="visit-field">
+                    <span class="visit-label">Voice / IVR number</span>
+                    <input type="text" id="admin-voice-number-display" readonly value="" placeholder="(not configured)" aria-label="Voice IVR number" />
+                    <span class="visit-hint">Dedicated to this restaurant. Provision via Twilio; contact support to enable.</span>
+                </label>
+            </div>
         </details>
     </main>
 </div>

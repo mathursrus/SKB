@@ -119,6 +119,80 @@ export interface GuestFeaturesUpdate {
     order?: boolean;
 }
 
+/**
+ * Messaging config — the per-tenant display name prefixed onto every
+ * outbound SMS on the shared OSH number (issue #69). Separate from
+ * VoiceConfigUpdate because voice uses a per-tenant dedicated long code
+ * while SMS uses the shared toll-free; the two live at different times
+ * in the onboarding flow.
+ *
+ * `smsSenderName` is the only editable field today. The twilioVoiceNumber
+ * is operator-provisioned and surfaced as read-only in the admin UI.
+ */
+export interface MessagingConfigUpdate {
+    smsSenderName?: string | null;
+}
+
+const SMS_SENDER_NAME_MAX = 30;
+// ASCII letters, digits, spaces, and the small set of punctuation that
+// carriers reliably pass through without mangling (ampersand, hyphen,
+// apostrophe, period). No emoji, no extended Unicode — both Twilio's
+// Toll-Free Verification review and carrier filters treat those as red
+// flags for spam.
+const SMS_SENDER_NAME_RE = /^[A-Za-z0-9 &'.\-]+$/;
+
+export function validateMessagingConfigUpdate(update: MessagingConfigUpdate): void {
+    if (update.smsSenderName !== undefined && update.smsSenderName !== null) {
+        const raw = String(update.smsSenderName);
+        const trimmed = raw.trim();
+        if (trimmed.length === 0) {
+            throw new Error('smsSenderName must not be blank (use null to clear)');
+        }
+        if (trimmed.length > SMS_SENDER_NAME_MAX) {
+            throw new Error(`smsSenderName must be ${SMS_SENDER_NAME_MAX} characters or fewer`);
+        }
+        if (!SMS_SENDER_NAME_RE.test(trimmed)) {
+            throw new Error('smsSenderName may only contain letters, numbers, spaces, and basic punctuation');
+        }
+    }
+}
+
+export async function updateLocationMessagingConfig(
+    locationId: string,
+    update: MessagingConfigUpdate,
+): Promise<Location> {
+    validateMessagingConfigUpdate(update);
+
+    const db = await getDb();
+    const $set: Record<string, unknown> = {};
+    const $unset: Record<string, ''> = {};
+
+    if (update.smsSenderName !== undefined) {
+        if (update.smsSenderName === null) {
+            $unset.smsSenderName = '';
+        } else {
+            $set.smsSenderName = String(update.smsSenderName).trim();
+        }
+    }
+
+    const updateDoc: Record<string, unknown> = {};
+    if (Object.keys($set).length > 0) updateDoc.$set = $set;
+    if (Object.keys($unset).length > 0) updateDoc.$unset = $unset;
+    if (Object.keys(updateDoc).length === 0) {
+        const existing = await getLocation(locationId);
+        if (!existing) throw new Error('location not found');
+        return existing;
+    }
+
+    const result = await locations(db).findOneAndUpdate(
+        { _id: locationId },
+        updateDoc,
+        { returnDocument: 'after' },
+    );
+    if (!result) throw new Error('location not found');
+    return result;
+}
+
 export function validateVoiceConfigUpdate(update: VoiceConfigUpdate): void {
     if (update.frontDeskPhone !== undefined && update.frontDeskPhone !== null && update.frontDeskPhone !== '') {
         const phone = String(update.frontDeskPhone).trim();

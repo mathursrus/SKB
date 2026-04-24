@@ -55,9 +55,10 @@ async function loginAs(email: string, password: string, locationId: string): Pro
 }
 
 async function pinUnlock(loc: string, pin: string): Promise<string | null> {
+    if (!ownerCookie) return null;
     const res = await fetch(`${getTestServerUrl()}/r/${loc}/api/host/login`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', Cookie: ownerCookie },
         body: JSON.stringify({ pin }),
     });
     if (!res.ok) return null;

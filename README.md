@@ -24,7 +24,7 @@ npm start                    # http://localhost:3000
 | `MONGODB_URI` | No | MongoDB connection string (default: `mongodb://localhost:27017`) |
 | `MONGODB_DB_NAME` | No | Database name (auto-detected from git branch if not set) |
 | `PORT` | No | Server port (auto-assigned if not set) |
-| `SKB_HOST_PIN` | No | Host-stand PIN (default: `1234`) |
+| `SKB_HOST_PIN` | Yes | Host-stand PIN used to bootstrap the default `skb` location |
 | `SKB_COOKIE_SECRET` | No | Cookie signing secret for host sessions |
 | `TZ` | No | Timezone for service-day partitioning (default: `America/Los_Angeles`) |
 

@@ -302,14 +302,21 @@ const cases: BaseTestCase[] = [
         },
     },
 
-    // ---- R4: host PIN still works unchanged ----
+    // ---- R4: host PIN requires a named session first ----
     {
-        name: 'R4: /r/LOC_A/api/host/login with PIN still mints skb_host cookie',
+        name: 'R4: /r/LOC_A/api/host/login with named session + PIN mints skb_host cookie',
         tags: ['integration', 'auth53', 'backward-compat'],
         testFn: async () => {
-            const res = await fetch(`${getTestServerUrl()}/r/${LOC_A}/api/host/login`, {
+            const named = await fetch(`${getTestServerUrl()}/api/login`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email: OWNER_EMAIL, password: OWNER_PASS, locationId: LOC_A }),
+            });
+            const session = getCookie(named as unknown as Response, 'skb_session');
+            if (!session) return false;
+            const res = await fetch(`${getTestServerUrl()}/r/${LOC_A}/api/host/login`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', Cookie: session },
                 body: JSON.stringify({ pin: PIN_A }),
             });
             if (!res.ok) return false;

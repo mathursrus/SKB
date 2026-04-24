@@ -1024,6 +1024,11 @@
         });
         if (r.ok) { await showQueue(); return; }
         const body = await r.json().catch(() => ({}));
+        if (r.status === 401 && body.error === 'login_required') {
+            const loc = (window.location.pathname.match(/^\/r\/([^/]+)\//) || [])[1] || 'skb';
+            window.location.href = `/login?locationId=${encodeURIComponent(loc)}`;
+            return;
+        }
         loginError.textContent = body.error || 'Login failed';
         loginError.style.display = '';
     });

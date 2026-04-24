@@ -77,6 +77,9 @@ function buildMcpServer(ctx: McpAuthContext): McpServer {
 export async function handleMcpRequest(req: Request, res: Response): Promise<void> {
     const auth = await authenticateMcpRequest(req);
     if (!auth.ok) {
+        if (auth.retryAfterSeconds) {
+            res.setHeader('Retry-After', String(auth.retryAfterSeconds));
+        }
         res.status(auth.status).json({
             jsonrpc: '2.0',
             error: { code: -32001, message: auth.reason },

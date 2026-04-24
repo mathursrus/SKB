@@ -27,6 +27,7 @@ import {
 } from '../shared-server-utils.js';
 import { closeDb, getDb, locations, queueEntries, settings } from '../../src/core/db/mongo.js';
 import { ensureLocation } from '../../src/services/locations.js';
+import { createOwnerUser } from '../../src/services/users.js';
 import { createHmac } from 'node:crypto';
 
 const LOC_A = 'probe-a';
@@ -44,9 +45,22 @@ async function resetDb(): Promise<void> {
 }
 
 async function login(loc: string, pin: string): Promise<string> {
-    const res = await fetch(`${getTestServerUrl()}/r/${loc}/api/host/login`, {
+    const email = `probe-owner-${loc}@example.test`;
+    const password = 'probe-owner-password';
+    try {
+        await createOwnerUser({ email, password, name: 'Probe Owner', locationId: loc });
+    } catch {
+        // Existing user from a prior failed run is acceptable if login works.
+    }
+    const named = await fetch(`${getTestServerUrl()}/api/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password, locationId: loc }),
+    });
+    const session = (named.headers.get('set-cookie') ?? '').split(';')[0];
+    const res = await fetch(`${getTestServerUrl()}/r/${loc}/api/host/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Cookie: session },
         body: JSON.stringify({ pin }),
     });
     if (!res.ok) throw new Error(`login at ${loc} failed: ${res.status}`);
@@ -239,28 +253,28 @@ const cases: BaseTestCase[] = [
         },
     },
 
-    // ---- R2: legacy-format cookie still accepted ----
+    // ---- R2: legacy-format cookie is rejected ----
     {
-        name: 'R2: legacy <exp>.<mac> cookie accepted at /r/skb/api/host/queue',
-        tags: ['integration', 'multi-tenancy', 'auth', 'legacy'],
+        name: 'R2: legacy <exp>.<mac> cookie rejected at /r/skb/api/host/queue',
+        tags: ['integration', 'multi-tenancy', 'auth', 'legacy', 'security'],
         testFn: async () => {
             const legacy = mintLegacyCookie(process.env.SKB_COOKIE_SECRET!);
             const res = await fetch(`${getTestServerUrl()}/r/skb/api/host/queue`, {
                 headers: { Cookie: legacy },
             });
-            return res.ok;
+            return res.status === 401;
         },
     },
     {
-        name: 'R2: legacy cookie also accepted at a different tenant (has no lid to bind)',
-        description: 'Legacy cookie has no tenant binding; during deprecation window it is accepted everywhere with a log. This is the known softening; 2-release window ends when we flip the acceptance off.',
-        tags: ['integration', 'multi-tenancy', 'auth', 'legacy'],
+        name: 'R2: legacy cookie also rejected at a different tenant',
+        description: 'Legacy cookie has no tenant binding and is therefore rejected on every tenant-scoped host route.',
+        tags: ['integration', 'multi-tenancy', 'auth', 'legacy', 'security'],
         testFn: async () => {
             const legacy = mintLegacyCookie(process.env.SKB_COOKIE_SECRET!);
             const res = await fetch(`${getTestServerUrl()}/r/${LOC_A}/api/host/queue`, {
                 headers: { Cookie: legacy },
             });
-            return res.ok;
+            return res.status === 401;
         },
     },
 

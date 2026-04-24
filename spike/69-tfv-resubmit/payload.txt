@@ -1,0 +1,26 @@
+Twilio TFV update — POST /v1/Tollfree/Verifications/HHce3e282bd255e5ccc61c9baf7e1989fa
+
+business_name=Wellness At Work LLC
+doing_business_as=OSH
+business_type=PRIVATE_PROFIT
+business_registration_authority=US_EIN
+business_registration_country=US
+business_registration_number=39-3595802
+business_street_address=2675 E Lake Sammamish Pkwy SE
+business_city=Sammamish
+business_state_province_region=WA
+business_postal_code=98075
+business_country=US
+business_website=https://osh.wellnessatwork.me
+business_contact_first_name=Sid
+business_contact_last_name=Mathur
+business_contact_email=sid.mathur@gmail.com
+business_contact_phone=+15127753555
+notification_email=sid.mathur@gmail.com
+use_case_categories=ACCOUNT_NOTIFICATIONS
+use_case_summary=Hospitality notification platform. Guests join restaurant waitlists via OSH-hosted forms at osh.wellnessatwork.me/r/<restaurant> (or the restaurant's custom domain). OSH sends transactional notifications about wait status, table-readiness, and host-initiated chat. Messages identify the specific restaurant in the body (e.g., 'Shri Krishna Bhavan:') but OSH is the legal sender and consent holder. No marketing content.
+production_message_sample=Shri Krishna Bhavan: Your table is ready! Please head to the front whenever you are ready. Show code SKB-7Q3 to the host.
+additional_information=Multi-restaurant platform operated by Wellness At Work LLC. Each restaurant is named in the message body for diner recognition; OSH (product of Wellness At Work LLC) is the legal sender on every message and the party that collects consent. SMS consent is an optional unchecked checkbox on the join form; joining does not require SMS consent. Non-consenting diners use the live status page. Messages are transactional only.
+message_volume=100
+opt_in_type=WEB_FORM
+opt_in_image_urls=https://skb-waitlist.azurewebsites.net/r/skb/assets/sms-optin-form.png

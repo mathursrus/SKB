@@ -24,11 +24,25 @@ import {
 } from '../shared-server-utils.js';
 import { closeDb, getDb, locations } from '../../src/core/db/mongo.js';
 import { ensureLocation } from '../../src/services/locations.js';
+import { createOwnerUser } from '../../src/services/users.js';
 
 async function loginCookie(loc: string): Promise<string> {
-    const res = await fetch(`${getTestServerUrl()}/r/${loc}/api/host/login`, {
+    const email = `site-owner-${loc}@example.test`;
+    const password = 'site-owner-password';
+    try {
+        await createOwnerUser({ email, password, name: 'Site Owner', locationId: loc });
+    } catch {
+        // Existing user from a prior failed run is acceptable if login works.
+    }
+    const named = await fetch(`${getTestServerUrl()}/api/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password, locationId: loc }),
+    });
+    const session = (named.headers.get('set-cookie') ?? '').split(';')[0];
+    const res = await fetch(`${getTestServerUrl()}/r/${loc}/api/host/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Cookie: session },
         body: JSON.stringify({ pin: '1234' }),
     });
     if (!res.ok) throw new Error(`login failed for ${loc}: ${res.status}`);

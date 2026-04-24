@@ -364,7 +364,11 @@ const port = getPort();
 
 async function bootstrap(): Promise<void> {
     // Ensure the default SKB location exists
-    await ensureLocation('skb', 'Shri Krishna Bhavan', process.env.SKB_HOST_PIN ?? '1234');
+    const pin = process.env.SKB_HOST_PIN;
+    if (!pin) {
+        throw new Error('SKB_HOST_PIN must be set before bootstrapping the default location');
+    }
+    await ensureLocation('skb', 'Shri Krishna Bhavan', pin);
 }
 
 bootstrap().then(() => {

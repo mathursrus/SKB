@@ -170,6 +170,23 @@ const cases: BaseTestCase[] = [
         },
     },
     {
+        name: 'mcp: repeated wrong Bearer PINs lock out with 429 + Retry-After',
+        tags: ['integration', 'mcp', 'auth', 'security'],
+        testFn: async () => {
+            for (let i = 0; i < 5; i++) {
+                await rpc(
+                    { jsonrpc: '2.0', id: 1, method: 'initialize', params: initParams },
+                    { Authorization: 'Bearer 0000' },
+                );
+            }
+            const res = await rpc(
+                { jsonrpc: '2.0', id: 1, method: 'initialize', params: initParams },
+                { Authorization: 'Bearer 1234' },
+            );
+            return res.status === 429 && !!res.headers.get('retry-after');
+        },
+    },
+    {
         name: 'mcp: teardown',
         tags: ['integration', 'mcp'],
         testFn: async () => { await stopTestServer(); return true; },

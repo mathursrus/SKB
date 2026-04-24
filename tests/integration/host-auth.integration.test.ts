@@ -15,6 +15,43 @@ import {
     stopTestServer,
     getTestServerUrl,
 } from '../shared-server-utils.js';
+import { createOwnerUser } from '../../src/services/users.js';
+
+const OWNER_EMAIL = 'host-auth-owner@example.test';
+const OWNER_PASS = 'host-auth-owner-password';
+let namedSessionCookie = '';
+
+async function ensureNamedSession(): Promise<string> {
+    if (namedSessionCookie) return namedSessionCookie;
+    try {
+        await createOwnerUser({
+            email: OWNER_EMAIL,
+            password: OWNER_PASS,
+            name: 'Host Auth Owner',
+            locationId: 'skb',
+        });
+    } catch {
+        // The integration DB may survive a failed prior run; login below proves
+        // whether the existing user is usable.
+    }
+    const login = await fetch(`${getTestServerUrl()}/api/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: OWNER_EMAIL, password: OWNER_PASS, locationId: 'skb' }),
+    });
+    namedSessionCookie = (login.headers.get('set-cookie') ?? '').split(';')[0];
+    return namedSessionCookie;
+}
+
+async function hostPinLogin(pin: string | null): Promise<Response> {
+    const cookie = await ensureNamedSession();
+    const body = pin === null ? {} : { pin };
+    return fetch(`${getTestServerUrl()}/api/host/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Cookie: cookie },
+        body: JSON.stringify(body),
+    });
+}
 
 const cases: BaseTestCase[] = [
     {
@@ -22,19 +59,29 @@ const cases: BaseTestCase[] = [
         tags: ['integration', 'auth', 'setup'],
         testFn: async () => {
             await startTestServer();
+            await ensureNamedSession();
             const res = await fetch(`${getTestServerUrl()}/health`);
             return res.ok;
         },
     },
     {
-        name: 'host-auth: wrong PIN returns 401',
-        tags: ['integration', 'auth', 'waitlist-path'],
+        name: 'host-auth: unauthenticated PIN attempt returns login_required before PIN validation',
+        tags: ['integration', 'auth', 'security'],
         testFn: async () => {
             const res = await fetch(`${getTestServerUrl()}/api/host/login`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ pin: '0000' }),
             });
+            const body = await res.json() as { error?: string };
+            return res.status === 401 && body.error === 'login_required';
+        },
+    },
+    {
+        name: 'host-auth: wrong PIN returns 401',
+        tags: ['integration', 'auth', 'waitlist-path'],
+        testFn: async () => {
+            const res = await hostPinLogin('0000');
             return res.status === 401;
         },
     },
@@ -42,11 +89,7 @@ const cases: BaseTestCase[] = [
         name: 'host-auth: missing PIN returns 400',
         tags: ['integration', 'auth'],
         testFn: async () => {
-            const res = await fetch(`${getTestServerUrl()}/api/host/login`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({}),
-            });
+            const res = await hostPinLogin(null);
             return res.status === 400;
         },
     },
@@ -54,11 +97,7 @@ const cases: BaseTestCase[] = [
         name: 'host-auth: correct PIN returns 200 with Set-Cookie',
         tags: ['integration', 'auth', 'waitlist-path'],
         testFn: async () => {
-            const res = await fetch(`${getTestServerUrl()}/api/host/login`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ pin: '1234' }),
-            });
+            const res = await hostPinLogin('1234');
             const body = await res.json() as { ok?: boolean };
             const cookie = res.headers.get('set-cookie') ?? '';
             return res.ok && body.ok === true && cookie.includes('skb_host=');
@@ -77,11 +116,7 @@ const cases: BaseTestCase[] = [
         tags: ['integration', 'auth', 'waitlist-path'],
         testFn: async () => {
             // Login to get cookie
-            const loginRes = await fetch(`${getTestServerUrl()}/api/host/login`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ pin: '1234' }),
-            });
+            const loginRes = await hostPinLogin('1234');
             const rawCookie = loginRes.headers.get('set-cookie') ?? '';
             const cookieValue = rawCookie.split(';')[0]; // "skb_host=..."
 
@@ -95,11 +130,7 @@ const cases: BaseTestCase[] = [
         name: 'host-auth: /api/host/stats with valid cookie returns 200',
         tags: ['integration', 'auth', 'stats'],
         testFn: async () => {
-            const loginRes = await fetch(`${getTestServerUrl()}/api/host/login`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ pin: '1234' }),
-            });
+            const loginRes = await hostPinLogin('1234');
             const cookieValue = (loginRes.headers.get('set-cookie') ?? '').split(';')[0];
 
             const statsRes = await fetch(`${getTestServerUrl()}/api/host/stats`, {
@@ -112,11 +143,7 @@ const cases: BaseTestCase[] = [
         name: 'host-auth: /api/host/analytics accepts stage-range params with valid cookie',
         tags: ['integration', 'auth', 'analytics'],
         testFn: async () => {
-            const loginRes = await fetch(`${getTestServerUrl()}/api/host/login`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ pin: '1234' }),
-            });
+            const loginRes = await hostPinLogin('1234');
             const cookieValue = (loginRes.headers.get('set-cookie') ?? '').split(';')[0];
 
             const analyticsRes = await fetch(`${getTestServerUrl()}/api/host/analytics?range=7&partySize=all&startStage=ordered&endStage=served`, {
@@ -129,11 +156,7 @@ const cases: BaseTestCase[] = [
         name: 'host-auth: /api/host/analytics rejects invalid stage-range params',
         tags: ['integration', 'auth', 'analytics'],
         testFn: async () => {
-            const loginRes = await fetch(`${getTestServerUrl()}/api/host/login`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ pin: '1234' }),
-            });
+            const loginRes = await hostPinLogin('1234');
             const cookieValue = (loginRes.headers.get('set-cookie') ?? '').split(';')[0];
 
             const analyticsRes = await fetch(`${getTestServerUrl()}/api/host/analytics?range=7&partySize=all&startStage=served&endStage=ordered`, {
@@ -146,11 +169,7 @@ const cases: BaseTestCase[] = [
         name: 'host-auth: /api/host/voice-config with valid cookie returns 200',
         tags: ['integration', 'auth', 'voice'],
         testFn: async () => {
-            const loginRes = await fetch(`${getTestServerUrl()}/api/host/login`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ pin: '1234' }),
-            });
+            const loginRes = await hostPinLogin('1234');
             const cookieValue = (loginRes.headers.get('set-cookie') ?? '').split(';')[0];
 
             const voiceRes = await fetch(`${getTestServerUrl()}/api/host/voice-config`, {
@@ -163,11 +182,7 @@ const cases: BaseTestCase[] = [
         name: 'host-auth: /api/host/messaging-config with valid cookie returns 200 (#69)',
         tags: ['integration', 'auth', 'messaging'],
         testFn: async () => {
-            const loginRes = await fetch(`${getTestServerUrl()}/api/host/login`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ pin: '1234' }),
-            });
+            const loginRes = await hostPinLogin('1234');
             const cookieValue = (loginRes.headers.get('set-cookie') ?? '').split(';')[0];
 
             const res = await fetch(`${getTestServerUrl()}/api/host/messaging-config`, {
@@ -183,11 +198,7 @@ const cases: BaseTestCase[] = [
         name: 'host-auth: POST /api/host/messaging-config requires admin+ (host PIN → 403, #69)',
         tags: ['integration', 'auth', 'messaging'],
         testFn: async () => {
-            const loginRes = await fetch(`${getTestServerUrl()}/api/host/login`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ pin: '1234' }),
-            });
+            const loginRes = await hostPinLogin('1234');
             const cookieValue = (loginRes.headers.get('set-cookie') ?? '').split(';')[0];
 
             const res = await fetch(`${getTestServerUrl()}/api/host/messaging-config`, {
@@ -210,11 +221,7 @@ const cases: BaseTestCase[] = [
             // is rejected with 403 before validation runs. Input-shape
             // validation itself is covered in unit tests for
             // src/services/locations.ts.
-            const loginRes = await fetch(`${getTestServerUrl()}/api/host/login`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ pin: '1234' }),
-            });
+            const loginRes = await hostPinLogin('1234');
             const cookieValue = (loginRes.headers.get('set-cookie') ?? '').split(';')[0];
 
             const voiceRes = await fetch(`${getTestServerUrl()}/api/host/voice-config`, {
@@ -233,11 +240,7 @@ const cases: BaseTestCase[] = [
         name: 'bug50: /api/host/visit-qr.svg returns 200 with image/svg+xml',
         tags: ['integration', 'auth', 'bug50', 'qr'],
         testFn: async () => {
-            const loginRes = await fetch(`${getTestServerUrl()}/api/host/login`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ pin: '1234' }),
-            });
+            const loginRes = await hostPinLogin('1234');
             const cookieValue = (loginRes.headers.get('set-cookie') ?? '').split(';')[0];
             const qrRes = await fetch(`${getTestServerUrl()}/api/host/visit-qr.svg`, {
                 headers: { Cookie: cookieValue },
@@ -297,11 +300,7 @@ const cases: BaseTestCase[] = [
         tags: ['integration', 'auth'],
         testFn: async () => {
             // Login
-            const loginRes = await fetch(`${getTestServerUrl()}/api/host/login`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ pin: '1234' }),
-            });
+            const loginRes = await hostPinLogin('1234');
             const cookieValue = (loginRes.headers.get('set-cookie') ?? '').split(';')[0];
 
             // Logout
@@ -342,11 +341,7 @@ const cases: BaseTestCase[] = [
         name: 'host-add: valid body with cookie → 200 + code returned',
         tags: ['integration', 'auth', 'add-party', 'waitlist-path'],
         testFn: async () => {
-            const loginRes = await fetch(`${getTestServerUrl()}/api/host/login`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ pin: '1234' }),
-            });
+            const loginRes = await hostPinLogin('1234');
             const cookieValue = (loginRes.headers.get('set-cookie') ?? '').split(';')[0];
             const res = await fetch(`${getTestServerUrl()}/api/host/queue/add`, {
                 method: 'POST',
@@ -362,11 +357,7 @@ const cases: BaseTestCase[] = [
         name: 'host-add: name with HTML metacharacters → 400',
         tags: ['integration', 'auth', 'add-party', 'security'],
         testFn: async () => {
-            const loginRes = await fetch(`${getTestServerUrl()}/api/host/login`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ pin: '1234' }),
-            });
+            const loginRes = await hostPinLogin('1234');
             const cookieValue = (loginRes.headers.get('set-cookie') ?? '').split(';')[0];
             const res = await fetch(`${getTestServerUrl()}/api/host/queue/add`, {
                 method: 'POST',
@@ -382,11 +373,7 @@ const cases: BaseTestCase[] = [
         name: 'host-add: invalid phone → 400 with field hint',
         tags: ['integration', 'auth', 'add-party'],
         testFn: async () => {
-            const loginRes = await fetch(`${getTestServerUrl()}/api/host/login`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ pin: '1234' }),
-            });
+            const loginRes = await hostPinLogin('1234');
             const cookieValue = (loginRes.headers.get('set-cookie') ?? '').split(';')[0];
             const res = await fetch(`${getTestServerUrl()}/api/host/queue/add`, {
                 method: 'POST',
@@ -402,11 +389,7 @@ const cases: BaseTestCase[] = [
         name: 'host-add: out-of-range party size → 400 with field hint',
         tags: ['integration', 'auth', 'add-party'],
         testFn: async () => {
-            const loginRes = await fetch(`${getTestServerUrl()}/api/host/login`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ pin: '1234' }),
-            });
+            const loginRes = await hostPinLogin('1234');
             const cookieValue = (loginRes.headers.get('set-cookie') ?? '').split(';')[0];
             const res = await fetch(`${getTestServerUrl()}/api/host/queue/add`, {
                 method: 'POST',
@@ -444,6 +427,17 @@ const cases: BaseTestCase[] = [
                 body: JSON.stringify({ name: 'Silent', partySize: 2, phone: '2065550102' }),
             });
             return res.ok;
+        },
+    },
+    {
+        name: 'host-auth: repeated wrong PINs lock out with 429 + Retry-After',
+        tags: ['integration', 'auth', 'waitlist-path', 'security'],
+        testFn: async () => {
+            for (let i = 0; i < 5; i++) {
+                await hostPinLogin('0000');
+            }
+            const res = await hostPinLogin('1234');
+            return res.status === 429 && !!res.headers.get('retry-after');
         },
     },
 

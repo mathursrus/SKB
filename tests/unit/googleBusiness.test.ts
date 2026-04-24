@@ -82,6 +82,9 @@ const cases: BaseTestCase[] = [
         name: 'credential-missing → readOAuthConfig returns null, areCredentialsConfigured false',
         tags: ['unit', 'googleBusiness', 'creds'],
         testFn: async () => {
+            delete process.env.OSH_GOOGLE_CLIENT_ID;
+            delete process.env.OSH_GOOGLE_CLIENT_SECRET;
+            delete process.env.OSH_GOOGLE_REDIRECT_URI;
             delete process.env.GOOGLE_CLIENT_ID;
             delete process.env.GOOGLE_CLIENT_SECRET;
             const ok = readOAuthConfig() === null && areCredentialsConfigured() === false;

@@ -45,6 +45,7 @@ const publicDirForAssets = path.resolve(__dirname, '..', '..', 'public');
 import type { AnalyticsStage, LocationAddress, WeeklyHours, LocationContent, WebsiteTemplateKey, LocationMenu } from '../types/queue.js';
 import {
     requireRole,
+    requireNamedRole,
     mintLocationCookie,
     HOST_COOKIE_NAME,
     HOST_COOKIE_MAX_AGE_SECONDS,
@@ -61,6 +62,11 @@ import { ObjectId } from 'mongodb';
 import { getDb, memberships as membershipsColl, locations as locationsColl } from '../core/db/mongo.js';
 import { timingSafeEqual } from 'node:crypto';
 import QRCode from 'qrcode';
+import {
+    checkAllowed as checkPinAllowed,
+    recordFailure as recordPinFailure,
+    recordSuccess as recordPinSuccess,
+} from '../middleware/pinLockout.js';
 
 function loc(req: Request): string {
     return String(req.params.loc ?? 'skb');
@@ -91,15 +97,28 @@ const requireAdmin = requireRole('admin', 'owner');
 // owner can invite or revoke teammates, per spec §6.3.
 const requireOwner = requireRole('owner');
 
+// PIN attempts require a named, tenant-scoped user session first. This keeps
+// the short shared PIN from being an unauthenticated online guessing surface.
+const requireNamedHostUser = requireNamedRole('host', 'admin', 'owner');
+const HOST_PIN_LOCKOUT_SCOPE = 'host-login';
+
 export function hostRouter(): Router {
     const r = Router({ mergeParams: true });
 
     // Login — uses per-location PIN from locations collection, falls back to env var.
-    r.post('/host/login', async (req: Request, res: Response) => {
+    r.post('/host/login', requireNamedHostUser, async (req: Request, res: Response) => {
         const key = cookieSecret();
         if (!key) { res.status(503).json({ error: 'host auth not configured' }); return; }
 
-        const location = await getLocation(loc(req));
+        const locationId = loc(req);
+        const allow = checkPinAllowed(HOST_PIN_LOCKOUT_SCOPE, locationId, req.ip);
+        if (!allow.allowed) {
+            res.setHeader('Retry-After', String(allow.retryAfterSeconds ?? 900));
+            res.status(429).json({ error: 'too many attempts' });
+            return;
+        }
+
+        const location = await getLocation(locationId);
         const expectedPin = location?.pin ?? process.env.SKB_HOST_PIN ?? null;
         if (!expectedPin) { res.status(503).json({ error: 'host auth not configured' }); return; }
 
@@ -112,12 +131,19 @@ export function hostRouter(): Router {
         if (a.length === b.length) { try { ok = timingSafeEqual(a, b); } catch { ok = false; } }
 
         if (!ok) {
-            console.log(JSON.stringify({ t: new Date().toISOString(), level: 'warn', msg: 'host.auth.fail', loc: loc(req), ip: req.ip }));
+            const after = recordPinFailure(HOST_PIN_LOCKOUT_SCOPE, locationId, req.ip);
+            console.log(JSON.stringify({ t: new Date().toISOString(), level: 'warn', msg: 'host.auth.fail', loc: locationId, ip: req.ip }));
+            if (!after.allowed) {
+                res.setHeader('Retry-After', String(after.retryAfterSeconds ?? 900));
+                res.status(429).json({ error: 'too many attempts' });
+                return;
+            }
             res.status(401).json({ error: 'invalid pin' });
             return;
         }
 
-        const lid = loc(req);
+        recordPinSuccess(HOST_PIN_LOCKOUT_SCOPE, locationId, req.ip);
+        const lid = locationId;
         const cookie = mintLocationCookie(new Date(), key, lid);
         console.log(JSON.stringify({ t: new Date().toISOString(), level: 'info', msg: 'host.auth.ok', loc: lid, ip: req.ip }));
         res.setHeader('Set-Cookie', `${HOST_COOKIE_NAME}=${cookie}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${HOST_COOKIE_MAX_AGE_SECONDS}`);

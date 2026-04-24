@@ -20,10 +20,17 @@ import { timingSafeEqual } from 'node:crypto';
 import type { Request } from 'express';
 
 import { getLocation } from '../services/locations.js';
+import {
+    checkAllowed as checkPinAllowed,
+    recordFailure as recordPinFailure,
+    recordSuccess as recordPinSuccess,
+} from '../middleware/pinLockout.js';
 
 export interface McpAuthContext {
     locationId: string;
 }
+
+const MCP_PIN_LOCKOUT_SCOPE = 'mcp';
 
 function resolveLocation(req: Request): string {
     const fromHeader = req.headers['x-skb-location'];
@@ -48,11 +55,23 @@ function extractBearer(req: Request): string | null {
  */
 export async function authenticateMcpRequest(
     req: Request,
-): Promise<{ ok: true; ctx: McpAuthContext } | { ok: false; status: 401 | 503; reason: string }> {
+): Promise<
+{ ok: true; ctx: McpAuthContext }
+| { ok: false; status: 401 | 429 | 503; reason: string; retryAfterSeconds?: number }
+> {
     const provided = extractBearer(req);
     if (!provided) return { ok: false, status: 401, reason: 'missing Bearer PIN' };
 
     const locationId = resolveLocation(req);
+    const allow = checkPinAllowed(MCP_PIN_LOCKOUT_SCOPE, locationId, req.ip);
+    if (!allow.allowed) {
+        return {
+            ok: false,
+            status: 429,
+            reason: 'too many attempts',
+            retryAfterSeconds: allow.retryAfterSeconds,
+        };
+    }
     let expected: string | null = null;
     try {
         const location = await getLocation(locationId);
@@ -64,11 +83,34 @@ export async function authenticateMcpRequest(
 
     const a = Buffer.from(provided);
     const b = Buffer.from(expected);
-    if (a.length !== b.length) return { ok: false, status: 401, reason: 'invalid PIN' };
+    if (a.length !== b.length) {
+        const after = recordPinFailure(MCP_PIN_LOCKOUT_SCOPE, locationId, req.ip);
+        if (!after.allowed) {
+            return {
+                ok: false,
+                status: 429,
+                reason: 'too many attempts',
+                retryAfterSeconds: after.retryAfterSeconds,
+            };
+        }
+        return { ok: false, status: 401, reason: 'invalid PIN' };
+    }
     try {
-        if (!timingSafeEqual(a, b)) return { ok: false, status: 401, reason: 'invalid PIN' };
+        if (!timingSafeEqual(a, b)) {
+            const after = recordPinFailure(MCP_PIN_LOCKOUT_SCOPE, locationId, req.ip);
+            if (!after.allowed) {
+                return {
+                    ok: false,
+                    status: 429,
+                    reason: 'too many attempts',
+                    retryAfterSeconds: after.retryAfterSeconds,
+                };
+            }
+            return { ok: false, status: 401, reason: 'invalid PIN' };
+        }
     } catch {
         return { ok: false, status: 401, reason: 'invalid PIN' };
     }
+    recordPinSuccess(MCP_PIN_LOCKOUT_SCOPE, locationId, req.ip);
     return { ok: true, ctx: { locationId } };
 }

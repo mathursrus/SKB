@@ -1,9 +1,3 @@
----
-description: FRAIM discovery and execution contract
-alwaysApply: true
----
-
-<!-- FRAIM_AGENT_ADAPTER_START -->
 # FRAIM
 
 Follow this process:
@@ -21,4 +15,3 @@ Follow this process:
 4. **Execute**:
    - For jobs, follow the phased instructions and use `seekMentoring` when the job requires phase transitions.
    - For skills, apply the skill steps directly to the user's current context.
-<!-- FRAIM_AGENT_ADAPTER_END -->

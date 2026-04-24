@@ -7,5 +7,5 @@
 - FRAIM rules are always-on constraints and conventions.
 - Repo-specific overrides and learnings live under `fraim/personalized-employee/`.
 - Use the stubs to identify which job to invoke before fetching full content with FRAIM MCP tools.
-- **Job stubs are for discovery only.** Never execute a job from stub content — always call `get_fraim_job({ job: "<job-name>" })` first.
+- **Job stubs are for discovery only.** Never execute a job from stub content - always call `get_fraim_job({ job: "<job-name>" })` first.
 <!-- FRAIM_AGENT_ADAPTER_END -->

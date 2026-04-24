@@ -73,7 +73,8 @@ async function main(): Promise<void> {
     await createOwnerUser({ email: OWNER_EMAIL, password: OWNER_PASS, name: 'Queue E2E Owner', locationId: 'skb' });
 
     // Clean any leftover queue entries via host API
-    const loginRes = await post('/api/host/login', { pin: '1234' });
+    const ownerCookieForCleanup = await loginOwner('skb');
+    const loginRes = await post('/api/host/login', { pin: '1234' }, ownerCookieForCleanup);
     if (loginRes.cookie) {
         const hq = await get('/api/host/queue', loginRes.cookie);
         const leftover = hq.data.parties as Array<{ id: string }> | undefined;
@@ -112,11 +113,11 @@ async function main(): Promise<void> {
         console.log(`[E2E] PASS: state shows 3 parties waiting`);
 
         // 4. Host login
-        const login = await post('/api/host/login', { pin: '1234' });
+        const login = await post('/api/host/login', { pin: '1234' }, ownerCookieForCleanup);
         assert(login.status === 200, `login status=${login.status}`);
         assert(!!login.cookie, 'no cookie set on login');
         const hostCookie = login.cookie!;
-        const adminCookie = await loginOwner('skb');
+        const adminCookie = ownerCookieForCleanup;
         console.log(`[E2E] PASS: host login successful`);
 
         // 5. Host queue — verify 3 parties

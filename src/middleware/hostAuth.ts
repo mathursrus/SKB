@@ -8,7 +8,7 @@
 //                 Issued by POST /r/:loc/api/host/login. Role is always 'host'.
 //                 Format: <lid>.<exp>.<mac>   mac = HMAC(secret, '<lid>.<exp>')
 //                 Legacy (pre-#52): <exp>.<mac>   mac = HMAC(secret, String(exp))
-//                 (accepted during deprecation window).
+//                 is rejected because it carries no tenant binding.
 //
 //   skb_session — Named-user session (#53).
 //                 Issued by POST /api/login (email+password).
@@ -54,9 +54,8 @@ function sign(payload: string, key: string): string {
 
 /**
  * Build a legacy-format cookie value `<exp>.<hmac>`.
- * Still used by `loginHandler` (the legacy top-level handler kept for
- * backward compatibility); production login via `src/routes/host.ts` uses
- * `mintLocationCookie` instead.
+ * Kept only for backward-compat unit coverage; request auth no longer accepts
+ * this format.
  */
 function mintCookie(now: Date, key: string): string {
     const exp = Math.floor(now.getTime() / 1000) + COOKIE_MAX_AGE_SECONDS;
@@ -78,15 +77,15 @@ function mintLocationCookie(now: Date, key: string, lid: string): string {
 /** Structured result from `verifyCookieDetailed`. */
 export interface VerifyResult {
     ok: boolean;
-    /** Location id if the cookie is new-format. Undefined for legacy. */
+    /** Location id if the cookie is tenant-bound. Undefined for rejected legacy cookies. */
     lid?: string;
-    /** True when the cookie matched the legacy 2-segment format. */
+    /** True when the cookie matched the rejected legacy 2-segment format. */
     legacy: boolean;
 }
 
 /**
- * Verify a cookie value against `key`. Accepts both the legacy `<exp>.<mac>`
- * format and the new `<lid>.<exp>.<mac>` format.
+ * Verify a cookie value against `key`. Only accepts the tenant-bound
+ * `<lid>.<exp>.<mac>` format.
  *
  * Returns a rich result so callers can branch on tenant / log legacy use.
  * The scalar `verifyCookie()` below preserves the old boolean API.
@@ -118,6 +117,7 @@ export function verifyCookieDetailed(
     } else {
         return { ok: false, legacy: false };
     }
+    if (legacy) return { ok: false, legacy: true };
     if (!/^\d+$/.test(expStr) || got.length !== 64) return { ok: false, legacy };
     if (parseInt(expStr, 10) * 1000 <= now.getTime()) return { ok: false, legacy };
     try {
@@ -298,10 +298,8 @@ function safeObjectId(value: string): ObjectId | null {
  *         Body: `{ error: 'forbidden' }`.
  *   - Otherwise attaches `req.hostAuth` and calls next().
  *
- * Legacy 2-segment `skb_host` cookies carry no tenant binding and
- * imply role='host'; they are accepted during the deprecation window
- * and logged as `auth.legacy-cookie.accept`. The caller's role must
- * still include 'host' for them to pass.
+ * Legacy 2-segment `skb_host` cookies are rejected because they carry no
+ * tenant binding.
  */
 export function requireRole(...roles: Role[]) {
     if (roles.length === 0) throw new Error('requireRole: at least one role required');
@@ -432,10 +430,18 @@ export function requireRole(...roles: Role[]) {
         }
         const result = verifyCookieDetailed(hostRaw, key);
         if (!result.ok) {
+            if (result.legacy) {
+                emitLog({
+                    level: 'warn',
+                    msg: 'auth.legacy-cookie.rejected',
+                    loc: paramLoc,
+                    ip: req.ip,
+                });
+            }
             res.status(401).json({ error: 'unauthorized' });
             return;
         }
-        if (!result.legacy && result.lid && paramLoc && result.lid !== paramLoc) {
+        if (result.lid && paramLoc && result.lid !== paramLoc) {
             emitLog({
                 level: 'warn',
                 msg: 'auth.wrong-tenant',
@@ -460,19 +466,120 @@ export function requireRole(...roles: Role[]) {
             res.status(403).json({ error: 'forbidden' });
             return;
         }
-        if (result.legacy) {
-            emitLog({
-                level: 'info',
-                msg: 'auth.legacy-cookie.accept',
-                loc: paramLoc,
-                ip: req.ip,
-            });
-        }
         req.hostAuth = {
             lid: result.lid,
             legacy: result.legacy,
             role: 'host',
             source: 'host',
+        };
+        next();
+    };
+}
+
+/**
+ * Middleware factory for routes that must be reached by a named user session,
+ * not the shared-device PIN cookie. This is used before issuing a new
+ * `skb_host` PIN cookie so unauthenticated callers cannot online-guess PINs.
+ */
+export function requireNamedRole(...roles: Role[]) {
+    if (roles.length === 0) throw new Error('requireNamedRole: at least one role required');
+    const allowed = new Set<Role>(roles);
+    return async function middleware(req: Request, res: Response, next: NextFunction): Promise<void> {
+        const key = secret();
+        if (!key) {
+            res.status(503).json({ error: 'host auth not configured' });
+            return;
+        }
+        const raw = readSessionCookie(req.headers.cookie);
+        if (!raw) {
+            res.status(401).json({ error: 'login_required' });
+            return;
+        }
+        const sv = verifySessionCookie(raw, key);
+        if (!sv.ok || !sv.payload) {
+            res.status(401).json({ error: 'unauthorized' });
+            return;
+        }
+        const paramLoc = typeof req.params?.loc === 'string' ? req.params.loc : undefined;
+        if (paramLoc && sv.payload.lid !== paramLoc) {
+            emitLog({
+                level: 'warn',
+                msg: 'auth.named.wrong-tenant',
+                uid: sv.payload.uid,
+                cookieLid: sv.payload.lid,
+                paramLoc,
+                ip: req.ip,
+            });
+            res.status(403).json({ error: 'wrong_tenant' });
+            return;
+        }
+        if (!allowed.has(sv.payload.role)) {
+            emitLog({
+                level: 'warn',
+                msg: 'auth.named.forbidden-role',
+                role: sv.payload.role,
+                required: roles,
+                uid: sv.payload.uid,
+                loc: paramLoc,
+                ip: req.ip,
+            });
+            res.status(403).json({ error: 'forbidden' });
+            return;
+        }
+        try {
+            const uid = safeObjectId(sv.payload.uid);
+            if (!uid) {
+                res.status(401).json({ error: 'unauthorized' });
+                return;
+            }
+            const db = await getDb();
+            const live = await membershipsColl(db).findOne({
+                userId: uid,
+                locationId: sv.payload.lid,
+                revokedAt: { $exists: false },
+            });
+            if (!live) {
+                emitLog({
+                    level: 'warn',
+                    msg: 'auth.named.membership-revoked',
+                    uid: sv.payload.uid,
+                    loc: sv.payload.lid,
+                    ip: req.ip,
+                });
+                res.status(401).json({ error: 'unauthorized' });
+                return;
+            }
+            if (!allowed.has(live.role)) {
+                emitLog({
+                    level: 'warn',
+                    msg: 'auth.named.role-downgraded',
+                    uid: sv.payload.uid,
+                    loc: sv.payload.lid,
+                    cookieRole: sv.payload.role,
+                    liveRole: live.role,
+                    required: roles,
+                    ip: req.ip,
+                });
+                res.status(403).json({ error: 'forbidden' });
+                return;
+            }
+        } catch (err) {
+            emitLog({
+                level: 'error',
+                msg: 'auth.named.membership-lookup.error',
+                uid: sv.payload.uid,
+                loc: sv.payload.lid,
+                err: err instanceof Error ? err.message : String(err),
+            });
+            res.status(503).json({ error: 'temporarily unavailable' });
+            return;
+        }
+        req.hostAuth = {
+            lid: sv.payload.lid,
+            uid: sv.payload.uid,
+            legacy: false,
+            role: sv.payload.role,
+            source: 'session',
         };
         next();
     };
@@ -530,7 +637,7 @@ export function loginHandler(req: Request, res: Response): void {
         res.status(401).json({ error: 'invalid pin' });
         return;
     }
-    const cookie = mintCookie(new Date(), key);
+    const cookie = mintLocationCookie(new Date(), key, 'skb');
     res.setHeader(
         'Set-Cookie',
         `${COOKIE_NAME}=${cookie}; Path=/; HttpOnly; SameSite=Strict; Max-Age=${COOKIE_MAX_AGE_SECONDS}`,

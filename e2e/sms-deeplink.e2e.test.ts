@@ -25,8 +25,12 @@ import {
     getTestServerUrl,
 } from '../tests/shared-server-utils.js';
 import { buildQueueStatusUrl } from '../src/core/utils/url.js';
+import { getDb, memberships as membershipsColl, users as usersColl } from '../src/core/db/mongo.js';
+import { createOwnerUser } from '../src/services/users.js';
 
 const BASE = getTestServerUrl();
+const OWNER_EMAIL = 'sms-deeplink-owner@example.test';
+const OWNER_PASS = 'sms-deeplink-owner-password';
 
 function assert(condition: boolean, msg: string): void {
     if (!condition) throw new Error(`ASSERTION FAILED: ${msg}`);
@@ -64,6 +68,16 @@ async function get(pathname: string, cookie?: string): Promise<{ status: number;
     return { status: res.status, data };
 }
 
+async function loginOwner(): Promise<string> {
+    const db = await getDb();
+    await usersColl(db).deleteMany({ email: OWNER_EMAIL });
+    await membershipsColl(db).deleteMany({ locationId: 'skb' });
+    await createOwnerUser({ email: OWNER_EMAIL, password: OWNER_PASS, name: 'SMS Deeplink Owner', locationId: 'skb' });
+    const res = await post('/api/login', { email: OWNER_EMAIL, password: OWNER_PASS, locationId: 'skb' });
+    if (!res.cookie) throw new Error('owner login did not return a cookie');
+    return res.cookie;
+}
+
 async function main(): Promise<void> {
     console.log('[E2E] sms-deeplink.e2e.test: starting server');
     await startTestServer();
@@ -74,7 +88,8 @@ async function main(): Promise<void> {
     });
 
     try {
-        const loginRes = await post('/api/host/login', { pin: '1234' });
+        const ownerCookie = await loginOwner();
+        const loginRes = await post('/api/host/login', { pin: '1234' }, ownerCookie);
         assert(!!loginRes.cookie, 'host login did not return a cookie');
 
         const hostQueue = await get('/api/host/queue', loginRes.cookie);

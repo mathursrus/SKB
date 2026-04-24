@@ -1,6 +1,6 @@
 // Unit tests for HMAC-signed host cookie verification + legacy middleware handlers
 import { runTests } from '../test-utils.js';
-import { verifyCookie, verifyCookieDetailed, __test__, loginHandler, logoutHandler, requireHost, requireRole, mintSessionCookie, verifySessionCookie, SESSION_COOKIE_NAME } from '../../src/middleware/hostAuth.js';
+import { verifyCookie, verifyCookieDetailed, __test__, loginHandler, logoutHandler, requireHost, requireRole, requireNamedRole, mintSessionCookie, verifySessionCookie, SESSION_COOKIE_NAME } from '../../src/middleware/hostAuth.js';
 import type { SessionPayload } from '../../src/types/identity.js';
 import type { Request, Response } from 'express';
 
@@ -41,7 +41,7 @@ const cases: T[] = [
         name: 'freshly minted cookie verifies true',
         tags: ['unit', 'auth'],
         testFn: async () => {
-            const cookie = __test__.mintCookie(new Date(), KEY);
+            const cookie = __test__.mintLocationCookie(new Date(), KEY, 'skb');
             return verifyCookie(cookie, KEY);
         },
     },
@@ -143,7 +143,7 @@ const cases: T[] = [
         tags: ['unit', 'auth', 'middleware', 'coverage'],
         testFn: async () => {
             return withEnv({ SKB_COOKIE_SECRET: KEY }, () => {
-                const cookieValue = __test__.mintCookie(new Date(), KEY);
+                const cookieValue = __test__.mintLocationCookie(new Date(), KEY, 'skb');
                 const { res, state } = makeRes();
                 const nextState = { called: false };
                 requireHost(
@@ -253,12 +253,12 @@ const cases: T[] = [
         },
     },
     {
-        name: 'verifyCookieDetailed: legacy-format cookie returns { ok:true, lid:undefined, legacy:true }',
-        tags: ['unit', 'auth', 'multi-tenant'],
+        name: 'verifyCookieDetailed: legacy-format cookie is rejected',
+        tags: ['unit', 'auth', 'multi-tenant', 'security'],
         testFn: async () => {
             const cookie = __test__.mintCookie(new Date(), KEY);
             const result = verifyCookieDetailed(cookie, KEY);
-            return result.ok && result.lid === undefined && result.legacy === true;
+            return !result.ok && result.lid === undefined && result.legacy === true;
         },
     },
     {
@@ -272,12 +272,12 @@ const cases: T[] = [
         },
     },
     {
-        name: 'verifyCookie (legacy boolean API): still accepts both formats for backward compat',
-        tags: ['unit', 'auth', 'multi-tenant'],
+        name: 'verifyCookie (legacy boolean API): rejects legacy, accepts tenant-bound format',
+        tags: ['unit', 'auth', 'multi-tenant', 'security'],
         testFn: async () => {
             const legacy = __test__.mintCookie(new Date(), KEY);
             const v2 = __test__.mintLocationCookie(new Date(), KEY, 'loc-a');
-            return verifyCookie(legacy, KEY) && verifyCookie(v2, KEY);
+            return !verifyCookie(legacy, KEY) && verifyCookie(v2, KEY);
         },
     },
 
@@ -326,13 +326,13 @@ const cases: T[] = [
                 const cookie = __test__.mintCookie(new Date(), KEY);
                 const { res, state } = makeRes();
                 const nextState = { called: false };
-                const req = {
-                    headers: { cookie: `skb_host=${cookie}` },
-                    params: { loc: 'probe-a' },
-                } as unknown as Request & { hostAuth?: { lid?: string; legacy: boolean } };
-                requireRole('host')(req, res, () => { nextState.called = true; });
-                return nextState.called && state.status === 200
-                    && req.hostAuth?.legacy === true && req.hostAuth?.lid === undefined;
+                requireRole('host')(
+                    { headers: { cookie: `skb_host=${cookie}` }, params: { loc: 'probe-a' } } as unknown as Request,
+                    res,
+                    () => { nextState.called = true; },
+                );
+                const body = state.body as { error?: string } | undefined;
+                return state.status === 401 && body?.error === 'unauthorized' && !nextState.called;
             });
         },
     },
@@ -597,6 +597,41 @@ const cases: T[] = [
                     () => { nextState.called = true; },
                 );
                 return state.status === 401 && !nextState.called;
+            });
+        },
+    },
+    {
+        name: 'requireNamedRole: missing named session returns login_required',
+        tags: ['unit', 'auth', 'session', 'requireNamedRole', 'security'],
+        testFn: async () => {
+            return withEnv({ SKB_COOKIE_SECRET: KEY }, async () => {
+                const { res, state } = makeRes();
+                const nextState = { called: false };
+                await requireNamedRole('host')(
+                    { headers: {}, params: { loc: 'loc-a' } } as unknown as Request,
+                    res,
+                    () => { nextState.called = true; },
+                );
+                const body = state.body as { error?: string } | undefined;
+                return state.status === 401 && body?.error === 'login_required' && !nextState.called;
+            });
+        },
+    },
+    {
+        name: 'requireNamedRole: host PIN cookie alone returns login_required',
+        tags: ['unit', 'auth', 'session', 'requireNamedRole', 'security'],
+        testFn: async () => {
+            return withEnv({ SKB_COOKIE_SECRET: KEY }, async () => {
+                const host = __test__.mintLocationCookie(new Date(), KEY, 'loc-a');
+                const { res, state } = makeRes();
+                const nextState = { called: false };
+                await requireNamedRole('host')(
+                    { headers: { cookie: `skb_host=${host}` }, params: { loc: 'loc-a' } } as unknown as Request,
+                    res,
+                    () => { nextState.called = true; },
+                );
+                const body = state.body as { error?: string } | undefined;
+                return state.status === 401 && body?.error === 'login_required' && !nextState.called;
             });
         },
     },

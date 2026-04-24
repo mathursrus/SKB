@@ -107,12 +107,13 @@ export default function SettingsScreen() {
         <TextInput
           value={turnTime}
           onChangeText={(v) => {
+            if (!canEdit) return;
             setTurnTime(v.replace(/[^\d]/g, ''));
             setDirty(true);
           }}
           keyboardType="number-pad"
           maxLength={2}
-          editable={canEdit && etaMode === 'manual'}
+          editable={etaMode === 'manual'}
           style={[styles.input, (!canEdit || etaMode !== 'manual') && styles.inputDisabled]}
           accessibilityLabel="Turn time minutes"
           accessibilityState={{ disabled: !canEdit || etaMode !== 'manual' }}

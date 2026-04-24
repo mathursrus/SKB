@@ -13,15 +13,20 @@ export interface LocationAddress {
 }
 
 // Weekly hours with closed-day support. A day is either the literal string
-// "closed" or a DayHours object with optional lunch and dinner windows.
+// "closed" or a DayHours object with one or more named service windows.
 // Times are HH:mm in 24h format (e.g., "11:30", "21:30").
 export interface ServiceWindow {
     open: string;  // HH:mm 24h
     close: string; // HH:mm 24h
 }
 
+export const SERVICE_WINDOW_KEYS = ['breakfast', 'lunch', 'special', 'dinner'] as const;
+export type ServiceWindowKey = typeof SERVICE_WINDOW_KEYS[number];
+
 export interface DayHours {
+    breakfast?: ServiceWindow;
     lunch?: ServiceWindow;
+    special?: ServiceWindow;
     dinner?: ServiceWindow;
 }
 

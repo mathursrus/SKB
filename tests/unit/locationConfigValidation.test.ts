@@ -27,6 +27,19 @@ const GOOD_HOURS: WeeklyHours = {
     sun: { lunch: { open: '11:30', close: '14:30' }, dinner: { open: '17:30', close: '21:30' } },
 };
 
+const GOOD_EXTENDED_HOURS: WeeklyHours = {
+    tue: {
+        breakfast: { open: '08:30', close: '10:30' },
+        lunch: { open: '11:30', close: '14:30' },
+        dinner: { open: '17:30', close: '21:30' },
+    },
+    sat: {
+        breakfast: { open: '09:00', close: '12:00' },
+        special: { open: '12:30', close: '14:00' },
+        dinner: { open: '17:30', close: '22:00' },
+    },
+};
+
 const GOOD_GUEST_FEATURES: GuestFeatures = {
     sms: true,
     chat: false,
@@ -65,6 +78,14 @@ const cases: BaseTestCase[] = [
         tags: ['unit', 'locations'],
         testFn: async () => {
             validateSiteConfigUpdate({ hours: GOOD_HOURS });
+            return true;
+        },
+    },
+    {
+        name: 'valid extended hours with breakfast and special passes',
+        tags: ['unit', 'locations'],
+        testFn: async () => {
+            validateSiteConfigUpdate({ hours: GOOD_EXTENDED_HOURS });
             return true;
         },
     },
@@ -181,7 +202,17 @@ const cases: BaseTestCase[] = [
             () => validateSiteConfigUpdate({
                 hours: { fri: {} },
             }),
-            'at least one of lunch or dinner',
+            'at least one service window',
+        ),
+    },
+    {
+        name: 'hours with special open >= close throws',
+        tags: ['unit', 'locations'],
+        testFn: async () => throws(
+            () => validateSiteConfigUpdate({
+                hours: { fri: { special: { open: '14:30', close: '11:30' } } },
+            }),
+            'must be earlier than close',
         ),
     },
     {

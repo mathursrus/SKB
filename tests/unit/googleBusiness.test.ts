@@ -333,25 +333,31 @@ const cases: BaseTestCase[] = [
 
     // ── OSH → GBP shape ────────────────────────────────────────────────
     {
-        name: 'weeklyHoursToRegularHours skips closed days and emits both lunch + dinner periods',
+        name: 'weeklyHoursToRegularHours skips closed days and emits all configured service periods',
         tags: ['unit', 'googleBusiness', 'shape'],
         testFn: async () => {
             const hours = {
                 mon: 'closed' as const,
-                tue: { dinner: { open: '17:00', close: '22:00' } },
-                wed: { lunch: { open: '11:30', close: '14:30' }, dinner: { open: '17:00', close: '22:00' } },
+                tue: { breakfast: { open: '09:00', close: '11:00' }, dinner: { open: '17:00', close: '22:00' } },
+                wed: {
+                    lunch: { open: '11:30', close: '14:30' },
+                    special: { open: '15:00', close: '16:00' },
+                    dinner: { open: '17:00', close: '22:00' },
+                },
             };
             const out = weeklyHoursToRegularHours(hours) as { periods: Array<Record<string, unknown>> } | null;
             if (!out) return false;
-            // tue=1 period, wed=2 periods, mon=skipped
-            if (out.periods.length !== 3) return false;
-            const first = out.periods[0];
-            if (first.openDay !== 'TUESDAY') return false;
-            const firstOpen = first.openTime as { hours: number; minutes: number };
-            if (firstOpen.hours !== 17 || firstOpen.minutes !== 0) return false;
-            const wedLunch = out.periods[1];
-            if (wedLunch.openDay !== 'WEDNESDAY') return false;
-            return true;
+            // tue=2 periods, wed=3 periods, mon=skipped
+            if (out.periods.length !== 5) return false;
+            const tueBreakfast = out.periods[0];
+            if (tueBreakfast.openDay !== 'TUESDAY') return false;
+            const breakfastOpen = tueBreakfast.openTime as { hours: number; minutes: number };
+            if (breakfastOpen.hours !== 9 || breakfastOpen.minutes !== 0) return false;
+            const wedSpecial = out.periods[3];
+            const specialOpen = wedSpecial.openTime as { hours: number; minutes: number };
+            return wedSpecial.openDay === 'WEDNESDAY'
+                && specialOpen.hours === 15
+                && specialOpen.minutes === 0;
         },
     },
     {

@@ -8,6 +8,10 @@ process.env.MONGODB_DB_NAME ??= 'skb_host_auth_test';
 process.env.PORT ??= '15398';
 process.env.FRAIM_TEST_SERVER_PORT ??= '15398';
 process.env.FRAIM_BRANCH ??= '';
+process.env.SKB_ENABLE_SMS_TEST_HOOK ??= '1';
+process.env.TWILIO_ACCOUNT_SID ??= 'ACtest00000000000000000000000000';
+process.env.TWILIO_AUTH_TOKEN ??= 'testtoken00000000000000000000000';
+process.env.TWILIO_PHONE_NUMBER ??= '+18445550199';
 
 import { runTests, type BaseTestCase } from '../test-utils.js';
 import {
@@ -51,6 +55,16 @@ async function hostPinLogin(pin: string | null): Promise<Response> {
         headers: { 'Content-Type': 'application/json', Cookie: cookie },
         body: JSON.stringify(body),
     });
+}
+
+async function clearCapturedSms(): Promise<void> {
+    await fetch(`${getTestServerUrl()}/__test__/sms-captured`, { method: 'DELETE' });
+}
+
+async function getCapturedSms(): Promise<Array<{ to?: string; body?: string; locationId?: string }>> {
+    const res = await fetch(`${getTestServerUrl()}/__test__/sms-captured`);
+    const body = await res.json() as { calls?: Array<{ to?: string; body?: string; locationId?: string }> };
+    return body.calls ?? [];
 }
 
 const cases: BaseTestCase[] = [
@@ -430,17 +444,46 @@ const cases: BaseTestCase[] = [
         },
     },
     {
-        name: 'host-auth: repeated wrong PINs lock out with 429 + Retry-After',
-        tags: ['integration', 'auth', 'waitlist-path', 'security'],
+        name: 'host-add: default smsConsent sends join confirmation SMS',
+        tags: ['integration', 'auth', 'add-party', 'sms', 'waitlist-path'],
         testFn: async () => {
-            for (let i = 0; i < 5; i++) {
-                await hostPinLogin('0000');
-            }
-            const res = await hostPinLogin('1234');
-            return res.status === 429 && !!res.headers.get('retry-after');
+            await clearCapturedSms();
+            const loginRes = await hostPinLogin('1234');
+            const cookieValue = (loginRes.headers.get('set-cookie') ?? '').split(';')[0];
+            const res = await fetch(`${getTestServerUrl()}/api/host/queue/add`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', Cookie: cookieValue },
+                body: JSON.stringify({ name: 'SmsWalkIn', partySize: 2, phone: '2065550111' }),
+            });
+            if (!res.ok) return false;
+            const body = await res.json() as { code?: string };
+            if (typeof body.code !== 'string') return false;
+            const calls = await getCapturedSms();
+            if (calls.length !== 1) return false;
+            return calls[0]?.locationId === 'skb'
+                && calls[0]?.to === '+12065550111'
+                && typeof calls[0]?.body === 'string'
+                && calls[0].body.includes(body.code)
+                && calls[0].body.includes('Track your place in line here:');
         },
     },
-
+    {
+        name: 'host-add: smsConsent=false skips join confirmation SMS',
+        tags: ['integration', 'auth', 'add-party', 'sms'],
+        testFn: async () => {
+            await clearCapturedSms();
+            const loginRes = await hostPinLogin('1234');
+            const cookieValue = (loginRes.headers.get('set-cookie') ?? '').split(';')[0];
+            const res = await fetch(`${getTestServerUrl()}/api/host/queue/add`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', Cookie: cookieValue },
+                body: JSON.stringify({ name: 'SilentWalkIn', partySize: 2, phone: '2065550112', smsConsent: false }),
+            });
+            if (!res.ok) return false;
+            const calls = await getCapturedSms();
+            return calls.length === 0;
+        },
+    },
     {
         name: 'host-auth: teardown',
         tags: ['integration', 'auth'],

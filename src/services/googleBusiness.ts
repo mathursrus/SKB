@@ -53,7 +53,8 @@ import {
     googleTokens,
     locations as locationsColl,
 } from '../core/db/mongo.js';
-import type { Location, WeeklyHours, DayOfWeek, ServiceWindow } from '../types/queue.js';
+import { SERVICE_WINDOW_KEYS } from '../types/queue.js';
+import type { Location, WeeklyHours, DayOfWeek, ServiceWindow, ServiceWindowKey } from '../types/queue.js';
 
 // ============================================================================
 // Types
@@ -648,8 +649,10 @@ export function weeklyHoursToRegularHours(hours: WeeklyHours | undefined): Recor
         const v = hours[key];
         if (!v || v === 'closed') continue;
         const gDay = DAY_MAP[key];
-        if (v.lunch) periods.push(windowToPeriod(gDay, v.lunch));
-        if (v.dinner) periods.push(windowToPeriod(gDay, v.dinner));
+        for (const service of SERVICE_WINDOW_KEYS as readonly ServiceWindowKey[]) {
+            const window = v[service];
+            if (window) periods.push(windowToPeriod(gDay, window));
+        }
     }
     if (periods.length === 0) return { periods: [] };
     return { periods };

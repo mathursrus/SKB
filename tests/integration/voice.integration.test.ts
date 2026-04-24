@@ -213,6 +213,34 @@ const server = app.listen(0, async () => {
     check('Hours-info mentions parking', rHoursInfo.body.includes('Complimentary parking'));
     check('Hours-info has no recording', !/<Record/.test(rHoursInfo.body) && !/record="/.test(rHoursInfo.body));
 
+    // Issue #78: weekday/weekend schedules can differ. The IVR should group
+    // the real configured windows instead of reading only the first open day.
+    await updateLocationSiteConfig('test', {
+        address: { street: '12 Bellevue Way SE', city: 'Bellevue', state: 'WA', zip: '98004' },
+        hours: {
+            mon: 'closed',
+            tue: { lunch: { open: '11:30', close: '14:30' }, dinner: { open: '17:30', close: '21:30' } },
+            wed: { lunch: { open: '11:30', close: '14:30' }, dinner: { open: '17:30', close: '21:30' } },
+            thu: { lunch: { open: '11:30', close: '14:30' }, dinner: { open: '17:30', close: '21:30' } },
+            fri: { lunch: { open: '11:30', close: '14:30' }, dinner: { open: '17:30', close: '21:30' } },
+            sat: {
+                breakfast: { open: '09:00', close: '12:00' },
+                special: { open: '12:30', close: '14:00' },
+                dinner: { open: '17:30', close: '21:30' },
+            },
+            sun: {
+                breakfast: { open: '09:00', close: '12:00' },
+                special: { open: '12:30', close: '14:00' },
+                dinner: { open: '17:30', close: '21:30' },
+            },
+        },
+    });
+    const rHoursSplit = await post(port, hoursInfoUrl, CALL);
+    check('Hours-info groups weekday schedule separately', /Tuesday through Friday/i.test(rHoursSplit.body));
+    check('Hours-info groups weekend schedule separately', /Saturday and Sunday/i.test(rHoursSplit.body));
+    check('Hours-info mentions breakfast window when configured', rHoursSplit.body.includes('9:00 AM'));
+    check('Hours-info mentions special window when configured', rHoursSplit.body.includes('12:30 PM'));
+
     // Press 0 → front-desk transfer Dial with seeded frontDeskPhone
     const gFront = await greet();
     const fcAction = extractAction(gFront.body);

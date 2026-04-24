@@ -10,7 +10,11 @@ import {
     chatAlmostReadyMessage,
     chatNeedMoreTimeMessage,
     chatLostYouMessage,
+    joinConfirmationMessage,
 } from '../services/smsTemplates.js';
+import { sendSms } from '../services/sms.js';
+import { buildQueueStatusUrlForSms } from '../services/queueStatusUrl.js';
+import { buildVisitQrUrl } from '../services/visitQrUrl.js';
 import {
     advanceParty,
     listCompletedParties,
@@ -164,9 +168,7 @@ export function hostRouter(): Router {
     // Host-initiated add — for walk-ins who hand the host their info instead
     // of scanning the QR. Uses the same joinQueue service + validation as the
     // diner /queue/join endpoint but without rate-limiting (hosts are
-    // authenticated and shouldn't be throttled during a rush) and without the
-    // auto confirmation SMS (the host is physically present — they can hand
-    // the party the code on paper, or tap Notify later).
+    // authenticated and shouldn't be throttled during a rush).
     r.post('/host/queue/add', requireHost, async (req: Request, res: Response) => {
         const body = (req.body ?? {}) as { name?: unknown; partySize?: unknown; phone?: unknown };
         const name = typeof body.name === 'string' ? body.name.trim() : '';
@@ -196,6 +198,24 @@ export function hostRouter(): Router {
         const smsConsent = (req.body as { smsConsent?: unknown }).smsConsent !== false;
         try {
             const result = await joinQueue(loc(req), { name, partySize: size, phone, smsConsent });
+            if (smsConsent) {
+                const location = await getLocation(loc(req));
+                const statusUrl = buildQueueStatusUrlForSms({
+                    locationId: loc(req),
+                    code: result.code,
+                    requestProto: String(req.headers['x-forwarded-proto'] ?? req.protocol ?? 'https'),
+                    requestHost: String(req.headers['x-forwarded-host'] ?? req.headers.host ?? ''),
+                    locationPublicUrl: location?.publicUrl ?? '',
+                    appPublicBaseUrl: process.env.SKB_PUBLIC_BASE_URL ?? '',
+                });
+                void sendSms(phone, joinConfirmationMessage(result.code, statusUrl), { locationId: loc(req) })
+                    .catch(e => console.log(JSON.stringify({
+                        t: new Date().toISOString(),
+                        level: 'error',
+                        msg: 'sms.host_join_confirm_failed',
+                        error: e instanceof Error ? e.message : String(e),
+                    })));
+            }
             console.log(JSON.stringify({
                 t: new Date().toISOString(),
                 level: 'info',
@@ -609,19 +629,17 @@ export function hostRouter(): Router {
     r.get('/host/visit-qr.svg', requireHost, async (req: Request, res: Response) => {
         try {
             const location = await getLocation(loc(req));
-            const proto = req.headers['x-forwarded-proto'] ?? req.protocol ?? 'https';
-            const fallbackHost = req.headers['x-forwarded-host'] ?? req.headers.host ?? '';
-            const host = location?.publicHost || String(fallbackHost);
-            if (!host) {
+            const url = buildVisitQrUrl({
+                locationId: loc(req),
+                requestProto: String(req.headers['x-forwarded-proto'] ?? req.protocol ?? 'https'),
+                requestHost: String(req.headers['x-forwarded-host'] ?? req.headers.host ?? ''),
+                locationPublicUrl: location?.publicUrl ?? '',
+                locationPublicHost: location?.publicHost ?? '',
+            });
+            if (!url) {
                 res.status(503).type('text/plain').send('no host configured');
                 return;
             }
-            // If publicHost is set, encode the top-level /visit URL so the
-            // domain alone is on the sticker. Otherwise fall back to the
-            // per-location /r/:loc/visit path on the app service hostname.
-            const url = location?.publicHost
-                ? `https://${host}/visit`
-                : `${proto}://${host}/r/${loc(req)}/visit`;
             const svg = await QRCode.toString(url, {
                 type: 'svg',
                 errorCorrectionLevel: 'H',
@@ -852,6 +870,7 @@ export function hostRouter(): Router {
                 name: location?.name ?? '',
                 address: location?.address ?? null,
                 hours: location?.hours ?? null,
+                publicUrl: location?.publicUrl ?? '',
                 publicHost: location?.publicHost ?? '',
             });
         } catch (err) { dbError(res, err); }

@@ -3,6 +3,7 @@
 // ============================================================================
 
 import { getDb, locations } from '../core/db/mongo.js';
+import { SERVICE_WINDOW_KEYS } from '../types/queue.js';
 import type {
     Location,
     VisitMode,
@@ -10,6 +11,7 @@ import type {
     WeeklyHours,
     DayHours,
     DayOfWeek,
+    ServiceWindowKey,
     GuestFeatures,
     PublicLocation,
     WebsiteTemplateKey,
@@ -227,12 +229,12 @@ function validateAddress(addr: LocationAddress): void {
 function validateDayHours(day: DayOfWeek, value: DayHours | 'closed'): void {
     if (value === 'closed') return;
     if (typeof value !== 'object' || value === null) {
-        throw new Error(`hours.${day} must be "closed" or an object with lunch/dinner`);
+        throw new Error(`hours.${day} must be "closed" or an object with service windows`);
     }
-    const windows: Array<['lunch' | 'dinner', { open: string; close: string } | undefined]> = [
-        ['lunch', value.lunch],
-        ['dinner', value.dinner],
-    ];
+    const windows = SERVICE_WINDOW_KEYS.map((label): [ServiceWindowKey, { open: string; close: string } | undefined] => [
+        label,
+        value[label],
+    ]);
     let any = false;
     for (const [label, win] of windows) {
         if (win === undefined) continue;
@@ -248,7 +250,7 @@ function validateDayHours(day: DayOfWeek, value: DayHours | 'closed'): void {
         }
     }
     if (!any) {
-        throw new Error(`hours.${day} must include at least one of lunch or dinner (or be "closed")`);
+        throw new Error(`hours.${day} must include at least one service window (or be "closed")`);
     }
 }
 

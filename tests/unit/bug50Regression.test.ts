@@ -143,6 +143,13 @@ const cases: BaseTestCase[] = [
             /admin-qr-image[^]*visit-qr\.svg\?t=/.test(adminJs)
             || /qrImg\.src\s*=\s*['"`]api\/host\/visit-qr\.svg\?t=/.test(adminJs),
     },
+    {
+        name: 'bug50 #7: admin.js shows the tenant-scoped /r/:loc/visit QR target',
+        tags: ['unit', 'bug50', 'qr'],
+        testFn: async () =>
+            /siteConfiguredPublicUrl\s*=\s*data\.publicUrl\s*\|\|\s*['"]{2}/.test(adminJs)
+            && /scannerUrl\s*=\s*`?\$\{scannerBase\}\/r\/\$\{encodeURIComponent\(loc\)\}\/visit`?/.test(adminJs),
+    },
 
     // ---------- Bug 5 follow-up: Stage-Based Analytics histograms need CSS ----------
     // The admin.js renderHistogram() emits .hist-card / .vbar-* markup. If the

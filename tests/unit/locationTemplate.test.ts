@@ -39,6 +39,24 @@ const ALL_DAYS_HOURS: WeeklyHours = {
     sun: { lunch: { open: '11:30', close: '14:30' }, dinner: { open: '17:30', close: '21:30' } },
 };
 
+const SPLIT_WEEK_HOURS: WeeklyHours = {
+    mon: 'closed',
+    tue: { lunch: { open: '11:30', close: '14:30' }, dinner: { open: '17:30', close: '21:30' } },
+    wed: { lunch: { open: '11:30', close: '14:30' }, dinner: { open: '17:30', close: '21:30' } },
+    thu: { lunch: { open: '11:30', close: '14:30' }, dinner: { open: '17:30', close: '21:30' } },
+    fri: { lunch: { open: '11:30', close: '14:30' }, dinner: { open: '17:30', close: '21:30' } },
+    sat: {
+        breakfast: { open: '09:00', close: '12:00' },
+        special: { open: '12:30', close: '14:00' },
+        dinner: { open: '17:30', close: '22:00' },
+    },
+    sun: {
+        breakfast: { open: '09:00', close: '12:00' },
+        special: { open: '12:30', close: '14:00' },
+        dinner: { open: '17:30', close: '22:00' },
+    },
+};
+
 const cases: T[] = [
     // formatAddressForSpeech
     {
@@ -126,6 +144,24 @@ const cases: T[] = [
         testFn: async () => {
             const hours: WeeklyHours = { fri: { lunch: { open: '11:30', close: '14:30' } } };
             return formatWeeklyHoursForSpeech(hours).includes('only on Fridays');
+        },
+    },
+    {
+        name: 'formatWeeklyHoursForSpeech groups differing weekend schedule separately',
+        tags: ['unit', 'location'],
+        testFn: async () => {
+            const spoken = formatWeeklyHoursForSpeech(SPLIT_WEEK_HOURS);
+            return spoken.includes('Tuesday through Friday')
+                && spoken.includes('Saturday and Sunday');
+        },
+    },
+    {
+        name: 'formatWeeklyHoursForSpeech includes breakfast and special windows when configured',
+        tags: ['unit', 'location'],
+        testFn: async () => {
+            const spoken = formatWeeklyHoursForSpeech(SPLIT_WEEK_HOURS);
+            return spoken.includes('Breakfast service is from 9:00 AM to 12:00 PM')
+                && spoken.includes('Special service is from 12:30 PM to 2:00 PM');
         },
     },
 

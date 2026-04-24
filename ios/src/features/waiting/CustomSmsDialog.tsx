@@ -3,6 +3,7 @@ import { Alert, Modal, Pressable, StyleSheet, Text, TextInput, View } from 'reac
 
 import type { WaitingParty } from '@/core/party';
 import { chat as chatApi } from '@/net/endpoints';
+import { useAuthStore } from '@/state/auth';
 import { theme } from '@/ui/theme';
 
 const MAX_BODY = 1600;
@@ -22,6 +23,7 @@ export function CustomSmsDialog({
   const [body, setBody] = useState('');
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const locationId = useAuthStore((s) => s.locationId);
 
   useEffect(() => {
     if (party) {
@@ -41,7 +43,8 @@ export function CustomSmsDialog({
     setSending(true);
     setError(null);
     try {
-      await chatApi.send(party.id, trimmed);
+      if (!locationId) throw new Error('No restaurant selected');
+      await chatApi.send(locationId, party.id, trimmed);
       onClose();
       Alert.alert('Sent', 'Your message was sent.');
     } catch (err) {

@@ -8,16 +8,39 @@ import type {
   SeatedParty,
   WaitingParty,
 } from '@/core/party';
+import type {
+  BrandContext,
+  GuestFeatures,
+  MembershipOption,
+  PublicUser,
+  StaffRole,
+  WebsiteTemplate,
+} from '@/core/auth';
+import type { GuestChatThread, GuestStatus, QueueState } from '@/core/guest';
 
-import { request } from './client';
+import { platformRequest, request } from './client';
 
-export interface LoginResponse {
+export interface LoginSuccessResponse {
   ok: true;
+  user: PublicUser;
+  role: StaffRole;
+  locationId: string;
 }
 
+export interface LoginPickerResponse {
+  ok: true;
+  pickLocation: true;
+  user: PublicUser;
+  memberships: MembershipOption[];
+}
+
+export type LoginResponse = LoginSuccessResponse | LoginPickerResponse;
+
 export const auth = {
-  login: (pin: string) => request<LoginResponse>('/host/login', { method: 'POST', body: { pin } }),
-  logout: () => request<{ ok: true }>('/host/logout', { method: 'POST' }),
+  login: (body: { email: string; password: string; locationId?: string }) =>
+    platformRequest<LoginResponse>('/login', { method: 'POST', body }),
+  me: () => platformRequest<{ user: PublicUser; role: StaffRole; locationId: string }>('/me'),
+  logout: () => platformRequest<{ ok: true }>('/logout', { method: 'POST' }),
 };
 
 export interface HostQueueResponse {
@@ -39,12 +62,6 @@ export interface SeatResponse {
   ok: true;
 }
 
-export interface SeatConflictError {
-  error: 'table_occupied';
-  tableNumber: number;
-  occupiedBy: string;
-}
-
 export interface AddPartyResponse {
   code: string;
   position: number;
@@ -52,78 +69,192 @@ export interface AddPartyResponse {
   etaMinutes: number;
 }
 
+export interface PublicConfigResponse {
+  name: string;
+  publicHost?: string;
+  websiteTemplate?: WebsiteTemplate;
+  guestFeatures?: GuestFeatures;
+}
+
+export interface SiteConfigResponse {
+  name: string;
+  address: {
+    street: string;
+    city: string;
+    state: string;
+    zip: string;
+  } | null;
+  hours: Record<string, unknown> | null;
+  publicHost: string;
+}
+
+export interface WebsiteConfigResponse {
+  websiteTemplate: WebsiteTemplate;
+  content: {
+    heroHeadline?: string;
+    heroSubhead?: string;
+    about?: string;
+    contactEmail?: string;
+    instagramHandle?: string;
+    reservationsNote?: string;
+  } | null;
+}
+
+export interface MessagingConfigResponse {
+  smsSenderName: string;
+  sharedNumber: string;
+  twilioVoiceNumber: string;
+}
+
+export interface VoiceConfigResponse {
+  voiceEnabled: boolean;
+  frontDeskPhone: string;
+  voiceLargePartyThreshold: number;
+}
+
+export interface HostStats {
+  partiesSeated: number;
+  noShows: number;
+  avgActualWaitMinutes: number | null;
+  peakHourLabel: string | null;
+  configuredTurnTime: number;
+  actualTurnTime: number | null;
+  totalJoined: number;
+  stillWaiting: number;
+  avgOrderTimeMinutes: number | null;
+  avgServeTimeMinutes: number | null;
+  avgCheckoutTimeMinutes: number | null;
+  avgTableOccupancyMinutes: number | null;
+}
+
 export const waitlist = {
-  listWaiting: () => request<HostQueueResponse>('/host/queue'),
-  listSeated: () => request<HostDiningResponse>('/host/dining'),
-  listCompleted: () => request<HostCompletedResponse>('/host/completed'),
-
-  /** Host-initiated add for walk-ins (POST /host/queue/add). */
-  addParty: (body: { name: string; partySize: number; phone: string }) =>
-    request<AddPartyResponse>('/host/queue/add', { method: 'POST', body }),
-
-  /**
-   * Issue #30 R14–R17 seat action. The backend exposes seating as a "remove"
-   * with reason=seated rather than a standalone route — this wrapper hides
-   * that wart from the rest of the iOS app.
-   */
-  seat: (id: PartyId, tableNumber: number, override = false) =>
+  listWaiting: (locationId: string) => request<HostQueueResponse>('/host/queue', { locationId }),
+  listSeated: (locationId: string) => request<HostDiningResponse>('/host/dining', { locationId }),
+  listCompleted: (locationId: string) => request<HostCompletedResponse>('/host/completed', { locationId }),
+  addParty: (locationId: string, body: { name: string; partySize: number; phone: string }) =>
+    request<AddPartyResponse>('/host/queue/add', { method: 'POST', body, locationId }),
+  seat: (locationId: string, id: PartyId, tableNumber: number, override = false) =>
     request<SeatResponse>(`/host/queue/${id}/remove`, {
       method: 'POST',
       body: { reason: 'seated', tableNumber, override },
+      locationId,
     }),
-
-  noShow: (id: PartyId) =>
+  noShow: (locationId: string, id: PartyId) =>
     request<{ ok: true }>(`/host/queue/${id}/remove`, {
       method: 'POST',
       body: { reason: 'no_show' },
+      locationId,
     }),
-
-  advance: (id: PartyId, state: 'ordered' | 'served' | 'checkout' | 'departed') =>
+  advance: (locationId: string, id: PartyId, state: 'ordered' | 'served' | 'checkout' | 'departed') =>
     request<{ ok: true }>(`/host/queue/${id}/advance`, {
       method: 'POST',
       body: { state },
+      locationId,
     }),
 };
 
 export const chat = {
-  /** Templates require a code query parameter; the backend substitutes code-specific copy. */
-  templates: (code: string) =>
-    request<ChatTemplates>(`/host/chat/templates?code=${encodeURIComponent(code)}`),
-
-  thread: (id: PartyId) => request<ChatThread>(`/host/queue/${id}/chat`),
-
-  send: (id: PartyId, body: string) =>
+  templates: (locationId: string, code: string) =>
+    request<ChatTemplates>(`/host/chat/templates?code=${encodeURIComponent(code)}`, { locationId }),
+  thread: (locationId: string, id: PartyId) => request<ChatThread>(`/host/queue/${id}/chat`, { locationId }),
+  send: (locationId: string, id: PartyId, body: string) =>
     request<{ ok: true; smsStatus: string; message: ChatMessage }>(
       `/host/queue/${id}/chat`,
-      { method: 'POST', body: { body } },
+      { method: 'POST', body: { body }, locationId },
     ),
-
-  markRead: (id: PartyId) =>
-    request<{ ok: true; updated: number }>(`/host/queue/${id}/chat/read`, { method: 'PATCH' }),
+  markRead: (locationId: string, id: PartyId) =>
+    request<{ ok: true; updated: number }>(`/host/queue/${id}/chat/read`, { method: 'PATCH', locationId }),
 };
 
 export const calls = {
-  /**
-   * Fire-and-forget log for when the host taps the device tel: dial link.
-   * This does NOT initiate a server-side call — that's the Custom Call action,
-   * which posts to /host/queue/:id/call.
-   */
-  log: (id: PartyId) => request<{ ok: true }>(`/host/queue/${id}/call-log`, { method: 'POST' }),
-
-  /** Server-initiated SMS "call" — the existing Custom Call action. */
-  customCall: (id: PartyId) =>
-    request<{ ok: true; smsStatus: string }>(`/host/queue/${id}/call`, { method: 'POST' }),
+  log: (locationId: string, id: PartyId) =>
+    request<{ ok: true }>(`/host/queue/${id}/call-log`, { method: 'POST', locationId }),
+  customCall: (locationId: string, id: PartyId) =>
+    request<{ ok: true; smsStatus: string }>(`/host/queue/${id}/call`, { method: 'POST', locationId }),
 };
 
 export interface HostSettings {
   avgTurnTimeMinutes: number;
   etaMode: 'manual' | 'dynamic';
   effectiveMinutes: number;
+  dynamicMinutes?: number | null;
+  sampleSize?: number;
+  fellBackToManual?: boolean;
 }
 
 export const stats = {
-  getStats: () => request<Record<string, unknown>>('/host/stats'),
-  getSettings: () => request<HostSettings>('/host/settings'),
-  saveSettings: (body: { avgTurnTimeMinutes?: number; etaMode?: 'manual' | 'dynamic' }) =>
-    request<HostSettings>('/host/settings', { method: 'POST', body }),
+  getStats: (locationId: string) => request<HostStats>('/host/stats', { locationId }),
+  getSettings: (locationId: string) => request<HostSettings>('/host/settings', { locationId }),
+  saveSettings: (locationId: string, body: { avgTurnTimeMinutes?: number; etaMode?: 'manual' | 'dynamic' }) =>
+    request<HostSettings>('/host/settings', { method: 'POST', body, locationId }),
+};
+
+export const config = {
+  publicBrand: async (locationId: string): Promise<BrandContext> => {
+    const data = await request<PublicConfigResponse>('/public-config', { locationId });
+    return {
+      locationId,
+      restaurantName: data.name || locationId,
+      websiteTemplate: data.websiteTemplate ?? 'saffron',
+      publicHost: data.publicHost ?? '',
+      guestFeatures: {
+        sms: data.guestFeatures?.sms !== false,
+        chat: data.guestFeatures?.chat !== false,
+        order: data.guestFeatures?.order !== false,
+      },
+    };
+  },
+  staffBrand: async (locationId: string): Promise<BrandContext> => {
+    const [site, website, guestFeatures] = await Promise.all([
+      request<SiteConfigResponse>('/host/site-config', { locationId }),
+      request<WebsiteConfigResponse>('/host/website-config', { locationId }),
+      request<GuestFeatures>('/host/guest-features', { locationId }),
+    ]);
+    return {
+      locationId,
+      restaurantName: site.name || locationId,
+      websiteTemplate: website.websiteTemplate ?? 'saffron',
+      publicHost: site.publicHost ?? '',
+      guestFeatures: {
+        sms: guestFeatures.sms !== false,
+        chat: guestFeatures.chat !== false,
+        order: guestFeatures.order !== false,
+      },
+    };
+  },
+  siteConfig: (locationId: string) => request<SiteConfigResponse>('/host/site-config', { locationId }),
+  websiteConfig: (locationId: string) => request<WebsiteConfigResponse>('/host/website-config', { locationId }),
+  messagingConfig: (locationId: string) => request<MessagingConfigResponse>('/host/messaging-config', { locationId }),
+  voiceConfig: (locationId: string) => request<VoiceConfigResponse>('/host/voice-config', { locationId }),
+  guestFeatures: (locationId: string) => request<GuestFeatures>('/host/guest-features', { locationId }),
+  saveGuestFeatures: (locationId: string, body: GuestFeatures) =>
+    request<GuestFeatures>('/host/guest-features', { method: 'POST', body, locationId }),
+  saveMessagingConfig: (locationId: string, body: { smsSenderName: string }) =>
+    request<MessagingConfigResponse>('/host/messaging-config', { method: 'POST', body, locationId }),
+  saveVoiceConfig: (
+    locationId: string,
+    body: { voiceEnabled: boolean; frontDeskPhone: string; voiceLargePartyThreshold: number },
+  ) => request<VoiceConfigResponse>('/host/voice-config', { method: 'POST', body, locationId }),
+};
+
+export const guest = {
+  state: (locationId: string) => request<QueueState>('/queue/state', { locationId }),
+  join: (locationId: string, body: { name: string; partySize: number; phone: string; smsConsent?: boolean }) =>
+    request<AddPartyResponse>('/queue/join', { method: 'POST', body, locationId }),
+  status: (locationId: string, code: string) =>
+    request<GuestStatus>(`/queue/status?code=${encodeURIComponent(code)}`, { locationId }),
+  thread: (locationId: string, code: string) =>
+    request<GuestChatThread>(`/queue/chat/${encodeURIComponent(code)}`, { locationId }),
+  sendMessage: (locationId: string, code: string, body: string) =>
+    request<{ ok: true }>(`/queue/chat/${encodeURIComponent(code)}`, {
+      method: 'POST',
+      body: { body },
+      locationId,
+    }),
+  acknowledge: (locationId: string, code: string) =>
+    request<{ ok: true }>('/queue/acknowledge', {
+      method: 'POST',
+      body: { code },
+      locationId,
+    }),
 };

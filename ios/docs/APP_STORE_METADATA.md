@@ -1,33 +1,33 @@
 # App Store Connect — Metadata Draft
 
-Target app: **SKB Host Stand**
+Target app: **OSH**
 Bundle ID: `com.skbwaitlist.hoststand`
 Primary category: **Business**
 Secondary category: **Food & Drink**
 Age rating: **4+**
 Content descriptors: **None**
-Distribution: **Private** (Apple Business Manager / internal TestFlight). SKB Host Stand is an operations tool for restaurant staff and is not intended for general App Store discovery. If public listing is preferred, remove this paragraph and set "Distribution: Public."
+Distribution: **Private** (Apple Business Manager / internal TestFlight). OSH is an operations tool for restaurant staff and guests, and is not intended for general App Store discovery. If public listing is preferred, remove this paragraph and set "Distribution: Public."
 
 ## Listing copy
 
 ### App name (30 chars)
 ```
-SKB Host Stand
+OSH
 ```
 
 ### Subtitle (30 chars)
 ```
-Waitlist for restaurant hosts
+Restaurant OS
 ```
 
 ### Promotional text (170 chars)
 ```
-Manage your live waitlist from the host stand. Seat with table numbers, chat with waiting guests, and keep turn-time tracking tied to every party.
+Run your restaurant from one app: host queue, admin controls, and a branded guest waitlist experience.
 ```
 
 ### Description (4000 chars)
 ```
-SKB Host Stand is the staff-side companion to the SKB (Shri Krishna Bhavan) walk-in waitlist system. It is the tool your host uses at the stand to run the dinner rush: see who is waiting, chat with them, seat them at a specific table, and keep your turn-time analytics honest.
+OSH is the restaurant operating system for the front desk. Staff sign in with their OSH account and land in the right workspace for their role: host, admin, or owner. Guests can open the same app into a branded queue tracker for the specific restaurant they are visiting.
 
 WAITING TAB
 • Live queue: every party in position order, with promised time and a second-by-second "waiting" clock.
@@ -45,18 +45,23 @@ SEAT-WITH-TABLE DIALOG
 • Table number is required on seat. Recent tables are quick-pick chips.
 • If you try to seat a party at a table that is already occupied, you see the conflict (which party is currently there), and an explicit override is required to proceed. Mistakes are caught; emergencies are not blocked.
 
+ROLE-AWARE ACCESS
+• Hosts land directly in the live floor view.
+• Admins and owners get a workspace for guest settings, messaging identity, and front-desk controls.
+• Guests can enter a restaurant slug and optionally a party code to open that restaurant's branded queue tracker.
+
 BUILT FOR THE STAND
-• Dark theme, tabular-nums for every time and position column so numbers don't jiggle.
+• Rich mobile-first UI with restaurant branding after login.
 • iPad-primary, iPhone-secondary.
 • Polls every 15 seconds while the app is in the foreground; pauses automatically while backgrounded so it doesn't burn battery on a locked tablet.
-• Host sign-in via your existing SKB location PIN. Sessions persist in the iOS Keychain.
+• Staff sign in with a named OSH account, with multi-restaurant selection when needed.
 
-SKB Host Stand is an internal operations tool for restaurant staff. It does not collect or display data beyond what your host already sees on the SKB dashboard today.
+OSH is an internal hospitality tool. It does not collect or display data beyond what the restaurant already manages in the OSH dashboard today.
 ```
 
 ### Keywords (100 chars, comma-separated, no spaces)
 ```
-waitlist,restaurant,host,queue,seating,hostess,tablehostess,hospitality,skb,diner
+waitlist,restaurant,host,queue,hospitality,admin,guest,seating,osh,diner
 ```
 
 ### Support URL
@@ -71,7 +76,7 @@ https://skb-waitlist.azurewebsites.net
 
 ### Copyright
 ```
-© 2026 Shri Krishna Bhavan
+© 2026 OSH
 ```
 
 ## Version info

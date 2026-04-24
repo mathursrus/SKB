@@ -1,10 +1,10 @@
 # Deployment runbook
 
-This runbook covers taking `skb-host-stand-ios` from the current state (EAS project linked, code ready) to a TestFlight build. You must run the interactive commands yourself — Apple credential setup cannot be driven from this environment.
+This runbook covers taking the `OSH` iOS app from the current state (EAS project linked, code ready) to a TestFlight build. The Expo project slug remains `skb-host-stand-ios`, while the visible app name is now `OSH`.
 
 ## Current state
 
-- ✅ EAS project created: `@smathur97/skb-host-stand-ios` (ID `daea0683-3bd3-4e56-8b49-0bda8be60ddf`)
+- ✅ EAS project created: `@smathur97/skb-host-stand-ios` (project ID `daea0683-3bd3-4e56-8b49-0bda8be60ddf`)
 - ✅ Bundle identifier: `com.skbwaitlist.hoststand`
 - ✅ `eas.json` profiles: development / preview / production
 - ✅ Typecheck clean, 17/17 tests green
@@ -61,7 +61,7 @@ Before running `eas submit`, edit `eas.json` and replace:
 ```
 
 - **appleTeamId:** your 10-character Apple Developer team identifier.
-- **ascAppId:** create the app listing at https://appstoreconnect.apple.com (My Apps → + → New App), using bundle `com.skbwaitlist.hoststand`, primary language English, SKU `skb-host-stand-ios`. Copy the App ID (looks like `1234567890`) into `eas.json`.
+- **ascAppId:** create the app listing at https://appstoreconnect.apple.com (My Apps → + → New App), using bundle `com.skbwaitlist.hoststand`, primary language English, SKU `osh-ios`. Copy the App ID (looks like `1234567890`) into `eas.json`.
 
 ## Step 3 — Production build + TestFlight submit
 

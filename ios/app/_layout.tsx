@@ -16,15 +16,13 @@ import { useTheme } from '@/ui/theme';
 
 export default function RootLayout() {
   const hydrate = useAuthStore((s) => s.hydrate);
+  const status = useAuthStore((s) => s.status);
+  const role = useAuthStore((s) => s.role);
+  const locationId = useAuthStore((s) => s.locationId);
   const theme = useTheme();
   const scheme = useColorScheme();
   const [updateChecked, setUpdateChecked] = useState(false);
 
-  // Proactively fetch + apply any pending OTA update BEFORE the app renders
-  // its first real screen. Default expo-updates behavior is "serve cached,
-  // download in background, apply on next launch" — which traps users on
-  // stale bundles through a full launch cycle. Awaiting here means: first
-  // launch after a push downloads AND applies, no double-relaunch ritual.
   useEffect(() => {
     (async () => {
       try {
@@ -33,10 +31,10 @@ export default function RootLayout() {
         if (check.isAvailable) {
           await Updates.fetchUpdateAsync();
           await Updates.reloadAsync();
-          return; // app restarts here with the new bundle
+          return;
         }
       } catch {
-        // Network failure / dev client: fall through to boot with current bundle
+        // Best effort only.
       }
       setUpdateChecked(true);
     })();
@@ -47,22 +45,27 @@ export default function RootLayout() {
   }, [hydrate]);
 
   useEffect(() => {
+    if (status !== 'loggedIn' || role === 'guest' || !locationId) return undefined;
+
     let dispose: (() => void) | null = null;
+    let cancelled = false;
+
     void (async () => {
       const result = await registerForPushNotifications();
-      if (result.token) {
-        await registerPushTokenWithBackend(result.token);
+      if (!cancelled && result.token) {
+        await registerPushTokenWithBackend(result.token, locationId);
       }
-      dispose = addUnreadBadgeListener();
+      if (!cancelled) {
+        dispose = addUnreadBadgeListener();
+      }
     })();
+
     return () => {
+      cancelled = true;
       dispose?.();
     };
-  }, []);
+  }, [locationId, role, status]);
 
-  // Hold the UI on a blank surface while we settle the OTA check. Max ~3s
-  // (Expo's default network timeout) so even if the Expo manifest is down
-  // the app still boots.
   if (!updateChecked) {
     return <View style={{ flex: 1, backgroundColor: theme.color.surface }} />;
   }
@@ -79,8 +82,9 @@ export default function RootLayout() {
           }}
         >
           <Stack.Screen name="index" options={{ headerShown: false }} />
-          <Stack.Screen name="login" options={{ title: 'SKB · Host Stand', headerShown: false }} />
+          <Stack.Screen name="login" options={{ title: 'OSH', headerShown: false }} />
           <Stack.Screen name="(host)" options={{ headerShown: false }} />
+          <Stack.Screen name="(guest)" options={{ headerShown: false }} />
         </Stack>
       </SafeAreaProvider>
     </GestureHandlerRootView>

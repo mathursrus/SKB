@@ -1,14 +1,16 @@
-import Constants from 'expo-constants';
-import * as Updates from 'expo-updates';
 import { useEffect, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
+import { isAdminRole, roleLabel } from '@/core/auth';
 import { stats as statsApi } from '@/net/endpoints';
 import { useAuthStore } from '@/state/auth';
 import { theme } from '@/ui/theme';
 
 export default function SettingsScreen() {
   const logout = useAuthStore((s) => s.logout);
+  const role = useAuthStore((s) => s.role);
+  const locationId = useAuthStore((s) => s.locationId);
+  const brand = useAuthStore((s) => s.brand);
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -17,11 +19,13 @@ export default function SettingsScreen() {
   const [dirty, setDirty] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [effective, setEffective] = useState<number | null>(null);
+  const canEdit = isAdminRole(role);
 
   useEffect(() => {
     (async () => {
+      if (!locationId) return;
       try {
-        const s = await statsApi.getSettings();
+        const s = await statsApi.getSettings(locationId);
         setEtaMode(s.etaMode);
         setTurnTime(String(s.avgTurnTimeMinutes ?? 8));
         setEffective(s.effectiveMinutes);
@@ -32,9 +36,10 @@ export default function SettingsScreen() {
         setLoading(false);
       }
     })();
-  }, []);
+  }, [locationId]);
 
   async function handleSave() {
+    if (!locationId) return;
     const parsed = parseInt(turnTime, 10);
     if (!Number.isFinite(parsed) || parsed < 1 || parsed > 60) {
       Alert.alert('Invalid turn time', 'Please enter a number between 1 and 60.');
@@ -43,7 +48,7 @@ export default function SettingsScreen() {
     setSaving(true);
     setError(null);
     try {
-      const s = await statsApi.saveSettings({ etaMode, avgTurnTimeMinutes: parsed });
+      const s = await statsApi.saveSettings(locationId, { etaMode, avgTurnTimeMinutes: parsed });
       setEffective(s.effectiveMinutes);
       setDirty(false);
     } catch (err) {
@@ -55,19 +60,26 @@ export default function SettingsScreen() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <Text style={styles.header}>Settings</Text>
+      <View style={styles.hero}>
+        <Text style={styles.eyebrow}>{roleLabel(role)} settings</Text>
+        <Text style={styles.title}>{brand?.restaurantName ?? 'OSH'}</Text>
+        <Text style={styles.subtitle}>
+          Hosts can view live ETA behavior. Admins and owners can tune the estimate used across the restaurant.
+        </Text>
+      </View>
 
       <View style={styles.section}>
-        <Text style={styles.sectionLabel}>ETA Mode</Text>
+        <Text style={styles.sectionLabel}>ETA mode</Text>
         <Text style={styles.sectionHelp}>
-          Manual uses the turn time below for every party; Dynamic estimates wait from
-          recent seating history.
+          Manual uses the turn time below for every party. Dynamic estimates wait from recent seating history.
         </Text>
         <View style={styles.segment}>
           <SegmentButton
             label="Manual"
             active={etaMode === 'manual'}
+            disabled={!canEdit}
             onPress={() => {
+              if (!canEdit) return;
               setEtaMode('manual');
               setDirty(true);
             }}
@@ -75,7 +87,9 @@ export default function SettingsScreen() {
           <SegmentButton
             label="Dynamic"
             active={etaMode === 'dynamic'}
+            disabled={!canEdit}
             onPress={() => {
+              if (!canEdit) return;
               setEtaMode('dynamic');
               setDirty(true);
             }}
@@ -88,7 +102,7 @@ export default function SettingsScreen() {
         <Text style={styles.sectionHelp}>
           {etaMode === 'manual'
             ? 'Used as the per-party ETA estimate for every new join.'
-            : 'Locked in Dynamic mode — ETA is computed from recent seating history. Switch to Manual to override.'}
+            : 'Locked in Dynamic mode. Switch to Manual to override it.'}
         </Text>
         <TextInput
           value={turnTime}
@@ -98,14 +112,19 @@ export default function SettingsScreen() {
           }}
           keyboardType="number-pad"
           maxLength={2}
-          editable={etaMode === 'manual'}
-          style={[styles.input, etaMode !== 'manual' && styles.inputDisabled]}
+          editable={canEdit && etaMode === 'manual'}
+          style={[styles.input, (!canEdit || etaMode !== 'manual') && styles.inputDisabled]}
           accessibilityLabel="Turn time minutes"
-          accessibilityState={{ disabled: etaMode !== 'manual' }}
+          accessibilityState={{ disabled: !canEdit || etaMode !== 'manual' }}
         />
         {effective !== null && (
           <Text style={styles.effective}>
             Active ETA · <Text style={styles.effectiveValue}>{effective}m</Text>
+          </Text>
+        )}
+        {!canEdit && (
+          <Text style={styles.readOnlyNote}>
+            This screen is read-only for hosts. Sign in as an admin or owner to change restaurant-wide settings.
           </Text>
         )}
       </View>
@@ -115,11 +134,11 @@ export default function SettingsScreen() {
       <Pressable
         accessibilityRole="button"
         accessibilityLabel="Save settings"
-        disabled={!dirty || saving || loading}
-        style={[styles.saveButton, (!dirty || saving || loading) && styles.saveButtonDisabled]}
+        disabled={!canEdit || !dirty || saving || loading}
+        style={[styles.saveButton, (!canEdit || !dirty || saving || loading) && styles.saveButtonDisabled]}
         onPress={() => void handleSave()}
       >
-        <Text style={styles.saveButtonText}>{saving ? 'Saving…' : 'Save settings'}</Text>
+        <Text style={styles.saveButtonText}>{saving ? 'Saving...' : 'Save settings'}</Text>
       </Pressable>
 
       <View style={styles.divider} />
@@ -132,8 +151,6 @@ export default function SettingsScreen() {
       >
         <Text style={styles.logoutText}>Sign out</Text>
       </Pressable>
-
-      <BuildInfo />
     </ScrollView>
   );
 }
@@ -141,17 +158,19 @@ export default function SettingsScreen() {
 function SegmentButton({
   label,
   active,
+  disabled,
   onPress,
 }: {
   label: string;
   active: boolean;
+  disabled?: boolean;
   onPress: () => void;
 }) {
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityState={{ selected: active }}
-      style={[styles.segmentButton, active && styles.segmentButtonActive]}
+      accessibilityState={{ selected: active, disabled: !!disabled }}
+      style={[styles.segmentButton, active && styles.segmentButtonActive, disabled && styles.segmentButtonDisabled]}
       onPress={onPress}
     >
       <Text style={[styles.segmentButtonText, active && styles.segmentButtonTextActive]}>
@@ -161,37 +180,41 @@ function SegmentButton({
   );
 }
 
-function BuildInfo() {
-  const apiBase =
-    (Constants.expoConfig?.extra as { apiBaseUrl?: string } | undefined)?.apiBaseUrl
-    ?? (process.env as { EXPO_PUBLIC_API_BASE_URL?: string }).EXPO_PUBLIC_API_BASE_URL
-    ?? '(default)';
-  const updateId = Updates.updateId ?? 'embedded';
-  const shortId = updateId === 'embedded' ? 'embedded' : updateId.slice(0, 8);
-  const channel = Updates.channel ?? '—';
-  let host = apiBase;
-  try { host = new URL(apiBase).host; } catch { /* ignore */ }
-  return (
-    <Text style={{ textAlign: 'center', fontSize: 10, color: theme.color.textMuted, marginTop: theme.space.xl }}>
-      build · {channel} · {shortId} · {host}
-    </Text>
-  );
-}
-
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: theme.color.surface },
   content: { padding: theme.space.lg, paddingBottom: theme.space.xxl },
-  header: {
-    color: theme.color.text,
-    fontSize: 22,
-    fontWeight: '700',
+  hero: {
+    borderRadius: 24,
+    backgroundColor: theme.color.surfaceRaised,
+    borderWidth: 1,
+    borderColor: theme.color.line,
+    padding: theme.space.xl,
     marginBottom: theme.space.xl,
+  },
+  eyebrow: {
+    color: theme.color.accent,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+    fontSize: 12,
+  },
+  title: {
+    color: theme.color.text,
+    fontSize: 28,
+    fontWeight: '800',
+    marginTop: 8,
+  },
+  subtitle: {
+    color: theme.color.textMuted,
+    fontSize: 14,
+    lineHeight: 20,
+    marginTop: 8,
   },
   section: { marginBottom: theme.space.xl },
   sectionLabel: {
     color: theme.color.text,
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: '700',
     marginBottom: 4,
   },
   sectionHelp: {
@@ -217,10 +240,13 @@ const styles = StyleSheet.create({
     borderColor: theme.color.accent,
     backgroundColor: theme.color.accent,
   },
+  segmentButtonDisabled: {
+    opacity: 0.55,
+  },
   segmentButtonText: {
     color: theme.color.text,
     fontSize: 15,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   segmentButtonTextActive: { color: theme.color.accentFg },
   input: {
@@ -245,6 +271,11 @@ const styles = StyleSheet.create({
     marginTop: theme.space.sm,
   },
   effectiveValue: { color: theme.color.accent, fontWeight: '700' },
+  readOnlyNote: {
+    color: theme.color.textMuted,
+    fontSize: 13,
+    marginTop: theme.space.md,
+  },
   error: { color: theme.color.warn, fontSize: 13, marginBottom: theme.space.sm },
   saveButton: {
     alignSelf: 'flex-start',
@@ -273,5 +304,5 @@ const styles = StyleSheet.create({
     paddingVertical: theme.space.md,
     borderRadius: theme.radius.md,
   },
-  logoutText: { color: theme.color.warn, fontSize: 16, fontWeight: '600' },
+  logoutText: { color: theme.color.warn, fontSize: 16, fontWeight: '700' },
 });

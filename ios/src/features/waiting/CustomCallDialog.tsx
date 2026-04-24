@@ -3,6 +3,7 @@ import { Alert, Linking, Modal, Pressable, StyleSheet, Text, View } from 'react-
 import { events, logger } from '@/core/logger';
 import type { WaitingParty } from '@/core/party';
 import { calls } from '@/net/endpoints';
+import { useAuthStore } from '@/state/auth';
 import { theme } from '@/ui/theme';
 
 /**
@@ -18,6 +19,7 @@ export function CustomCallDialog({
   party: WaitingParty | null;
   onClose: () => void;
 }) {
+  const locationId = useAuthStore((s) => s.locationId);
   if (!party) return null;
 
   function handleCall() {
@@ -26,7 +28,7 @@ export function CustomCallDialog({
       return;
     }
     logger.info(events.callInitiate, { partyId: party.id });
-    void calls.log(party.id).catch(() => {});
+    if (locationId) void calls.log(locationId, party.id).catch(() => {});
     const cleaned = party.phoneForDial.replace(/[^\d+]/g, '');
     void Linking.openURL(`tel:${cleaned}`);
     onClose();

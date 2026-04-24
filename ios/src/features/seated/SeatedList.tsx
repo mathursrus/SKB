@@ -2,12 +2,14 @@ import { FlatList, StyleSheet, Text, View } from 'react-native';
 
 import type { SeatedParty } from '@/core/party';
 import { waitlist as waitlistApi } from '@/net/endpoints';
+import { useAuthStore } from '@/state/auth';
 import { useWaitlistStore } from '@/state/waitlist';
 import { theme } from '@/ui/theme';
 
 import { SeatedRow } from './SeatedRow';
 
 export function SeatedList() {
+  const locationId = useAuthStore((s) => s.locationId);
   const seated = useWaitlistStore((s) => s.seated);
   const poll = useWaitlistStore((s) => s.poll);
 
@@ -16,7 +18,8 @@ export function SeatedList() {
     to: 'ordered' | 'served' | 'checkout' | 'departed',
   ) {
     try {
-      await waitlistApi.advance(party.id, to);
+      if (!locationId) return;
+      await waitlistApi.advance(locationId, party.id, to);
       await poll();
     } catch {
       // surfaced via store.error on next poll

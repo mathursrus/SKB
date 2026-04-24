@@ -4,6 +4,7 @@ import { Alert, FlatList, Pressable, RefreshControl, StyleSheet, Text, View } fr
 
 import type { WaitingParty } from '@/core/party';
 import { calls } from '@/net/endpoints';
+import { useAuthStore } from '@/state/auth';
 import { useWaitlistStore } from '@/state/waitlist';
 import { theme } from '@/ui/theme';
 
@@ -14,6 +15,7 @@ import { CustomSmsDialog } from './CustomSmsDialog';
 import { PartyRow } from './PartyRow';
 
 export function WaitingList() {
+  const locationId = useAuthStore((s) => s.locationId);
   const waiting = useWaitlistStore((s) => s.waiting);
   const seated = useWaitlistStore((s) => s.seated);
   const error = useWaitlistStore((s) => s.error);
@@ -53,7 +55,8 @@ export function WaitingList() {
     if (notifying === party.id) return; // prevent double-tap
     setNotifying(party.id);
     try {
-      await calls.customCall(party.id);
+      if (!locationId) throw new Error('No restaurant selected');
+      await calls.customCall(locationId, party.id);
       await poll(); // refresh so the "called" state + re-notify UI reflect
       const action = party.state === 'called' ? 'Re-notified' : 'Notified';
       Alert.alert('SMS sent', `${action} ${party.name}.`);

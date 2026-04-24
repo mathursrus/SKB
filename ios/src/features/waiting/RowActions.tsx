@@ -4,6 +4,7 @@ import { events, logger } from '@/core/logger';
 import type { WaitingParty } from '@/core/party';
 import { hasDialablePhone } from '@/core/party';
 import { calls } from '@/net/endpoints';
+import { useAuthStore } from '@/state/auth';
 import { useChatStore } from '@/state/chat';
 import { Button } from '@/ui/Button';
 
@@ -25,13 +26,14 @@ export function RowActions({
   onRemove,
 }: Props) {
   const phoneOk = hasDialablePhone(party);
+  const locationId = useAuthStore((s) => s.locationId);
   const openChat = useChatStore((s) => s.openChat);
   const isCalled = party.state === 'called';
 
   function handleCall() {
-    if (!party.phoneForDial) return;
+    if (!party.phoneForDial || !locationId) return;
     logger.info(events.callInitiate, { partyId: party.id });
-    void calls.log(party.id).catch(() => {});
+    void calls.log(locationId, party.id).catch(() => {});
     const cleaned = party.phoneForDial.replace(/[^\d+]/g, '');
     void Linking.openURL(`tel:${cleaned}`);
   }

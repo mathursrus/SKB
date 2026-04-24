@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "OSH Host Stand",
+    "name": "OSH",
     "slug": "skb-host-stand-ios",
     "version": "0.1.0",
     "orientation": "default",
     "icon": "./assets/icon.png",
-    "scheme": "skbhost",
+    "scheme": "osh",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {

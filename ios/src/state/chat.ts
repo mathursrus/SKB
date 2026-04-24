@@ -3,11 +3,12 @@ import { create } from 'zustand';
 import { events, logger } from '@/core/logger';
 import type { ChatMessage, PartyId } from '@/core/party';
 import { chat as chatApi } from '@/net/endpoints';
+import { useAuthStore } from '@/state/auth';
 
 const FALLBACK_TEMPLATES: ChatTemplate[] = [
   { id: 'almost', label: 'Almost ready', body: 'Your table is almost ready' },
   { id: 'more_time', label: 'More time', body: 'Need 5 more minutes?' },
-  { id: 'lost', label: 'Still here?', body: 'We lost you — are you still here?' },
+  { id: 'lost', label: 'Still here?', body: 'We lost you - are you still here?' },
 ];
 
 export interface ChatTemplate {
@@ -37,12 +38,15 @@ export const useChatStore = create<ChatState>((set, get) => ({
   error: null,
 
   openChat: async (partyId, code) => {
+    const locationId = useAuthStore.getState().locationId;
+    if (!locationId) return;
+
     logger.info(events.chatOpen, { partyId });
     set({ openPartyId: partyId, openPartyCode: code, loading: true, error: null });
     try {
       const [thread, templates] = await Promise.all([
-        chatApi.thread(partyId),
-        chatApi.templates(code).catch(() => null),
+        chatApi.thread(locationId, partyId),
+        chatApi.templates(locationId, code).catch(() => null),
       ]);
       set((s) => ({
         threads: { ...s.threads, [partyId]: thread.messages },
@@ -56,8 +60,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
             : s.templates,
         loading: false,
       }));
-      // Clear unread badge server-side — best effort.
-      void chatApi.markRead(partyId).catch(() => {});
+      void chatApi.markRead(locationId, partyId).catch(() => {});
     } catch (err) {
       set({ loading: false, error: (err as Error).message });
     }
@@ -66,6 +69,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
   closeChat: () => set({ openPartyId: null, openPartyCode: null }),
 
   sendMessage: async (partyId, body) => {
+    const locationId = useAuthStore.getState().locationId;
+    if (!locationId) return;
+
     const trimmed = body.trim();
     if (trimmed.length === 0) return;
     logger.info(events.chatSend, { partyId, length: trimmed.length });
@@ -82,13 +88,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
       },
     }));
     try {
-      const { message } = await chatApi.send(partyId, trimmed);
+      const { message } = await chatApi.send(locationId, partyId, trimmed);
       set((s) => ({
         threads: {
           ...s.threads,
-          // Replace the last optimistic outbound that matches by body, or just
-          // append. We dedupe by walking from the end and replacing the first
-          // outbound with the same body and no server-assigned smsStatus.
           [partyId]: replaceOptimistic(s.threads[partyId] ?? [], optimistic, message),
         },
       }));

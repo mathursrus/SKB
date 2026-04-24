@@ -52,7 +52,7 @@ export async function registerForPushNotifications(): Promise<RegisterResult> {
   return { granted: true, token: tokenResponse.data };
 }
 
-export async function registerPushTokenWithBackend(token: string): Promise<void> {
+export async function registerPushTokenWithBackend(token: string, locationId: string): Promise<void> {
   // The SKB backend doesn't yet expose a push-token registration endpoint — this
   // is a best-effort call. A 404 here is expected until the backend lands; the
   // client still works offline and will send unread-count badges client-side via
@@ -61,6 +61,7 @@ export async function registerPushTokenWithBackend(token: string): Promise<void>
     await request('/host/push-tokens', {
       method: 'POST',
       body: { token, platform: 'ios' },
+      locationId,
     });
   } catch {
     // swallow — backend endpoint may not exist yet

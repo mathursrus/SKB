@@ -1,6 +1,6 @@
-# SKB Host Stand — iOS
+# OSH — iOS
 
-React Native (Expo) app for the SKB (Shri Krishna Bhavan) host stand. Staff-facing waitlist management: Waiting / Seated tabs, one-tap Chat & Call, Seat-with-table capture. Implements Issue #30 on iPad + iPhone.
+React Native (Expo) app for OSH. The binary is generically branded as `OSH`, then brands itself per restaurant after login. It now supports staff login, role-aware routing, and a guest queue view alongside the host waitlist flow.
 
 ## Stack
 

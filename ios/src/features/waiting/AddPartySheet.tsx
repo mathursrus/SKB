@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 
 import { waitlist as waitlistApi } from '@/net/endpoints';
+import { useAuthStore } from '@/state/auth';
 import { useWaitlistStore } from '@/state/waitlist';
 import { theme } from '@/ui/theme';
 
@@ -24,6 +25,7 @@ import { theme } from '@/ui/theme';
  */
 export function AddPartySheet({ visible, onClose }: { visible: boolean; onClose: () => void }) {
   const poll = useWaitlistStore((s) => s.poll);
+  const locationId = useAuthStore((s) => s.locationId);
   const [name, setName] = useState('');
   const [size, setSize] = useState('2');
   const [phone, setPhone] = useState('');
@@ -59,7 +61,8 @@ export function AddPartySheet({ visible, onClose }: { visible: boolean; onClose:
     setSubmitting(true);
     setError(null);
     try {
-      const r = await waitlistApi.addParty({ name: trimmedName, partySize: sz, phone: cleanedPhone });
+      if (!locationId) throw new Error('No restaurant selected');
+      const r = await waitlistApi.addParty(locationId, { name: trimmedName, partySize: sz, phone: cleanedPhone });
       await poll();
       onClose();
       Alert.alert('Added to waitlist', `${trimmedName} · code ${r.code} · #${r.position}`);

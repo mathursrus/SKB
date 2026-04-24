@@ -114,9 +114,22 @@ function buildStatusCallbackUrl(): string | undefined {
  */
 async function resolveSenderName(locationId: string | undefined): Promise<string | undefined> {
     if (!locationId) return undefined;
-    const location = await getLocation(locationId);
-    if (!location) return undefined;
-    return location.smsSenderName || location.name;
+    try {
+        const location = await getLocation(locationId);
+        if (!location) return undefined;
+        return location.smsSenderName || location.name;
+    } catch (err) {
+        // Fail-open: if the location lookup errors (Mongo unreachable, etc.),
+        // fall back to the "OSH" default via applySenderPrefix. Matches the
+        // opt-out fail-open rationale above.
+        console.log(JSON.stringify({
+            t: new Date().toISOString(), level: 'warn',
+            msg: 'sms.sender_name_lookup_failed',
+            loc: locationId,
+            detail: err instanceof Error ? err.message : String(err),
+        }));
+        return undefined;
+    }
 }
 
 export interface SendSmsOptions {
@@ -139,7 +152,24 @@ export async function sendSms(
     }
 
     // Opt-out short-circuit (platform-wide; see services/smsOptOuts.ts).
-    if (await isOptedOut(to)) {
+    // Fail-open on DB errors: if Mongo is unreachable we log and continue
+    // rather than blocking the outbound path. Twilio's carrier-level STOP
+    // still blocks the send at the edge in that case, and the test-only CI
+    // runner (no Mongo) would otherwise turn every sendSms call into a hard
+    // timeout. TCPA isn't at risk — the app-level ledger is a performance +
+    // logging optimization, not a compliance gate.
+    let optedOut = false;
+    try {
+        optedOut = await isOptedOut(to);
+    } catch (err) {
+        console.log(JSON.stringify({
+            t: new Date().toISOString(), level: 'warn',
+            msg: 'sms.optout_check_failed',
+            to: maskPhone(to),
+            detail: err instanceof Error ? err.message : String(err),
+        }));
+    }
+    if (optedOut) {
         console.log(JSON.stringify({
             t: new Date().toISOString(),
             level: 'info',

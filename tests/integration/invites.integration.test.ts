@@ -492,6 +492,58 @@ const cases: BaseTestCase[] = [
         },
     },
 
+    {
+        name: 'legacy malformed membership row does not poison GET /staff',
+        tags: ['integration', 'invites55', 'legacy-data'],
+        testFn: async () => {
+            if (!ownerCookie) return false;
+            const db = await getDb();
+            const ownerUser = await usersColl(db).findOne({ email: OWNER_EMAIL });
+            if (!ownerUser) return false;
+            await db.collection<{ _id?: unknown; [key: string]: unknown }>('memberships').insertOne({
+                _id: new ObjectId(),
+                locationId: LOC,
+                userId: 'legacy-string-user-id',
+                role: 'host',
+                createdAt: new Date(),
+            });
+            await db.collection<{ _id?: unknown; [key: string]: unknown }>('invites').insertOne({
+                // Test-only: seed a historical bad row that violates the
+                // application schema and used to crash GET /staff.
+                _id: 'legacy-string-invite-id' as unknown as ObjectId,
+                email: 'legacy-bad-invite@example.test',
+                name: 'Legacy Bad Invite',
+                locationId: LOC,
+                role: 'host',
+                invitedByUserId: ownerUser._id,
+                tokenHash: 'legacy-bad-token-hash',
+                createdAt: new Date(),
+                expiresAt: new Date(Date.now() + 60_000),
+            });
+            await invitesColl(db).insertOne({
+                _id: new ObjectId(),
+                email: 'still-good-pending@example.test',
+                name: 'Still Good Pending',
+                locationId: LOC,
+                role: 'host',
+                invitedByUserId: ownerUser._id,
+                tokenHash: 'still-good-pending-token',
+                createdAt: new Date(),
+                expiresAt: new Date(Date.now() + 60_000),
+            });
+            const r = await fetch(`${getTestServerUrl()}/r/${LOC}/api/staff`, {
+                headers: { Cookie: ownerCookie },
+            });
+            if (!r.ok) return false;
+            const body = await r.json() as {
+                staff?: Array<{ email: string }>;
+                pending?: Array<{ email: string }>;
+            };
+            return (body.staff ?? []).some((row) => row.email === OWNER_EMAIL)
+                && (body.pending ?? []).some((row) => row.email === 'still-good-pending@example.test');
+        },
+    },
+
     // ---- teardown ----
     {
         name: 'teardown: close db + stop server',

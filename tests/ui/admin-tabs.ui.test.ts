@@ -119,6 +119,7 @@ const cases: BaseTestCase[] = [
         testFn: async () => {
             const html = await (await fetch(`${BASE()}/r/${slug}/admin.html`)).text();
             return /id="admin-guest-features-card"/.test(html)
+                && /id="admin-guest-feature-menu"/.test(html)
                 && /id="admin-guest-feature-order"/.test(html)
                 && /id="admin-guest-feature-chat"/.test(html)
                 && /id="admin-guest-feature-sms"/.test(html)
@@ -228,13 +229,14 @@ const cases: BaseTestCase[] = [
                     'Content-Type': 'application/json',
                     'Cookie': sessionCookie,
                 },
-                body: JSON.stringify({ order: false, chat: true, sms: false }),
+                body: JSON.stringify({ menu: true, order: false, chat: true, sms: false }),
             });
             if (!save.ok) return false;
             const publicConfig = await fetch(`${BASE()}/r/${slug}/api/public-config`);
             if (!publicConfig.ok) return false;
             const body = await publicConfig.json();
-            return body.guestFeatures?.order === false
+            return body.guestFeatures?.menu === true
+                && body.guestFeatures?.order === false
                 && body.guestFeatures?.chat === true
                 && body.guestFeatures?.sms === false;
         },

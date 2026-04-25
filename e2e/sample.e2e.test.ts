@@ -10,6 +10,13 @@
 // Run with: npx tsx e2e/sample.e2e.test.ts
 // ============================================================================
 
+process.env.SKB_HOST_PIN ??= '1234';
+process.env.SKB_COOKIE_SECRET ??= 'test-secret-for-ci';
+process.env.MONGODB_DB_NAME ??= 'skb_sample_e2e_test';
+process.env.PORT ??= '15302';
+process.env.FRAIM_TEST_SERVER_PORT ??= '15302';
+process.env.FRAIM_BRANCH ??= '';
+
 import {
     startTestServer,
     stopTestServer,
@@ -25,6 +32,8 @@ async function main(): Promise<void> {
             protocolVersion: '2024-11-05',
             capabilities: {},
             clientInfo: { name: 'skb-e2e', version: '0.1.0' },
+        }, {
+            Authorization: `Bearer ${process.env.SKB_HOST_PIN ?? '1234'}`,
         })) as { serverInfo?: { name?: string } } | undefined;
 
         if (!result || typeof result !== 'object') {

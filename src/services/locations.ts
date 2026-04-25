@@ -3,6 +3,7 @@
 // ============================================================================
 
 import { getDb, locations } from '../core/db/mongo.js';
+import { SERVICE_WINDOW_KEYS } from '../types/queue.js';
 import type {
     Location,
     VisitMode,
@@ -10,6 +11,7 @@ import type {
     WeeklyHours,
     DayHours,
     DayOfWeek,
+    ServiceWindowKey,
     GuestFeatures,
     PublicLocation,
     WebsiteTemplateKey,
@@ -39,6 +41,7 @@ export function normalizeFrontDeskPhone(input: string): string | null {
 const MIN_VOICE_LARGE_PARTY_THRESHOLD = 6;
 const MAX_VOICE_LARGE_PARTY_THRESHOLD = 20;
 export const DEFAULT_GUEST_FEATURES: GuestFeatures = {
+    menu: true,
     sms: true,
     chat: true,
     order: true,
@@ -46,6 +49,7 @@ export const DEFAULT_GUEST_FEATURES: GuestFeatures = {
 
 export function getGuestFeatures(location?: Pick<Location, 'guestFeatures'> | null): GuestFeatures {
     return {
+        menu: location?.guestFeatures?.menu !== false,
         sms: location?.guestFeatures?.sms !== false,
         chat: location?.guestFeatures?.chat !== false,
         order: location?.guestFeatures?.order !== false,
@@ -115,6 +119,7 @@ export interface SiteConfigUpdate {
 }
 
 export interface GuestFeaturesUpdate {
+    menu?: boolean;
     sms?: boolean;
     chat?: boolean;
     order?: boolean;
@@ -235,12 +240,12 @@ function validateAddress(addr: LocationAddress): void {
 function validateDayHours(day: DayOfWeek, value: DayHours | 'closed'): void {
     if (value === 'closed') return;
     if (typeof value !== 'object' || value === null) {
-        throw new Error(`hours.${day} must be "closed" or an object with lunch/dinner`);
+        throw new Error(`hours.${day} must be "closed" or an object with service windows`);
     }
-    const windows: Array<['lunch' | 'dinner', { open: string; close: string } | undefined]> = [
-        ['lunch', value.lunch],
-        ['dinner', value.dinner],
-    ];
+    const windows = SERVICE_WINDOW_KEYS.map((label): [ServiceWindowKey, { open: string; close: string } | undefined] => [
+        label,
+        value[label],
+    ]);
     let any = false;
     for (const [label, win] of windows) {
         if (win === undefined) continue;
@@ -256,7 +261,7 @@ function validateDayHours(day: DayOfWeek, value: DayHours | 'closed'): void {
         }
     }
     if (!any) {
-        throw new Error(`hours.${day} must include at least one of lunch or dinner (or be "closed")`);
+        throw new Error(`hours.${day} must include at least one service window (or be "closed")`);
     }
 }
 
@@ -292,7 +297,7 @@ export function validateSiteConfigUpdate(update: SiteConfigUpdate): void {
 }
 
 export function validateGuestFeaturesUpdate(update: GuestFeaturesUpdate): void {
-    const keys: Array<keyof GuestFeaturesUpdate> = ['sms', 'chat', 'order'];
+    const keys: Array<keyof GuestFeaturesUpdate> = ['menu', 'sms', 'chat', 'order'];
     for (const key of keys) {
         const value = update[key];
         if (value !== undefined && typeof value !== 'boolean') {
@@ -475,17 +480,17 @@ export async function updateLocationGuestFeatures(
     update: GuestFeaturesUpdate,
 ): Promise<Location> {
     validateGuestFeaturesUpdate(update);
+    const nextFeatures: GuestFeatures = {
+        ...DEFAULT_GUEST_FEATURES,
+        ...update,
+    };
+    if (nextFeatures.order) nextFeatures.menu = true;
 
     const db = await getDb();
     const result = await locations(db).findOneAndUpdate(
         { _id: locationId },
         {
-            $set: {
-                guestFeatures: {
-                    ...DEFAULT_GUEST_FEATURES,
-                    ...update,
-                },
-            },
+            $set: { guestFeatures: nextFeatures },
         },
         { returnDocument: 'after' },
     );

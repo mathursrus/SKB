@@ -107,6 +107,7 @@ export async function waitForServer(timeoutMs: number = 10000): Promise<void> {
 export async function sendMCPRequest(
     method: string,
     params: Record<string, unknown> = {},
+    extraHeaders: Record<string, string> = {},
 ): Promise<unknown> {
     const url = `${getTestServerUrl()}/mcp`;
     const controller = new AbortController();
@@ -114,7 +115,11 @@ export async function sendMCPRequest(
 
     const res = await fetch(url, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+            'Content-Type': 'application/json',
+            Accept: 'application/json, text/event-stream',
+            ...extraHeaders,
+        },
         body: JSON.stringify({ jsonrpc: '2.0', method, params, id: Date.now() }),
         signal: controller.signal,
     });

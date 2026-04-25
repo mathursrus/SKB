@@ -11,11 +11,13 @@
 //  - public/hours-location.html (weekly hours table, address + map)
 // ============================================================================
 
+import { SERVICE_WINDOW_KEYS } from '../types/queue.js';
 import type {
     LocationAddress,
     WeeklyHours,
     DayHours,
     DayOfWeek,
+    ServiceWindowKey,
 } from '../types/queue.js';
 
 const DAY_ORDER: DayOfWeek[] = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
@@ -28,6 +30,13 @@ const DAY_LABEL: Record<DayOfWeek, string> = {
     fri: 'Friday',
     sat: 'Saturday',
     sun: 'Sunday',
+};
+
+const SERVICE_LABEL: Record<ServiceWindowKey, string> = {
+    breakfast: 'Breakfast',
+    lunch: 'Lunch',
+    special: 'Special',
+    dinner: 'Dinner',
 };
 
 // US state abbreviation → full name (the set the restaurant actually needs).
@@ -97,9 +106,8 @@ export function buildGoogleMapsEmbedUrl(address: LocationAddress | undefined | n
  * Design choices:
  *  - Groups closed days into the "closed on X" phrase rather than reading
  *    each day individually, because IVR listeners can't scan a table.
- *  - Only speaks ONE lunch/dinner window even if days vary, by reading the
- *    window of the first open day. If weekday hours differ from weekend
- *    hours, a future iteration can extend this to detect the groupings.
+ *  - Detects distinct contiguous schedules (e.g. weekdays vs weekends) so
+ *    the spoken hours match the real configured service windows.
  *  - Returns an empty string if `hours` is falsy so callers can fall back
  *    to a static default.
  */
@@ -119,21 +127,21 @@ export function formatWeeklyHoursForSpeech(hours: WeeklyHours | undefined | null
 
     if (openDays.length === 0) return "We're temporarily closed. Please call back later.";
 
-    // "Tuesday through Sunday" / "seven days a week" / "only on Fridays and Saturdays"
-    const openPhrase = describeOpenDays(openDays);
     const closedPhrase = closedDays.length === 0
         ? ''
         : ` We're closed on ${describeClosedDays(closedDays)}.`;
+    const groups = groupScheduleDays(hours, openDays);
+    const schedulePhrase = groups.length === 1
+        ? `We're open ${describeOpenDays(openDays)}.${formatServiceWindowsForSpeech(groups[0].entry)}`
+        : groups.map((group, index) => {
+            const dayPhrase = describeDayGroup(group.days);
+            const opener = index === 0
+                ? `We're open ${group.days.length === 1 ? `on ${dayPhrase}` : dayPhrase}.`
+                : ` We're also open ${group.days.length === 1 ? `on ${dayPhrase}` : dayPhrase}.`;
+            return `${opener}${formatServiceWindowsForSpeech(group.entry)}`;
+        }).join('');
 
-    const firstOpen = hours[openDays[0]] as DayHours;
-    const lunchPhrase = firstOpen.lunch
-        ? ` Lunch service is from ${formatTimeForSpeech(firstOpen.lunch.open)} to ${formatTimeForSpeech(firstOpen.lunch.close)}.`
-        : '';
-    const dinnerPhrase = firstOpen.dinner
-        ? ` Dinner service is from ${formatTimeForSpeech(firstOpen.dinner.open)} to ${formatTimeForSpeech(firstOpen.dinner.close)}.`
-        : '';
-
-    return `We're open ${openPhrase}.${closedPhrase}${lunchPhrase}${dinnerPhrase}`.trim();
+    return `${schedulePhrase}${closedPhrase}`.trim();
 }
 
 // ---------------------------------------------------------------------------
@@ -180,11 +188,61 @@ function describeOpenDays(openDays: DayOfWeek[]): string {
     return `${names.slice(0, -1).join(', ')}, and ${names[names.length - 1]}`;
 }
 
+function describeDayGroup(days: DayOfWeek[]): string {
+    if (days.length === 1) return DAY_LABEL[days[0]];
+    if (days.length === 2) return `${DAY_LABEL[days[0]]} and ${DAY_LABEL[days[1]]}`;
+    const indices = days.map(d => DAY_ORDER.indexOf(d)).sort((a, b) => a - b);
+    const contiguous = indices.every((v, i) => i === 0 || v === indices[i - 1] + 1);
+    if (contiguous) {
+        const first = DAY_LABEL[DAY_ORDER[indices[0]]];
+        const last = DAY_LABEL[DAY_ORDER[indices[indices.length - 1]]];
+        return `${first} through ${last}`;
+    }
+    const names = days.map(d => DAY_LABEL[d]);
+    return `${names.slice(0, -1).join(', ')}, and ${names[names.length - 1]}`;
+}
+
 function describeClosedDays(closedDays: DayOfWeek[]): string {
     const names = closedDays.map(d => `${DAY_LABEL[d]}s`);
     if (names.length === 1) return names[0];
     if (names.length === 2) return `${names[0]} and ${names[1]}`;
     return `${names.slice(0, -1).join(', ')}, and ${names[names.length - 1]}`;
+}
+
+function dayHoursSignature(entry: DayHours): string {
+    return SERVICE_WINDOW_KEYS.map((key) => {
+        const window = entry[key];
+        return window ? `${key}:${window.open}-${window.close}` : `${key}:-`;
+    }).join('|');
+}
+
+function groupScheduleDays(
+    hours: WeeklyHours,
+    openDays: DayOfWeek[],
+): Array<{ days: DayOfWeek[]; entry: DayHours }> {
+    const groups: Array<{ days: DayOfWeek[]; entry: DayHours }> = [];
+    for (const day of openDays) {
+        const entry = hours[day];
+        if (!entry || entry === 'closed') continue;
+        const signature = dayHoursSignature(entry);
+        const last = groups[groups.length - 1];
+        if (last && dayHoursSignature(last.entry) === signature) {
+            last.days.push(day);
+        } else {
+            groups.push({ days: [day], entry });
+        }
+    }
+    return groups;
+}
+
+function formatServiceWindowsForSpeech(entry: DayHours): string {
+    let out = '';
+    for (const key of SERVICE_WINDOW_KEYS as readonly ServiceWindowKey[]) {
+        const window = entry[key];
+        if (!window) continue;
+        out += ` ${SERVICE_LABEL[key]} service is from ${formatTimeForSpeech(window.open)} to ${formatTimeForSpeech(window.close)}.`;
+    }
+    return out;
 }
 
 // ---------------------------------------------------------------------------

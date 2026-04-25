@@ -143,6 +143,13 @@ const cases: BaseTestCase[] = [
             /admin-qr-image[^]*visit-qr\.svg\?t=/.test(adminJs)
             || /qrImg\.src\s*=\s*['"`]api\/host\/visit-qr\.svg\?t=/.test(adminJs),
     },
+    {
+        name: 'bug50 #7: admin.js shows the tenant-scoped /r/:loc/visit QR target',
+        tags: ['unit', 'bug50', 'qr'],
+        testFn: async () =>
+            /siteConfiguredPublicUrl\s*=\s*data\.publicUrl\s*\|\|\s*['"]{2}/.test(adminJs)
+            && /scannerUrl\s*=\s*`?\$\{scannerBase\}\/r\/\$\{encodeURIComponent\(loc\)\}\/visit`?/.test(adminJs),
+    },
 
     // ---------- Bug 5 follow-up: Stage-Based Analytics histograms need CSS ----------
     // The admin.js renderHistogram() emits .hist-card / .vbar-* markup. If the
@@ -421,8 +428,8 @@ const cases: BaseTestCase[] = [
                 path.resolve(__dirname, '..', '..', 'ios', 'src', 'net', 'client.ts'),
                 'utf-8',
             );
-            return /buildTenantUrl\s*\([^)]*locationId:\s*string[^)]*\)\s*:\s*string[^]*return\s+`\$\{base\}\/r\/\$\{[^}]*locationId[^}]*\}\/api\$\{suffix\}`/
-                .test(iosClient);
+            return /buildTenantUrl\(.*\): string \{[\s\S]*const loc = encodeURIComponent\(locationId\);[\s\S]*return `\$\{base\}\/r\/\$\{loc\}\/api\$\{suffix\}`;/.test(iosClient)
+                && /export function buildUrl\(path: string\): string \{[\s\S]*return buildTenantUrl\(defaultLocationId\(\), path\);/.test(iosClient);
         },
     },
     {
@@ -454,10 +461,8 @@ const cases: BaseTestCase[] = [
                 path.resolve(__dirname, '..', '..', 'ios', 'app', '(host)', 'settings.tsx'),
                 'utf-8',
             );
-            // Dynamic mode must lock the field even if permission checks are
-            // also composed into the same editable/disabled expressions.
             return /editable=\{[^}]*etaMode\s*===\s*['"]manual['"][^}]*\}/.test(settings)
-                && /etaMode\s*!==\s*['"]manual['"][^]*styles\.inputDisabled/.test(settings);
+                && /\(\s*!canEdit\s*\|\|\s*etaMode\s*!==\s*['"]manual['"]\s*\)\s*&&\s*styles\.inputDisabled/.test(settings);
         },
     },
     {

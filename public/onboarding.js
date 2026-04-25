@@ -30,6 +30,8 @@
     var SKIPPABLE = { basics: true, content: true, dishes: true, menu: true, staff: true };
     var DAYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
     var DAY_LABELS = { mon: 'Mon', tue: 'Tue', wed: 'Wed', thu: 'Thu', fri: 'Fri', sat: 'Sat', sun: 'Sun' };
+    var SERVICE_KEYS = ['breakfast', 'lunch', 'special', 'dinner'];
+    var SERVICE_LABELS = { breakfast: 'Breakfast', lunch: 'Lunch', special: 'Special', dinner: 'Dinner' };
 
     function $(id) { return document.getElementById(id); }
 
@@ -124,9 +126,37 @@
             tr.innerHTML =
                 '<th scope="row">' + DAY_LABELS[day] + '</th>' +
                 '<td><input type="checkbox" class="wiz-day-closed" data-day="' + day + '" aria-label="' + DAY_LABELS[day] + ' closed" /></td>' +
-                '<td><input type="time" class="wiz-day-open" data-day="' + day + '" aria-label="' + DAY_LABELS[day] + ' opens" /></td>' +
-                '<td><input type="time" class="wiz-day-close" data-day="' + day + '" aria-label="' + DAY_LABELS[day] + ' closes" /></td>';
+                '<td><div class="wiz-hours-services">' +
+                    SERVICE_KEYS.map(function (service) {
+                        return '<div class="wiz-hours-window">' +
+                            '<span>' + SERVICE_LABELS[service] + '</span>' +
+                            '<input type="time" class="wiz-day-open" data-day="' + day + '" data-service="' + service + '" aria-label="' + DAY_LABELS[day] + ' ' + SERVICE_LABELS[service] + ' opens" />' +
+                            ' – ' +
+                            '<input type="time" class="wiz-day-close" data-day="' + day + '" data-service="' + service + '" aria-label="' + DAY_LABELS[day] + ' ' + SERVICE_LABELS[service] + ' closes" />' +
+                        '</div>';
+                    }).join('') +
+                '</div></td>' +
+                '<td><button type="button" class="secondary wiz-hours-copy" data-day="' + day + '">Copy to all</button></td>';
             body.appendChild(tr);
+        });
+    }
+
+    function hourInput(day, kind, service) {
+        return document.querySelector('.wiz-day-' + kind + '[data-day="' + day + '"][data-service="' + service + '"]');
+    }
+
+    function applyBasicsClosedToggle(day) {
+        var closedEl = document.querySelector('.wiz-day-closed[data-day="' + day + '"]');
+        var closed = !!(closedEl && closedEl.checked);
+        SERVICE_KEYS.forEach(function (service) {
+            var openEl = hourInput(day, 'open', service);
+            var closeEl = hourInput(day, 'close', service);
+            if (openEl) openEl.disabled = closed;
+            if (closeEl) closeEl.disabled = closed;
+            if (closed) {
+                if (openEl) openEl.value = '';
+                if (closeEl) closeEl.value = '';
+            }
         });
     }
 
@@ -141,23 +171,34 @@
         DAYS.forEach(function (day) {
             var entry = hours[day];
             var closedEl = document.querySelector('.wiz-day-closed[data-day="' + day + '"]');
-            var openEl = document.querySelector('.wiz-day-open[data-day="' + day + '"]');
-            var closeEl = document.querySelector('.wiz-day-close[data-day="' + day + '"]');
             if (!closedEl) return;
             if (entry === 'closed') {
                 closedEl.checked = true;
-                openEl.value = ''; closeEl.value = '';
-                openEl.disabled = true; closeEl.disabled = true;
+                SERVICE_KEYS.forEach(function (service) {
+                    var openEl = hourInput(day, 'open', service);
+                    var closeEl = hourInput(day, 'close', service);
+                    if (openEl) openEl.value = '';
+                    if (closeEl) closeEl.value = '';
+                });
             } else if (entry && typeof entry === 'object') {
-                var win = entry.dinner || entry.lunch || {};
                 closedEl.checked = false;
-                openEl.value = win.open || ''; closeEl.value = win.close || '';
-                openEl.disabled = false; closeEl.disabled = false;
+                SERVICE_KEYS.forEach(function (service) {
+                    var openEl = hourInput(day, 'open', service);
+                    var closeEl = hourInput(day, 'close', service);
+                    var win = entry[service] || {};
+                    if (openEl) openEl.value = win.open || '';
+                    if (closeEl) closeEl.value = win.close || '';
+                });
             } else {
                 closedEl.checked = false;
-                openEl.value = ''; closeEl.value = '';
-                openEl.disabled = false; closeEl.disabled = false;
+                SERVICE_KEYS.forEach(function (service) {
+                    var openEl = hourInput(day, 'open', service);
+                    var closeEl = hourInput(day, 'close', service);
+                    if (openEl) openEl.value = '';
+                    if (closeEl) closeEl.value = '';
+                });
             }
+            applyBasicsClosedToggle(day);
         });
         state.baselines.basics = basicsReadForm();
         markCleanEnabled('basics', false);
@@ -167,10 +208,16 @@
         var hours = {};
         DAYS.forEach(function (day) {
             var closed = !!document.querySelector('.wiz-day-closed[data-day="' + day + '"]')?.checked;
-            var open = document.querySelector('.wiz-day-open[data-day="' + day + '"]')?.value || '';
-            var close = document.querySelector('.wiz-day-close[data-day="' + day + '"]')?.value || '';
             if (closed) hours[day] = 'closed';
-            else if (open && close) hours[day] = { dinner: { open: open, close: close } };
+            else {
+                var entry = {};
+                SERVICE_KEYS.forEach(function (service) {
+                    var open = hourInput(day, 'open', service)?.value || '';
+                    var close = hourInput(day, 'close', service)?.value || '';
+                    if (open && close) entry[service] = { open: open, close: close };
+                });
+                if (Object.keys(entry).length) hours[day] = entry;
+            }
         });
         return {
             street: (val('wiz-basics-street') || '').trim(),
@@ -180,6 +227,33 @@
             phone: (val('wiz-basics-phone') || '').trim(),
             hours: hours,
         };
+    }
+
+    function basicsCopyDayToAll(day) {
+        var source = basicsReadForm().hours[day];
+        DAYS.forEach(function (targetDay) {
+            var closedEl = document.querySelector('.wiz-day-closed[data-day="' + targetDay + '"]');
+            if (!closedEl) return;
+            if (source === 'closed' || !source) {
+                closedEl.checked = true;
+                SERVICE_KEYS.forEach(function (service) {
+                    var openEl = hourInput(targetDay, 'open', service);
+                    var closeEl = hourInput(targetDay, 'close', service);
+                    if (openEl) openEl.value = '';
+                    if (closeEl) closeEl.value = '';
+                });
+            } else {
+                closedEl.checked = false;
+                SERVICE_KEYS.forEach(function (service) {
+                    var openEl = hourInput(targetDay, 'open', service);
+                    var closeEl = hourInput(targetDay, 'close', service);
+                    var window = source[service] || {};
+                    if (openEl) openEl.value = window.open || '';
+                    if (closeEl) closeEl.value = window.close || '';
+                });
+            }
+            applyBasicsClosedToggle(targetDay);
+        });
     }
 
     function basicsValidate(form) {
@@ -658,15 +732,21 @@
         var basicsForm = $('onboarding-form-basics');
         if (basicsForm) {
             basicsForm.addEventListener('input', function () { recomputeDirty('basics'); });
+            basicsForm.addEventListener('click', function (e) {
+                var t = e.target;
+                if (t && t.classList && t.classList.contains('wiz-hours-copy')) {
+                    var day = t.getAttribute('data-day');
+                    if (day) {
+                        basicsCopyDayToAll(day);
+                        recomputeDirty('basics');
+                    }
+                }
+            });
             basicsForm.addEventListener('change', function (e) {
                 var t = e.target;
                 if (t && t.classList && t.classList.contains('wiz-day-closed')) {
                     var day = t.getAttribute('data-day');
-                    var openEl = document.querySelector('.wiz-day-open[data-day="' + day + '"]');
-                    var closeEl = document.querySelector('.wiz-day-close[data-day="' + day + '"]');
-                    if (openEl) openEl.disabled = t.checked;
-                    if (closeEl) closeEl.disabled = t.checked;
-                    if (t.checked) { if (openEl) openEl.value = ''; if (closeEl) closeEl.value = ''; }
+                    if (day) applyBasicsClosedToggle(day);
                 }
                 recomputeDirty('basics');
             });

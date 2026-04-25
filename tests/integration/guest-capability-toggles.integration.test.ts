@@ -65,19 +65,40 @@ const cases: BaseTestCase[] = [
         },
     },
     {
+        name: 'owner can publish a structured menu for guest browsing checks',
+        tags: ['integration', 'guest-capabilities', 'menu'],
+        testFn: async () => {
+            const save = await fetch(`${getTestServerUrl()}/r/${LOC}/api/host/menu`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Cookie': ownerCookie! },
+                body: JSON.stringify({
+                    menu: {
+                        sections: [{
+                            id: 's1',
+                            title: 'Dosas',
+                            items: [{ id: 'i1', name: 'Masala Dosa', price: '$12' }],
+                        }],
+                    },
+                }),
+            });
+            return save.ok;
+        },
+    },
+    {
         name: 'admin can save guest capabilities and public-config reflects them',
         tags: ['integration', 'guest-capabilities', 'config'],
         testFn: async () => {
             const save = await fetch(`${getTestServerUrl()}/r/${LOC}/api/host/guest-features`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Cookie': ownerCookie! },
-                body: JSON.stringify({ order: false, chat: false, sms: false }),
+                body: JSON.stringify({ menu: true, order: false, chat: false, sms: false }),
             });
             if (!save.ok) return false;
             const publicConfig = await fetch(`${getTestServerUrl()}/r/${LOC}/api/public-config`);
             if (!publicConfig.ok) return false;
             const body = await publicConfig.json();
-            return body.guestFeatures?.order === false
+            return body.guestFeatures?.menu === true
+                && body.guestFeatures?.order === false
                 && body.guestFeatures?.chat === false
                 && body.guestFeatures?.sms === false;
         },
@@ -97,6 +118,22 @@ const cases: BaseTestCase[] = [
             const db = await getDb();
             const entry = await queueEntries(db).findOne({ code: guestCode });
             return entry?.smsConsent === false;
+        },
+    },
+    {
+        name: 'menu browsing remains available while ordering is disabled',
+        tags: ['integration', 'guest-capabilities', 'menu'],
+        testFn: async () => {
+            const [menuRes, statusRes] = await Promise.all([
+                fetch(`${getTestServerUrl()}/r/${LOC}/api/menu`),
+                fetch(`${getTestServerUrl()}/r/${LOC}/api/queue/status?code=${encodeURIComponent(guestCode)}`),
+            ]);
+            if (!menuRes.ok || !statusRes.ok) return false;
+            const menuBody = await menuRes.json();
+            const statusBody = await statusRes.json();
+            return menuBody.menu?.sections?.[0]?.items?.[0]?.name === 'Masala Dosa'
+                && statusBody.canManageOrder === false
+                && statusBody.canPlaceOrder === false;
         },
     },
     {
@@ -141,11 +178,11 @@ const cases: BaseTestCase[] = [
             const save = await fetch(`${getTestServerUrl()}/r/${LOC}/api/host/guest-features`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Cookie': ownerCookie! },
-                body: JSON.stringify({ order: true, chat: true, sms: false }),
+                body: JSON.stringify({ menu: true, order: true, chat: true, sms: false }),
             });
             if (!save.ok) return false;
             const body = await save.json();
-            return body.order === true && body.chat === true && body.sms === false;
+            return body.menu === true && body.order === true && body.chat === true && body.sms === false;
         },
     },
     {

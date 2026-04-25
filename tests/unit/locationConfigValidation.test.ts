@@ -28,7 +28,21 @@ const GOOD_HOURS: WeeklyHours = {
     sun: { lunch: { open: '11:30', close: '14:30' }, dinner: { open: '17:30', close: '21:30' } },
 };
 
+const GOOD_EXTENDED_HOURS: WeeklyHours = {
+    tue: {
+        breakfast: { open: '08:30', close: '10:30' },
+        lunch: { open: '11:30', close: '14:30' },
+        dinner: { open: '17:30', close: '21:30' },
+    },
+    sat: {
+        breakfast: { open: '09:00', close: '12:00' },
+        special: { open: '12:30', close: '14:00' },
+        dinner: { open: '17:30', close: '22:00' },
+    },
+};
+
 const GOOD_GUEST_FEATURES: GuestFeatures = {
+    menu: true,
     sms: true,
     chat: false,
     order: true,
@@ -70,6 +84,14 @@ const cases: BaseTestCase[] = [
         },
     },
     {
+        name: 'valid extended hours with breakfast and special passes',
+        tags: ['unit', 'locations'],
+        testFn: async () => {
+            validateSiteConfigUpdate({ hours: GOOD_EXTENDED_HOURS });
+            return true;
+        },
+    },
+    {
         name: 'publicHost bare domain passes',
         tags: ['unit', 'locations'],
         testFn: async () => {
@@ -101,7 +123,7 @@ const cases: BaseTestCase[] = [
         name: 'valid guest features update passes',
         tags: ['unit', 'locations'],
         testFn: async () => {
-            validateGuestFeaturesUpdate({ sms: false, chat: true, order: false });
+            validateGuestFeaturesUpdate({ menu: true, sms: false, chat: true, order: false });
             return true;
         },
     },
@@ -190,7 +212,17 @@ const cases: BaseTestCase[] = [
             () => validateSiteConfigUpdate({
                 hours: { fri: {} },
             }),
-            'at least one of lunch or dinner',
+            'at least one service window',
+        ),
+    },
+    {
+        name: 'hours with special open >= close throws',
+        tags: ['unit', 'locations'],
+        testFn: async () => throws(
+            () => validateSiteConfigUpdate({
+                hours: { fri: { special: { open: '14:30', close: '11:30' } } },
+            }),
+            'must be earlier than close',
         ),
     },
     {
@@ -223,8 +255,8 @@ const cases: BaseTestCase[] = [
         tags: ['unit', 'locations'],
         testFn: async () => throws(
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            () => validateGuestFeaturesUpdate({ sms: 'yes' as any }),
-            'guestFeatures.sms must be a boolean',
+            () => validateGuestFeaturesUpdate({ menu: 'yes' as any }),
+            'guestFeatures.menu must be a boolean',
         ),
     },
     {
@@ -267,6 +299,7 @@ const cases: BaseTestCase[] = [
             return pub.address?.street === '12 Bellevue Way SE'
                 && pub.hours?.mon === 'closed'
                 && pub.frontDeskPhone === '2065551234'
+                && pub.guestFeatures?.menu === true
                 && pub.guestFeatures?.chat === false;
         },
     },
@@ -284,6 +317,7 @@ const cases: BaseTestCase[] = [
             return pub.address === undefined
                 && pub.hours === undefined
                 && pub.frontDeskPhone === undefined
+                && pub.guestFeatures?.menu === true
                 && pub.guestFeatures?.sms === true
                 && pub.guestFeatures?.chat === true
                 && pub.guestFeatures?.order === true;
@@ -294,7 +328,10 @@ const cases: BaseTestCase[] = [
         tags: ['unit', 'locations'],
         testFn: async () => {
             const features = getGuestFeatures(null);
-            return features.sms === true && features.chat === true && features.order === true;
+            return features.menu === true
+                && features.sms === true
+                && features.chat === true
+                && features.order === true;
         },
     },
 ];

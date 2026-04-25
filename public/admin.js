@@ -23,6 +23,7 @@
     const largePartyThreshold = $('admin-large-party-threshold');
     const voiceStatus = $('admin-voice-status');
     const voiceSave = $('admin-voice-save');
+    const guestFeatureMenu = $('admin-guest-feature-menu');
     const guestFeatureOrder = $('admin-guest-feature-order');
     const guestFeatureChat = $('admin-guest-feature-chat');
     const guestFeatureSms = $('admin-guest-feature-sms');
@@ -48,42 +49,44 @@
     const sitePublicHost = $('admin-site-public-host');
     const siteStatus = $('admin-site-status');
     const siteSave = $('admin-site-save');
+    let siteConfiguredPublicUrl = '';
     const SITE_DAY_KEYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
+    const SITE_SERVICE_KEYS = ['breakfast', 'lunch', 'special', 'dinner'];
+    const SITE_DAY_LABELS = { mon: 'Monday', tue: 'Tuesday', wed: 'Wednesday', thu: 'Thursday', fri: 'Friday', sat: 'Saturday', sun: 'Sunday' };
     function siteDayEl(day) {
-        return {
-            closed: $(`admin-site-${day}-closed`),
-            lunchOpen: $(`admin-site-${day}-lunch-open`),
-            lunchClose: $(`admin-site-${day}-lunch-close`),
-            dinnerOpen: $(`admin-site-${day}-dinner-open`),
-            dinnerClose: $(`admin-site-${day}-dinner-close`),
-        };
+        const els = { closed: $(`admin-site-${day}-closed`) };
+        SITE_SERVICE_KEYS.forEach(service => {
+            els[`${service}Open`] = $(`admin-site-${day}-${service}-open`);
+            els[`${service}Close`] = $(`admin-site-${day}-${service}-close`);
+        });
+        return els;
+    }
+    function siteWindowKeys() {
+        return SITE_SERVICE_KEYS.flatMap(service => [`${service}Open`, `${service}Close`]);
     }
     function siteApplyClosedToggle(day) {
         const els = siteDayEl(day);
         if (!els.closed) return;
         const closed = els.closed.checked;
-        [els.lunchOpen, els.lunchClose, els.dinnerOpen, els.dinnerClose].forEach(el => { if (el) el.disabled = closed; });
+        siteWindowKeys().forEach((key) => { if (els[key]) els[key].disabled = closed; });
     }
     SITE_DAY_KEYS.forEach(day => {
         const els = siteDayEl(day);
         if (els.closed) els.closed.addEventListener('change', () => siteApplyClosedToggle(day));
     });
     // Accessibility: the weekly-hours time inputs live inside a visual
-    // `<span>Lunch</span>` row which is not a proper <label>. Inject
+    // service row which is not a proper <label>. Inject
     // descriptive aria-labels so screen readers can distinguish each input.
     (function siteAddAriaLabels() {
-        const DAY_LABELS = { mon: 'Monday', tue: 'Tuesday', wed: 'Wednesday', thu: 'Thursday', fri: 'Friday', sat: 'Saturday', sun: 'Sunday' };
         SITE_DAY_KEYS.forEach(day => {
-            const dayLabel = DAY_LABELS[day];
-            const pairs = [
-                ['lunchOpen', `${dayLabel} lunch opens`],
-                ['lunchClose', `${dayLabel} lunch closes`],
-                ['dinnerOpen', `${dayLabel} dinner opens`],
-                ['dinnerClose', `${dayLabel} dinner closes`],
-            ];
+            const dayLabel = SITE_DAY_LABELS[day];
             const els = siteDayEl(day);
-            pairs.forEach(([key, label]) => {
-                if (els[key]) els[key].setAttribute('aria-label', label);
+            SITE_SERVICE_KEYS.forEach((service) => {
+                const label = service.charAt(0).toUpperCase() + service.slice(1);
+                const openKey = `${service}Open`;
+                const closeKey = `${service}Close`;
+                if (els[openKey]) els[openKey].setAttribute('aria-label', `${dayLabel} ${label.toLowerCase()} opens`);
+                if (els[closeKey]) els[closeKey].setAttribute('aria-label', `${dayLabel} ${label.toLowerCase()} closes`);
             });
             if (els.closed) els.closed.setAttribute('aria-label', `${dayLabel} closed all day`);
         });
@@ -95,16 +98,14 @@
             const entry = (hours || {})[day];
             if (entry === 'closed' || entry === undefined) {
                 els.closed.checked = true;
-                if (els.lunchOpen) els.lunchOpen.value = '';
-                if (els.lunchClose) els.lunchClose.value = '';
-                if (els.dinnerOpen) els.dinnerOpen.value = '';
-                if (els.dinnerClose) els.dinnerClose.value = '';
+                siteWindowKeys().forEach((key) => { if (els[key]) els[key].value = ''; });
             } else {
                 els.closed.checked = false;
-                if (els.lunchOpen) els.lunchOpen.value = entry.lunch?.open || '';
-                if (els.lunchClose) els.lunchClose.value = entry.lunch?.close || '';
-                if (els.dinnerOpen) els.dinnerOpen.value = entry.dinner?.open || '';
-                if (els.dinnerClose) els.dinnerClose.value = entry.dinner?.close || '';
+                SITE_SERVICE_KEYS.forEach((service) => {
+                    const window = entry[service];
+                    if (els[`${service}Open`]) els[`${service}Open`].value = window?.open || '';
+                    if (els[`${service}Close`]) els[`${service}Close`].value = window?.close || '';
+                });
             }
             siteApplyClosedToggle(day);
         });
@@ -116,12 +117,41 @@
             if (!els.closed) return;
             if (els.closed.checked) { hours[day] = 'closed'; return; }
             const entry = {};
-            if (els.lunchOpen?.value && els.lunchClose?.value) entry.lunch = { open: els.lunchOpen.value, close: els.lunchClose.value };
-            if (els.dinnerOpen?.value && els.dinnerClose?.value) entry.dinner = { open: els.dinnerOpen.value, close: els.dinnerClose.value };
+            SITE_SERVICE_KEYS.forEach((service) => {
+                const open = els[`${service}Open`]?.value;
+                const close = els[`${service}Close`]?.value;
+                if (open && close) entry[service] = { open, close };
+            });
             hours[day] = Object.keys(entry).length === 0 ? 'closed' : entry;
         });
         return hours;
     }
+    function siteCopyDayToAll(sourceDay) {
+        const source = siteReadHoursFromForm()[sourceDay];
+        SITE_DAY_KEYS.forEach((day) => {
+            const els = siteDayEl(day);
+            if (!els.closed) return;
+            const entry = day === sourceDay ? source : source;
+            if (entry === 'closed' || !entry) {
+                els.closed.checked = true;
+                siteWindowKeys().forEach((key) => { if (els[key]) els[key].value = ''; });
+            } else {
+                els.closed.checked = false;
+                SITE_SERVICE_KEYS.forEach((service) => {
+                    if (els[`${service}Open`]) els[`${service}Open`].value = entry[service]?.open || '';
+                    if (els[`${service}Close`]) els[`${service}Close`].value = entry[service]?.close || '';
+                });
+            }
+            siteApplyClosedToggle(day);
+        });
+    }
+    document.querySelectorAll('.visit-hours-copy-btn').forEach((btn) => {
+        btn.addEventListener('click', () => {
+            const day = btn.getAttribute('data-day');
+            if (!day) return;
+            siteCopyDayToAll(day);
+        });
+    });
     const WORKSPACE_KEY_PREFIX = 'skb:lastWorkspace:';
     let pollTimer = null;
 
@@ -295,14 +325,13 @@
         const qrTarget = document.getElementById('admin-qr-target-url');
         const qrTestLink = document.getElementById('admin-qr-test-link');
         const loc = (window.location.pathname.match(/^\/r\/([^/]+)\//) || [])[1] || 'skb';
+        const publicUrl = (siteConfiguredPublicUrl || '').trim().replace(/\/+$/, '');
         const publicHost = (sitePublicHost?.value || '').trim();
-        // Always use the app-service URL for the "test link" — the publicHost
-        // URL is what ends up on the printed sticker, but that domain may not
-        // resolve in this browser yet (DNS not configured). The /r/:loc/visit
-        // path always works and hits the same redirect logic.
-        const scannerUrl = publicHost
-            ? `https://${publicHost}/visit`
-            : `${window.location.origin}/r/${loc}/visit`;
+        const scannerBase = publicUrl || (publicHost ? `https://${publicHost}` : window.location.origin);
+        const scannerUrl = `${scannerBase}/r/${encodeURIComponent(loc)}/visit`;
+        // Always use the app-service URL for the "test link" so preview/admin
+        // can verify routing even if the configured public host is not yet
+        // reachable from this browser.
         const testableUrl = `${window.location.origin}/r/${loc}/visit`;
         if (qrTarget) qrTarget.textContent = scannerUrl;
         if (qrTestLink) qrTestLink.href = testableUrl;
@@ -337,6 +366,7 @@
             const r = await fetch('api/host/guest-features');
             if (!r.ok) return;
             const data = await r.json();
+            if (guestFeatureMenu) guestFeatureMenu.value = String(data.menu !== false);
             if (guestFeatureOrder) guestFeatureOrder.value = String(data.order !== false);
             if (guestFeatureChat) guestFeatureChat.value = String(data.chat !== false);
             if (guestFeatureSms) guestFeatureSms.value = String(data.sms !== false);
@@ -507,6 +537,7 @@
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
+                    menu: guestFeatureMenu?.value === 'true',
                     order: guestFeatureOrder?.value === 'true',
                     chat: guestFeatureChat?.value === 'true',
                     sms: guestFeatureSms?.value === 'true',
@@ -535,6 +566,7 @@
             if (siteCity) siteCity.value = data.address?.city || '';
             if (siteState) siteState.value = data.address?.state || '';
             if (siteZip) siteZip.value = data.address?.zip || '';
+            siteConfiguredPublicUrl = data.publicUrl || '';
             if (sitePublicHost) sitePublicHost.value = data.publicHost || '';
             siteLoadHoursIntoForm(data.hours);
             // Issue #57: surface the restaurant name in the admin topbar

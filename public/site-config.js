@@ -15,6 +15,13 @@
         mon: 'Monday', tue: 'Tuesday', wed: 'Wednesday', thu: 'Thursday',
         fri: 'Friday', sat: 'Saturday', sun: 'Sunday',
     };
+    var SERVICE_KEYS = ['breakfast', 'lunch', 'special', 'dinner'];
+    var SERVICE_LABELS = {
+        breakfast: 'Breakfast',
+        lunch: 'Lunch',
+        special: 'Special',
+        dinner: 'Dinner',
+    };
 
     function esc(s) {
         return String(s).replace(/[&<>"]/g, function (c) {
@@ -52,6 +59,18 @@
     // Map JS getDay() (0=Sun..6=Sat) to the DAY_ORDER keys (mon..sun).
     var JS_DAY_TO_KEY = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
 
+    function formatServiceWindows(entry, includeLabels) {
+        var windows = [];
+        if (!entry || entry === 'closed') return windows;
+        SERVICE_KEYS.forEach(function (service) {
+            var win = entry[service];
+            if (!win) return;
+            var text = formatTime(win.open) + ' – ' + formatTime(win.close);
+            windows.push(includeLabels ? (SERVICE_LABELS[service] + ' ' + text) : text);
+        });
+        return windows;
+    }
+
     function renderHoursCompact(hours, el) {
         if (!hours || !el) return;
         // Previously this picked the FIRST OPEN DAY and rendered its
@@ -73,9 +92,7 @@
         if (entry === 'closed' || entry === undefined) {
             body = '<p><strong>' + label + '</strong> · Closed today</p>';
         } else {
-            var windows = [];
-            if (entry.lunch) windows.push(formatTime(entry.lunch.open) + ' – ' + formatTime(entry.lunch.close));
-            if (entry.dinner) windows.push(formatTime(entry.dinner.open) + ' – ' + formatTime(entry.dinner.close));
+            var windows = formatServiceWindows(entry, true);
             body = '<p><strong>' + label + '</strong> · ' + (windows.length ? windows.join(' &middot; ') : 'Closed today') + '</p>';
         }
         el.innerHTML = body + '<p class="hours-see-full"><a href="./hours">See full hours &rarr;</a></p>';
@@ -92,9 +109,7 @@
                 rows.push('<tr><td>' + label + '</td><td class="hours-closed">Closed</td></tr>');
                 continue;
             }
-            var parts = [];
-            if (entry.lunch) parts.push(formatTime(entry.lunch.open) + ' – ' + formatTime(entry.lunch.close));
-            if (entry.dinner) parts.push(formatTime(entry.dinner.open) + ' – ' + formatTime(entry.dinner.close));
+            var parts = formatServiceWindows(entry, true);
             rows.push('<tr><td>' + label + '</td><td>' + (parts.length ? parts.join(' &middot; ') : 'Closed') + '</td></tr>');
         }
         el.innerHTML = rows.join('\n');

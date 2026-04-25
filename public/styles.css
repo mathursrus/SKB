@@ -1612,9 +1612,9 @@ body.queue-boot::before {
 }
 .visit-hours-row {
     display: grid;
-    grid-template-columns: 110px 80px 1fr 1fr;
+    grid-template-columns: 110px 80px minmax(0, 1fr) 110px;
     gap: 12px;
-    align-items: center;
+    align-items: start;
     padding: 6px 0;
     border-bottom: 1px dotted var(--border);
 }
@@ -1634,8 +1634,21 @@ body.queue-boot::before {
     font-size: 12px;
     color: var(--muted);
 }
+.visit-hours-services {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px 12px;
+}
+.visit-hours-actions {
+    display: flex;
+    justify-content: flex-end;
+}
+.visit-hours-copy-btn,
+.wiz-hours-copy {
+    white-space: nowrap;
+}
 .visit-hours-window span {
-    width: 48px;
+    width: 70px;
     text-align: right;
     color: var(--fg);
     font-weight: 600;
@@ -1664,9 +1677,11 @@ body.queue-boot::before {
     }
     .visit-hours-day { grid-column: 1; }
     .visit-hours-closed-label { grid-column: 1; }
+    .visit-hours-services { grid-template-columns: 1fr; }
+    .visit-hours-actions { justify-content: flex-start; }
     .visit-hours-window { flex-wrap: wrap; }
     .visit-hours-window input[type="time"] { width: 72px; }
-    .visit-hours-window span { width: 40px; }
+    .visit-hours-window span { width: 72px; text-align: left; }
 }
 
 /* ---------- Diner: seated terminal card ---------- */
@@ -3131,6 +3146,12 @@ a#custom-call-confirm[aria-disabled="true"] {
 .wiz-hours-grid th, .wiz-hours-grid td { padding: 5px 6px; text-align: left; vertical-align: middle; }
 .wiz-hours-grid thead th { color: #6a6258; font-weight: 500; font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
 .wiz-hours-grid input[type="time"] { padding: 5px 8px; }
+.wiz-hours-services { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 12px; }
+.wiz-hours-window { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.wiz-hours-window span { min-width: 70px; font-size: 11px; font-weight: 600; text-transform: uppercase; color: #4f463d; }
+@media (max-width: 860px) {
+    .wiz-hours-services { grid-template-columns: 1fr; }
+}
 
 /* Template cards */
 .wiz-template-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }

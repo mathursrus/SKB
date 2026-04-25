@@ -159,10 +159,11 @@
                                 <legend>Weekly hours</legend>
                                 <table class="wiz-hours-grid" aria-label="Weekly hours">
                                     <thead>
-                                        <tr><th></th><th>Closed</th><th>Opens</th><th>Closes</th></tr>
+                                        <tr><th></th><th>Closed</th><th>Service windows</th><th>Copy</th></tr>
                                     </thead>
                                     <tbody id="wiz-basics-hours-body"></tbody>
                                 </table>
+                                <p class="wiz-help">Add breakfast, lunch, special, and dinner windows as needed. Use Copy to mirror one day's hours across the week.</p>
                             </fieldset>
                             <div class="wiz-validation" id="wiz-basics-validation" role="alert" aria-live="polite"></div>
                             <div class="wiz-actions">
@@ -553,38 +554,73 @@
             <div class="visit-hours-grid">
                 <div class="visit-hours-row"><div class="visit-hours-day">Monday</div>
                     <label class="visit-hours-closed-label"><input type="checkbox" id="admin-site-mon-closed"> Closed</label>
-                    <div class="visit-hours-window"><span>Lunch</span><input type="time" id="admin-site-mon-lunch-open"> – <input type="time" id="admin-site-mon-lunch-close"></div>
-                    <div class="visit-hours-window"><span>Dinner</span><input type="time" id="admin-site-mon-dinner-open"> – <input type="time" id="admin-site-mon-dinner-close"></div>
+                    <div class="visit-hours-services">
+                        <div class="visit-hours-window"><span>Breakfast</span><input type="time" id="admin-site-mon-breakfast-open"> – <input type="time" id="admin-site-mon-breakfast-close"></div>
+                        <div class="visit-hours-window"><span>Lunch</span><input type="time" id="admin-site-mon-lunch-open"> – <input type="time" id="admin-site-mon-lunch-close"></div>
+                        <div class="visit-hours-window"><span>Special</span><input type="time" id="admin-site-mon-special-open"> – <input type="time" id="admin-site-mon-special-close"></div>
+                        <div class="visit-hours-window"><span>Dinner</span><input type="time" id="admin-site-mon-dinner-open"> – <input type="time" id="admin-site-mon-dinner-close"></div>
+                    </div>
+                    <div class="visit-hours-actions"><button type="button" class="secondary visit-hours-copy-btn" data-day="mon">Copy to all</button></div>
                 </div>
                 <div class="visit-hours-row"><div class="visit-hours-day">Tuesday</div>
                     <label class="visit-hours-closed-label"><input type="checkbox" id="admin-site-tue-closed"> Closed</label>
-                    <div class="visit-hours-window"><span>Lunch</span><input type="time" id="admin-site-tue-lunch-open"> – <input type="time" id="admin-site-tue-lunch-close"></div>
-                    <div class="visit-hours-window"><span>Dinner</span><input type="time" id="admin-site-tue-dinner-open"> – <input type="time" id="admin-site-tue-dinner-close"></div>
+                    <div class="visit-hours-services">
+                        <div class="visit-hours-window"><span>Breakfast</span><input type="time" id="admin-site-tue-breakfast-open"> – <input type="time" id="admin-site-tue-breakfast-close"></div>
+                        <div class="visit-hours-window"><span>Lunch</span><input type="time" id="admin-site-tue-lunch-open"> – <input type="time" id="admin-site-tue-lunch-close"></div>
+                        <div class="visit-hours-window"><span>Special</span><input type="time" id="admin-site-tue-special-open"> – <input type="time" id="admin-site-tue-special-close"></div>
+                        <div class="visit-hours-window"><span>Dinner</span><input type="time" id="admin-site-tue-dinner-open"> – <input type="time" id="admin-site-tue-dinner-close"></div>
+                    </div>
+                    <div class="visit-hours-actions"><button type="button" class="secondary visit-hours-copy-btn" data-day="tue">Copy to all</button></div>
                 </div>
                 <div class="visit-hours-row"><div class="visit-hours-day">Wednesday</div>
                     <label class="visit-hours-closed-label"><input type="checkbox" id="admin-site-wed-closed"> Closed</label>
-                    <div class="visit-hours-window"><span>Lunch</span><input type="time" id="admin-site-wed-lunch-open"> – <input type="time" id="admin-site-wed-lunch-close"></div>
-                    <div class="visit-hours-window"><span>Dinner</span><input type="time" id="admin-site-wed-dinner-open"> – <input type="time" id="admin-site-wed-dinner-close"></div>
+                    <div class="visit-hours-services">
+                        <div class="visit-hours-window"><span>Breakfast</span><input type="time" id="admin-site-wed-breakfast-open"> – <input type="time" id="admin-site-wed-breakfast-close"></div>
+                        <div class="visit-hours-window"><span>Lunch</span><input type="time" id="admin-site-wed-lunch-open"> – <input type="time" id="admin-site-wed-lunch-close"></div>
+                        <div class="visit-hours-window"><span>Special</span><input type="time" id="admin-site-wed-special-open"> – <input type="time" id="admin-site-wed-special-close"></div>
+                        <div class="visit-hours-window"><span>Dinner</span><input type="time" id="admin-site-wed-dinner-open"> – <input type="time" id="admin-site-wed-dinner-close"></div>
+                    </div>
+                    <div class="visit-hours-actions"><button type="button" class="secondary visit-hours-copy-btn" data-day="wed">Copy to all</button></div>
                 </div>
                 <div class="visit-hours-row"><div class="visit-hours-day">Thursday</div>
                     <label class="visit-hours-closed-label"><input type="checkbox" id="admin-site-thu-closed"> Closed</label>
-                    <div class="visit-hours-window"><span>Lunch</span><input type="time" id="admin-site-thu-lunch-open"> – <input type="time" id="admin-site-thu-lunch-close"></div>
-                    <div class="visit-hours-window"><span>Dinner</span><input type="time" id="admin-site-thu-dinner-open"> – <input type="time" id="admin-site-thu-dinner-close"></div>
+                    <div class="visit-hours-services">
+                        <div class="visit-hours-window"><span>Breakfast</span><input type="time" id="admin-site-thu-breakfast-open"> – <input type="time" id="admin-site-thu-breakfast-close"></div>
+                        <div class="visit-hours-window"><span>Lunch</span><input type="time" id="admin-site-thu-lunch-open"> – <input type="time" id="admin-site-thu-lunch-close"></div>
+                        <div class="visit-hours-window"><span>Special</span><input type="time" id="admin-site-thu-special-open"> – <input type="time" id="admin-site-thu-special-close"></div>
+                        <div class="visit-hours-window"><span>Dinner</span><input type="time" id="admin-site-thu-dinner-open"> – <input type="time" id="admin-site-thu-dinner-close"></div>
+                    </div>
+                    <div class="visit-hours-actions"><button type="button" class="secondary visit-hours-copy-btn" data-day="thu">Copy to all</button></div>
                 </div>
                 <div class="visit-hours-row"><div class="visit-hours-day">Friday</div>
                     <label class="visit-hours-closed-label"><input type="checkbox" id="admin-site-fri-closed"> Closed</label>
-                    <div class="visit-hours-window"><span>Lunch</span><input type="time" id="admin-site-fri-lunch-open"> – <input type="time" id="admin-site-fri-lunch-close"></div>
-                    <div class="visit-hours-window"><span>Dinner</span><input type="time" id="admin-site-fri-dinner-open"> – <input type="time" id="admin-site-fri-dinner-close"></div>
+                    <div class="visit-hours-services">
+                        <div class="visit-hours-window"><span>Breakfast</span><input type="time" id="admin-site-fri-breakfast-open"> – <input type="time" id="admin-site-fri-breakfast-close"></div>
+                        <div class="visit-hours-window"><span>Lunch</span><input type="time" id="admin-site-fri-lunch-open"> – <input type="time" id="admin-site-fri-lunch-close"></div>
+                        <div class="visit-hours-window"><span>Special</span><input type="time" id="admin-site-fri-special-open"> – <input type="time" id="admin-site-fri-special-close"></div>
+                        <div class="visit-hours-window"><span>Dinner</span><input type="time" id="admin-site-fri-dinner-open"> – <input type="time" id="admin-site-fri-dinner-close"></div>
+                    </div>
+                    <div class="visit-hours-actions"><button type="button" class="secondary visit-hours-copy-btn" data-day="fri">Copy to all</button></div>
                 </div>
                 <div class="visit-hours-row"><div class="visit-hours-day">Saturday</div>
                     <label class="visit-hours-closed-label"><input type="checkbox" id="admin-site-sat-closed"> Closed</label>
-                    <div class="visit-hours-window"><span>Lunch</span><input type="time" id="admin-site-sat-lunch-open"> – <input type="time" id="admin-site-sat-lunch-close"></div>
-                    <div class="visit-hours-window"><span>Dinner</span><input type="time" id="admin-site-sat-dinner-open"> – <input type="time" id="admin-site-sat-dinner-close"></div>
+                    <div class="visit-hours-services">
+                        <div class="visit-hours-window"><span>Breakfast</span><input type="time" id="admin-site-sat-breakfast-open"> – <input type="time" id="admin-site-sat-breakfast-close"></div>
+                        <div class="visit-hours-window"><span>Lunch</span><input type="time" id="admin-site-sat-lunch-open"> – <input type="time" id="admin-site-sat-lunch-close"></div>
+                        <div class="visit-hours-window"><span>Special</span><input type="time" id="admin-site-sat-special-open"> – <input type="time" id="admin-site-sat-special-close"></div>
+                        <div class="visit-hours-window"><span>Dinner</span><input type="time" id="admin-site-sat-dinner-open"> – <input type="time" id="admin-site-sat-dinner-close"></div>
+                    </div>
+                    <div class="visit-hours-actions"><button type="button" class="secondary visit-hours-copy-btn" data-day="sat">Copy to all</button></div>
                 </div>
                 <div class="visit-hours-row"><div class="visit-hours-day">Sunday</div>
                     <label class="visit-hours-closed-label"><input type="checkbox" id="admin-site-sun-closed"> Closed</label>
-                    <div class="visit-hours-window"><span>Lunch</span><input type="time" id="admin-site-sun-lunch-open"> – <input type="time" id="admin-site-sun-lunch-close"></div>
-                    <div class="visit-hours-window"><span>Dinner</span><input type="time" id="admin-site-sun-dinner-open"> – <input type="time" id="admin-site-sun-dinner-close"></div>
+                    <div class="visit-hours-services">
+                        <div class="visit-hours-window"><span>Breakfast</span><input type="time" id="admin-site-sun-breakfast-open"> – <input type="time" id="admin-site-sun-breakfast-close"></div>
+                        <div class="visit-hours-window"><span>Lunch</span><input type="time" id="admin-site-sun-lunch-open"> – <input type="time" id="admin-site-sun-lunch-close"></div>
+                        <div class="visit-hours-window"><span>Special</span><input type="time" id="admin-site-sun-special-open"> – <input type="time" id="admin-site-sun-special-close"></div>
+                        <div class="visit-hours-window"><span>Dinner</span><input type="time" id="admin-site-sun-dinner-open"> – <input type="time" id="admin-site-sun-dinner-close"></div>
+                    </div>
+                    <div class="visit-hours-actions"><button type="button" class="secondary visit-hours-copy-btn" data-day="sun">Copy to all</button></div>
                 </div>
             </div>
         </details>
@@ -1058,12 +1094,20 @@
             </summary>
             <div class="visit-grid guest-feature-grid">
                 <label class="visit-field guest-feature-field">
+                    <span class="visit-label">Menu browsing</span>
+                    <select id="admin-guest-feature-menu">
+                        <option value="true">On</option>
+                        <option value="false">Off</option>
+                    </select>
+                    <span class="guest-feature-help">Shows the guest menu surface while a party is active on the waitlist.</span>
+                </label>
+                <label class="visit-field guest-feature-field">
                     <span class="visit-label">Ordering</span>
                     <select id="admin-guest-feature-order">
                         <option value="true">On</option>
                         <option value="false">Off</option>
                     </select>
-                    <span class="guest-feature-help">Shows the Order tab and cart on the guest waitlist page.</span>
+                    <span class="guest-feature-help">Lets guests add dishes to a cart and submit once ordering is allowed.</span>
                 </label>
                 <label class="visit-field guest-feature-field">
                     <span class="visit-label">Chat</span>

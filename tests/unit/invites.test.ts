@@ -117,6 +117,7 @@ const cases: BaseTestCase[] = [
                 expiresAt: new Date(Date.now() + 86_400_000),
             };
             const pub = toPublicInvite(doc);
+            if (!pub) return false;
             if (pub.id !== id.toHexString()) return false;
             if (pub.email !== 'x@example.com') return false;
             if (pub.role !== 'host') return false;

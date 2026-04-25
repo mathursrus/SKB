@@ -70,9 +70,11 @@ export function hashToken(token: string): string {
     return createHash('sha256').update(token).digest('hex');
 }
 
-export function toPublicInvite(inv: Invite): PublicInvite {
+export function toPublicInvite(inv: Invite): PublicInvite | null {
+    const id = objectIdToHex(inv._id);
+    if (!id) return null;
     return {
-        id: inv._id.toHexString(),
+        id,
         email: inv.email,
         name: inv.name,
         locationId: inv.locationId,
@@ -152,8 +154,9 @@ export async function createInvite(input: CreateInviteInput): Promise<CreateInvi
         expiresAt: new Date(now.getTime() + INVITE_TTL_MS),
     };
     await invitesColl(db).insertOne(doc);
-
-    return { invite: toPublicInvite(doc), token };
+    const invite = toPublicInvite(doc);
+    if (!invite) throw new Error('invite id invalid');
+    return { invite, token };
 }
 
 /**
@@ -171,7 +174,10 @@ export async function listPendingInvites(locationId: string): Promise<PublicInvi
         })
         .sort({ createdAt: 1 })
         .toArray();
-    return rows.map(toPublicInvite);
+    return rows.flatMap((row) => {
+        const invite = toPublicInvite(row);
+        return invite ? [invite] : [];
+    });
 }
 
 /**
@@ -395,23 +401,36 @@ export async function listStaffAtLocation(locationId: string): Promise<StaffRow[
         .sort({ createdAt: 1 })
         .toArray();
     if (members.length === 0) return [];
-    const userIds = members.map(m => m.userId);
+    const normalized = members.flatMap((member) => {
+        const membershipId = objectIdToHex(member._id);
+        const userId = objectIdToHex(member.userId);
+        if (!membershipId || !userId) return [];
+        return [{ member, membershipId, userId }];
+    });
+    if (normalized.length === 0) return [];
+    const userIds = normalized.map(({ userId }) => new ObjectId(userId));
     const foundUsers = await usersColl(db).find({ _id: { $in: userIds } }).toArray();
     const byId = new Map<string, User>(foundUsers.map(u => [u._id.toHexString(), u]));
     const rows: StaffRow[] = [];
-    for (const m of members) {
-        const u = byId.get(m.userId.toHexString());
+    for (const { membershipId, userId, member } of normalized) {
+        const u = byId.get(userId);
         if (!u) continue; // user deleted; skip
         rows.push({
-            membershipId: m._id.toHexString(),
-            userId: m.userId.toHexString(),
+            membershipId,
+            userId,
             email: u.email,
             name: u.name,
-            role: m.role,
-            createdAt: m.createdAt,
+            role: member.role,
+            createdAt: member.createdAt,
         });
     }
     return rows;
+}
+
+function objectIdToHex(value: unknown): string | null {
+    if (value instanceof ObjectId) return value.toHexString();
+    if (typeof value !== 'string' || !ObjectId.isValid(value)) return null;
+    return new ObjectId(value).toHexString();
 }
 
 function safeObjectId(value: string): ObjectId | null {

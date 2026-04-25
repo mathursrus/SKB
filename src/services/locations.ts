@@ -94,6 +94,7 @@ export interface VisitConfigUpdate {
 export interface VoiceConfigUpdate {
     voiceEnabled?: boolean;
     frontDeskPhone?: string | null;
+    cateringPhone?: string | null;
     voiceLargePartyThreshold?: number;
 }
 
@@ -201,6 +202,13 @@ export function validateVoiceConfigUpdate(update: VoiceConfigUpdate): void {
         const normalized = normalizeFrontDeskPhone(phone) ?? phone;
         if (!FRONT_DESK_PHONE_RE.test(normalized)) {
             throw new Error('frontDeskPhone must be a 10-digit US phone number');
+        }
+    }
+    if (update.cateringPhone !== undefined && update.cateringPhone !== null && update.cateringPhone !== '') {
+        const phone = String(update.cateringPhone).trim();
+        const normalized = normalizeFrontDeskPhone(phone) ?? phone;
+        if (!FRONT_DESK_PHONE_RE.test(normalized)) {
+            throw new Error('cateringPhone must be a 10-digit US phone number');
         }
     }
     if (update.voiceLargePartyThreshold !== undefined) {
@@ -377,6 +385,11 @@ export async function updateLocationVoiceConfig(
         const raw = update.frontDeskPhone === null ? '' : String(update.frontDeskPhone).trim();
         if (raw === '') $unset.frontDeskPhone = '';
         else $set.frontDeskPhone = normalizeFrontDeskPhone(raw) ?? raw;
+    }
+    if (update.cateringPhone !== undefined) {
+        const raw = update.cateringPhone === null ? '' : String(update.cateringPhone).trim();
+        if (raw === '') $unset.cateringPhone = '';
+        else $set.cateringPhone = normalizeFrontDeskPhone(raw) ?? raw;
     }
     if (update.voiceLargePartyThreshold !== undefined) {
         $set.voiceLargePartyThreshold = Number(update.voiceLargePartyThreshold);

@@ -7,6 +7,7 @@ import {
     toPublicLocation,
     validateGuestFeaturesUpdate,
     validateSiteConfigUpdate,
+    validateVoiceConfigUpdate,
 } from '../../src/services/locations.js';
 import type { GuestFeatures, Location, LocationAddress, WeeklyHours } from '../../src/types/queue.js';
 
@@ -101,6 +102,14 @@ const cases: BaseTestCase[] = [
         tags: ['unit', 'locations'],
         testFn: async () => {
             validateGuestFeaturesUpdate({ sms: false, chat: true, order: false });
+            return true;
+        },
+    },
+    {
+        name: 'valid catering phone passes voice-config validation',
+        tags: ['unit', 'locations', 'voice'],
+        testFn: async () => {
+            validateVoiceConfigUpdate({ cateringPhone: '(206) 555-0142' });
             return true;
         },
     },
@@ -216,6 +225,14 @@ const cases: BaseTestCase[] = [
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             () => validateGuestFeaturesUpdate({ sms: 'yes' as any }),
             'guestFeatures.sms must be a boolean',
+        ),
+    },
+    {
+        name: 'invalid catering phone throws',
+        tags: ['unit', 'locations', 'voice'],
+        testFn: async () => throws(
+            () => validateVoiceConfigUpdate({ cateringPhone: '123' }),
+            'cateringPhone',
         ),
     },
     {

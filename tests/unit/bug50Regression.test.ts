@@ -421,7 +421,8 @@ const cases: BaseTestCase[] = [
                 path.resolve(__dirname, '..', '..', 'ios', 'src', 'net', 'client.ts'),
                 'utf-8',
             );
-            return iosClient.includes('/r/${loc}/api${suffix}');
+            return /buildTenantUrl\s*\([^)]*locationId:\s*string[^)]*\)\s*:\s*string[^]*return\s+`\$\{base\}\/r\/\$\{[^}]*locationId[^}]*\}\/api\$\{suffix\}`/
+                .test(iosClient);
         },
     },
     {
@@ -453,9 +454,10 @@ const cases: BaseTestCase[] = [
                 path.resolve(__dirname, '..', '..', 'ios', 'app', '(host)', 'settings.tsx'),
                 'utf-8',
             );
-            // editable={etaMode === 'manual'} + conditional disabled style
-            return /editable=\{etaMode\s*===\s*['"]manual['"]\}/.test(settings)
-                && /etaMode\s*!==\s*['"]manual['"].*inputDisabled/.test(settings);
+            // Dynamic mode must lock the field even if permission checks are
+            // also composed into the same editable/disabled expressions.
+            return /editable=\{[^}]*etaMode\s*===\s*['"]manual['"][^}]*\}/.test(settings)
+                && /etaMode\s*!==\s*['"]manual['"][^]*styles\.inputDisabled/.test(settings);
         },
     },
     {

@@ -43,6 +43,7 @@ export interface Location {
     name: string;        // display name, e.g., "Shri Krishna Bhavan"
     pin: string;         // host-stand PIN for this location
     frontDeskPhone?: string; // 10-digit phone for IVR transfer (large parties + press-0 transfer)
+    cateringPhone?: string;  // 10-digit phone for IVR catering transfer (press-5 branch)
     voiceEnabled?: boolean;   // location-level intent to expose IVR entry
     voiceLargePartyThreshold?: number; // override for IVR transfer threshold
     createdAt: Date;

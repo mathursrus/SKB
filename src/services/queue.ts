@@ -303,6 +303,7 @@ export async function listHostQueue(locationId: string, now: Date = new Date()):
             phoneMasked: maskPhone(d.phone ?? ''),
             // phoneForDial is host-only — populated here behind the /host/ PIN gate.
             phoneForDial: d.phone ? `+1${d.phone}` : undefined,
+            smsCapable: d.smsConsent === true,
             joinedAt: d.joinedAt.toISOString(),
             etaAt: (d.promisedEtaAt ?? d.joinedAt).toISOString(),
             waitingMinutes: minutesBetween(d.joinedAt, now),

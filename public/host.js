@@ -22,6 +22,8 @@
     const completeSummary = $('complete-summary');
     const WORKSPACE_KEY_PREFIX = 'skb:lastWorkspace:';
     const DEFAULT_GUEST_FEATURES = { menu: true, order: true, chat: true, sms: true };
+    const SMS_OPT_IN_REASON = 'diner did not opt into SMS updates.';
+    const WEB_ONLY_CHAT_NOTICE = 'SMS unavailable \u2014 this thread is web only because the diner did not opt into SMS updates.';
     let publicConfig = { guestFeatures: { ...DEFAULT_GUEST_FEATURES } };
 
     let pollTimer = null;
@@ -93,6 +95,17 @@
                 const notifyLabel = p.state === 'called' ? 'Re-notify' : 'Notify';
                 const hasPhone = !!p.phoneMasked && p.phoneMasked !== '—';
                 const disabledAttr = hasPhone ? '' : ' disabled';
+                const smsCapable = p.smsCapable === true;
+                const smsDisabledAttr = hasPhone && smsCapable ? '' : ' disabled';
+                const notifyTitle = !hasPhone
+                    ? 'Notify unavailable — no phone on file.'
+                    : (smsCapable ? '' : 'Notify unavailable \u2014 ' + SMS_OPT_IN_REASON);
+                const chatTitle = !hasPhone
+                    ? 'Chat unavailable — no phone on file.'
+                    : (smsCapable ? '' : 'Chat is web only \u2014 ' + SMS_OPT_IN_REASON);
+                const customSmsTitle = !hasPhone
+                    ? 'Custom SMS unavailable — no phone on file.'
+                    : (smsCapable ? 'Custom message' : 'Custom SMS unavailable \u2014 ' + SMS_OPT_IN_REASON);
                 const onWayBadge = p.onMyWayAt
                     ? ' <span class="badge-on-way">On the way</span>'
                     : '';
@@ -104,18 +117,18 @@
                 const phoneForDial = p.phoneForDial || '';
                 const rowActions = [
                     '<button class="seat-btn" data-action="seat" aria-label="Seat ' + safeName + '">Seat</button>',
-                    '<button class="notify-btn" data-action="notify" aria-label="' + notifyLabel + ' ' + safeName + '"' + disabledAttr + '>' + notifyLabel + '</button>',
+                    '<button class="notify-btn" data-action="notify" aria-label="' + notifyLabel + ' ' + safeName + '"' + smsDisabledAttr + (notifyTitle ? ' title="' + escapeHtml(notifyTitle) + '"' : '') + '>' + notifyLabel + '</button>',
                     features.chat
-                        ? '<button class="chat-btn" data-action="chat" aria-label="Chat with ' + safeName + (unread ? ', ' + unread + ' unread' : '') + '"' + disabledAttr + '>Chat' + unreadDot + '</button>'
+                        ? '<button class="chat-btn" data-action="chat" aria-label="Chat with ' + safeName + (unread ? ', ' + unread + ' unread' : '') + '"' + disabledAttr + (chatTitle ? ' title="' + escapeHtml(chatTitle) + '"' : '') + '>Chat' + unreadDot + '</button>'
                         : '',
                     '<a class="call-dial-btn rowbtn" data-action="call" href="' + callHref + '" aria-label="Call ' + safeName + '"' + callDisabled + '>Call</a>',
                     features.sms
-                        ? '<button class="custom-sms-btn more-btn" data-action="custom-sms" aria-label="Custom message to ' + safeName + '"' + disabledAttr + ' title="Custom message">\u2709</button>'
+                        ? '<button class="custom-sms-btn more-btn" data-action="custom-sms" aria-label="Custom message to ' + safeName + '"' + smsDisabledAttr + ' title="' + escapeHtml(customSmsTitle) + '">\u2709</button>'
                         : '',
                     '<button class="custom-call-btn more-btn" data-action="custom-call" aria-label="Confirm-and-call ' + safeName + '"' + disabledAttr + ' title="Confirm call">\u260E</button>',
                     '<button class="remove" data-reason="no_show" aria-label="Mark ' + safeName + ' as no-show">No-show</button>',
                 ].filter(Boolean).join('');
-                return '<tr data-id="' + p.id + '" data-code="' + escapeHtml(p.code || '') + '" data-name="' + safeName + '" data-size="' + p.partySize + '" data-wait="' + p.waitingMinutes + '" data-phone-mask="' + (p.phoneMasked || '') + '" data-phone-dial="' + escapeHtml(phoneForDial) + '" class="' + (p.state === 'called' ? 'row-called' : '') + '">' +
+                return '<tr data-id="' + p.id + '" data-code="' + escapeHtml(p.code || '') + '" data-name="' + safeName + '" data-size="' + p.partySize + '" data-wait="' + p.waitingMinutes + '" data-phone-mask="' + (p.phoneMasked || '') + '" data-phone-dial="' + escapeHtml(phoneForDial) + '" data-sms-capable="' + (smsCapable ? '1' : '0') + '" class="' + (p.state === 'called' ? 'row-called' : '') + '">' +
                     '<td class="num">' + p.position + '</td>' +
                     '<td>' + safeName + calledBadge + onWayBadge + '</td>' +
                     '<td class="size">' + p.partySize + '</td>' +
@@ -520,13 +533,26 @@
     const chatForm = document.getElementById('chat-drawer-form');
     const chatTitle = document.getElementById('chat-drawer-title');
     const chatPhone = document.getElementById('chat-drawer-phone');
+    const chatMode = document.getElementById('chat-drawer-mode');
     const chatCloseBtn = document.getElementById('chat-drawer-close');
     let chatOpenId = null;
     let chatOpenCode = null;
+    let chatOpenSmsCapable = true;
     let chatDrawerPollTimer = null;
     const CHAT_DRAWER_POLL_BASE_MS = 4000;
     const CHAT_DRAWER_POLL_MAX_MS = 60000;
     let chatDrawerPollDelayMs = CHAT_DRAWER_POLL_BASE_MS;
+
+    function renderChatModeNotice() {
+        if (!chatMode) return;
+        if (chatOpenSmsCapable) {
+            chatMode.hidden = true;
+            chatMode.textContent = '';
+            return;
+        }
+        chatMode.hidden = false;
+        chatMode.textContent = WEB_ONLY_CHAT_NOTICE;
+    }
 
     function renderChatThread(messages) {
         if (!chatThread) return;
@@ -537,9 +563,14 @@
         chatThread.innerHTML = messages.map((m) => {
             const klass = m.direction === 'outbound' ? 'chat-msg chat-msg-out' : 'chat-msg chat-msg-in';
             const ts = m.at ? fmtTime(m.at) : '';
-            const statusIcon = m.smsStatus === 'failed' ? ' <span class="chat-status-fail">\u2717</span>'
-                : m.smsStatus === 'sent' ? ' <span class="chat-status-ok">\u2713</span>' : '';
-            return '<div class="' + klass + '">' + escapeHtml(m.body) + '<span class="chat-ts">' + ts + statusIcon + '</span></div>';
+            const statusText = m.smsStatus === 'failed'
+                ? ' <span class="chat-status-fail">\u2717</span>'
+                : m.smsStatus === 'sent'
+                    ? ' <span class="chat-status-ok">\u2713</span>'
+                    : m.smsStatus === 'not_configured'
+                        ? ' <span class="chat-status-note">' + (chatOpenSmsCapable ? 'SMS unavailable' : 'web only') + '</span>'
+                        : '';
+            return '<div class="' + klass + '">' + escapeHtml(m.body) + '<span class="chat-ts">' + ts + statusText + '</span></div>';
         }).join('');
         // scroll to bottom on initial render
         chatThread.scrollTop = chatThread.scrollHeight;
@@ -596,14 +627,16 @@
         } catch { chatQuicks.innerHTML = ''; }
     }
 
-    function openChat(id, name, phoneMasked, code) {
+    function openChat(id, name, phoneMasked, code, smsCapable) {
         if (!chatDrawer) return;
         chatOpenId = id;
         chatOpenCode = code;
+        chatOpenSmsCapable = smsCapable === true;
         chatDrawer.hidden = false;
         chatTitle.textContent = name;
         chatPhone.textContent = phoneMasked || '';
         chatThread.innerHTML = '<div class="chat-empty">Loading…</div>';
+        renderChatModeNotice();
         chatDrawer.classList.add('open');
         chatDrawer.setAttribute('aria-hidden', 'false');
         if (chatBackdrop) chatBackdrop.classList.add('open');
@@ -623,6 +656,8 @@
         if (chatBackdrop) chatBackdrop.classList.remove('open');
         chatDrawer.hidden = true;
         chatOpenId = null;
+        chatOpenSmsCapable = true;
+        renderChatModeNotice();
         stopChatDrawerPoll();
     }
 
@@ -885,7 +920,7 @@
         const chatBtn = target.closest('button.chat-btn');
         if (chatBtn) {
             if (chatBtn.hasAttribute('disabled')) return;
-            openChat(id, tr.dataset.name || '', tr.dataset.phoneMask || '', tr.dataset.code || '');
+            openChat(id, tr.dataset.name || '', tr.dataset.phoneMask || '', tr.dataset.code || '', tr.dataset.smsCapable === '1');
             return;
         }
         // R11: Call is an anchor — log the dial but let the browser handle tel:

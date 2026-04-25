@@ -3,7 +3,7 @@
 // ============================================================================
 // Companion to tests/integration/onboarding-end-to-end.integration.test.ts.
 // That sibling exercises the API surface. This test drives the SAME flow
-// through a real chromium browser via playwright-core — clicking tabs,
+// through a real chromium browser via Playwright — clicking tabs,
 // typing into inputs, submitting forms — so the admin UI and join page
 // wiring (HTML + JS + CSS) are proven end-to-end, not just the API.
 //
@@ -41,7 +41,7 @@ process.env.TWILIO_ACCOUNT_SID = 'ACtest00000000000000000000000000';
 process.env.TWILIO_AUTH_TOKEN = 'testtoken00000000000000000000000';
 process.env.TWILIO_PHONE_NUMBER = '+18445550199';
 
-import { chromium, type Browser, type BrowserContext, type Page } from 'playwright-core';
+import { chromium, type Browser, type BrowserContext, type Page } from 'playwright';
 
 import { runTests, type BaseTestCase } from '../test-utils.js';
 import { startTestServer, stopTestServer, getTestServerUrl } from '../shared-server-utils.js';

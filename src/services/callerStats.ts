@@ -6,6 +6,7 @@ import { getDb, voiceCallSessions } from '../core/db/mongo.js';
 import type {
     CallerStatsDTO,
     CallerStatsMenuChoiceDTO,
+    CallerStatsRecentSessionStepDTO,
     CallerStatsOutcomeDTO,
     CallerStatsRecentSessionDTO,
     VoiceCallFinalOutcome,
@@ -79,6 +80,11 @@ function recentRow(session: VoiceCallSession): CallerStatsRecentSessionDTO | nul
         nameCaptureMode: session.nameCaptureMode,
         phoneSource: session.phoneSource,
         transferReason: session.transferReason,
+        journey: session.steps.map((step): CallerStatsRecentSessionStepDTO => ({
+            at: step.at.toISOString(),
+            event: step.event,
+            ...(step.detail ? { detail: step.detail } : {}),
+        })),
     };
 }
 

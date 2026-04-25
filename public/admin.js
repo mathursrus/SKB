@@ -23,6 +23,7 @@
     const callerDetailTitle = $('admin-caller-detail-title');
     const callerDetailCount = $('admin-caller-detail-count');
     const callerDetailShare = $('admin-caller-detail-share');
+    const callerDetailBody = $('admin-caller-detail-body');
     const callerDetailCopy = $('admin-caller-detail-copy');
     const callerFunnelInbound = $('admin-caller-funnel-inbound');
     const callerFunnelJoinIntent = $('admin-caller-funnel-join-intent');
@@ -173,6 +174,7 @@
     let pollTimer = null;
     let callerStatsRange = '1';
     let callerStatsSelectedOutcome = 'dropped_before_choice';
+    let callerStatsSelectedSessionKey = null;
 
     const CALLER_OUTCOME_META = {
         dropped_before_choice: {
@@ -411,17 +413,85 @@
         }).format(d);
     }
 
+    function callerSessionKey(session) {
+        return [
+            session.startedAt || '',
+            session.finalOutcome || '',
+            session.callerLast4 || '',
+            session.queueCode || '',
+        ].join('|');
+    }
+
+    function callerJourneyDetail(step) {
+        switch (step.event) {
+        case 'incoming':
+            return 'Call answered';
+        case 'menu_choice':
+            return `Chose ${CALLER_CHOICE_LABELS[step.detail] || step.detail || 'a menu option'}`;
+        case 'join_intent':
+            return 'Committed to join the waitlist';
+        case 'name_captured':
+            return step.detail === 'fallback' ? 'Name fallback used' : 'Name captured';
+        case 'size_captured':
+            return `Party size captured: ${step.detail || '\u2014'}`;
+        case 'phone_source':
+            return step.detail === 'caller_id' ? 'Used caller ID phone number' : 'Entered phone number manually';
+        case 'joined':
+            return `Joined waitlist${step.detail ? ` as ${step.detail}` : ''}`;
+        case 'transfer':
+            if (step.detail === 'large_party') return 'Transferred to host for a large party';
+            if (step.detail === 'catering_request') return 'Transferred to catering line';
+            return 'Transferred to front desk';
+        case 'resolved_info':
+            return step.detail === 'hours_only' ? 'Resolved through hours and location info' : 'Resolved through menu info';
+        case 'auto_finalized':
+            return `Call ended without another input: ${formatCallerOutcome(step.detail || 'join_error')}`;
+        case 'join_error':
+            if (step.detail === 'invalid_party_size') return 'Stopped on invalid party size';
+            if (step.detail === 'invalid_phone') return 'Stopped on invalid phone number';
+            if (step.detail === 'large_party_requires_front_desk') return 'Large party required a host transfer, but no front-desk number was configured';
+            return 'Join flow ended with an error';
+        default:
+            return step.detail || step.event;
+        }
+    }
+
+    function renderCallerJourney(session) {
+        const caller = session.callerLast4 ? `Caller **** ${esc(session.callerLast4)}` : 'Caller hidden';
+        const secondary = session.queueCode
+            ? `Join code ${esc(session.queueCode)}`
+            : (session.phoneSource === 'caller_id'
+                ? 'Caller ID used'
+                : (session.phoneSource === 'manual' ? 'Manual phone entry' : 'No phone captured'));
+        callerDetailType.textContent = 'Caller journey';
+        callerDetailTitle.textContent = formatCallerOutcome(session.finalOutcome);
+        callerDetailCount.textContent = String((session.journey || []).length);
+        callerDetailShare.textContent = caller;
+        callerDetailBody.innerHTML = `
+            <p class="caller-detail-intro">Started ${esc(formatCallerTime(session.startedAt))}. ${secondary}.</p>
+            <ol class="caller-journey-list">
+                ${(session.journey || []).map((step) => `
+                    <li class="caller-journey-step">
+                        <span class="caller-journey-time">${esc(formatCallerTime(step.at))}</span>
+                        <span class="caller-journey-copy">${esc(callerJourneyDetail(step))}</span>
+                    </li>
+                `).join('')}
+            </ol>
+        `;
+    }
+
     function renderCallerDetail(outcome) {
         const meta = CALLER_OUTCOME_META[outcome?.key] || {
             label: 'Unknown outcome',
             type: 'Outcome',
             copy: 'No interpretation is available for this outcome yet.',
         };
+        callerStatsSelectedSessionKey = null;
         callerDetailType.textContent = meta.type;
         callerDetailTitle.textContent = meta.label;
         callerDetailCount.textContent = String(outcome?.count || 0);
         callerDetailShare.textContent = formatCallerShare(outcome?.share || 0);
-        callerDetailCopy.textContent = meta.copy;
+        callerDetailBody.innerHTML = `<p id="admin-caller-detail-copy">${esc(meta.copy)}</p>`;
     }
 
     function renderCallerOutcomes(outcomes) {
@@ -466,9 +536,14 @@
         }
 
         recentSessions.forEach((session) => {
+            const sessionKey = callerSessionKey(session);
             const row = document.createElement('tr');
-            const caller = session.callerLast4 ? `•••• ${esc(session.callerLast4)}` : '\u2014';
+            const caller = session.callerLast4 ? `**** ${esc(session.callerLast4)}` : '\u2014';
             const path = session.firstMenuChoice ? esc(CALLER_CHOICE_LABELS[session.firstMenuChoice] || session.firstMenuChoice) : '\u2014';
+            const isActive = sessionKey === callerStatsSelectedSessionKey;
+            row.className = 'caller-session-row' + (isActive ? ' is-active' : '');
+            row.tabIndex = 0;
+            row.setAttribute('aria-selected', isActive ? 'true' : 'false');
             row.innerHTML = `
                 <td>${esc(formatCallerTime(session.startedAt))}</td>
                 <td>${esc(formatCallerOutcome(session.finalOutcome))}</td>
@@ -476,6 +551,18 @@
                 <td>${session.queueCode ? esc(session.queueCode) : '\u2014'}</td>
                 <td>${caller}</td>
             `;
+            const selectSession = () => {
+                callerStatsSelectedSessionKey = sessionKey;
+                renderCallerRecent(recentSessions);
+                renderCallerJourney(session);
+            };
+            row.addEventListener('click', selectSession);
+            row.addEventListener('keydown', (event) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    selectSession();
+                }
+            });
             callerRecent.appendChild(row);
         });
     }
@@ -520,6 +607,7 @@
             callerCoverageNote.textContent = data.historicalCoverage?.hasLegacyGap
                 ? 'Historical IVR funnel coverage starts at rollout. Pre-rollout days are intentionally excluded from caller analytics.'
                 : `Showing caller data from ${data.dateRange?.from || '\u2014'} to ${data.dateRange?.to || '\u2014'}.`;
+            callerStatsSelectedSessionKey = null;
             renderCallerOutcomes(Array.isArray(data.outcomes) ? data.outcomes : []);
             renderCallerChoices(Array.isArray(data.firstMenuChoices) ? data.firstMenuChoices : []);
             renderCallerRecent(Array.isArray(data.recentSessions) ? data.recentSessions : []);

@@ -204,10 +204,22 @@ const cases: BaseTestCase[] = [
                 headers: { Cookie: cookie },
             });
             const body = await authed.json() as {
-                recentSessions?: Array<Record<string, unknown>>;
+                recentSessions?: Array<{
+                    callerLast4?: string;
+                    journey?: Array<{
+                        at?: string;
+                        event?: string;
+                        detail?: string;
+                        phone?: string;
+                        fullPhone?: string;
+                    }>;
+                    phone?: string;
+                    fullPhone?: string;
+                }>;
                 funnel?: { inboundCalls?: number };
             };
             const recent = body.recentSessions?.[0] ?? {};
+            const firstStep = recent.journey?.[0];
 
             await stopTestServer();
 
@@ -215,8 +227,14 @@ const cases: BaseTestCase[] = [
                 && authed.ok
                 && body.funnel?.inboundCalls === 1
                 && recent.callerLast4 === '4321'
+                && Array.isArray(recent.journey)
+                && recent.journey.length === 1
+                && firstStep?.event === 'incoming'
+                && typeof firstStep?.at === 'string'
                 && !('phone' in recent)
-                && !('fullPhone' in recent);
+                && !('fullPhone' in recent)
+                && !('phone' in (firstStep ?? {}))
+                && !('fullPhone' in (firstStep ?? {}));
         },
     },
     {

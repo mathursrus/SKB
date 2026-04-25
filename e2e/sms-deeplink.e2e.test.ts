@@ -16,8 +16,7 @@ process.env.FRAIM_TEST_SERVER_PORT ??= '15411';
 process.env.FRAIM_BRANCH ??= '';
 
 import path from 'node:path';
-import { existsSync } from 'node:fs';
-import { chromium } from 'playwright-core';
+import { chromium } from 'playwright';
 
 import {
     startTestServer,
@@ -34,18 +33,6 @@ const OWNER_PASS = 'sms-deeplink-owner-password';
 
 function assert(condition: boolean, msg: string): void {
     if (!condition) throw new Error(`ASSERTION FAILED: ${msg}`);
-}
-
-function getBrowserExecutablePath(): string {
-    const candidates = [
-        'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
-        'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',
-        'C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe',
-    ];
-    for (const candidate of candidates) {
-        if (existsSync(candidate)) return candidate;
-    }
-    throw new Error('No Chromium-based browser found on this machine for playwright-core');
 }
 
 async function post(pathname: string, body: unknown, cookie?: string): Promise<{ status: number; data: Record<string, unknown>; cookie?: string }> {
@@ -83,7 +70,6 @@ async function main(): Promise<void> {
     await startTestServer();
 
     const browser = await chromium.launch({
-        executablePath: getBrowserExecutablePath(),
         headless: true,
     });
 

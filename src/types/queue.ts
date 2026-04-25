@@ -529,6 +529,12 @@ export interface CallerStatsMenuChoiceDTO {
     share: number;
 }
 
+export interface CallerStatsRecentSessionStepDTO {
+    at: string;
+    event: VoiceCallSessionStepEvent;
+    detail?: string;
+}
+
 export interface CallerStatsRecentSessionDTO {
     startedAt: string;
     finalOutcome: VoiceCallFinalOutcome;
@@ -538,6 +544,7 @@ export interface CallerStatsRecentSessionDTO {
     nameCaptureMode?: 'normal' | 'fallback';
     phoneSource?: 'caller_id' | 'manual';
     transferReason?: VoiceCallTransferReason;
+    journey: CallerStatsRecentSessionStepDTO[];
 }
 
 export interface CallerStatsDTO {

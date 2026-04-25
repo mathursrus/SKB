@@ -1266,6 +1266,12 @@ button.remove:hover { background: var(--danger); color: #fff; }
     font-size: 13px;
     line-height: 1.5;
 }
+.caller-detail-intro {
+    margin: 6px 0 0;
+    color: var(--muted);
+    font-size: 13px;
+    line-height: 1.5;
+}
 .caller-outcome-chips {
     display: flex;
     flex-wrap: wrap;
@@ -1350,6 +1356,45 @@ button.remove:hover { background: var(--danger); color: #fff; }
     color: var(--muted);
     padding: 18px 14px;
 }
+.caller-session-row {
+    cursor: pointer;
+}
+.caller-session-row:hover td,
+.caller-session-row:focus-visible td,
+.caller-session-row.is-active td {
+    background: #fff7db;
+}
+.caller-session-row:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: -2px;
+}
+.caller-journey-list {
+    margin: 14px 0 0;
+    padding: 0;
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.caller-journey-step {
+    display: grid;
+    grid-template-columns: 96px minmax(0, 1fr);
+    gap: 10px;
+    align-items: start;
+    padding: 10px 12px;
+    border-radius: 10px;
+    background: #fafaf9;
+}
+.caller-journey-time {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--fg);
+}
+.caller-journey-copy {
+    font-size: 13px;
+    line-height: 1.45;
+    color: var(--muted);
+}
 @media (max-width: 600px) {
     .stats-card { margin: 12px 12px 0; }
     .stats-grid { grid-template-columns: repeat(2, 1fr); }
@@ -1372,6 +1417,7 @@ button.remove:hover { background: var(--danger); color: #fff; }
     .caller-outcome-chip { min-width: 0; width: 100%; }
     .caller-choice-row { grid-template-columns: 1fr auto; }
     .caller-choice-row em { grid-column: 1 / -1; }
+    .caller-journey-step { grid-template-columns: 1fr; }
 }
 
 /* ---------- Tabs ---------- */

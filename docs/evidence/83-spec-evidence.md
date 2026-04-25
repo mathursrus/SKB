@@ -31,8 +31,8 @@ PR: https://github.com/mathursrus/SKB/pull/87
 
 ## Completeness Evidence
 
-- Issue tagged with label `phase:spec`: Pending label update at submission time
-- Issue tagged with label `status:needs-review`: Pending label update at submission time
+- Issue tagged with label `phase:spec`: Yes
+- Issue tagged with label `status:needs-review`: Yes
 - All specification documents committed/synced to branch: Yes
 
 | Customer Research Area | Sources of Information |
@@ -46,7 +46,7 @@ PR: https://github.com/mathursrus/SKB/pull/87
 
 | PR Comment | How Addressed |
 | --- | --- |
-| None yet | Initial submission for human review |
+| `Feature-specification workflow complete. Evidence: docs/evidence/83-spec-evidence.md. Ready for human review.` | Added as a PR comment on `#87` after the evidence document was committed and pushed. |
 
 ## Feedback History
 

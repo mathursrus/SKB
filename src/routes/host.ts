@@ -4,7 +4,7 @@
 
 import { Router, type Request, type Response } from 'express';
 
-import { callParty, joinQueue, listHostQueue, removeFromQueue, logCallDial } from '../services/queue.js';
+import { callParty, joinQueue, listHostQueue, removeFromQueue, logCallDial, setPartySentimentOverride } from '../services/queue.js';
 import { sendChatMessage, getChatThread, markThreadRead } from '../services/chat.js';
 import {
     chatAlmostReadyMessage,
@@ -23,6 +23,7 @@ import {
 } from '../services/dining.js';
 import { getAvgTurnTime, getEffectiveTurnTime, setAvgTurnTime, setEtaMode } from '../services/settings.js';
 import type { EtaMode } from '../types/queue.js';
+import type { HostSentiment } from '../types/hostSentiment.js';
 import { getHostStats } from '../services/stats.js';
 import { getAnalytics } from '../services/analytics.js';
 import {
@@ -305,6 +306,36 @@ export function hostRouter(): Router {
         } catch (err) {
             if (err instanceof Error && err.message === 'invalid id') { res.status(400).json({ error: 'invalid id' }); return; }
             if (err instanceof Error && err.message === 'chat.disabled') { res.status(403).json({ error: err.message }); return; }
+            dbError(res, err);
+        }
+    });
+
+    r.post('/host/queue/:id/sentiment', requireHost, async (req: Request, res: Response) => {
+        const id = String(req.params.id);
+        const raw = (req.body as { sentiment?: unknown })?.sentiment;
+        let sentiment: HostSentiment | null;
+        if (raw === null || raw === '') {
+            sentiment = null;
+        } else if (raw === 'happy' || raw === 'neutral' || raw === 'upset') {
+            sentiment = raw;
+        } else {
+            res.status(400).json({ error: 'sentiment must be happy|neutral|upset|null', field: 'sentiment' });
+            return;
+        }
+        try {
+            const result = await setPartySentimentOverride(id, sentiment);
+            if (!result.ok) { res.status(404).json({ error: 'not found or not editable' }); return; }
+            console.log(JSON.stringify({
+                t: new Date().toISOString(),
+                level: 'info',
+                msg: 'host.queue.sentiment',
+                loc: loc(req),
+                id,
+                sentiment: sentiment ?? 'auto',
+            }));
+            res.json({ ok: true });
+        } catch (err) {
+            if (err instanceof Error && err.message === 'invalid id') { res.status(400).json({ error: 'invalid id' }); return; }
             dbError(res, err);
         }
     });

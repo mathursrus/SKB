@@ -22,6 +22,18 @@ import {
     listDiningParties,
 } from '../../src/services/dining.js';
 
+type HostPartyWithSentiment = {
+    name: string;
+    sentiment?: string;
+    sentimentSource?: string;
+};
+
+type HostDiningPartyWithSentiment = {
+    name: string;
+    sentiment?: string;
+    sentimentSource?: string;
+};
+
 async function resetDb(): Promise<void> {
     const db = await getDb();
     await queueEntries(db).deleteMany({});
@@ -174,6 +186,71 @@ const cases: BaseTestCase[] = [
             const a = list1.parties.find(p => p.name === 'A')!;
             return a.state === 'called' && a.calls.length === 2 &&
                 a.calls[0].minutesAgo === 3 && a.calls[1].minutesAgo === 0;
+        },
+    },
+    {
+        name: 'listHostQueue derives automatic sentiment bands from wait time',
+        tags: ['integration', 'queue', 'host-queue', 'sentiment'],
+        testFn: async () => {
+            await resetDb();
+            const now = new Date('2026-04-05T20:20:00Z');
+            await joinQueue('test', { name: 'Happy', partySize: 2, phone: '2065552201' }, new Date(now.getTime() - 4 * 60_000));
+            await joinQueue('test', { name: 'Neutral', partySize: 2, phone: '2065552202' }, new Date(now.getTime() - 10 * 60_000));
+            await joinQueue('test', { name: 'Upset', partySize: 2, phone: '2065552203' }, new Date(now.getTime() - 18 * 60_000));
+            const list = await listHostQueue('test', now);
+            const byName = new Map(list.parties.map((party) => {
+                const typed = party as typeof party & HostPartyWithSentiment;
+                return [typed.name, typed];
+            }));
+            return byName.get('Happy')?.sentiment === 'happy'
+                && byName.get('Happy')?.sentimentSource === 'automatic'
+                && byName.get('Neutral')?.sentiment === 'neutral'
+                && byName.get('Neutral')?.sentimentSource === 'automatic'
+                && byName.get('Upset')?.sentiment === 'upset'
+                && byName.get('Upset')?.sentimentSource === 'automatic';
+        },
+    },
+    {
+        name: 'listHostQueue manual sentiment override takes precedence over automatic sentiment',
+        tags: ['integration', 'queue', 'host-queue', 'sentiment'],
+        testFn: async () => {
+            await resetDb();
+            const now = new Date('2026-04-05T20:20:00Z');
+            await joinQueue('test', { name: 'Override', partySize: 2, phone: '2065552210' }, new Date(now.getTime() - 2 * 60_000));
+            const db = await getDb();
+            await queueEntries(db).updateOne(
+                { locationId: 'test', name: 'Override' },
+                { $set: { sentimentOverride: 'upset' } },
+            );
+            const list = await listHostQueue('test', now);
+            const party = list.parties.find((entry) => entry.name === 'Override') as (HostPartyWithSentiment | undefined);
+            return party?.sentiment === 'upset' && party?.sentimentSource === 'manual';
+        },
+    },
+    {
+        name: 'listDiningParties derives seated sentiment from the actual wait and keeps manual override precedence',
+        tags: ['integration', 'queue', 'dining', 'sentiment'],
+        testFn: async () => {
+            await resetDb();
+            const joinedAt = new Date('2026-04-05T20:00:00Z');
+            await joinQueue('test', { name: 'Seated Sentiment', partySize: 2, phone: '2065552211' }, joinedAt);
+            const waitingList = await listHostQueue('test', joinedAt);
+            const id = waitingList.parties[0].id;
+            const seatedAt = new Date('2026-04-05T20:20:00Z');
+            await removeFromQueue(id, 'seated', { tableNumber: 12 }, seatedAt);
+
+            const autoDining = await listDiningParties('test', new Date('2026-04-05T20:25:00Z'));
+            const autoParty = autoDining.parties[0] as HostDiningPartyWithSentiment | undefined;
+            if (autoParty?.sentiment !== 'upset' || autoParty?.sentimentSource !== 'automatic') return false;
+
+            const db = await getDb();
+            await queueEntries(db).updateOne(
+                { locationId: 'test', name: 'Seated Sentiment' },
+                { $set: { sentimentOverride: 'happy' } },
+            );
+            const manualDining = await listDiningParties('test', new Date('2026-04-05T20:30:00Z'));
+            const manualParty = manualDining.parties[0] as HostDiningPartyWithSentiment | undefined;
+            return manualParty?.sentiment === 'happy' && manualParty?.sentimentSource === 'manual';
         },
     },
     // -- Dining lifecycle (issue #24) ------------------------------------------

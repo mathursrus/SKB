@@ -24,6 +24,11 @@
     const DEFAULT_GUEST_FEATURES = { menu: true, order: true, chat: true, sms: true };
     const SMS_OPT_IN_REASON = 'diner did not opt into SMS updates.';
     const WEB_ONLY_CHAT_NOTICE = 'SMS unavailable \u2014 this thread is web only because the diner did not opt into SMS updates.';
+    const SENTIMENT_META = {
+        happy: { emoji: '🙂', label: 'Good' },
+        neutral: { emoji: '😐', label: 'Waiting' },
+        upset: { emoji: '😠', label: 'Needs attention' },
+    };
     let publicConfig = { guestFeatures: { ...DEFAULT_GUEST_FEATURES } };
     let currentIdentity = null;
 
@@ -47,6 +52,25 @@
         return String(s).replace(/[&<>"']/g, c => ({
             '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
         }[c]));
+    }
+
+    function renderSentimentBadge(sentiment, source) {
+        const meta = SENTIMENT_META[sentiment] || SENTIMENT_META.neutral;
+        const sourceLabel = source === 'manual' ? 'Host override' : 'Automatic';
+        return '<span class="sentiment-badge sentiment-' + escapeHtml(sentiment || 'neutral') + '" title="' + sourceLabel + ': ' + meta.label + '">' +
+            '<span class="sentiment-emoji" aria-hidden="true">' + meta.emoji + '</span>' +
+            '<span class="sentiment-text">' + escapeHtml(meta.label) + '</span>' +
+            '</span>';
+    }
+
+    function renderSentimentSelect(safeName, sentiment, source) {
+        const selected = source === 'manual' ? sentiment : '';
+        return '<select class="sentiment-select" data-action="sentiment" aria-label="Set sentiment for ' + safeName + '">' +
+            '<option value=""' + (selected === '' ? ' selected' : '') + '>Auto</option>' +
+            '<option value="happy"' + (selected === 'happy' ? ' selected' : '') + '>🙂 Good</option>' +
+            '<option value="neutral"' + (selected === 'neutral' ? ' selected' : '') + '>😐 Waiting</option>' +
+            '<option value="upset"' + (selected === 'upset' ? ' selected' : '') + '>😠 Needs attention</option>' +
+            '</select>';
     }
 
     // -- Tab switching --
@@ -116,7 +140,9 @@
                 const callHref = hasPhone && p.phoneForDial ? 'tel:' + p.phoneForDial : '#';
                 const callDisabled = hasPhone ? '' : ' aria-disabled="true"';
                 const phoneForDial = p.phoneForDial || '';
+                const sentimentBadge = renderSentimentBadge(p.sentiment, p.sentimentSource);
                 const rowActions = [
+                    renderSentimentSelect(safeName, p.sentiment, p.sentimentSource),
                     '<button class="seat-btn" data-action="seat" aria-label="Seat ' + safeName + '">Seat</button>',
                     '<button class="notify-btn" data-action="notify" aria-label="' + notifyLabel + ' ' + safeName + '"' + smsDisabledAttr + (notifyTitle ? ' title="' + escapeHtml(notifyTitle) + '"' : '') + '>' + notifyLabel + '</button>',
                     features.chat
@@ -131,7 +157,7 @@
                 ].filter(Boolean).join('');
                 return '<tr data-id="' + p.id + '" data-code="' + escapeHtml(p.code || '') + '" data-name="' + safeName + '" data-size="' + p.partySize + '" data-wait="' + p.waitingMinutes + '" data-phone-mask="' + (p.phoneMasked || '') + '" data-phone-dial="' + escapeHtml(phoneForDial) + '" data-sms-capable="' + (smsCapable ? '1' : '0') + '" class="' + (p.state === 'called' ? 'row-called' : '') + '">' +
                     '<td class="num">' + p.position + '</td>' +
-                    '<td>' + safeName + calledBadge + onWayBadge + '</td>' +
+                    '<td>' + safeName + sentimentBadge + calledBadge + onWayBadge + '</td>' +
                     '<td class="size">' + p.partySize + '</td>' +
                     '<td class="phone">' + (p.phoneMasked || '\u2014') + '</td>' +
                     '<td class="eta">' + fmtTime(p.etaAt) + '</td>' +
@@ -178,14 +204,21 @@
             let html = '';
             for (const p of data.parties) {
                 const next = NEXT_ACTION[p.state];
-                const actions = next
-                    ? '<button class="advance-btn" data-id="' + p.id + '" data-state="' + next.state + '">' + next.label + '</button>' +
-                      (p.state !== 'checkout' ? '<button class="depart-btn" data-id="' + p.id + '" data-state="departed">Departed</button>' : '')
-                    : '';
+                const safeName = escapeHtml(p.name);
+                const sentimentBadge = renderSentimentBadge(p.sentiment, p.sentimentSource);
+                const actions = [
+                    renderSentimentSelect(safeName, p.sentiment, p.sentimentSource),
+                    next
+                        ? '<button class="advance-btn" data-id="' + p.id + '" data-state="' + next.state + '">' + next.label + '</button>'
+                        : '',
+                    next && p.state !== 'checkout'
+                        ? '<button class="depart-btn" data-id="' + p.id + '" data-state="departed">Departed</button>'
+                        : '',
+                ].filter(Boolean).join('');
                 const tbl = (typeof p.tableNumber === 'number') ? String(p.tableNumber) : '\u2014';
-                html += '<tr class="expandable" data-dining-id="' + p.id + '">' +
+                html += '<tr class="expandable" data-dining-id="' + p.id + '" data-id="' + p.id + '">' +
                     '<td class="table-num"><strong>' + tbl + '</strong></td>' +
-                    '<td>' + escapeHtml(p.name) + '</td>' +
+                    '<td>' + safeName + sentimentBadge + '</td>' +
                     '<td class="size">' + p.partySize + '</td>' +
                     transitCell(p.waitMinutes) +
                     transitCell(p.toOrderMinutes) +
@@ -411,6 +444,18 @@
             }
         }
         setTimeout(refreshAll, 800);
+    }
+
+    async function onSetSentiment(id, sentiment) {
+        const r = await fetch('api/host/queue/' + encodeURIComponent(id) + '/sentiment', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ sentiment }),
+        });
+        if (r.status === 401) { showLogin(); return false; }
+        if (!r.ok) return false;
+        refreshAll();
+        return true;
     }
 
     // ========================================================================
@@ -990,10 +1035,25 @@
             if (reason === 'no_show') onRemove(id, reason);
         }
     });
+    rows.addEventListener('change', async (e) => {
+        const target = e.target;
+        if (!(target instanceof HTMLSelectElement)) return;
+        if (!target.classList.contains('sentiment-select')) return;
+        const tr = target.closest('tr[data-id]');
+        const id = tr?.dataset.id;
+        if (!id) return;
+        const selected = target.value || null;
+        const ok = await onSetSentiment(id, selected);
+        if (!ok) refreshAll();
+    });
 
     // Dining tab: delegate clicks
     diningRows.addEventListener('click', (e) => {
         const target = e.target;
+        if (target.closest && target.closest('.sentiment-select')) {
+            e.stopPropagation();
+            return;
+        }
         const advBtn = target.closest('button.advance-btn') || target.closest('button.depart-btn');
         if (advBtn) {
             e.stopPropagation();
@@ -1007,6 +1067,17 @@
         if (row) {
             toggleTimeline(row.dataset.diningId);
         }
+    });
+    diningRows.addEventListener('change', async (e) => {
+        const target = e.target;
+        if (!(target instanceof HTMLSelectElement)) return;
+        if (!target.classList.contains('sentiment-select')) return;
+        const tr = target.closest('tr[data-id]');
+        const id = tr?.dataset.id;
+        if (!id) return;
+        const selected = target.value || null;
+        const ok = await onSetSentiment(id, selected);
+        if (!ok) refreshAll();
     });
 
     // Completed tab: delegate clicks

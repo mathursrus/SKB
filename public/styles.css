@@ -1911,6 +1911,52 @@ body.queue-boot::before {
     text-transform: uppercase;
     letter-spacing: 0.04em;
 }
+.sentiment-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-left: 8px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+    vertical-align: middle;
+}
+.sentiment-badge.sentiment-happy {
+    background: #dcfce7;
+    color: #166534;
+}
+.sentiment-badge.sentiment-neutral {
+    background: #fef3c7;
+    color: #92400e;
+}
+.sentiment-badge.sentiment-upset {
+    background: #fee2e2;
+    color: #b91c1c;
+}
+.sentiment-emoji {
+    line-height: 1;
+}
+.sentiment-select {
+    height: 36px;
+    min-width: 108px;
+    padding: 0 10px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: #fff;
+    color: var(--fg);
+    font: inherit;
+    font-size: 12px;
+    font-weight: 600;
+    margin: 0;
+}
+.sentiment-select:hover {
+    border-color: #d4d4d4;
+}
+.sentiment-select:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+}
 .unread-dot {
     position: absolute;
     top: -5px;
@@ -2651,6 +2697,26 @@ a#custom-call-confirm[aria-disabled="true"] {
     background: rgba(248, 113, 113, 0.12);
     border-color: transparent;
     color: var(--danger);
+}
+.theme-dark .sentiment-badge.sentiment-happy {
+    background: rgba(22, 163, 74, 0.18);
+    color: #bbf7d0;
+}
+.theme-dark .sentiment-badge.sentiment-neutral {
+    background: rgba(245, 158, 11, 0.18);
+    color: #fde68a;
+}
+.theme-dark .sentiment-badge.sentiment-upset {
+    background: rgba(220, 38, 38, 0.18);
+    color: #fecaca;
+}
+.theme-dark .sentiment-select {
+    background: var(--surface-alt);
+    color: var(--fg);
+    border-color: var(--border);
+}
+.theme-dark .sentiment-select:hover {
+    border-color: var(--accent);
 }
 
 /* Topbar / logout-style buttons: bump to fg so they're readable, not muted */

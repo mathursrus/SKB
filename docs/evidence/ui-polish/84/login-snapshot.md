@@ -1,0 +1,34 @@
+- generic [ref=e1]:
+  - generic [ref=e3]:
+    - generic [ref=e4]:
+      - text: OSH
+      - generic [ref=e5]: OS for Hospitality
+    - generic [ref=e6]:
+      - heading "Welcome back" [level=1] [ref=e7]
+      - paragraph [ref=e8]: Sign in to your restaurant's admin or host workspace.
+      - generic [ref=e9]:
+        - generic [ref=e10]
+        - generic [ref=e13]
+        - link "Forgot your password?" [ref=e17] [cursor=pointer]:
+          - /url: "#"
+        - button "Sign in" [ref=e18] [cursor=pointer]
+      - generic [ref=e19]: on a shared tablet?
+      - generic [ref=e20]:
+        - strong [ref=e21]: Host-stand shortcut
+        - text: Point the tablet at your restaurant's host URL and sign in with the 4-digit PIN the owner set up.
+      - paragraph [ref=e22]:
+        - text: New restaurant?
+        - link "Start one here." [ref=e23] [cursor=pointer]:
+          - /url: /signup
+  - generic [ref=e24]:
+    - heading [level=3] [ref=e25]: What staff see after login
+    - generic [ref=e26]:
+      - heading [level=4] [ref=e27]: Which restaurant?
+      - paragraph [ref=e28]: You're on staff at more than one restaurant. Pick one — you can switch later from the top bar.
+      - generic [ref=e29]:
+        - generic [ref=e30]
+        - generic [ref=e36]: →
+      - generic [ref=e37]:
+        - generic [ref=e38]
+        - generic [ref=e44]: →
+    - paragraph [ref=e45]: Rare in v1 — most users will have exactly one membership and skip this screen.

@@ -523,6 +523,172 @@ const cases: BaseTestCase[] = [
         },
     },
     {
+        name: 'host sentiment: host can set and clear a manual sentiment override',
+        tags: ['integration', 'auth', 'host-sentiment', 'waitlist-path'],
+        testFn: async () => {
+            const suffix = Math.random().toString(36).slice(2, 8);
+            const name = `Sentiment-${suffix}`;
+            const phone = `206555${String(Math.floor(Math.random() * 9000) + 1000)}`;
+            const loginRes = await hostPinLogin('1234');
+            const cookieValue = (loginRes.headers.get('set-cookie') ?? '').split(';')[0];
+
+            const addRes = await fetch(`${getTestServerUrl()}/api/host/queue/add`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', Cookie: cookieValue },
+                body: JSON.stringify({ name, partySize: 2, phone }),
+            });
+            if (!addRes.ok) return false;
+
+            const queueRes = await fetch(`${getTestServerUrl()}/api/host/queue`, {
+                headers: { Cookie: cookieValue },
+            });
+            if (!queueRes.ok) return false;
+            const queueBody = await queueRes.json() as {
+                parties?: Array<{ id: string; name: string; sentiment?: string; sentimentSource?: string }>;
+            };
+            const party = queueBody.parties?.find((entry) => entry.name === name);
+            if (!party?.id) return false;
+
+            const setRes = await fetch(`${getTestServerUrl()}/api/host/queue/${party.id}/sentiment`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', Cookie: cookieValue },
+                body: JSON.stringify({ sentiment: 'upset' }),
+            });
+            if (!setRes.ok) return false;
+
+            const afterSetRes = await fetch(`${getTestServerUrl()}/api/host/queue`, {
+                headers: { Cookie: cookieValue },
+            });
+            if (!afterSetRes.ok) return false;
+            const afterSetBody = await afterSetRes.json() as {
+                parties?: Array<{ id: string; name: string; sentiment?: string; sentimentSource?: string }>;
+            };
+            const afterSet = afterSetBody.parties?.find((entry) => entry.id === party.id);
+            if (afterSet?.sentiment !== 'upset' || afterSet?.sentimentSource !== 'manual') return false;
+
+            const clearRes = await fetch(`${getTestServerUrl()}/api/host/queue/${party.id}/sentiment`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', Cookie: cookieValue },
+                body: JSON.stringify({ sentiment: null }),
+            });
+            if (!clearRes.ok) return false;
+
+            const afterClearRes = await fetch(`${getTestServerUrl()}/api/host/queue`, {
+                headers: { Cookie: cookieValue },
+            });
+            if (!afterClearRes.ok) return false;
+            const afterClearBody = await afterClearRes.json() as {
+                parties?: Array<{ id: string; name: string; sentiment?: string; sentimentSource?: string }>;
+            };
+            const afterClear = afterClearBody.parties?.find((entry) => entry.id === party.id);
+            return afterClear?.sentimentSource === 'automatic'
+                && ['happy', 'neutral', 'upset'].includes(String(afterClear?.sentiment ?? ''));
+        },
+    },
+    {
+        name: 'host sentiment: invalid override value returns 400 with field hint',
+        tags: ['integration', 'auth', 'host-sentiment'],
+        testFn: async () => {
+            const suffix = Math.random().toString(36).slice(2, 8);
+            const name = `SentimentBad-${suffix}`;
+            const phone = `206556${String(Math.floor(Math.random() * 9000) + 1000)}`;
+            const loginRes = await hostPinLogin('1234');
+            const cookieValue = (loginRes.headers.get('set-cookie') ?? '').split(';')[0];
+
+            const addRes = await fetch(`${getTestServerUrl()}/api/host/queue/add`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', Cookie: cookieValue },
+                body: JSON.stringify({ name, partySize: 2, phone }),
+            });
+            if (!addRes.ok) return false;
+
+            const queueRes = await fetch(`${getTestServerUrl()}/api/host/queue`, {
+                headers: { Cookie: cookieValue },
+            });
+            if (!queueRes.ok) return false;
+            const queueBody = await queueRes.json() as { parties?: Array<{ id: string; name: string }> };
+            const party = queueBody.parties?.find((entry) => entry.name === name);
+            if (!party?.id) return false;
+
+            const res = await fetch(`${getTestServerUrl()}/api/host/queue/${party.id}/sentiment`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', Cookie: cookieValue },
+                body: JSON.stringify({ sentiment: 'furious' }),
+            });
+            if (res.status !== 400) return false;
+            const body = await res.json() as { field?: string };
+            return body.field === 'sentiment';
+        },
+    },
+    {
+        name: 'host sentiment: seated party appears in dining and still supports set/clear override',
+        tags: ['integration', 'auth', 'host-sentiment', 'dining'],
+        testFn: async () => {
+            const suffix = Math.random().toString(36).slice(2, 8);
+            const name = `SeatedSent-${suffix}`;
+            const phone = `206557${String(Math.floor(Math.random() * 9000) + 1000)}`;
+            const loginRes = await hostPinLogin('1234');
+            const cookieValue = (loginRes.headers.get('set-cookie') ?? '').split(';')[0];
+
+            const addRes = await fetch(`${getTestServerUrl()}/api/host/queue/add`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', Cookie: cookieValue },
+                body: JSON.stringify({ name, partySize: 2, phone }),
+            });
+            if (!addRes.ok) return false;
+
+            const queueRes = await fetch(`${getTestServerUrl()}/api/host/queue`, {
+                headers: { Cookie: cookieValue },
+            });
+            if (!queueRes.ok) return false;
+            const queueBody = await queueRes.json() as { parties?: Array<{ id: string; name: string }> };
+            const party = queueBody.parties?.find((entry) => entry.name === name);
+            if (!party?.id) return false;
+
+            const seatRes = await fetch(`${getTestServerUrl()}/api/host/queue/${party.id}/remove`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', Cookie: cookieValue },
+                body: JSON.stringify({ reason: 'seated', tableNumber: 44 }),
+            });
+            if (!seatRes.ok) return false;
+
+            const setRes = await fetch(`${getTestServerUrl()}/api/host/queue/${party.id}/sentiment`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', Cookie: cookieValue },
+                body: JSON.stringify({ sentiment: 'neutral' }),
+            });
+            if (!setRes.ok) return false;
+
+            const diningRes = await fetch(`${getTestServerUrl()}/api/host/dining`, {
+                headers: { Cookie: cookieValue },
+            });
+            if (!diningRes.ok) return false;
+            const diningBody = await diningRes.json() as {
+                parties?: Array<{ id: string; name: string; sentiment?: string; sentimentSource?: string }>;
+            };
+            const diningParty = diningBody.parties?.find((entry) => entry.id === party.id);
+            if (diningParty?.sentiment !== 'neutral' || diningParty?.sentimentSource !== 'manual') return false;
+
+            const clearRes = await fetch(`${getTestServerUrl()}/api/host/queue/${party.id}/sentiment`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', Cookie: cookieValue },
+                body: JSON.stringify({ sentiment: null }),
+            });
+            if (!clearRes.ok) return false;
+
+            const afterClearRes = await fetch(`${getTestServerUrl()}/api/host/dining`, {
+                headers: { Cookie: cookieValue },
+            });
+            if (!afterClearRes.ok) return false;
+            const afterClearBody = await afterClearRes.json() as {
+                parties?: Array<{ id: string; name: string; sentiment?: string; sentimentSource?: string }>;
+            };
+            const afterClear = afterClearBody.parties?.find((entry) => entry.id === party.id);
+            return afterClear?.sentimentSource === 'automatic'
+                && ['happy', 'neutral', 'upset'].includes(String(afterClear?.sentiment ?? ''));
+        },
+    },
+    {
         name: 'host-auth: teardown',
         tags: ['integration', 'auth'],
         testFn: async () => {

@@ -22,6 +22,12 @@ import type {
     RemovalReason,
     StatusResponseDTO,
 } from '../types/queue.js';
+import {
+    deriveHostSentiment,
+    isHostSentiment,
+    type HostSentiment,
+    type HostSentimentSource,
+} from '../types/hostSentiment.js';
 import { sendSms } from './sms.js';
 import { firstCallMessage, repeatCallMessage } from './smsTemplates.js';
 import { maskPhone } from './sms.js';
@@ -34,7 +40,6 @@ const MAX_CODE_RETRIES = 5;
 
 const ACTIVE_STATES: QueueEntry['state'][] = ['waiting', 'called'];
 const DINING_STATES: QueueEntry['state'][] = ['seated', 'ordered', 'served', 'checkout'];
-
 // -- Pure helpers -------------------------------------------------------------
 
 export function computeEtaMinutes(
@@ -54,6 +59,9 @@ export function positionInList(
     }
     return 0;
 }
+
+type QueueEntryWithSentiment = QueueEntry & { _id?: ObjectId; sentimentOverride?: HostSentiment };
+type HostPartyWithSentiment = HostPartyDTO & { sentiment: HostSentiment; sentimentSource: HostSentimentSource };
 
 // -- Persistence (all queries scoped to locationId) ---------------------------
 
@@ -292,8 +300,12 @@ export async function listHostQueue(locationId: string, now: Date = new Date()):
         ? await countUnreadForEntries(locationId, codes)
         : new Map<string, number>();
 
-    const parties: HostPartyDTO[] = docs.map((d, i) => {
+    const parties: HostPartyDTO[] = docs.map((doc, i) => {
+        const d = doc as QueueEntryWithSentiment;
         const position = i + 1;
+        const waitingMinutes = minutesBetween(d.joinedAt, now);
+        const automaticSentiment = deriveHostSentiment(waitingMinutes, avg);
+        const sentiment = isHostSentiment(d.sentimentOverride) ? d.sentimentOverride : automaticSentiment;
         return {
             id: String(d._id ?? ''),
             code: d.code,
@@ -306,8 +318,10 @@ export async function listHostQueue(locationId: string, now: Date = new Date()):
             smsCapable: d.smsConsent === true,
             joinedAt: d.joinedAt.toISOString(),
             etaAt: (d.promisedEtaAt ?? d.joinedAt).toISOString(),
-            waitingMinutes: minutesBetween(d.joinedAt, now),
+            waitingMinutes,
             state: d.state as 'waiting' | 'called',
+            sentiment,
+            sentimentSource: isHostSentiment(d.sentimentOverride) ? 'manual' : 'automatic',
             calls: (d.calls ?? []).map((c) => ({
                 minutesAgo: minutesBetween(c.at, now),
                 smsStatus: c.smsStatus ?? 'not_configured',
@@ -330,6 +344,34 @@ export interface RemoveResult {
     ok: boolean;
     /** Populated when reason==='seated' AND a live party already holds this table AND override !== true. */
     conflict?: { partyName: string; partyId: string };
+}
+
+export async function setPartySentimentOverride(
+    id: string,
+    sentiment: HostSentiment | null,
+): Promise<{ ok: boolean }> {
+    const db = await getDb();
+    let _id: ObjectId;
+    try {
+        _id = new ObjectId(id);
+    } catch {
+        throw new Error('invalid id');
+    }
+    if (sentiment === null) {
+        const res = await queueEntries(db).updateOne(
+            { _id, state: { $in: [...ACTIVE_STATES, ...DINING_STATES] } },
+            { $unset: { sentimentOverride: '' } },
+        );
+        return { ok: res.matchedCount === 1 };
+    }
+    if (!isHostSentiment(sentiment)) {
+        throw new Error('invalid sentiment');
+    }
+    const res = await queueEntries(db).updateOne(
+        { _id, state: { $in: [...ACTIVE_STATES, ...DINING_STATES] } },
+        { $set: { sentimentOverride: sentiment } },
+    );
+    return { ok: res.matchedCount === 1 };
 }
 
 export async function removeFromQueue(

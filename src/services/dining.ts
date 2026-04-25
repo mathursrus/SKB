@@ -10,6 +10,13 @@ import { ObjectId } from 'mongodb';
 
 import { getDb, queueEntries } from '../core/db/mongo.js';
 import { minutesBetween, serviceDay } from '../core/utils/time.js';
+import { getAvgTurnTime } from './settings.js';
+import {
+    deriveHostSentiment,
+    isHostSentiment,
+    type HostSentiment,
+    type HostSentimentSource,
+} from '../types/hostSentiment.js';
 import type {
     HostCompletedDTO,
     HostCompletedPartyDTO,
@@ -22,6 +29,8 @@ import type {
 
 // Parties currently dining (post-seated, pre-departed).
 export const DINING_STATES: PartyState[] = ['seated', 'ordered', 'served', 'checkout'];
+type QueueEntryWithSentiment = QueueEntry & { _id?: ObjectId; sentimentOverride?: HostSentiment };
+type HostDiningPartyWithSentiment = HostDiningPartyDTO & { sentiment: HostSentiment; sentimentSource: HostSentimentSource };
 
 // Terminal states for the day's completed view.
 export const COMPLETED_STATES: PartyState[] = ['departed', 'no_show'];
@@ -102,12 +111,14 @@ export async function advanceParty(
 export async function listDiningParties(locationId: string, now: Date = new Date()): Promise<HostDiningDTO> {
     const db = await getDb();
     const today = serviceDay(now);
+    const avg = await getAvgTurnTime(locationId);
     const docs = await queueEntries(db)
         .find({ locationId, serviceDay: today, state: { $in: DINING_STATES } })
         .sort({ joinedAt: 1 })
         .toArray();
 
-    const parties: HostDiningPartyDTO[] = docs.map((d) => {
+    const parties: HostDiningPartyDTO[] = docs.map((doc) => {
+        const d = doc as QueueEntryWithSentiment;
         const stateEnteredAt = getStateTimestamp(d, d.state) ?? d.seatedAt ?? d.joinedAt;
         const timeInStateMinutes = minutesBetween(stateEnteredAt, now);
         const totalTableMinutes = d.seatedAt ? minutesBetween(d.seatedAt, now) : 0;
@@ -126,6 +137,8 @@ export async function listDiningParties(locationId: string, now: Date = new Date
         const toCheckoutMinutes = d.servedAt && d.checkoutAt
             ? minutesBetween(d.servedAt, d.checkoutAt)
             : null;
+        const automaticSentiment = deriveHostSentiment(waitMinutes, avg);
+        const sentiment = isHostSentiment(d.sentimentOverride) ? d.sentimentOverride : automaticSentiment;
 
         return {
             id: String(d._id ?? ''),
@@ -141,7 +154,9 @@ export async function listDiningParties(locationId: string, now: Date = new Date
             toOrderMinutes,
             toServeMinutes,
             toCheckoutMinutes,
-        };
+            sentiment,
+            sentimentSource: isHostSentiment(d.sentimentOverride) ? 'manual' : 'automatic',
+        } satisfies HostDiningPartyWithSentiment;
     });
 
     return { parties, diningCount: parties.length };

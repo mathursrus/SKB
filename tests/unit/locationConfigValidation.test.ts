@@ -41,6 +41,7 @@ const GOOD_EXTENDED_HOURS: WeeklyHours = {
 };
 
 const GOOD_GUEST_FEATURES: GuestFeatures = {
+    menu: true,
     sms: true,
     chat: false,
     order: true,
@@ -121,7 +122,7 @@ const cases: BaseTestCase[] = [
         name: 'valid guest features update passes',
         tags: ['unit', 'locations'],
         testFn: async () => {
-            validateGuestFeaturesUpdate({ sms: false, chat: true, order: false });
+            validateGuestFeaturesUpdate({ menu: true, sms: false, chat: true, order: false });
             return true;
         },
     },
@@ -245,8 +246,8 @@ const cases: BaseTestCase[] = [
         tags: ['unit', 'locations'],
         testFn: async () => throws(
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            () => validateGuestFeaturesUpdate({ sms: 'yes' as any }),
-            'guestFeatures.sms must be a boolean',
+            () => validateGuestFeaturesUpdate({ menu: 'yes' as any }),
+            'guestFeatures.menu must be a boolean',
         ),
     },
     {
@@ -281,6 +282,7 @@ const cases: BaseTestCase[] = [
             return pub.address?.street === '12 Bellevue Way SE'
                 && pub.hours?.mon === 'closed'
                 && pub.frontDeskPhone === '2065551234'
+                && pub.guestFeatures?.menu === true
                 && pub.guestFeatures?.chat === false;
         },
     },
@@ -298,6 +300,7 @@ const cases: BaseTestCase[] = [
             return pub.address === undefined
                 && pub.hours === undefined
                 && pub.frontDeskPhone === undefined
+                && pub.guestFeatures?.menu === true
                 && pub.guestFeatures?.sms === true
                 && pub.guestFeatures?.chat === true
                 && pub.guestFeatures?.order === true;
@@ -308,7 +311,10 @@ const cases: BaseTestCase[] = [
         tags: ['unit', 'locations'],
         testFn: async () => {
             const features = getGuestFeatures(null);
-            return features.sms === true && features.chat === true && features.order === true;
+            return features.menu === true
+                && features.sms === true
+                && features.chat === true
+                && features.order === true;
         },
     },
 ];

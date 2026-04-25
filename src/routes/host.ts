@@ -816,15 +816,18 @@ export function hostRouter(): Router {
 
     r.post('/host/guest-features', requireAdmin, async (req: Request, res: Response) => {
         const body = (req.body ?? {}) as {
+            menu?: unknown;
             sms?: unknown;
             chat?: unknown;
             order?: unknown;
         };
         const update: {
+            menu?: boolean;
             sms?: boolean;
             chat?: boolean;
             order?: boolean;
         } = {};
+        if (body.menu !== undefined) update.menu = body.menu as boolean;
         if (body.sms !== undefined) update.sms = body.sms as boolean;
         if (body.chat !== undefined) update.chat = body.chat as boolean;
         if (body.order !== undefined) update.order = body.order as boolean;

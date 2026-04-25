@@ -21,7 +21,7 @@
     const tabBadgeComplete = $('tab-badge-complete');
     const completeSummary = $('complete-summary');
     const WORKSPACE_KEY_PREFIX = 'skb:lastWorkspace:';
-    const DEFAULT_GUEST_FEATURES = { order: true, chat: true, sms: true };
+    const DEFAULT_GUEST_FEATURES = { menu: true, order: true, chat: true, sms: true };
     let publicConfig = { guestFeatures: { ...DEFAULT_GUEST_FEATURES } };
 
     let pollTimer = null;

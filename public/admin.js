@@ -22,6 +22,7 @@
     const largePartyThreshold = $('admin-large-party-threshold');
     const voiceStatus = $('admin-voice-status');
     const voiceSave = $('admin-voice-save');
+    const guestFeatureMenu = $('admin-guest-feature-menu');
     const guestFeatureOrder = $('admin-guest-feature-order');
     const guestFeatureChat = $('admin-guest-feature-chat');
     const guestFeatureSms = $('admin-guest-feature-sms');
@@ -363,6 +364,7 @@
             const r = await fetch('api/host/guest-features');
             if (!r.ok) return;
             const data = await r.json();
+            if (guestFeatureMenu) guestFeatureMenu.value = String(data.menu !== false);
             if (guestFeatureOrder) guestFeatureOrder.value = String(data.order !== false);
             if (guestFeatureChat) guestFeatureChat.value = String(data.chat !== false);
             if (guestFeatureSms) guestFeatureSms.value = String(data.sms !== false);
@@ -532,6 +534,7 @@
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
+                    menu: guestFeatureMenu?.value === 'true',
                     order: guestFeatureOrder?.value === 'true',
                     chat: guestFeatureChat?.value === 'true',
                     sms: guestFeatureSms?.value === 'true',

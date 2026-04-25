@@ -250,6 +250,22 @@ const cases: BaseTestCase[] = [
             && /\.theme-dark\s*\{[^}]*--fg:/.test(stylesCss),
     },
     {
+        name: 'theme: admin accordion summaries get dark hover + caret overrides',
+        tags: ['unit', 'polish', 'theme', 'admin', 'css'],
+        testFn: async () =>
+            /\.theme-dark\s+details\.admin-card\s*>\s*summary\.admin-card-head:hover\s*\{[^}]*background:\s*var\(--surface-alt\)/.test(stylesCss)
+            && /\.theme-dark\s+details\.admin-card\s*>\s*summary\.admin-card-head::before\s*\{[^}]*border-top-color:\s*var\(--muted\)/.test(stylesCss),
+    },
+    {
+        name: 'theme: menu-builder accordion surfaces are remapped for dark mode',
+        tags: ['unit', 'polish', 'theme', 'admin', 'css'],
+        testFn: async () =>
+            /\.theme-dark\s+\.menu-empty-state\s*\{[^}]*background:\s*var\(--surface-alt\)/.test(stylesCss)
+            && /\.theme-dark\s+details\.menu-section\s*\{[^}]*background:\s*var\(--surface-alt\)/.test(stylesCss)
+            && /\.theme-dark\s+details\.menu-section\[open\]\s*\{[^}]*background:\s*var\(--card\)/.test(stylesCss)
+            && /\.theme-dark\s+\.menu-item\s*\{[^}]*background:\s*var\(--card\)/.test(stylesCss),
+    },
+    {
         name: 'theme: all three pages load theme.js from <head> and expose #theme-toggle',
         tags: ['unit', 'polish', 'theme'],
         testFn: async () =>

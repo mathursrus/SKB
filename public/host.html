@@ -53,7 +53,7 @@
             <span id="turn-info" class="turn-info" style="display:none"></span>
         </div>
         <button type="button" class="primary topbar-add-btn" id="add-party-btn" aria-label="Add walk-in to waitlist">+ Add party</button>
-        <a href="admin.html" class="logout" id="open-admin-link" style="text-decoration:none;text-align:center">Open Admin</a>
+        <a href="admin.html" class="logout" id="open-admin-link" style="display:none;text-decoration:none;text-align:center">Open Admin</a>
         <button type="button" id="theme-toggle" class="theme-toggle-btn" aria-label="Toggle theme">&#9728;</button>
         <button class="logout" id="logout-btn">Log out</button>
     </div>
@@ -220,6 +220,7 @@
             </div>
             <button type="button" class="chat-drawer-close" id="chat-drawer-close" aria-label="Close chat">&times;</button>
         </header>
+        <div id="chat-drawer-mode" class="chat-drawer-mode" hidden></div>
         <div class="chat-drawer-thread" id="chat-drawer-thread" aria-live="polite"></div>
         <div class="chat-drawer-quicks" id="chat-drawer-quicks"></div>
         <form class="chat-drawer-composer" id="chat-drawer-form">

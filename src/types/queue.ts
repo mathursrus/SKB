@@ -304,6 +304,7 @@ export interface HostPartyDTO {
     partySize: number;
     phoneMasked: string; // "******1234" — never expose full phone
     phoneForDial?: string; // full E.164 (e.g. "+12065551234") — host-only, NEVER in diner APIs
+    smsCapable: boolean; // true only when this party explicitly opted into SMS updates
     joinedAt: string; // ISO
     etaAt: string; // ISO
     waitingMinutes: number;

@@ -428,7 +428,7 @@ const cases: BaseTestCase[] = [
                 path.resolve(__dirname, '..', '..', 'ios', 'src', 'net', 'client.ts'),
                 'utf-8',
             );
-            return /buildTenantUrl\(.*\): string \{[\s\S]*const loc = encodeURIComponent\(locationId\);[\s\S]*return `\$\{base\}\/r\/\$\{loc\}\/api\$\{suffix\}`;/.test(iosClient)
+            return /export function buildTenantUrl\(locationId: string, path: string\): string \{[\s\S]*const loc = encodeURIComponent\(locationId\);[\s\S]*return `\$\{base\}\/r\/\$\{loc\}\/api\$\{suffix\}`;/.test(iosClient)
                 && /export function buildUrl\(path: string\): string \{[\s\S]*return buildTenantUrl\(defaultLocationId\(\), path\);/.test(iosClient);
         },
     },
@@ -505,6 +505,31 @@ const cases: BaseTestCase[] = [
                 && /name=['"]restaurant-outline['"]/.test(tabs)
                 && /name=['"]checkmark-done-outline['"]/.test(tabs);
         },
+    },
+    {
+        name: 'auth ui: host.html hides Open Admin by default and host.js only shows it for owner/admin roles',
+        tags: ['unit', 'auth', 'host', 'ui'],
+        testFn: async () =>
+            /id=["']open-admin-link["'][^>]*display:none/.test(hostHtml)
+            && /const canOpenAdmin = currentIdentity\?\.role === ['"]owner['"] \|\| currentIdentity\?\.role === ['"]admin['"]/.test(hostJs)
+            && /openAdminLink\.style\.display = canOpenAdmin \? ['"]['"] : ['"]none['"]/.test(hostJs)
+            && /await fetch\('\/api\/me', \{ credentials: ['"]same-origin['"] \}\)/.test(hostJs),
+    },
+    {
+        name: 'auth ui: host/admin logout goes to tenant-scoped /login after clearing platform auth',
+        tags: ['unit', 'auth', 'logout', 'ui'],
+        testFn: async () =>
+            /await fetch\('\/api\/logout', \{ method: ['"]POST['"], credentials: ['"]same-origin['"] \}\);/.test(hostJs)
+            && /window\.location\.href = loginPageUrl\(\);/.test(hostJs)
+            && /await fetch\('\/api\/logout', \{ method: ['"]POST['"], credentials: ['"]same-origin['"] \}\);/.test(adminJs)
+            && /window\.location\.href = loginPageUrl\(\);/.test(adminJs),
+    },
+    {
+        name: 'auth ui: admin pin login redirects only on missing named auth; invalid pin stays inline',
+        tags: ['unit', 'auth', 'admin', 'ui'],
+        testFn: async () =>
+            /if \(r\.status === 401 && body\.error === ['"]login_required['"]\) \{\s*window\.location\.href = loginPageUrl\(\);/.test(adminJs)
+            && /loginError\.textContent = body\.error \|\| ['"]Login failed['"];\s*loginError\.style\.display = ['"]['"];/s.test(adminJs),
     },
 
     // ---------- Round 2 bug-bash fixes ----------

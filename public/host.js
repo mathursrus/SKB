@@ -22,7 +22,15 @@
     const completeSummary = $('complete-summary');
     const WORKSPACE_KEY_PREFIX = 'skb:lastWorkspace:';
     const DEFAULT_GUEST_FEATURES = { menu: true, order: true, chat: true, sms: true };
+    const SMS_OPT_IN_REASON = 'diner did not opt into SMS updates.';
+    const WEB_ONLY_CHAT_NOTICE = 'SMS unavailable \u2014 this thread is web only because the diner did not opt into SMS updates.';
+    const SENTIMENT_META = {
+        happy: { emoji: '🙂', label: 'Good' },
+        neutral: { emoji: '😐', label: 'Waiting' },
+        upset: { emoji: '😠', label: 'Needs attention' },
+    };
     let publicConfig = { guestFeatures: { ...DEFAULT_GUEST_FEATURES } };
+    let currentIdentity = null;
 
     let pollTimer = null;
     let expandedTimelineId = null;
@@ -44,6 +52,25 @@
         return String(s).replace(/[&<>"']/g, c => ({
             '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
         }[c]));
+    }
+
+    function renderSentimentBadge(sentiment, source) {
+        const meta = SENTIMENT_META[sentiment] || SENTIMENT_META.neutral;
+        const sourceLabel = source === 'manual' ? 'Host override' : 'Automatic';
+        return '<span class="sentiment-badge sentiment-' + escapeHtml(sentiment || 'neutral') + '" title="' + sourceLabel + ': ' + meta.label + '">' +
+            '<span class="sentiment-emoji" aria-hidden="true">' + meta.emoji + '</span>' +
+            '<span class="sentiment-text">' + escapeHtml(meta.label) + '</span>' +
+            '</span>';
+    }
+
+    function renderSentimentSelect(safeName, sentiment, source) {
+        const selected = source === 'manual' ? sentiment : '';
+        return '<select class="sentiment-select" data-action="sentiment" aria-label="Set sentiment for ' + safeName + '">' +
+            '<option value=""' + (selected === '' ? ' selected' : '') + '>Auto</option>' +
+            '<option value="happy"' + (selected === 'happy' ? ' selected' : '') + '>🙂 Good</option>' +
+            '<option value="neutral"' + (selected === 'neutral' ? ' selected' : '') + '>😐 Waiting</option>' +
+            '<option value="upset"' + (selected === 'upset' ? ' selected' : '') + '>😠 Needs attention</option>' +
+            '</select>';
     }
 
     // -- Tab switching --
@@ -93,6 +120,17 @@
                 const notifyLabel = p.state === 'called' ? 'Re-notify' : 'Notify';
                 const hasPhone = !!p.phoneMasked && p.phoneMasked !== '—';
                 const disabledAttr = hasPhone ? '' : ' disabled';
+                const smsCapable = p.smsCapable === true;
+                const smsDisabledAttr = hasPhone && smsCapable ? '' : ' disabled';
+                const notifyTitle = !hasPhone
+                    ? 'Notify unavailable — no phone on file.'
+                    : (smsCapable ? '' : 'Notify unavailable \u2014 ' + SMS_OPT_IN_REASON);
+                const chatTitle = !hasPhone
+                    ? 'Chat unavailable — no phone on file.'
+                    : (smsCapable ? '' : 'Chat is web only \u2014 ' + SMS_OPT_IN_REASON);
+                const customSmsTitle = !hasPhone
+                    ? 'Custom SMS unavailable — no phone on file.'
+                    : (smsCapable ? 'Custom message' : 'Custom SMS unavailable \u2014 ' + SMS_OPT_IN_REASON);
                 const onWayBadge = p.onMyWayAt
                     ? ' <span class="badge-on-way">On the way</span>'
                     : '';
@@ -102,22 +140,24 @@
                 const callHref = hasPhone && p.phoneForDial ? 'tel:' + p.phoneForDial : '#';
                 const callDisabled = hasPhone ? '' : ' aria-disabled="true"';
                 const phoneForDial = p.phoneForDial || '';
+                const sentimentBadge = renderSentimentBadge(p.sentiment, p.sentimentSource);
                 const rowActions = [
+                    renderSentimentSelect(safeName, p.sentiment, p.sentimentSource),
                     '<button class="seat-btn" data-action="seat" aria-label="Seat ' + safeName + '">Seat</button>',
-                    '<button class="notify-btn" data-action="notify" aria-label="' + notifyLabel + ' ' + safeName + '"' + disabledAttr + '>' + notifyLabel + '</button>',
+                    '<button class="notify-btn" data-action="notify" aria-label="' + notifyLabel + ' ' + safeName + '"' + smsDisabledAttr + (notifyTitle ? ' title="' + escapeHtml(notifyTitle) + '"' : '') + '>' + notifyLabel + '</button>',
                     features.chat
-                        ? '<button class="chat-btn" data-action="chat" aria-label="Chat with ' + safeName + (unread ? ', ' + unread + ' unread' : '') + '"' + disabledAttr + '>Chat' + unreadDot + '</button>'
+                        ? '<button class="chat-btn" data-action="chat" aria-label="Chat with ' + safeName + (unread ? ', ' + unread + ' unread' : '') + '"' + disabledAttr + (chatTitle ? ' title="' + escapeHtml(chatTitle) + '"' : '') + '>Chat' + unreadDot + '</button>'
                         : '',
                     '<a class="call-dial-btn rowbtn" data-action="call" href="' + callHref + '" aria-label="Call ' + safeName + '"' + callDisabled + '>Call</a>',
                     features.sms
-                        ? '<button class="custom-sms-btn more-btn" data-action="custom-sms" aria-label="Custom message to ' + safeName + '"' + disabledAttr + ' title="Custom message">\u2709</button>'
+                        ? '<button class="custom-sms-btn more-btn" data-action="custom-sms" aria-label="Custom message to ' + safeName + '"' + smsDisabledAttr + ' title="' + escapeHtml(customSmsTitle) + '">\u2709</button>'
                         : '',
                     '<button class="custom-call-btn more-btn" data-action="custom-call" aria-label="Confirm-and-call ' + safeName + '"' + disabledAttr + ' title="Confirm call">\u260E</button>',
                     '<button class="remove" data-reason="no_show" aria-label="Mark ' + safeName + ' as no-show">No-show</button>',
                 ].filter(Boolean).join('');
-                return '<tr data-id="' + p.id + '" data-code="' + escapeHtml(p.code || '') + '" data-name="' + safeName + '" data-size="' + p.partySize + '" data-wait="' + p.waitingMinutes + '" data-phone-mask="' + (p.phoneMasked || '') + '" data-phone-dial="' + escapeHtml(phoneForDial) + '" class="' + (p.state === 'called' ? 'row-called' : '') + '">' +
+                return '<tr data-id="' + p.id + '" data-code="' + escapeHtml(p.code || '') + '" data-name="' + safeName + '" data-size="' + p.partySize + '" data-wait="' + p.waitingMinutes + '" data-phone-mask="' + (p.phoneMasked || '') + '" data-phone-dial="' + escapeHtml(phoneForDial) + '" data-sms-capable="' + (smsCapable ? '1' : '0') + '" class="' + (p.state === 'called' ? 'row-called' : '') + '">' +
                     '<td class="num">' + p.position + '</td>' +
-                    '<td>' + safeName + calledBadge + onWayBadge + '</td>' +
+                    '<td>' + safeName + sentimentBadge + calledBadge + onWayBadge + '</td>' +
                     '<td class="size">' + p.partySize + '</td>' +
                     '<td class="phone">' + (p.phoneMasked || '\u2014') + '</td>' +
                     '<td class="eta">' + fmtTime(p.etaAt) + '</td>' +
@@ -164,14 +204,21 @@
             let html = '';
             for (const p of data.parties) {
                 const next = NEXT_ACTION[p.state];
-                const actions = next
-                    ? '<button class="advance-btn" data-id="' + p.id + '" data-state="' + next.state + '">' + next.label + '</button>' +
-                      (p.state !== 'checkout' ? '<button class="depart-btn" data-id="' + p.id + '" data-state="departed">Departed</button>' : '')
-                    : '';
+                const safeName = escapeHtml(p.name);
+                const sentimentBadge = renderSentimentBadge(p.sentiment, p.sentimentSource);
+                const actions = [
+                    renderSentimentSelect(safeName, p.sentiment, p.sentimentSource),
+                    next
+                        ? '<button class="advance-btn" data-id="' + p.id + '" data-state="' + next.state + '">' + next.label + '</button>'
+                        : '',
+                    next && p.state !== 'checkout'
+                        ? '<button class="depart-btn" data-id="' + p.id + '" data-state="departed">Departed</button>'
+                        : '',
+                ].filter(Boolean).join('');
                 const tbl = (typeof p.tableNumber === 'number') ? String(p.tableNumber) : '\u2014';
-                html += '<tr class="expandable" data-dining-id="' + p.id + '">' +
+                html += '<tr class="expandable" data-dining-id="' + p.id + '" data-id="' + p.id + '">' +
                     '<td class="table-num"><strong>' + tbl + '</strong></td>' +
-                    '<td>' + escapeHtml(p.name) + '</td>' +
+                    '<td>' + safeName + sentimentBadge + '</td>' +
                     '<td class="size">' + p.partySize + '</td>' +
                     transitCell(p.waitMinutes) +
                     transitCell(p.toOrderMinutes) +
@@ -310,8 +357,41 @@
     }
 
     function workspaceKey() {
-        const loc = (window.location.pathname.match(/^\/r\/([^/]+)\//) || [])[1] || 'skb';
-        return WORKSPACE_KEY_PREFIX + loc;
+        return WORKSPACE_KEY_PREFIX + currentLocationId();
+    }
+
+    function currentLocationId() {
+        return (window.location.pathname.match(/^\/r\/([^/]+)\//) || [])[1] || 'skb';
+    }
+
+    function loginPageUrl() {
+        return '/login?locationId=' + encodeURIComponent(currentLocationId());
+    }
+
+    async function loadIdentity() {
+        try {
+            const r = await fetch('/api/me', { credentials: 'same-origin' });
+            if (!r.ok) {
+                currentIdentity = null;
+                return null;
+            }
+            const data = await r.json();
+            currentIdentity = {
+                userId: data.user?.id || null,
+                role: data.role || null,
+                locationId: data.locationId || null,
+            };
+            return currentIdentity;
+        } catch {
+            currentIdentity = null;
+            return null;
+        }
+    }
+
+    function applyRoleGates() {
+        if (!openAdminLink) return;
+        const canOpenAdmin = currentIdentity?.role === 'owner' || currentIdentity?.role === 'admin';
+        openAdminLink.style.display = canOpenAdmin ? '' : 'none';
     }
 
     function rememberWorkspace() {
@@ -364,6 +444,18 @@
             }
         }
         setTimeout(refreshAll, 800);
+    }
+
+    async function onSetSentiment(id, sentiment) {
+        const r = await fetch('api/host/queue/' + encodeURIComponent(id) + '/sentiment', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ sentiment }),
+        });
+        if (r.status === 401) { showLogin(); return false; }
+        if (!r.ok) return false;
+        refreshAll();
+        return true;
     }
 
     // ========================================================================
@@ -520,13 +612,26 @@
     const chatForm = document.getElementById('chat-drawer-form');
     const chatTitle = document.getElementById('chat-drawer-title');
     const chatPhone = document.getElementById('chat-drawer-phone');
+    const chatMode = document.getElementById('chat-drawer-mode');
     const chatCloseBtn = document.getElementById('chat-drawer-close');
     let chatOpenId = null;
     let chatOpenCode = null;
+    let chatOpenSmsCapable = true;
     let chatDrawerPollTimer = null;
     const CHAT_DRAWER_POLL_BASE_MS = 4000;
     const CHAT_DRAWER_POLL_MAX_MS = 60000;
     let chatDrawerPollDelayMs = CHAT_DRAWER_POLL_BASE_MS;
+
+    function renderChatModeNotice() {
+        if (!chatMode) return;
+        if (chatOpenSmsCapable) {
+            chatMode.hidden = true;
+            chatMode.textContent = '';
+            return;
+        }
+        chatMode.hidden = false;
+        chatMode.textContent = WEB_ONLY_CHAT_NOTICE;
+    }
 
     function renderChatThread(messages) {
         if (!chatThread) return;
@@ -537,9 +642,14 @@
         chatThread.innerHTML = messages.map((m) => {
             const klass = m.direction === 'outbound' ? 'chat-msg chat-msg-out' : 'chat-msg chat-msg-in';
             const ts = m.at ? fmtTime(m.at) : '';
-            const statusIcon = m.smsStatus === 'failed' ? ' <span class="chat-status-fail">\u2717</span>'
-                : m.smsStatus === 'sent' ? ' <span class="chat-status-ok">\u2713</span>' : '';
-            return '<div class="' + klass + '">' + escapeHtml(m.body) + '<span class="chat-ts">' + ts + statusIcon + '</span></div>';
+            const statusText = m.smsStatus === 'failed'
+                ? ' <span class="chat-status-fail">\u2717</span>'
+                : m.smsStatus === 'sent'
+                    ? ' <span class="chat-status-ok">\u2713</span>'
+                    : m.smsStatus === 'not_configured'
+                        ? ' <span class="chat-status-note">' + (chatOpenSmsCapable ? 'SMS unavailable' : 'web only') + '</span>'
+                        : '';
+            return '<div class="' + klass + '">' + escapeHtml(m.body) + '<span class="chat-ts">' + ts + statusText + '</span></div>';
         }).join('');
         // scroll to bottom on initial render
         chatThread.scrollTop = chatThread.scrollHeight;
@@ -596,14 +706,16 @@
         } catch { chatQuicks.innerHTML = ''; }
     }
 
-    function openChat(id, name, phoneMasked, code) {
+    function openChat(id, name, phoneMasked, code, smsCapable) {
         if (!chatDrawer) return;
         chatOpenId = id;
         chatOpenCode = code;
+        chatOpenSmsCapable = smsCapable === true;
         chatDrawer.hidden = false;
         chatTitle.textContent = name;
         chatPhone.textContent = phoneMasked || '';
         chatThread.innerHTML = '<div class="chat-empty">Loading…</div>';
+        renderChatModeNotice();
         chatDrawer.classList.add('open');
         chatDrawer.setAttribute('aria-hidden', 'false');
         if (chatBackdrop) chatBackdrop.classList.add('open');
@@ -623,6 +735,8 @@
         if (chatBackdrop) chatBackdrop.classList.remove('open');
         chatDrawer.hidden = true;
         chatOpenId = null;
+        chatOpenSmsCapable = true;
+        renderChatModeNotice();
         stopChatDrawerPoll();
     }
 
@@ -885,7 +999,7 @@
         const chatBtn = target.closest('button.chat-btn');
         if (chatBtn) {
             if (chatBtn.hasAttribute('disabled')) return;
-            openChat(id, tr.dataset.name || '', tr.dataset.phoneMask || '', tr.dataset.code || '');
+            openChat(id, tr.dataset.name || '', tr.dataset.phoneMask || '', tr.dataset.code || '', tr.dataset.smsCapable === '1');
             return;
         }
         // R11: Call is an anchor — log the dial but let the browser handle tel:
@@ -921,10 +1035,25 @@
             if (reason === 'no_show') onRemove(id, reason);
         }
     });
+    rows.addEventListener('change', async (e) => {
+        const target = e.target;
+        if (!(target instanceof HTMLSelectElement)) return;
+        if (!target.classList.contains('sentiment-select')) return;
+        const tr = target.closest('tr[data-id]');
+        const id = tr?.dataset.id;
+        if (!id) return;
+        const selected = target.value || null;
+        const ok = await onSetSentiment(id, selected);
+        if (!ok) refreshAll();
+    });
 
     // Dining tab: delegate clicks
     diningRows.addEventListener('click', (e) => {
         const target = e.target;
+        if (target.closest && target.closest('.sentiment-select')) {
+            e.stopPropagation();
+            return;
+        }
         const advBtn = target.closest('button.advance-btn') || target.closest('button.depart-btn');
         if (advBtn) {
             e.stopPropagation();
@@ -939,6 +1068,17 @@
             toggleTimeline(row.dataset.diningId);
         }
     });
+    diningRows.addEventListener('change', async (e) => {
+        const target = e.target;
+        if (!(target instanceof HTMLSelectElement)) return;
+        if (!target.classList.contains('sentiment-select')) return;
+        const tr = target.closest('tr[data-id]');
+        const id = tr?.dataset.id;
+        if (!id) return;
+        const selected = target.value || null;
+        const ok = await onSetSentiment(id, selected);
+        if (!ok) refreshAll();
+    });
 
     // Completed tab: delegate clicks
     completedRows.addEventListener('click', (e) => {
@@ -951,8 +1091,8 @@
     turnInput.addEventListener('change', onTurnChange);
     etaModeSelect.addEventListener('change', onEtaModeChange);
     logoutBtn.addEventListener('click', async () => {
-        await fetch('api/host/logout', { method: 'POST' });
-        showLogin();
+        await fetch('/api/logout', { method: 'POST', credentials: 'same-origin' });
+        window.location.href = loginPageUrl();
     });
 
     // Host-initiated add-party dialog (walk-ins who didn't scan the QR)
@@ -1025,8 +1165,7 @@
         if (r.ok) { await showQueue(); return; }
         const body = await r.json().catch(() => ({}));
         if (r.status === 401 && body.error === 'login_required') {
-            const loc = (window.location.pathname.match(/^\/r\/([^/]+)\//) || [])[1] || 'skb';
-            window.location.href = `/login?locationId=${encodeURIComponent(loc)}`;
+            window.location.href = loginPageUrl();
             return;
         }
         loginError.textContent = body.error || 'Login failed';
@@ -1093,6 +1232,8 @@
         // Load brand immediately so the PIN-login card shows the
         // restaurant's name even before the host authenticates.
         loadRestaurantBrand();
+        await loadIdentity();
+        applyRoleGates();
         if (await checkAuth()) await showQueue(); else showLogin();
     })();
 })();

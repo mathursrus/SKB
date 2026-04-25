@@ -1,0 +1,67 @@
+- generic [ref=e2]:
+  - generic [ref=e3]:
+    - generic [ref=e4]: Issue 84 Polish xgk680 · Host Stand
+    - generic [ref=e5]:
+      - generic [ref=e6]:
+        - strong [ref=e7]: "1"
+        - text: waiting
+      - generic [ref=e8]:
+        - strong [ref=e9]: "1"
+        - text: dining
+      - generic [ref=e10]:
+        - text: "oldest:"
+        - strong [ref=e11]: 0m
+    - generic [ref=e12]:
+      - generic [ref=e13]:
+        - text: "ETA:"
+        - combobox "ETA:" [ref=e14]:
+          - option "Manual" [selected]
+      - generic [ref=e15]:
+        - generic [ref=e16]: "min:"
+        - spinbutton "min:" [ref=e17]: "8"
+    - button "Add walk-in to waitlist" [ref=e18] [cursor=pointer]: + Add party
+    - link "Open Admin" [ref=e19] [cursor=pointer]:
+      - /url: admin.html
+    - 'button "Theme: auto (light) — click to change" [ref=e20] [cursor=pointer]': ☀
+    - button "Log out" [ref=e21] [cursor=pointer]
+  - generic [ref=e22]:
+    - button "Waiting 1" [ref=e23] [cursor=pointer]:
+      - text: Waiting
+      - generic [ref=e24]: "1"
+    - button "Seated 1" [ref=e25] [cursor=pointer]:
+      - text: Seated
+      - generic [ref=e26]: "1"
+    - button "Complete 0" [ref=e27] [cursor=pointer]:
+      - text: Complete
+      - generic [ref=e28]: "0"
+  - main [ref=e29]:
+    - table [ref=e31]:
+      - rowgroup [ref=e32]:
+        - row "# Name Size Phone Promised Waiting" [ref=e33]:
+          - columnheader "#" [ref=e34]
+          - columnheader "Name" [ref=e35]
+          - columnheader "Size" [ref=e36]
+          - columnheader "Phone" [ref=e37]
+          - columnheader "Promised" [ref=e38]
+          - columnheader "Waiting" [ref=e39]
+          - columnheader [ref=e40]
+      - rowgroup [ref=e41]:
+        - row "1 Polish Waiting Good 2 ******4401 7:00 PM 0m Auto Seat Polish Waiting Notify Polish Waiting Chat with Polish Waiting Call Polish Waiting Custom message to Polish Waiting Confirm-and-call Polish Waiting Mark Polish Waiting as no-show" [ref=e61]:
+          - cell "1" [ref=e62]
+          - cell "Polish Waiting Good" [ref=e63]:
+            - text: Polish Waiting
+            - 'generic "Automatic: Good" [ref=e64]'
+          - cell "2" [ref=e67]
+          - cell "******4401" [ref=e68]
+          - cell "7:00 PM" [ref=e69]
+          - cell "0m" [ref=e70]
+          - cell "Auto Seat Polish Waiting Notify Polish Waiting Chat with Polish Waiting Call Polish Waiting Custom message to Polish Waiting Confirm-and-call Polish Waiting Mark Polish Waiting as no-show" [ref=e71]:
+            - combobox "Set sentiment for Polish Waiting" [ref=e72]
+            - button "Seat Polish Waiting" [ref=e73] [cursor=pointer]: Seat
+            - button "Notify Polish Waiting" [ref=e74] [cursor=pointer]: Notify
+            - button "Chat with Polish Waiting" [ref=e75] [cursor=pointer]: Chat
+            - link "Call Polish Waiting" [ref=e76] [cursor=pointer]:
+              - /url: tel:+12065554401
+            - button "Custom message to Polish Waiting" [ref=e77] [cursor=pointer]: ✉
+            - button "Confirm-and-call Polish Waiting" [ref=e78] [cursor=pointer]: ☎
+            - button "Mark Polish Waiting as no-show" [ref=e79] [cursor=pointer]: No-show

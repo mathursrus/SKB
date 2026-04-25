@@ -244,6 +244,14 @@
         localStorage.setItem(workspaceKey(), 'admin');
     }
 
+    function currentLocationId() {
+        return (window.location.pathname.match(/^\/r\/([^/]+)\//) || [])[1] || 'skb';
+    }
+
+    function loginPageUrl() {
+        return '/login?locationId=' + encodeURIComponent(currentLocationId());
+    }
+
     async function checkAuth() {
         const r = await fetch('api/host/stats');
         return r.status !== 401;
@@ -1408,8 +1416,8 @@
     });
 
     logoutBtn.addEventListener('click', async () => {
-        await fetch('api/host/logout', { method: 'POST' });
-        showLogin();
+        await fetch('/api/logout', { method: 'POST', credentials: 'same-origin' });
+        window.location.href = loginPageUrl();
     });
 
     loginForm.addEventListener('submit', async (e) => {
@@ -1423,6 +1431,10 @@
         });
         if (r.ok) { showAdmin(); return; }
         const body = await r.json().catch(() => ({}));
+        if (r.status === 401 && body.error === 'login_required') {
+            window.location.href = loginPageUrl();
+            return;
+        }
         loginError.textContent = body.error || 'Login failed';
         loginError.style.display = '';
     });

@@ -64,6 +64,18 @@ const cases: BaseTestCase[] = [
         },
     },
     {
+        name: 'host.js distinguishes SMS-capable rows from web-only chat rows',
+        tags: ['ui', 'host-js', 'sms-consent'],
+        testFn: async () => {
+            const r = await fetch(`${BASE()}/host.js`);
+            const js = await r.text();
+            return js.includes('smsCapable')
+                && js.includes('web only')
+                && js.includes('Notify unavailable')
+                && js.includes('Custom SMS unavailable');
+        },
+    },
+    {
         name: 'teardown',
         tags: ['ui', 'guest-ordering', 'teardown'],
         testFn: async () => { await stopTestServer(); return true; },

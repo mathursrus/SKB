@@ -81,20 +81,25 @@ const EMAIL_B = 'owner-54-b@example.test';
 const EMAIL_C = 'owner-54-c@example.test';
 const EMAIL_D = 'owner-54-d@example.test';
 const EMAIL_E = 'owner-54-e@example.test';
+const EMAIL_F = 'owner-54-f@example.test';
+const EMAIL_G = 'owner-54-g@example.test';
+const EMAIL_H = 'owner-54-h@example.test';
 
 // Using distinct restaurant names so auto-slugs don't collide inadvertently.
 const NAME_A = 'Signup 54 Happy';        // slug 'signup-54-happy'
-const NAME_COLLIDE = 'Signup 54 Clash';  // slug 'signup-54-clash' (will collide)
+const NAME_COLLIDE_CITY = 'Signup 54 Clash City'; // base-city fallback scenario
+const NAME_COLLIDE_INT = 'Signup 54 Clash Int';   // integer-suffix fallback scenario
 const CITY_A = 'Seattle';
 const CITY_B = 'Portland';
 
-const ALL_EMAILS = [EMAIL_A, EMAIL_B, EMAIL_C, EMAIL_D, EMAIL_E];
+const ALL_EMAILS = [EMAIL_A, EMAIL_B, EMAIL_C, EMAIL_D, EMAIL_E, EMAIL_F, EMAIL_G, EMAIL_H];
 const ALL_SLUGS = [
     'signup-54-happy',
-    'signup-54-clash',
-    'signup-54-clash-portland',
-    'signup-54-clash-seattle',
-    'signup-54-clash-2',
+    'signup-54-clash-city',
+    'signup-54-clash-city-portland',
+    'signup-54-clash-int',
+    'signup-54-clash-int-seattle',
+    'signup-54-clash-int-2',
     'signup-54-explicit',
     'owner-slug-1',
 ];
@@ -160,9 +165,9 @@ const cases: BaseTestCase[] = [
         name: 'R2: slug collision → base-city suffix',
         tags: ['integration', 'signup54', 'slug'],
         testFn: async () => {
-            // First claim signup-54-clash.
+            // First claim signup-54-clash-city.
             const first = await signup({
-                restaurantName: NAME_COLLIDE,
+                restaurantName: NAME_COLLIDE_CITY,
                 city: CITY_A, // seattle
                 ownerName: 'Owner B',
                 email: EMAIL_B,
@@ -171,11 +176,11 @@ const cases: BaseTestCase[] = [
             });
             if (first.status !== 201) return false;
             const firstBody = await first.json() as Record<string, any>;
-            if (firstBody.location.id !== 'signup-54-clash') return false;
+            if (firstBody.location.id !== 'signup-54-clash-city') return false;
 
             // Second signup, same restaurant name, different city → suffix with city.
             const second = await signup({
-                restaurantName: NAME_COLLIDE,
+                restaurantName: NAME_COLLIDE_CITY,
                 city: CITY_B, // portland
                 ownerName: 'Owner C',
                 email: EMAIL_C,
@@ -184,25 +189,47 @@ const cases: BaseTestCase[] = [
             });
             if (second.status !== 201) return false;
             const secondBody = await second.json() as Record<string, any>;
-            return secondBody.location.id === 'signup-54-clash-portland';
+            return secondBody.location.id === 'signup-54-clash-city-portland';
         },
     },
     {
-        name: 'R2: slug collision with same city → integer suffix',
+        name: 'R2: slug collision with same city → city suffix, then integer suffix',
         tags: ['integration', 'signup54', 'slug'],
         testFn: async () => {
-            // The documented slug policy is base -> base-city -> integer suffixes.
-            const third = await signup({
-                restaurantName: NAME_COLLIDE,
+            const first = await signup({
+                restaurantName: NAME_COLLIDE_INT,
                 city: CITY_A,
-                ownerName: 'Owner D',
-                email: EMAIL_D,
+                ownerName: 'Owner F',
+                email: EMAIL_F,
+                password: 'correct-horse-battery-stapler',
+                tosAccepted: true,
+            });
+            if (first.status !== 201) return false;
+
+            const third = await signup({
+                restaurantName: NAME_COLLIDE_INT,
+                city: CITY_A,
+                ownerName: 'Owner G',
+                email: EMAIL_G,
                 password: 'correct-horse-battery-stapler',
                 tosAccepted: true,
             });
             if (third.status !== 201) return false;
-            const body = await third.json() as Record<string, any>;
-            return body.location.id === 'signup-54-clash-seattle';
+            const secondBody = await third.json() as Record<string, any>;
+            if (secondBody.location.id !== 'signup-54-clash-int-seattle') return false;
+
+            // The third collision: same name, same seattle city, after base-city is taken.
+            const fourth = await signup({
+                restaurantName: NAME_COLLIDE_INT,
+                city: CITY_A,
+                ownerName: 'Owner H',
+                email: EMAIL_H,
+                password: 'correct-horse-battery-stapler',
+                tosAccepted: true,
+            });
+            if (fourth.status !== 201) return false;
+            const body = await fourth.json() as Record<string, any>;
+            return body.location.id === 'signup-54-clash-int-2';
         },
     },
     {
@@ -398,7 +425,7 @@ const cases: BaseTestCase[] = [
             const cookie = getCookie(login, 'skb_session');
             if (!cookie) return false;
             // Try to read clash (Owner B's restaurant) with Owner A's cookie.
-            const res = await fetch(`${BASE()}/r/signup-54-clash/api/onboarding/steps`, {
+            const res = await fetch(`${BASE()}/r/signup-54-clash-city/api/onboarding/steps`, {
                 headers: { Cookie: cookie },
             });
             return res.status === 401;

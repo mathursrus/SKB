@@ -506,6 +506,31 @@ const cases: BaseTestCase[] = [
                 && /name=['"]checkmark-done-outline['"]/.test(tabs);
         },
     },
+    {
+        name: 'auth ui: host.html hides Open Admin by default and host.js only shows it for owner/admin roles',
+        tags: ['unit', 'auth', 'host', 'ui'],
+        testFn: async () =>
+            /id=["']open-admin-link["'][^>]*display:none/.test(hostHtml)
+            && /const canOpenAdmin = currentIdentity\?\.role === ['"]owner['"] \|\| currentIdentity\?\.role === ['"]admin['"]/.test(hostJs)
+            && /openAdminLink\.style\.display = canOpenAdmin \? ['"]['"] : ['"]none['"]/.test(hostJs)
+            && /await fetch\('\/api\/me', \{ credentials: ['"]same-origin['"] \}\)/.test(hostJs),
+    },
+    {
+        name: 'auth ui: host/admin logout goes to tenant-scoped /login after clearing platform auth',
+        tags: ['unit', 'auth', 'logout', 'ui'],
+        testFn: async () =>
+            /await fetch\('\/api\/logout', \{ method: ['"]POST['"], credentials: ['"]same-origin['"] \}\);/.test(hostJs)
+            && /window\.location\.href = loginPageUrl\(\);/.test(hostJs)
+            && /await fetch\('\/api\/logout', \{ method: ['"]POST['"], credentials: ['"]same-origin['"] \}\);/.test(adminJs)
+            && /window\.location\.href = loginPageUrl\(\);/.test(adminJs),
+    },
+    {
+        name: 'auth ui: admin pin login redirects only on missing named auth; invalid pin stays inline',
+        tags: ['unit', 'auth', 'admin', 'ui'],
+        testFn: async () =>
+            /if \(r\.status === 401 && body\.error === ['"]login_required['"]\) \{\s*window\.location\.href = loginPageUrl\(\);/.test(adminJs)
+            && /loginError\.textContent = body\.error \|\| ['"]Login failed['"];\s*loginError\.style\.display = ['"]['"];/s.test(adminJs),
+    },
 
     // ---------- Round 2 bug-bash fixes ----------
     {

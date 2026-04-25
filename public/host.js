@@ -23,6 +23,7 @@
     const WORKSPACE_KEY_PREFIX = 'skb:lastWorkspace:';
     const DEFAULT_GUEST_FEATURES = { menu: true, order: true, chat: true, sms: true };
     let publicConfig = { guestFeatures: { ...DEFAULT_GUEST_FEATURES } };
+    let currentIdentity = null;
 
     let pollTimer = null;
     let expandedTimelineId = null;
@@ -310,8 +311,41 @@
     }
 
     function workspaceKey() {
-        const loc = (window.location.pathname.match(/^\/r\/([^/]+)\//) || [])[1] || 'skb';
-        return WORKSPACE_KEY_PREFIX + loc;
+        return WORKSPACE_KEY_PREFIX + currentLocationId();
+    }
+
+    function currentLocationId() {
+        return (window.location.pathname.match(/^\/r\/([^/]+)\//) || [])[1] || 'skb';
+    }
+
+    function loginPageUrl() {
+        return '/login?locationId=' + encodeURIComponent(currentLocationId());
+    }
+
+    async function loadIdentity() {
+        try {
+            const r = await fetch('/api/me', { credentials: 'same-origin' });
+            if (!r.ok) {
+                currentIdentity = null;
+                return null;
+            }
+            const data = await r.json();
+            currentIdentity = {
+                userId: data.user?.id || null,
+                role: data.role || null,
+                locationId: data.locationId || null,
+            };
+            return currentIdentity;
+        } catch {
+            currentIdentity = null;
+            return null;
+        }
+    }
+
+    function applyRoleGates() {
+        if (!openAdminLink) return;
+        const canOpenAdmin = currentIdentity?.role === 'owner' || currentIdentity?.role === 'admin';
+        openAdminLink.style.display = canOpenAdmin ? '' : 'none';
     }
 
     function rememberWorkspace() {
@@ -951,8 +985,8 @@
     turnInput.addEventListener('change', onTurnChange);
     etaModeSelect.addEventListener('change', onEtaModeChange);
     logoutBtn.addEventListener('click', async () => {
-        await fetch('api/host/logout', { method: 'POST' });
-        showLogin();
+        await fetch('/api/logout', { method: 'POST', credentials: 'same-origin' });
+        window.location.href = loginPageUrl();
     });
 
     // Host-initiated add-party dialog (walk-ins who didn't scan the QR)
@@ -1025,8 +1059,7 @@
         if (r.ok) { await showQueue(); return; }
         const body = await r.json().catch(() => ({}));
         if (r.status === 401 && body.error === 'login_required') {
-            const loc = (window.location.pathname.match(/^\/r\/([^/]+)\//) || [])[1] || 'skb';
-            window.location.href = `/login?locationId=${encodeURIComponent(loc)}`;
+            window.location.href = loginPageUrl();
             return;
         }
         loginError.textContent = body.error || 'Login failed';
@@ -1093,6 +1126,8 @@
         // Load brand immediately so the PIN-login card shows the
         // restaurant's name even before the host authenticates.
         loadRestaurantBrand();
+        await loadIdentity();
+        applyRoleGates();
         if (await checkAuth()) await showQueue(); else showLogin();
     })();
 })();

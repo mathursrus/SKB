@@ -1,12 +1,14 @@
 // Integration tests for host auth — PIN login, cookie, protected routes.
 // Spawns a real server; sets test env defaults so npm run test:all works.
 
+const HOST_AUTH_IT_PORT = '15472';
+
 // Test defaults — won't override if already set
 process.env.SKB_HOST_PIN ??= '1234';
 process.env.SKB_COOKIE_SECRET ??= 'test-secret-for-ci';
 process.env.MONGODB_DB_NAME ??= 'skb_host_auth_test';
-process.env.PORT ??= '15398';
-process.env.FRAIM_TEST_SERVER_PORT ??= '15398';
+process.env.PORT ??= HOST_AUTH_IT_PORT;
+process.env.FRAIM_TEST_SERVER_PORT ??= HOST_AUTH_IT_PORT;
 process.env.FRAIM_BRANCH ??= '';
 process.env.SKB_ENABLE_SMS_TEST_HOOK ??= '1';
 process.env.TWILIO_ACCOUNT_SID ??= 'ACtest00000000000000000000000000';
@@ -18,12 +20,24 @@ import {
     startTestServer,
     stopTestServer,
     getTestServerUrl,
+    getTestServerPort,
+    isPortInUse,
 } from '../shared-server-utils.js';
+import { closeDb } from '../../src/core/db/mongo.js';
 import { createOwnerUser } from '../../src/services/users.js';
 
 const OWNER_EMAIL = 'host-auth-owner@example.test';
 const OWNER_PASS = 'host-auth-owner-password';
 let namedSessionCookie = '';
+
+async function assertFreshServerPort(): Promise<void> {
+    const port = getTestServerPort();
+    if (await isPortInUse(port)) {
+        throw new Error(
+            `host-auth integration requires an isolated server, but port ${port} is already in use`,
+        );
+    }
+}
 
 async function ensureNamedSession(): Promise<string> {
     if (namedSessionCookie) return namedSessionCookie;
@@ -67,11 +81,25 @@ async function getCapturedSms(): Promise<Array<{ to?: string; body?: string; loc
     return body.calls ?? [];
 }
 
+async function waitForCapturedSms(
+    predicate: (calls: Array<{ to?: string; body?: string; locationId?: string }>) => boolean,
+    timeoutMs: number = 2_000,
+): Promise<Array<{ to?: string; body?: string; locationId?: string }>> {
+    const startedAt = Date.now();
+    while (Date.now() - startedAt < timeoutMs) {
+        const calls = await getCapturedSms();
+        if (predicate(calls)) return calls;
+        await new Promise((resolve) => setTimeout(resolve, 50));
+    }
+    return getCapturedSms();
+}
+
 const cases: BaseTestCase[] = [
     {
         name: 'host-auth: server starts',
         tags: ['integration', 'auth', 'setup'],
         testFn: async () => {
+            await assertFreshServerPort();
             await startTestServer();
             await ensureNamedSession();
             const res = await fetch(`${getTestServerUrl()}/health`);
@@ -468,7 +496,7 @@ const cases: BaseTestCase[] = [
             if (!res.ok) return false;
             const body = await res.json() as { code?: string };
             if (typeof body.code !== 'string') return false;
-            const calls = await getCapturedSms();
+            const calls = await waitForCapturedSms((captured) => captured.length === 1);
             if (calls.length !== 1) return false;
             return calls[0]?.locationId === 'skb'
                 && calls[0]?.to === '+12065550111'
@@ -490,14 +518,19 @@ const cases: BaseTestCase[] = [
                 body: JSON.stringify({ name: 'SilentWalkIn', partySize: 2, phone: '2065550112', smsConsent: false }),
             });
             if (!res.ok) return false;
-            const calls = await getCapturedSms();
+            const calls = await waitForCapturedSms((captured) => captured.length === 0, 300);
             return calls.length === 0;
         },
     },
     {
         name: 'host-auth: teardown',
         tags: ['integration', 'auth'],
-        testFn: async () => { await stopTestServer(); return true; },
+        testFn: async () => {
+            namedSessionCookie = '';
+            await stopTestServer();
+            await closeDb();
+            return true;
+        },
     },
 ];
 

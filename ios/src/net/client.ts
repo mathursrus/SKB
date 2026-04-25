@@ -33,9 +33,8 @@ function defaultLocationId(): string {
 
 export function buildTenantUrl(locationId: string, path: string): string {
   const base = apiBaseUrl();
-  const loc = encodeURIComponent(locationId);
   const suffix = path.startsWith('/') ? path : `/${path}`;
-  return `${base}/r/${loc}/api${suffix}`;
+  return `${base}/r/${encodeURIComponent(locationId)}/api${suffix}`;
 }
 
 export function buildPlatformUrl(path: string): string {

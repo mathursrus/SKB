@@ -9,10 +9,12 @@
 // Also asserts XSS safety: a literal `<script>` payload in an item name
 // must appear HTML-escaped in the rendered response, not as a live tag.
 
+const MENU_RENDER_IT_PORT = '15473';
+
 process.env.SKB_COOKIE_SECRET ??= 'test-secret-for-ci';
 process.env.MONGODB_DB_NAME ??= 'skb_menu_render_test';
-process.env.PORT ??= '15398';
-process.env.FRAIM_TEST_SERVER_PORT ??= '15398';
+process.env.PORT ??= MENU_RENDER_IT_PORT;
+process.env.FRAIM_TEST_SERVER_PORT ??= MENU_RENDER_IT_PORT;
 process.env.FRAIM_BRANCH ??= '';
 process.env.SKB_HOST_PIN ??= '1234';
 
@@ -21,6 +23,8 @@ import {
     startTestServer,
     stopTestServer,
     getTestServerUrl,
+    getTestServerPort,
+    isPortInUse,
 } from '../shared-server-utils.js';
 import {
     closeDb,
@@ -35,6 +39,15 @@ import { createOwnerUser } from '../../src/services/users.js';
 const LOC = 'menu-render-a';
 const OWNER_EMAIL = 'menu-render-owner@example.test';
 const OWNER_PASS = 'menu-render-password-long';
+
+async function assertFreshServerPort(): Promise<void> {
+    const port = getTestServerPort();
+    if (await isPortInUse(port)) {
+        throw new Error(
+            `menu-render integration requires an isolated server, but port ${port} is already in use`,
+        );
+    }
+}
 
 function cookieFromRes(res: Response, name: string): string | null {
     const raw = res.headers.get('set-cookie') ?? '';
@@ -61,6 +74,7 @@ const cases: BaseTestCase[] = [
         name: 'setup: server + tenant + owner',
         tags: ['integration', 'menu-render', 'setup'],
         testFn: async () => {
+            await assertFreshServerPort();
             await startTestServer();
             const db = await getDb();
             await locations(db).deleteMany({ _id: LOC });
@@ -219,7 +233,12 @@ const cases: BaseTestCase[] = [
     {
         name: 'teardown',
         tags: ['integration', 'menu-render', 'teardown'],
-        testFn: async () => { await stopTestServer(); await closeDb(); return true; },
+        testFn: async () => {
+            ownerCookie = null;
+            await stopTestServer();
+            await closeDb();
+            return true;
+        },
     },
 ];
 

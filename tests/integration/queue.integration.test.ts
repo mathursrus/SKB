@@ -411,6 +411,23 @@ const cases: BaseTestCase[] = [
         },
     },
     {
+        name: 'listHostQueue: surfaces per-party SMS eligibility for host UX decisions',
+        tags: ['integration', 'queue', 'host-queue', 'sms-consent'],
+        testFn: async () => {
+            await resetDb();
+            const t0 = new Date('2026-04-05T20:00:00Z');
+            await joinQueue('test', { name: 'OptIn', partySize: 2, phone: '2065551234', smsConsent: true }, t0);
+            await joinQueue('test', { name: 'WebOnly', partySize: 2, phone: '2065551235', smsConsent: false }, new Date(t0.getTime() + 1));
+            const list = await listHostQueue('test', t0);
+            const optIn = list.parties.find((p) => p.name === 'OptIn') as Record<string, unknown> | undefined;
+            const webOnly = list.parties.find((p) => p.name === 'WebOnly') as Record<string, unknown> | undefined;
+            return !!optIn
+                && !!webOnly
+                && optIn.smsCapable === true
+                && webOnly.smsCapable === false;
+        },
+    },
+    {
         name: 'callParty: non-consenting diner → state flips to called, smsStatus=not_configured',
         tags: ['integration', 'queue', 'call', 'sms-consent', 'waitlist-path'],
         testFn: async () => {

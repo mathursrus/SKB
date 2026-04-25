@@ -97,6 +97,21 @@ This is the simplest viable architecture because it:
 - Validation seam:
   - `tests/integration/voice.integration.test.ts`
 
+### Twilio payload validation
+
+Validated assumptions against the current `src/routes/voice.ts` flow:
+
+- Twilio voice webhooks provide the raw request context needed to start and continue a session, including the standard inbound/action callback parameter set used to identify the call and caller.
+- `<Gather>` action callbacks provide keypad input for the current step, which supports menu choice, size entry, and phone confirmation.
+- Speech `<Gather>` callbacks can provide `SpeechResult` and `Confidence`, which supports normal name capture when transcription succeeds.
+
+Important limit:
+
+- Twilio does not give this feature a finished analytics model. Outcomes such as `joinIntent`, `menu_only`, `hours_only`, `joined_waitlist`, and staged abandonment are still application-derived.
+- In the current flow, exact abandonment timing is not directly reported for most DTMF steps. Only the name-capture step explicitly sets `actionOnEmptyResult="true"`; the menu, size, and phone-confirmation gathers in `voice.ts` fall through to local TwiML on no input instead of forcing an action callback.
+- Because of that, `dropped_before_choice`, `dropped_during_size`, and `dropped_during_phone_confirmation` are inferred from the last reached stage plus timeout, not from a Twilio-native "caller hung up at this step" event.
+- If the product later needs stronger abandonment attribution than timeout inference, add explicit call-status callbacks or other terminal call-event instrumentation as a follow-up.
+
 ### Proposed files
 
 #### New files
@@ -262,6 +277,7 @@ Mapping:
 - no scheduler or background worker exists in the current architecture
 - Admin reads are already the point where fresh analytics are required
 - this keeps implementation local to the repo's current HTTP + Mongo pattern
+- it matches the validated Twilio contract in the current IVR, where some terminal/non-input outcomes must be inferred from the last observed stage
 
 ### API surface (OpenAPI-style summary)
 

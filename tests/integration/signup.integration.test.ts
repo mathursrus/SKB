@@ -93,6 +93,7 @@ const ALL_SLUGS = [
     'signup-54-happy',
     'signup-54-clash',
     'signup-54-clash-portland',
+    'signup-54-clash-seattle',
     'signup-54-clash-2',
     'signup-54-explicit',
     'owner-slug-1',
@@ -190,7 +191,7 @@ const cases: BaseTestCase[] = [
         name: 'R2: slug collision with same city → integer suffix',
         tags: ['integration', 'signup54', 'slug'],
         testFn: async () => {
-            // The third collision: same name, same seattle city.
+            // The documented slug policy is base -> base-city -> integer suffixes.
             const third = await signup({
                 restaurantName: NAME_COLLIDE,
                 city: CITY_A,
@@ -201,7 +202,7 @@ const cases: BaseTestCase[] = [
             });
             if (third.status !== 201) return false;
             const body = await third.json() as Record<string, any>;
-            return body.location.id === 'signup-54-clash-2';
+            return body.location.id === 'signup-54-clash-seattle';
         },
     },
     {

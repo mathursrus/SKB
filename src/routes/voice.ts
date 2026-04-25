@@ -27,6 +27,18 @@ import {
     HOURS_LOCATION_FALLBACK_SCRIPT,
 } from '../services/location-template.js';
 import { validateTwilioSignature } from '../middleware/twilioValidation.js';
+import {
+    recordIncoming,
+    recordJoinError,
+    recordJoinIntent,
+    recordJoined,
+    recordMenuChoice,
+    recordNameCaptured,
+    recordPhoneSource,
+    recordResolvedInfo,
+    recordSizeCaptured,
+    recordTransfer,
+} from '../services/voiceCallSessions.js';
 
 function loc(req: Request): string {
     return String(req.params.loc ?? 'skb');
@@ -48,6 +60,26 @@ function action(req: Request, path: string, params: Record<string, string> = {})
     return `/r/${loc(req)}/api/voice/${path}${qs ? '?' + qs : ''}`;
 }
 
+function callSid(req: Request): string {
+    return String(req.body?.CallSid ?? req.query.callSid ?? '').trim();
+}
+
+function captureVoiceAnalytics(req: Request, step: string, task: (sid: string) => Promise<void>): void {
+    const sid = callSid(req);
+    if (!sid) return;
+    void task(sid).catch((err) => {
+        console.log(JSON.stringify({
+            t: new Date().toISOString(),
+            level: 'error',
+            msg: 'voice.analytics.error',
+            loc: loc(req),
+            step,
+            callSid: sid,
+            error: err instanceof Error ? err.message : String(err),
+        }));
+    });
+}
+
 export function voiceRouter(): Router {
     const r = Router({ mergeParams: true });
     r.use(validateTwilioSignature);
@@ -56,6 +88,7 @@ export function voiceRouter(): Router {
     r.post('/voice/incoming', async (req: Request, res: Response) => {
         const from = normalizeCallerPhone(req.body.From);
         console.log(JSON.stringify({ t: new Date().toISOString(), level: 'info', msg: 'voice.incoming', loc: loc(req), from: from ? `******${from.slice(-4)}` : 'anonymous' }));
+        captureVoiceAnalytics(req, 'incoming', (sid) => recordIncoming(sid, loc(req), new Date(), from));
 
         try {
             const state = await getQueueState(loc(req));
@@ -87,6 +120,11 @@ export function voiceRouter(): Router {
         const from = String(req.query.from || normalizeCallerPhone(req.body.From));
 
         if (digit === '1') {
+            captureVoiceAnalytics(req, 'menu-choice.join_waitlist', async (sid) => {
+                const at = new Date();
+                await recordMenuChoice(sid, at, 'join_waitlist');
+                await recordJoinIntent(sid, at);
+            });
             // Join the waitlist (existing flow, unchanged)
             res.type('text/xml').send(twiml(
                 `<Redirect>${action(req, 'ask-name', { from, attempt: '0' })}</Redirect>`
@@ -94,6 +132,7 @@ export function voiceRouter(): Router {
             return;
         }
         if (digit === '3') {
+            captureVoiceAnalytics(req, 'menu-choice.menu', (sid) => recordMenuChoice(sid, new Date(), 'menu'));
             // Menu overview (issue #45)
             res.type('text/xml').send(twiml(
                 `<Redirect>${action(req, 'menu-info', { from })}</Redirect>`
@@ -101,6 +140,7 @@ export function voiceRouter(): Router {
             return;
         }
         if (digit === '4') {
+            captureVoiceAnalytics(req, 'menu-choice.hours', (sid) => recordMenuChoice(sid, new Date(), 'hours'));
             // Hours + location (issue #45)
             res.type('text/xml').send(twiml(
                 `<Redirect>${action(req, 'hours-info', { from })}</Redirect>`
@@ -108,6 +148,7 @@ export function voiceRouter(): Router {
             return;
         }
         if (digit === '5') {
+            captureVoiceAnalytics(req, 'menu-choice.catering', (sid) => recordMenuChoice(sid, new Date(), 'catering'));
             // Catering transfer (issue #79)
             res.type('text/xml').send(twiml(
                 `<Redirect>${action(req, 'catering', { from })}</Redirect>`
@@ -115,11 +156,15 @@ export function voiceRouter(): Router {
             return;
         }
         if (digit === '0') {
+            captureVoiceAnalytics(req, 'menu-choice.front_desk', (sid) => recordMenuChoice(sid, new Date(), 'front_desk'));
             // Front-desk transfer (issue #45)
             res.type('text/xml').send(twiml(
                 `<Redirect>${action(req, 'front-desk', { from })}</Redirect>`
             ));
             return;
+        }
+        if (digit === '2') {
+            captureVoiceAnalytics(req, 'menu-choice.repeat_wait', (sid) => recordMenuChoice(sid, new Date(), 'repeat_wait'));
         }
         // digit === '2', '*' (star returns to main menu), or anything else →
         // replay the greeting with the current queue state.
@@ -135,6 +180,7 @@ export function voiceRouter(): Router {
     r.post('/voice/menu-info', async (req: Request, res: Response) => {
         const from = String(req.query.from || normalizeCallerPhone(req.body.From));
         console.log(JSON.stringify({ t: new Date().toISOString(), level: 'info', msg: 'voice.menu_info', loc: loc(req) }));
+        captureVoiceAnalytics(req, 'menu-info', (sid) => recordResolvedInfo(sid, new Date(), 'menu_only'));
         res.type('text/xml').send(twiml(`
 <Gather input="dtmf" numDigits="1" timeout="8" action="${action(req, 'menu-choice', { from })}">
   <Say voice="Polly.Joanna">${escXml(MENU_OVERVIEW_SCRIPT)} To return to the main menu, press star. To join the waitlist, press 1.</Say>
@@ -149,6 +195,7 @@ export function voiceRouter(): Router {
     // is unset. Star returns to the main menu; 1 short-circuits to join.
     r.post('/voice/hours-info', async (req: Request, res: Response) => {
         const from = String(req.query.from || normalizeCallerPhone(req.body.From));
+        captureVoiceAnalytics(req, 'hours-info', (sid) => recordResolvedInfo(sid, new Date(), 'hours_only'));
         try {
             const location = await getLocation(loc(req));
             const name = location?.name ?? 'the restaurant';
@@ -186,6 +233,7 @@ export function voiceRouter(): Router {
             const location = await getLocation(loc(req));
             const frontDesk = location?.frontDeskPhone;
             if (frontDesk && /^\d{10}$/.test(frontDesk)) {
+                captureVoiceAnalytics(req, 'front-desk', (sid) => recordTransfer(sid, new Date(), 'front_desk_transfer', 'front_desk_request'));
                 console.log(JSON.stringify({ t: new Date().toISOString(), level: 'info', msg: 'voice.front_desk_transfer', loc: loc(req) }));
                 res.type('text/xml').send(twiml(
                     `<Say voice="Polly.Joanna">Connecting you to our host. Please hold.</Say><Dial>+1${frontDesk}</Dial>`
@@ -216,6 +264,7 @@ export function voiceRouter(): Router {
             const location = await getLocation(loc(req));
             const cateringPhone = location?.cateringPhone;
             if (isConfiguredTransferPhone(cateringPhone)) {
+                captureVoiceAnalytics(req, 'catering', (sid) => recordTransfer(sid, new Date(), 'catering_transfer', 'catering_request'));
                 console.log(JSON.stringify({ t: new Date().toISOString(), level: 'info', msg: 'voice.catering_transfer', loc: loc(req) }));
                 res.type('text/xml').send(twiml(
                     `<Say voice="Polly.Joanna">Connecting you to our catering team. Please hold.</Say><Dial>+1${cateringPhone}</Dial>`
@@ -249,6 +298,7 @@ export function voiceRouter(): Router {
             // rename the party at the door if needed.
             const last4 = from ? from.slice(-4) : 'unknown';
             const fallbackName = `Caller ${last4}`;
+            captureVoiceAnalytics(req, 'ask-name.fallback', (sid) => recordNameCaptured(sid, new Date(), 'fallback'));
             console.log(JSON.stringify({ t: new Date().toISOString(), level: 'warn', msg: 'voice.speech_fallback', loc: loc(req), fallbackName }));
             res.type('text/xml').send(twiml(`
 <Say>I'm having trouble hearing you. I'll add you to the waitlist as "Caller ${last4}". You can update your name when you arrive.</Say>
@@ -313,6 +363,7 @@ export function voiceRouter(): Router {
         }
 
         const name = speechResult.replace(/\.\s*$/, '').trim();
+        captureVoiceAnalytics(req, 'got-name', (sid) => recordNameCaptured(sid, new Date(), 'normal'));
 
         res.type('text/xml').send(twiml(`
 <Gather input="dtmf" finishOnKey="#" timeout="10" action="${action(req, 'got-size', { from, name })}">
@@ -343,24 +394,31 @@ export function voiceRouter(): Router {
         const from = String(req.query.from || '');
         const name = String(req.query.name || '');
         const size = parseInt(digits, 10);
+        const callAt = new Date();
+        const location = await getLocation(loc(req));
+        const largePartyThreshold = location?.voiceLargePartyThreshold ?? 10;
 
-        if (isNaN(size) || size < 1 || size > 10) {
+        if (isNaN(size) || size < 1 || size > 20) {
+            captureVoiceAnalytics(req, 'got-size.invalid', (sid) => recordJoinError(sid, callAt, 'invalid_party_size'));
             res.type('text/xml').send(twiml(
-                `<Say>Sorry, please enter a number between 1 and 10. Goodbye.</Say><Hangup/>`
+                `<Say>Sorry, please enter a number between 1 and 20. Goodbye.</Say><Hangup/>`
             ));
             return;
         }
 
-        if (size > 10) {
+        captureVoiceAnalytics(req, 'got-size.captured', (sid) => recordSizeCaptured(sid, callAt, size));
+
+        if (size > largePartyThreshold) {
             // Transfer to front desk for large parties
-            const location = await getLocation(loc(req));
             const frontDesk = location?.frontDeskPhone;
             if (frontDesk) {
+                captureVoiceAnalytics(req, 'got-size.large-party-transfer', (sid) => recordTransfer(sid, new Date(), 'front_desk_transfer', 'large_party'));
                 console.log(JSON.stringify({ t: new Date().toISOString(), level: 'info', msg: 'voice.transfer', loc: loc(req), reason: 'large_party', size }));
                 res.type('text/xml').send(twiml(
-                    `<Say>For parties larger than 10, let me connect you with our host. Please hold.</Say><Dial>+1${frontDesk}</Dial>`
+                    `<Say>For parties larger than ${largePartyThreshold}, let me connect you with our host. Please hold.</Say><Dial>+1${frontDesk}</Dial>`
                 ));
             } else {
+                captureVoiceAnalytics(req, 'got-size.large-party-unconfigured', (sid) => recordJoinError(sid, new Date(), 'large_party_requires_front_desk'));
                 res.type('text/xml').send(twiml(
                     `<Say>For large parties, please contact us directly. Goodbye.</Say><Hangup/>`
                 ));
@@ -380,7 +438,7 @@ export function voiceRouter(): Router {
         } else {
             // No caller ID — ask for phone
             res.type('text/xml').send(twiml(`
-<Gather input="dtmf" finishOnKey="#" timeout="15" action="${action(req, 'join', { name, size: String(size) })}">
+<Gather input="dtmf" finishOnKey="#" timeout="15" action="${action(req, 'join', { name, size: String(size), phoneSource: 'manual' })}">
   <Say>We weren't able to detect your phone number. Please enter your 10 digit phone number on the keypad, then press pound.</Say>
 </Gather>
 <Say>No input received. Goodbye.</Say>
@@ -396,8 +454,9 @@ export function voiceRouter(): Router {
         const size = String(req.query.size || '');
 
         if (digit === '1') {
+            captureVoiceAnalytics(req, 'confirm-phone.caller-id', (sid) => recordPhoneSource(sid, new Date(), 'caller_id'));
             res.type('text/xml').send(twiml(
-                `<Redirect>${action(req, 'join', { phone: from, name, size })}</Redirect>`
+                `<Redirect>${action(req, 'join', { phone: from, name, size, phoneSource: 'caller_id' })}</Redirect>`
             ));
         } else {
             // User wants a different phone — gather digits, then read back
@@ -423,8 +482,9 @@ export function voiceRouter(): Router {
         if (phoneFromQuery) {
             // We are confirming a previously-read-back number
             if (confirmDigit === '1') {
+                captureVoiceAnalytics(req, 'confirm-new-phone.manual', (sid) => recordPhoneSource(sid, new Date(), 'manual'));
                 res.type('text/xml').send(twiml(
-                    `<Redirect>${action(req, 'join', { phone: phoneFromQuery, name, size })}</Redirect>`
+                    `<Redirect>${action(req, 'join', { phone: phoneFromQuery, name, size, phoneSource: 'manual' })}</Redirect>`
                 ));
                 return;
             }
@@ -465,8 +525,10 @@ export function voiceRouter(): Router {
         const phone = String(req.query.phone || req.body.Digits || '');
         const name = String(req.query.name || '');
         const size = parseInt(String(req.query.size || '1'), 10);
+        const source = req.query.phoneSource === 'caller_id' ? 'caller_id' : 'manual';
 
         if (!/^\d{10}$/.test(phone)) {
+            captureVoiceAnalytics(req, 'join.invalid-phone', (sid) => recordJoinError(sid, new Date(), 'invalid_phone'));
             res.type('text/xml').send(twiml(
                 `<Say>Sorry, that doesn't look like a valid phone number. Please try joining online instead. Goodbye.</Say><Hangup/>`
             ));
@@ -474,7 +536,9 @@ export function voiceRouter(): Router {
         }
 
         try {
+            captureVoiceAnalytics(req, 'join.phone-source', (sid) => recordPhoneSource(sid, new Date(), source));
             const result = await joinQueue(loc(req), { name, partySize: size, phone });
+            captureVoiceAnalytics(req, 'join.complete', (sid) => recordJoined(sid, new Date(), result.code));
             console.log(JSON.stringify({ t: new Date().toISOString(), level: 'info', msg: 'voice.join.complete', loc: loc(req), code: result.code, position: result.position, partySize: size }));
 
             // Fire-and-forget SMS confirmation
@@ -501,6 +565,7 @@ export function voiceRouter(): Router {
                 `<Say>Thanks ${escXml(name)}! You're number ${result.position} in line. Your estimated wait is ${etaSpeech} — that's around ${wallClock}. Your pickup code is ${codeReadback}. We'll text you with your code and a link to track your place. See you soon!</Say><Hangup/>`
             ));
         } catch (err) {
+            captureVoiceAnalytics(req, 'join.error', (sid) => recordJoinError(sid, new Date(), 'join_queue_error'));
             console.log(JSON.stringify({ t: new Date().toISOString(), level: 'error', msg: 'voice.join.error', loc: loc(req), error: err instanceof Error ? err.message : String(err) }));
             res.type('text/xml').send(twiml(
                 `<Say>We're sorry, we're experiencing a technical issue. Please try joining our waitlist online or call back in a few minutes. Goodbye.</Say><Hangup/>`

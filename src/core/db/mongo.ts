@@ -5,7 +5,7 @@
 import { MongoClient, type Db, type Collection } from 'mongodb';
 
 import { determineDatabaseName } from '../utils/git-utils.js';
-import type { Location, QueueEntry, Settings, GuestCartLineDTO } from '../../types/queue.js';
+import type { Location, QueueEntry, Settings, GuestCartLineDTO, VoiceCallSession } from '../../types/queue.js';
 import type { ChatMessage } from '../../types/chat.js';
 import type { User, Membership, PasswordReset, Invite } from '../../types/identity.js';
 import type { GoogleToken } from '../../services/googleBusiness.js';
@@ -89,6 +89,10 @@ export function partyOrders(db: Db): Collection<PartyOrder> {
 
 export function smsOptOuts(db: Db): Collection<SmsOptOut> {
     return db.collection<SmsOptOut>('sms_opt_outs');
+}
+
+export function voiceCallSessions(db: Db): Collection<VoiceCallSession> {
+    return db.collection<VoiceCallSession>('voice_call_sessions');
 }
 
 async function bootstrapIndexes(db: Db): Promise<void> {
@@ -235,6 +239,23 @@ async function bootstrapIndexes(db: Db): Promise<void> {
     await smsOptOuts(db).createIndex(
         { phone: 1 },
         { name: 'sms_optout_phone_unique', unique: true },
+    );
+
+    await voiceCallSessions(db).createIndex(
+        { callSid: 1 },
+        { name: 'voice_call_sid_unique', unique: true },
+    );
+    await voiceCallSessions(db).createIndex(
+        { locationId: 1, serviceDay: 1, startedAt: -1 },
+        { name: 'voice_loc_day_started' },
+    );
+    await voiceCallSessions(db).createIndex(
+        { locationId: 1, serviceDay: 1, finalOutcome: 1, firstMenuChoice: 1 },
+        { name: 'voice_loc_day_outcome_choice' },
+    );
+    await voiceCallSessions(db).createIndex(
+        { locationId: 1, serviceDay: 1, endedAt: -1 },
+        { name: 'voice_loc_day_ended' },
     );
 
     // Google Business Profile tokens (issue #51 Phase D):

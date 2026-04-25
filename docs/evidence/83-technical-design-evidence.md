@@ -23,7 +23,7 @@ PR: `https://github.com/mathursrus/SKB/pull/87`
   - Design completeness review against the feature spec and issue body
 
 ## Feedback History
-No `docs/evidence/83-technical-design-feedback.md` file exists yet, so there is no technical-design review feedback to include at submission time.
+Feedback file: [`docs/evidence/83-technical-design-feedback.md`](83-technical-design-feedback.md)
 
 ## Completeness Evidence
 - Issue tagged with label `phase:design`: Yes
@@ -68,6 +68,7 @@ No `docs/evidence/83-technical-design-feedback.md` file exists yet, so there is 
 - No formal project architecture document is configured in `fraim/config.json`, so the RFC's `Architecture Analysis` is based on live codebase patterns and generic standards rather than a repo-specific architecture source of truth.
 - The design introduces a new `voice_call_sessions` collection and read-path timeout finalization pattern. Both are deliberate additions because the current architecture has no existing background worker or caller-funnel persistence abstraction.
 - The design preserves current patterns by keeping HTTP concerns in routes, operational logic in services, and Mongo access centralized in `src/core/db/mongo.ts`.
+- The design now explicitly documents that Twilio supplies raw webhook fields for call/session stitching and gather input, but staged abandonment remains application-inferred in the current flow unless additional terminal call-event callbacks are configured later.
 
 ### Review Result
 Pass. The traceability matrix covers all user stories and all `R1` through `R22` requirements with no `Unmet` rows.
@@ -80,6 +81,7 @@ Pass. The traceability matrix covers all user stories and all `R1` through `R22`
 - Validation results:
   - Spike result: Pass
   - Traceability review: Pass, no unmet requirements
+  - Twilio contract review: Pass for raw call/gather inputs, with an explicit limitation that stage abandonment is inferred from last observed stage plus timeout in the current IVR
   - Remaining gap: full browser/curl validation is deferred until implementation because this phase produced design artifacts, not production code
 
 ## Quality Checks
@@ -102,6 +104,7 @@ Pass. The traceability matrix covers all user stories and all `R1` through `R22`
 - Iterations or challenges:
   - The spike exposed a Mongo update-shape constraint around `$setOnInsert` versus `$set` / `$push`, which materially influenced the final service design.
   - The completeness review exposed the need to explicitly capture large-party transfer reason and to document stage-detail/mobile UI behavior in the RFC.
+  - User feedback correctly identified that the Twilio payload contract needed explicit validation. The RFC and evidence now distinguish provider-supplied raw fields from outcomes inferred by application logic.
 
 ## Due Diligence Evidence
 - Reviewed feature spec in detail: Yes

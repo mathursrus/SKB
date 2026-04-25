@@ -11,7 +11,7 @@ import http from 'http';
 import { voiceRouter } from '../../src/routes/voice.js';
 import { queueRouter } from '../../src/routes/queue.js';
 import { ensureLocation, updateLocationSiteConfig, updateLocationVoiceConfig } from '../../src/services/locations.js';
-import { closeDb, getDb, queueEntries } from '../../src/core/db/mongo.js';
+import { closeDb, getDb, queueEntries, voiceCallSessions } from '../../src/core/db/mongo.js';
 
 const app = express();
 app.use(express.json());
@@ -130,6 +130,12 @@ const server = app.listen(0, async () => {
     check('DB has entry', entry !== null);
     check('DB partySize=3', entry?.partySize === 3);
     check('DB phone correct', entry?.phone === '2025550199');
+    const voiceSession = await voiceCallSessions(db).findOne({ callSid: CALL.CallSid });
+    check('Caller session persisted', voiceSession !== null);
+    check('Caller session links joined waitlist outcome', voiceSession?.finalOutcome === 'joined_waitlist');
+    check('Caller session stores queue code', voiceSession?.queueCode === entry?.code);
+    check('Caller session stores caller ID source', voiceSession?.phoneSource === 'caller_id');
+    check('Caller session stores join intent', voiceSession?.joinIntent === true);
 
     // XSS
     const rx = await post(port, a3, { ...CALL, SpeechResult: '<script>alert(1)</script>', Confidence: '0.9' });

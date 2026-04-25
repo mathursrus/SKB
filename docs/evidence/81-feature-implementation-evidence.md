@@ -317,3 +317,14 @@ N/A for this issue.
 - Environment notes:
   - browser validation used a disposable local server on `http://localhost:15499`
   - git emitted LF→CRLF working-tree warnings only; no content-level risk
+
+## Submission Status
+
+- Branch pushed: `feature/81-host-chat-does-not-go-as-sms-is-that-expected`
+- Submission commit: `df4684f`
+- Pull request: `#90` - `Issue #81: clarify host chat vs SMS behavior`
+- PR comment added with evidence path: yes
+- Issue `#81` label status: `status:needs-review`
+- Workspace note:
+  - `git status` still shows `docs/evidence/e2e-sms-deeplink.png` as modified.
+  - That file was unrelated pre-existing work and was intentionally left untouched and unstaged during this issue submission.

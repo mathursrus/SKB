@@ -26,6 +26,7 @@ import type { EtaMode } from '../types/queue.js';
 import type { HostSentiment } from '../types/hostSentiment.js';
 import { getHostStats } from '../services/stats.js';
 import { getAnalytics } from '../services/analytics.js';
+import { getCallerStats } from '../services/callerStats.js';
 import {
     getLocation,
     getGuestFeatures,
@@ -510,6 +511,16 @@ export function hostRouter(): Router {
 
     r.get('/host/stats', requireHost, async (req: Request, res: Response) => {
         try { res.json(await getHostStats(loc(req))); }
+        catch (err) { dbError(res, err); }
+    });
+
+    r.get('/host/caller-stats', requireAdmin, async (req: Request, res: Response) => {
+        const range = String(req.query.range ?? '1');
+        if (!['1', '7', '30'].includes(range)) {
+            res.status(400).json({ error: 'range must be 1|7|30', field: 'range' });
+            return;
+        }
+        try { res.json(await getCallerStats(loc(req), range)); }
         catch (err) { dbError(res, err); }
     });
 

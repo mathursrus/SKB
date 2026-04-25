@@ -444,6 +444,119 @@ export interface AnalyticsDTO {
     };
 }
 
+export type VoiceCallSessionMenuChoice =
+    'join_waitlist'
+    | 'repeat_wait'
+    | 'menu'
+    | 'hours'
+    | 'front_desk'
+    | 'catering';
+
+export type VoiceCallTransferReason =
+    'front_desk_request'
+    | 'large_party'
+    | 'catering_request';
+
+export type VoiceCallSessionStepEvent =
+    'incoming'
+    | 'menu_choice'
+    | 'join_intent'
+    | 'name_captured'
+    | 'size_captured'
+    | 'phone_source'
+    | 'joined'
+    | 'transfer'
+    | 'resolved_info'
+    | 'auto_finalized'
+    | 'join_error';
+
+export interface VoiceCallSessionStep {
+    at: Date;
+    event: VoiceCallSessionStepEvent;
+    detail?: string;
+}
+
+export type VoiceCallFinalOutcome =
+    'joined_waitlist'
+    | 'dropped_before_choice'
+    | 'dropped_during_name'
+    | 'dropped_during_size'
+    | 'dropped_during_phone_confirmation'
+    | 'front_desk_transfer'
+    | 'catering_transfer'
+    | 'menu_only'
+    | 'hours_only'
+    | 'join_error';
+
+export type VoiceCallCurrentStage =
+    'incoming'
+    | 'menu'
+    | 'ask_name'
+    | 'ask_size'
+    | 'confirm_phone'
+    | 'joined'
+    | 'resolved';
+
+export interface VoiceCallSession {
+    locationId: string;
+    callSid: string;
+    serviceDay: string;
+    startedAt: Date;
+    lastEventAt: Date;
+    endedAt?: Date;
+    callerLast4?: string;
+    firstMenuChoice?: VoiceCallSessionMenuChoice;
+    joinIntent?: boolean;
+    nameCaptureMode?: 'normal' | 'fallback';
+    partySize?: number;
+    phoneSource?: 'caller_id' | 'manual';
+    queueCode?: string;
+    transferReason?: VoiceCallTransferReason;
+    currentStage: VoiceCallCurrentStage;
+    finalOutcome?: VoiceCallFinalOutcome;
+    steps: VoiceCallSessionStep[];
+}
+
+export interface CallerStatsOutcomeDTO {
+    key: VoiceCallFinalOutcome;
+    count: number;
+    share: number;
+}
+
+export interface CallerStatsMenuChoiceDTO {
+    key: VoiceCallSessionMenuChoice;
+    count: number;
+    share: number;
+}
+
+export interface CallerStatsRecentSessionDTO {
+    startedAt: string;
+    finalOutcome: VoiceCallFinalOutcome;
+    firstMenuChoice?: VoiceCallSessionMenuChoice;
+    queueCode?: string;
+    callerLast4?: string;
+    nameCaptureMode?: 'normal' | 'fallback';
+    phoneSource?: 'caller_id' | 'manual';
+    transferReason?: VoiceCallTransferReason;
+}
+
+export interface CallerStatsDTO {
+    dateRange: { from: string; to: string };
+    funnel: {
+        inboundCalls: number;
+        joinIntent: number;
+        reachedPhoneConfirmation: number;
+        joinedWaitlist: number;
+    };
+    outcomes: CallerStatsOutcomeDTO[];
+    firstMenuChoices: CallerStatsMenuChoiceDTO[];
+    recentSessions: CallerStatsRecentSessionDTO[];
+    historicalCoverage: {
+        startsAt: string | null;
+        hasLegacyGap: boolean;
+    };
+}
+
 export interface ErrorDTO {
     error: string;
     field?: string;

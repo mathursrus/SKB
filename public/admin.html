@@ -515,6 +515,99 @@
             </div>
             <div id="admin-histograms" class="histograms admin-histograms"><div class="hist-empty">Loading...</div></div>
         </details>
+
+        <details class="admin-card">
+            <summary class="admin-card-head">
+                <h2>Caller Funnel</h2>
+                <p>See how phone demand moves through the IVR: what callers choose, where they drop, and how often the phone channel becomes a waitlist join.</p>
+            </summary>
+            <div class="caller-stats-body">
+                <div class="caller-stats-toolbar">
+                    <div class="caller-range-group" role="tablist" aria-label="Caller statistics range">
+                        <button type="button" class="caller-range-btn is-active" data-caller-range="1">Today</button>
+                        <button type="button" class="caller-range-btn" data-caller-range="7">7 days</button>
+                        <button type="button" class="caller-range-btn" data-caller-range="30">30 days</button>
+                    </div>
+                    <p class="caller-coverage-note" id="admin-caller-coverage-note"></p>
+                </div>
+                <p id="admin-caller-stats-error" class="caller-inline-state" style="display:none"></p>
+                <p id="admin-caller-stats-empty" class="caller-inline-state" style="display:none"></p>
+
+                <div id="admin-caller-stats-content" style="display:none">
+                    <div class="caller-funnel-grid" id="admin-caller-funnel">
+                        <div class="caller-funnel-card">
+                            <span class="caller-kicker">Inbound</span>
+                            <strong id="admin-caller-funnel-inbound">0</strong>
+                            <span>calls answered</span>
+                        </div>
+                        <div class="caller-funnel-card">
+                            <span class="caller-kicker">Intent</span>
+                            <strong id="admin-caller-funnel-join-intent">0</strong>
+                            <span>pressed join waitlist</span>
+                        </div>
+                        <div class="caller-funnel-card">
+                            <span class="caller-kicker">Progress</span>
+                            <strong id="admin-caller-funnel-phone">0</strong>
+                            <span>reached phone confirmation</span>
+                        </div>
+                        <div class="caller-funnel-card">
+                            <span class="caller-kicker">Conversion</span>
+                            <strong id="admin-caller-funnel-joined">0</strong>
+                            <span>joined the waitlist</span>
+                        </div>
+                    </div>
+
+                    <div class="caller-stats-grid">
+                        <section class="caller-panel">
+                            <div class="caller-panel-head">
+                                <h3>Caller Outcomes</h3>
+                                <p>Tap a stage to inspect share and interpretation.</p>
+                            </div>
+                            <div class="caller-outcome-chips" id="admin-caller-outcomes"></div>
+                        </section>
+
+                        <aside class="caller-detail-card" id="admin-caller-detail">
+                            <span class="caller-kicker" id="admin-caller-detail-type">Outcome</span>
+                            <h3 id="admin-caller-detail-title">Select a stage</h3>
+                            <div class="caller-detail-metrics">
+                                <div><strong id="admin-caller-detail-count">0</strong><span>calls</span></div>
+                                <div><strong id="admin-caller-detail-share">0%</strong><span>of inbound</span></div>
+                            </div>
+                            <p id="admin-caller-detail-copy">Choose an outcome to see what it means operationally.</p>
+                        </aside>
+
+                        <section class="caller-panel">
+                            <div class="caller-panel-head">
+                                <h3>First Menu Choices</h3>
+                                <p>How callers used the IVR on first contact.</p>
+                            </div>
+                            <div class="caller-choice-list" id="admin-caller-choices"></div>
+                        </section>
+
+                        <section class="caller-panel caller-panel-wide">
+                            <div class="caller-panel-head">
+                                <h3>Recent Caller Outcomes</h3>
+                                <p>Privacy-minimized rows with last-4 only when needed.</p>
+                            </div>
+                            <div class="caller-table-wrap">
+                                <table class="caller-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Time</th>
+                                            <th>Outcome</th>
+                                            <th>Path</th>
+                                            <th>Join code</th>
+                                            <th>Caller</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="admin-caller-recent"></tbody>
+                                </table>
+                            </div>
+                        </section>
+                    </div>
+                </div>
+            </div>
+        </details>
     </main>
 
     <!-- ═══════════════════════════════════════════════════════════════

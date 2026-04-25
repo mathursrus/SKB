@@ -12,6 +12,23 @@
     const histograms = $('admin-histograms');
     const statsEmpty = $('admin-stats-empty');
     const statsGrid = $('admin-stats-grid');
+    const callerCoverageNote = $('admin-caller-coverage-note');
+    const callerStatsError = $('admin-caller-stats-error');
+    const callerStatsEmpty = $('admin-caller-stats-empty');
+    const callerStatsContent = $('admin-caller-stats-content');
+    const callerOutcomes = $('admin-caller-outcomes');
+    const callerChoices = $('admin-caller-choices');
+    const callerRecent = $('admin-caller-recent');
+    const callerDetailType = $('admin-caller-detail-type');
+    const callerDetailTitle = $('admin-caller-detail-title');
+    const callerDetailCount = $('admin-caller-detail-count');
+    const callerDetailShare = $('admin-caller-detail-share');
+    const callerDetailCopy = $('admin-caller-detail-copy');
+    const callerFunnelInbound = $('admin-caller-funnel-inbound');
+    const callerFunnelJoinIntent = $('admin-caller-funnel-join-intent');
+    const callerFunnelPhone = $('admin-caller-funnel-phone');
+    const callerFunnelJoined = $('admin-caller-funnel-joined');
+    const callerRangeButtons = Array.from(document.querySelectorAll('[data-caller-range]'));
     const visitMode = $('admin-visit-mode');
     const visitMenuUrl = $('admin-visit-menu-url');
     const visitClosedMessage = $('admin-visit-closed-message');
@@ -154,6 +171,69 @@
     });
     const WORKSPACE_KEY_PREFIX = 'skb:lastWorkspace:';
     let pollTimer = null;
+    let callerStatsRange = '1';
+    let callerStatsSelectedOutcome = 'dropped_before_choice';
+
+    const CALLER_OUTCOME_META = {
+        dropped_before_choice: {
+            label: 'Dropped before choice',
+            type: 'Abandonment',
+            copy: 'These callers reached the greeting but never committed to a path. Check opening prompt length, queue-time clarity, and whether the greeting is too dense during peak periods.',
+        },
+        dropped_during_name: {
+            label: 'Dropped during name',
+            type: 'Abandonment',
+            copy: 'Callers wanted to join but fell off before name capture completed. This usually points to speech-recognition friction or an overly fragile fallback moment.',
+        },
+        dropped_during_size: {
+            label: 'Dropped during size',
+            type: 'Abandonment',
+            copy: 'Callers made it through name capture but did not finish party size. Revisit keypad instructions and make sure the prompt stays short and unambiguous.',
+        },
+        dropped_during_phone_confirmation: {
+            label: 'Dropped during phone confirmation',
+            type: 'Abandonment',
+            copy: 'This is the last self-service hurdle before conversion. Higher drop-off here can indicate caller-ID mistrust or friction around manual phone entry.',
+        },
+        front_desk_transfer: {
+            label: 'Front desk transfer',
+            type: 'Transfer',
+            copy: 'These callers routed to a human host. Use this to judge whether the IVR is deflecting routine traffic or still escalating too much to the floor.',
+        },
+        catering_transfer: {
+            label: 'Catering transfer',
+            type: 'Transfer',
+            copy: 'Catering requests are intentionally carved out from normal waitlist demand. This helps separate event/business inquiries from dine-in queue pressure.',
+        },
+        menu_only: {
+            label: 'Menu only',
+            type: 'Self-service',
+            copy: 'These callers resolved their need through menu information alone. Higher counts here usually mean the IVR is successfully deflecting basic menu questions.',
+        },
+        hours_only: {
+            label: 'Hours / location only',
+            type: 'Self-service',
+            copy: 'These callers used the IVR for logistical information only. This is useful deflection, especially during peak host-stand load.',
+        },
+        join_error: {
+            label: 'Join error',
+            type: 'Failure',
+            copy: 'A technical or validation failure interrupted the join flow. These should stay rare; if they climb, inspect logs immediately.',
+        },
+        joined_waitlist: {
+            label: 'Joined waitlist',
+            type: 'Conversion',
+            copy: 'These callers completed the phone flow and became real queue entries. This is the phone-channel conversion number that matters most operationally.',
+        },
+    };
+    const CALLER_CHOICE_LABELS = {
+        join_waitlist: 'Press 1 · Join waitlist',
+        repeat_wait: 'Press 2 · Repeat wait',
+        menu: 'Press 3 · Menu',
+        hours: 'Press 4 · Hours / location',
+        front_desk: 'Press 0 · Front desk',
+        catering: 'Press 5 · Catering',
+    };
 
     function workspaceKey() {
         const loc = (window.location.pathname.match(/^\/r\/([^/]+)\//) || [])[1] || 'skb';
@@ -308,6 +388,144 @@
             // Log the real cause so bugs like missing DOM ids don't hide behind "Failed to load"
             console.error('analytics load failed:', err);
             histograms.innerHTML = '<div class="hist-empty">Failed to load analytics: ' + esc(err?.message || String(err)) + '</div>';
+        }
+    }
+
+    function formatCallerOutcome(key) {
+        return CALLER_OUTCOME_META[key]?.label || key;
+    }
+
+    function formatCallerShare(share) {
+        return `${Math.round(Number(share || 0) * 100)}%`;
+    }
+
+    function formatCallerTime(iso) {
+        if (!iso) return '\u2014';
+        const d = new Date(iso);
+        if (Number.isNaN(d.getTime())) return '\u2014';
+        return new Intl.DateTimeFormat('en-US', {
+            month: 'short',
+            day: 'numeric',
+            hour: 'numeric',
+            minute: '2-digit',
+        }).format(d);
+    }
+
+    function renderCallerDetail(outcome) {
+        const meta = CALLER_OUTCOME_META[outcome?.key] || {
+            label: 'Unknown outcome',
+            type: 'Outcome',
+            copy: 'No interpretation is available for this outcome yet.',
+        };
+        callerDetailType.textContent = meta.type;
+        callerDetailTitle.textContent = meta.label;
+        callerDetailCount.textContent = String(outcome?.count || 0);
+        callerDetailShare.textContent = formatCallerShare(outcome?.share || 0);
+        callerDetailCopy.textContent = meta.copy;
+    }
+
+    function renderCallerOutcomes(outcomes) {
+        callerOutcomes.innerHTML = '';
+        const preferred = outcomes.find(row => row.key === callerStatsSelectedOutcome)
+            || outcomes.find(row => row.count > 0)
+            || outcomes[0];
+        callerStatsSelectedOutcome = preferred?.key || callerStatsSelectedOutcome;
+
+        outcomes.forEach((row) => {
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'caller-outcome-chip' + (row.key === callerStatsSelectedOutcome ? ' is-active' : '');
+            button.innerHTML = `<span>${esc(formatCallerOutcome(row.key))}</span><strong>${row.count}</strong>`;
+            button.addEventListener('click', () => {
+                callerStatsSelectedOutcome = row.key;
+                renderCallerOutcomes(outcomes);
+            });
+            callerOutcomes.appendChild(button);
+        });
+
+        renderCallerDetail(outcomes.find(row => row.key === callerStatsSelectedOutcome) || outcomes[0]);
+    }
+
+    function renderCallerChoices(choices) {
+        callerChoices.innerHTML = '';
+        choices.forEach((row) => {
+            const item = document.createElement('div');
+            item.className = 'caller-choice-row';
+            item.innerHTML = `<span>${esc(CALLER_CHOICE_LABELS[row.key] || row.key)}</span><strong>${row.count}</strong><em>${formatCallerShare(row.share)}</em>`;
+            callerChoices.appendChild(item);
+        });
+    }
+
+    function renderCallerRecent(recentSessions) {
+        callerRecent.innerHTML = '';
+        if (!recentSessions.length) {
+            const row = document.createElement('tr');
+            row.innerHTML = '<td colspan="5" class="caller-table-empty">No completed caller outcomes yet for this range.</td>';
+            callerRecent.appendChild(row);
+            return;
+        }
+
+        recentSessions.forEach((session) => {
+            const row = document.createElement('tr');
+            const caller = session.callerLast4 ? `•••• ${esc(session.callerLast4)}` : '\u2014';
+            const path = session.firstMenuChoice ? esc(CALLER_CHOICE_LABELS[session.firstMenuChoice] || session.firstMenuChoice) : '\u2014';
+            row.innerHTML = `
+                <td>${esc(formatCallerTime(session.startedAt))}</td>
+                <td>${esc(formatCallerOutcome(session.finalOutcome))}</td>
+                <td>${path}</td>
+                <td>${session.queueCode ? esc(session.queueCode) : '\u2014'}</td>
+                <td>${caller}</td>
+            `;
+            callerRecent.appendChild(row);
+        });
+    }
+
+    function showCallerState(kind, message) {
+        callerStatsError.style.display = kind === 'error' ? '' : 'none';
+        callerStatsEmpty.style.display = kind === 'empty' ? '' : 'none';
+        callerStatsContent.style.display = kind === 'content' ? '' : 'none';
+        if (kind === 'error') callerStatsError.textContent = message;
+        if (kind === 'empty') callerStatsEmpty.textContent = message;
+    }
+
+    async function loadCallerStats() {
+        showCallerState('empty', 'Loading caller statistics...');
+        callerCoverageNote.textContent = '';
+        try {
+            const r = await fetch(`api/host/caller-stats?range=${encodeURIComponent(callerStatsRange)}`);
+            if (r.status === 401) { showLogin(); return; }
+            const data = await r.json().catch(() => ({}));
+            if (r.status === 403) {
+                showCallerState('error', 'Caller statistics are available only to signed-in admins or owners.');
+                return;
+            }
+            if (!r.ok) {
+                showCallerState('error', data.error || 'Failed to load caller statistics.');
+                return;
+            }
+
+            if (!data.funnel || data.funnel.inboundCalls === 0) {
+                const rolloutNote = data.historicalCoverage?.hasLegacyGap
+                    ? 'Caller funnel tracking begins from the rollout date for this feature. Older days may not have IVR funnel coverage.'
+                    : 'No caller data yet for this range.';
+                callerCoverageNote.textContent = rolloutNote;
+                showCallerState('empty', rolloutNote);
+                return;
+            }
+
+            callerFunnelInbound.textContent = String(data.funnel.inboundCalls || 0);
+            callerFunnelJoinIntent.textContent = String(data.funnel.joinIntent || 0);
+            callerFunnelPhone.textContent = String(data.funnel.reachedPhoneConfirmation || 0);
+            callerFunnelJoined.textContent = String(data.funnel.joinedWaitlist || 0);
+            callerCoverageNote.textContent = data.historicalCoverage?.hasLegacyGap
+                ? 'Historical IVR funnel coverage starts at rollout. Pre-rollout days are intentionally excluded from caller analytics.'
+                : `Showing caller data from ${data.dateRange?.from || '\u2014'} to ${data.dateRange?.to || '\u2014'}.`;
+            renderCallerOutcomes(Array.isArray(data.outcomes) ? data.outcomes : []);
+            renderCallerChoices(Array.isArray(data.firstMenuChoices) ? data.firstMenuChoices : []);
+            renderCallerRecent(Array.isArray(data.recentSessions) ? data.recentSessions : []);
+            showCallerState('content', '');
+        } catch (err) {
+            showCallerState('error', 'Failed to load caller statistics: ' + (err?.message || String(err)));
         }
     }
 
@@ -1187,6 +1405,15 @@
     [rangeSelect, partySizeSelect, startStageSelect, endStageSelect].forEach((el) => {
         el.addEventListener('change', loadAnalytics);
     });
+    callerRangeButtons.forEach((btn) => {
+        btn.addEventListener('click', () => {
+            const nextRange = btn.getAttribute('data-caller-range');
+            if (!nextRange || nextRange === callerStatsRange) return;
+            callerStatsRange = nextRange;
+            callerRangeButtons.forEach(other => other.classList.toggle('is-active', other === btn));
+            loadCallerStats();
+        });
+    });
 
     logoutBtn.addEventListener('click', async () => {
         await fetch('/api/logout', { method: 'POST', credentials: 'same-origin' });
@@ -1581,7 +1808,7 @@
     }
 
     const tabLoaders = {
-        dashboard: async () => { await Promise.all([loadStats(), loadAnalytics()]); },
+        dashboard: async () => { await Promise.all([loadStats(), loadAnalytics(), loadCallerStats()]); },
         profile: async () => { await loadSiteConfig(); },
         website: async () => { await loadWebsiteConfig(); },
         menu: async () => { await loadMenuBuilder(); },

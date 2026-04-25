@@ -189,7 +189,17 @@ const cases: BaseTestCase[] = [
             const voiceRes = await fetch(`${getTestServerUrl()}/api/host/voice-config`, {
                 headers: { Cookie: cookieValue },
             });
-            return voiceRes.ok;
+            if (!voiceRes.ok) return false;
+            const body = await voiceRes.json() as {
+                voiceEnabled?: unknown;
+                frontDeskPhone?: unknown;
+                cateringPhone?: unknown;
+                voiceLargePartyThreshold?: unknown;
+            };
+            return typeof body.voiceEnabled === 'boolean'
+                && typeof body.frontDeskPhone === 'string'
+                && typeof body.cateringPhone === 'string'
+                && typeof body.voiceLargePartyThreshold === 'number';
         },
     },
     {

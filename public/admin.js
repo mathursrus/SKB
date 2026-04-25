@@ -19,6 +19,7 @@
     const visitSave = $('admin-visit-save');
     const voiceEnabled = $('admin-voice-enabled');
     const frontDeskPhone = $('admin-front-desk-phone');
+    const cateringPhone = $('admin-catering-phone');
     const largePartyThreshold = $('admin-large-party-threshold');
     const voiceStatus = $('admin-voice-status');
     const voiceSave = $('admin-voice-save');
@@ -352,6 +353,7 @@
             const data = await r.json();
             voiceEnabled.value = String(data.voiceEnabled !== false);
             frontDeskPhone.value = data.frontDeskPhone || '';
+            cateringPhone.value = data.cateringPhone || '';
             largePartyThreshold.value = String(data.voiceLargePartyThreshold || 10);
         } catch {
             voiceStatus.textContent = 'Failed to load IVR settings';
@@ -510,6 +512,7 @@
                 body: JSON.stringify({
                     voiceEnabled: voiceEnabled.value === 'true',
                     frontDeskPhone: frontDeskPhone.value.trim() || null,
+                    cateringPhone: cateringPhone.value.trim() || null,
                     voiceLargePartyThreshold: Number(largePartyThreshold.value),
                 }),
             });

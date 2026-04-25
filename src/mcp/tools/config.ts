@@ -223,7 +223,7 @@ export function registerConfigTools(server: McpServer, getCtx: () => McpAuthCont
     // ─── Voice config (IVR) ────────────────────────────────────────────
     server.tool(
         'get_voice_config',
-        'Read the IVR / phone-entry config: voiceEnabled, frontDeskPhone, voiceLargePartyThreshold.',
+        'Read the IVR / phone-entry config: voiceEnabled, frontDeskPhone, cateringPhone, voiceLargePartyThreshold.',
         z.object({}).shape,
         async () => {
             const ctx = getCtx();
@@ -232,16 +232,18 @@ export function registerConfigTools(server: McpServer, getCtx: () => McpAuthCont
             return ok({
                 voiceEnabled: loc.voiceEnabled ?? false,
                 frontDeskPhone: loc.frontDeskPhone ?? '',
+                cateringPhone: loc.cateringPhone ?? '',
                 voiceLargePartyThreshold: loc.voiceLargePartyThreshold ?? 10,
             });
         },
     );
     server.tool(
         'set_voice_config',
-        'Update the IVR config. `frontDeskPhone` is 10 digits, US-only; large-party threshold gates the "transfer to host" branch.',
+        'Update the IVR config. `frontDeskPhone` and `cateringPhone` are 10 digits, US-only; large-party threshold gates the "transfer to host" branch.',
         z.object({
             voiceEnabled: z.boolean().optional(),
             frontDeskPhone: z.string().nullable().optional(),
+            cateringPhone: z.string().nullable().optional(),
             voiceLargePartyThreshold: z.number().int().min(6).max(20).optional(),
         }).shape,
         async (update) => {
@@ -251,6 +253,7 @@ export function registerConfigTools(server: McpServer, getCtx: () => McpAuthCont
                 return ok({
                     voiceEnabled: u.voiceEnabled ?? false,
                     frontDeskPhone: u.frontDeskPhone ?? '',
+                    cateringPhone: u.cateringPhone ?? '',
                     voiceLargePartyThreshold: u.voiceLargePartyThreshold ?? 10,
                 });
             } catch (e) {

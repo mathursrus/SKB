@@ -57,7 +57,10 @@ const server = app.listen(0, async () => {
             sun: { lunch: { open: '11:30', close: '14:30' }, dinner: { open: '17:30', close: '21:30' } },
         },
     });
-    await updateLocationVoiceConfig('test', { frontDeskPhone: '2065551234' });
+    await updateLocationVoiceConfig('test', {
+        frontDeskPhone: '2065551234',
+        cateringPhone: '4255550199',
+    });
 
     const CALL = { From: '+12025550199', To: '+18449172762', CallSid: 'CAdebug' };
     let pass = 0, fail = 0;
@@ -75,6 +78,7 @@ const server = app.listen(0, async () => {
     // Issue #45: greeting advertises the new options 3/4/0
     check('Greeting advertises press 3 for menu', /For our menu, press 3/i.test(r1.body));
     check('Greeting advertises press 4 for hours and location', /For hours and location, press 4/i.test(r1.body));
+    check('Greeting advertises press 5 for catering', /For catering, press 5/i.test(r1.body));
     check('Greeting advertises press 0 for front desk', /press 0/i.test(r1.body));
 
     // 2. Press 1
@@ -251,6 +255,16 @@ const server = app.listen(0, async () => {
     check('Front-desk Dials seeded number', rFrontDesk.body.includes('<Dial>+12065551234</Dial>'));
     check('Front-desk announces connecting', /Connecting you to our host/i.test(rFrontDesk.body));
 
+    // Press 5 → catering transfer Dial with seeded cateringPhone
+    const gCatering = await greet();
+    const catAction = extractAction(gCatering.body);
+    const r5catering = await post(port, catAction, { ...CALL, Digits: '5' });
+    check('Press 5 redirects to catering', /catering/i.test(r5catering.body));
+    const cateringUrl = extractAction(r5catering.body);
+    const rCatering = await post(port, cateringUrl, CALL);
+    check('Catering Dials seeded number', rCatering.body.includes('<Dial>+14255550199</Dial>'));
+    check('Catering announces connecting', /catering/i.test(rCatering.body) && /please hold/i.test(rCatering.body));
+
     // Press 0 fallback when frontDeskPhone is unset — clear it and re-test
     await updateLocationVoiceConfig('test', { frontDeskPhone: null });
     const rFrontDeskUnset = await post(port, frontDeskUrl, CALL);
@@ -258,6 +272,16 @@ const server = app.listen(0, async () => {
     check('Front-desk unset does NOT emit Dial', !rFrontDeskUnset.body.includes('<Dial>'));
     // Restore the seeded phone for subsequent tests
     await updateLocationVoiceConfig('test', { frontDeskPhone: '2065551234' });
+
+    // Press 5 fallback when cateringPhone is unset — clear it and re-test
+    await updateLocationVoiceConfig('test', { cateringPhone: null });
+    const rCateringUnset = await post(port, cateringUrl, CALL);
+    check('Catering unset announces unavailable', /catering/i.test(rCateringUnset.body) && /currently unavailable/i.test(rCateringUnset.body));
+    check('Catering unset does NOT emit Dial', !rCateringUnset.body.includes('<Dial>'));
+    const rNoCateringGreeting = await greet();
+    check('Greeting hides press 5 when catering is unset', !/For catering, press 5/i.test(rNoCateringGreeting.body));
+    // Restore the seeded phone for subsequent tests
+    await updateLocationVoiceConfig('test', { cateringPhone: '4255550199' });
 
     // Hours-info fallback: clear address + hours, hours-info should use the static script
     await updateLocationSiteConfig('test', { address: null, hours: null });

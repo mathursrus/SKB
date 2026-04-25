@@ -126,6 +126,15 @@ const cases: BaseTestCase[] = [
                 && /id="admin-guest-features-save"/.test(html);
         },
     },
+    {
+        name: 'served admin.html has catering phone field in the IVR card',
+        tags: ['ui', 'admin-tabs', 'frontdesk', 'voice'],
+        testFn: async () => {
+            const html = await (await fetch(`${BASE()}/r/${slug}/admin.html`)).text();
+            return /id="admin-catering-phone"/.test(html)
+                && /Catering phone/.test(html);
+        },
+    },
 
     // ─── Website save: mixed knownFor payload round-trips ─────────────
     {

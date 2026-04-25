@@ -654,9 +654,9 @@ export function hostRouter(): Router {
     });
 
     // Voice / IVR admin config (from PR #48) — voiceEnabled,
-    // frontDeskPhone, voiceLargePartyThreshold. The press-0 transfer branch
-    // added in issue #45 dials whatever `frontDeskPhone` the owner has
-    // saved here.
+    // frontDeskPhone, cateringPhone, voiceLargePartyThreshold. The press-0
+    // transfer branch added in issue #45 dials `frontDeskPhone`; issue #79
+    // adds a dedicated catering transfer number for press 5.
     // Onboarding-wizard "you're live" reveal (issue #51 Phase C). The wizard
     // finishes by showing the owner their host-stand PIN so they can print the
     // door poster. Gated to requireAdmin so staff-role accounts can't lift the
@@ -708,6 +708,7 @@ export function hostRouter(): Router {
             res.json({
                 voiceEnabled: location?.voiceEnabled ?? (process.env.TWILIO_VOICE_ENABLED === 'true'),
                 frontDeskPhone: location?.frontDeskPhone ?? '',
+                cateringPhone: location?.cateringPhone ?? '',
                 voiceLargePartyThreshold: location?.voiceLargePartyThreshold ?? 10,
             });
         } catch (err) { dbError(res, err); }
@@ -717,12 +718,14 @@ export function hostRouter(): Router {
         const body = (req.body ?? {}) as {
             voiceEnabled?: unknown;
             frontDeskPhone?: unknown;
+            cateringPhone?: unknown;
             voiceLargePartyThreshold?: unknown;
         };
         try {
             const updated = await updateLocationVoiceConfig(loc(req), {
                 voiceEnabled: body.voiceEnabled === undefined ? undefined : Boolean(body.voiceEnabled),
                 frontDeskPhone: body.frontDeskPhone === undefined ? undefined : (body.frontDeskPhone === null ? null : String(body.frontDeskPhone)),
+                cateringPhone: body.cateringPhone === undefined ? undefined : (body.cateringPhone === null ? null : String(body.cateringPhone)),
                 voiceLargePartyThreshold: body.voiceLargePartyThreshold === undefined ? undefined : Number(body.voiceLargePartyThreshold),
             });
             console.log(JSON.stringify({
@@ -732,6 +735,7 @@ export function hostRouter(): Router {
                 loc: loc(req),
                 voiceEnabled: updated.voiceEnabled ?? (process.env.TWILIO_VOICE_ENABLED === 'true'),
                 frontDeskPhoneSet: !!updated.frontDeskPhone,
+                cateringPhoneSet: !!updated.cateringPhone,
                 voiceLargePartyThreshold: updated.voiceLargePartyThreshold ?? 10,
             }));
             // Fan-out to Google Business Profile (issue #51 Phase D) when
@@ -743,11 +747,14 @@ export function hostRouter(): Router {
             res.json({
                 voiceEnabled: updated.voiceEnabled ?? (process.env.TWILIO_VOICE_ENABLED === 'true'),
                 frontDeskPhone: updated.frontDeskPhone ?? '',
+                cateringPhone: updated.cateringPhone ?? '',
                 voiceLargePartyThreshold: updated.voiceLargePartyThreshold ?? 10,
             });
         } catch (err) {
             if (err instanceof Error && (
-                err.message.startsWith('frontDeskPhone') || err.message.startsWith('voiceLargePartyThreshold')
+                err.message.startsWith('frontDeskPhone')
+                || err.message.startsWith('cateringPhone')
+                || err.message.startsWith('voiceLargePartyThreshold')
             )) {
                 res.status(400).json({ error: err.message });
                 return;

@@ -36,6 +36,10 @@ function twiml(body: string): string {
     return `<?xml version="1.0" encoding="UTF-8"?><Response>${body}</Response>`;
 }
 
+function isConfiguredTransferPhone(phone: string | undefined): phone is string {
+    return typeof phone === 'string' && /^\d{10}$/.test(phone);
+}
+
 /** Build action URL with query params, escaped for XML attributes */
 function action(req: Request, path: string, params: Record<string, string> = {}): string {
     const qs = Object.entries(params)
@@ -58,10 +62,13 @@ export function voiceRouter(): Router {
             const location = await getLocation(loc(req));
             const name = location?.name ?? 'the restaurant';
             const eta = formatEtaForSpeech(state.etaForNewPartyMinutes);
+            const cateringPrompt = isConfiguredTransferPhone(location?.cateringPhone)
+                ? ' For catering, press 5.'
+                : '';
 
             res.type('text/xml').send(twiml(`
 <Gather input="dtmf" numDigits="1" timeout="10" action="${action(req, 'menu-choice', { from })}">
-  <Say voice="Polly.Joanna">Hello, and thank you for calling ${escXml(name)}! There are currently ${state.partiesWaiting} parties ahead of you, with an estimated wait of ${eta}. To join the waitlist, press 1. To hear the wait time again, press 2. For our menu, press 3. For hours and location, press 4. To speak with someone at the restaurant, press 0.</Say>
+  <Say voice="Polly.Joanna">Hello, and thank you for calling ${escXml(name)}! There are currently ${state.partiesWaiting} parties ahead of you, with an estimated wait of ${eta}. To join the waitlist, press 1. To hear the wait time again, press 2. For our menu, press 3. For hours and location, press 4.${cateringPrompt} To speak with someone at the restaurant, press 0.</Say>
 </Gather>
 <Say>We didn't receive any input. Thank you for calling. Goodbye.</Say>
 <Hangup/>`));
@@ -97,6 +104,13 @@ export function voiceRouter(): Router {
             // Hours + location (issue #45)
             res.type('text/xml').send(twiml(
                 `<Redirect>${action(req, 'hours-info', { from })}</Redirect>`
+            ));
+            return;
+        }
+        if (digit === '5') {
+            // Catering transfer (issue #79)
+            res.type('text/xml').send(twiml(
+                `<Redirect>${action(req, 'catering', { from })}</Redirect>`
             ));
             return;
         }
@@ -188,6 +202,35 @@ export function voiceRouter(): Router {
 <Hangup/>`));
         } catch (err) {
             console.log(JSON.stringify({ t: new Date().toISOString(), level: 'error', msg: 'voice.front_desk.error', error: err instanceof Error ? err.message : String(err) }));
+            res.type('text/xml').send(twiml(`<Say>We're experiencing a technical issue. Please try again later. Goodbye.</Say><Hangup/>`));
+        }
+    });
+
+    // ── New branch: Catering transfer (press 5) ──────────────────────────
+    // Dials the per-location `cateringPhone` configured via the host admin
+    // UI. Falls back to a graceful message + redirect to main menu if the
+    // phone is unset — rather than hanging up on the caller.
+    r.post('/voice/catering', async (req: Request, res: Response) => {
+        const from = String(req.query.from || normalizeCallerPhone(req.body.From));
+        try {
+            const location = await getLocation(loc(req));
+            const cateringPhone = location?.cateringPhone;
+            if (isConfiguredTransferPhone(cateringPhone)) {
+                console.log(JSON.stringify({ t: new Date().toISOString(), level: 'info', msg: 'voice.catering_transfer', loc: loc(req) }));
+                res.type('text/xml').send(twiml(
+                    `<Say voice="Polly.Joanna">Connecting you to our catering team. Please hold.</Say><Dial>+1${cateringPhone}</Dial>`
+                ));
+                return;
+            }
+            console.log(JSON.stringify({ t: new Date().toISOString(), level: 'warn', msg: 'voice.catering_unconfigured', loc: loc(req) }));
+            res.type('text/xml').send(twiml(`
+<Gather input="dtmf" numDigits="1" timeout="8" action="${action(req, 'menu-choice', { from })}">
+  <Say voice="Polly.Joanna">Our catering line is currently unavailable. To join the waitlist, press 1. To speak with someone at the restaurant, press 0. To return to the main menu, press star.</Say>
+</Gather>
+<Say>Thank you for calling. Goodbye.</Say>
+<Hangup/>`));
+        } catch (err) {
+            console.log(JSON.stringify({ t: new Date().toISOString(), level: 'error', msg: 'voice.catering.error', error: err instanceof Error ? err.message : String(err) }));
             res.type('text/xml').send(twiml(`<Say>We're experiencing a technical issue. Please try again later. Goodbye.</Say><Hangup/>`));
         }
     });

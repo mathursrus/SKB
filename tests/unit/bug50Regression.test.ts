@@ -428,7 +428,7 @@ const cases: BaseTestCase[] = [
                 path.resolve(__dirname, '..', '..', 'ios', 'src', 'net', 'client.ts'),
                 'utf-8',
             );
-            return /buildTenantUrl\(.*\): string \{[\s\S]*const loc = encodeURIComponent\(locationId\);[\s\S]*return `\$\{base\}\/r\/\$\{loc\}\/api\$\{suffix\}`;/.test(iosClient)
+            return /export function buildTenantUrl\(locationId: string, path: string\): string \{[\s\S]*return `\$\{base\}\/r\/\$\{encodeURIComponent\(locationId\)\}\/api\$\{suffix\}`;/.test(iosClient)
                 && /export function buildUrl\(path: string\): string \{[\s\S]*return buildTenantUrl\(defaultLocationId\(\), path\);/.test(iosClient);
         },
     },

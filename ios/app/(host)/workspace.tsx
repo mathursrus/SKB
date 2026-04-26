@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
+import { CallerInsights } from '@/features/admin';
 import { stats as statsApi, type HostStats } from '@/net/endpoints';
 import { useAuthStore } from '@/state/auth';
 import { theme } from '@/ui/theme';
@@ -15,17 +16,23 @@ export default function WorkspaceScreen() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    (async () => {
-      if (!locationId) return;
-      try {
-        const next = await statsApi.getStats(locationId);
-        setStats(next);
-      } catch (err) {
-        setError((err as Error).message || 'Failed to load workspace');
-      } finally {
-        setLoading(false);
-      }
-    })();
+    let cancelled = false;
+    if (!locationId) return;
+    setLoading(true);
+    statsApi
+      .getStats(locationId)
+      .then((next) => {
+        if (!cancelled) setStats(next);
+      })
+      .catch((err: unknown) => {
+        if (!cancelled) setError(err instanceof Error ? err.message : 'Failed to load workspace');
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [locationId]);
 
   if (role !== 'owner' && role !== 'admin') {
@@ -43,8 +50,8 @@ export default function WorkspaceScreen() {
         <Text style={styles.eyebrow}>Operations dashboard</Text>
         <Text style={styles.heroTitle}>{brand?.restaurantName ?? 'Restaurant'}</Text>
         <Text style={styles.heroSubtitle}>
-          Today&apos;s floor and queue snapshot. All configuration (hours, guest features, front desk, messaging)
-          lives in the Settings tab.
+          Today&apos;s floor and queue snapshot, plus phone-channel performance. All configuration lives in the
+          Settings tab.
         </Text>
       </View>
 
@@ -65,6 +72,13 @@ export default function WorkspaceScreen() {
           <Metric label="Avg occupancy" value={formatMinutes(stats?.avgTableOccupancyMinutes)} loading={loading} />
         </View>
       </View>
+
+      {locationId && (
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Phone channel</Text>
+          <CallerInsights locationId={locationId} />
+        </View>
+      )}
     </ScrollView>
   );
 }
@@ -81,8 +95,8 @@ function Metric({
   accent?: boolean;
 }) {
   return (
-    <View style={styles.metric}>
-      <Text style={[styles.metricValue, accent && styles.metricValueAccent]}>{loading ? '...' : value ?? '-'}</Text>
+    <View style={styles.metric} accessible accessibilityLabel={`${label}: ${loading ? 'loading' : value ?? 'n/a'}`}>
+      <Text style={[styles.metricValue, accent && styles.metricValueAccent]}>{loading ? '…' : value ?? '-'}</Text>
       <Text style={styles.metricLabel}>{label}</Text>
     </View>
   );
@@ -130,6 +144,7 @@ const styles = StyleSheet.create({
     borderColor: theme.color.line,
     padding: theme.space.md,
     backgroundColor: theme.color.surface,
+    minHeight: 72,
   },
   metricValue: { color: theme.color.text, fontSize: 24, fontWeight: '800' },
   metricValueAccent: { color: theme.color.accent },

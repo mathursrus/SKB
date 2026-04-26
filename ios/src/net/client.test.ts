@@ -12,7 +12,7 @@
 // path structure that follows the `/r/:loc/` prefix.
 // ============================================================================
 
-import { buildUrl } from './client';
+import { buildAdminUrl, buildUrl } from './client';
 
 describe('buildUrl (Issue #30 PIN 404 regression)', () => {
   it('inserts /api after /r/:loc/ in the resulting URL', () => {
@@ -33,5 +33,34 @@ describe('buildUrl (Issue #30 PIN 404 regression)', () => {
   it('must NOT produce a /r/:loc/host/* path (that was the 404 bug)', () => {
     const url = buildUrl('/host/login');
     expect(url).not.toMatch(/\/r\/[^/]+\/host\//);
+  });
+});
+
+describe('buildAdminUrl (web admin deep links from iOS)', () => {
+  it('produces /r/:loc/admin.html with no tab when none provided', () => {
+    const url = buildAdminUrl('skb');
+    expect(url).toMatch(/\/r\/skb\/admin\.html$/);
+  });
+
+  it('appends ?tab= when a tab is provided', () => {
+    const url = buildAdminUrl('skb', 'staff');
+    expect(url).toMatch(/\/r\/skb\/admin\.html\?tab=staff$/);
+  });
+
+  it('encodes the location id', () => {
+    const url = buildAdminUrl('loc with space', 'menu');
+    expect(url).toContain('/r/loc%20with%20space/admin.html?tab=menu');
+  });
+
+  it('encodes the tab', () => {
+    const url = buildAdminUrl('skb', 'tab&with=evil');
+    expect(url).toContain('?tab=tab%26with%3Devil');
+  });
+
+  it('uses admin.html (NOT bare /admin) so static-file routing serves it', () => {
+    // Regression for the broken-deep-links bug — bare /admin doesn't resolve.
+    const url = buildAdminUrl('skb', 'staff');
+    expect(url).toContain('admin.html');
+    expect(url).not.toMatch(/\/admin(?:[?#]|$)/);
   });
 });

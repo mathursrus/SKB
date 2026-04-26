@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, Linking, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { isAdminRole, roleLabel } from '@/core/auth';
-import { stats as statsApi } from '@/net/endpoints';
+import { stats as statsApi, type HostSettings } from '@/net/endpoints';
 import { useAuthStore } from '@/state/auth';
 import { theme } from '@/ui/theme';
 
@@ -19,16 +19,26 @@ export default function SettingsScreen() {
   const [dirty, setDirty] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [effective, setEffective] = useState<number | null>(null);
+  const [dynamicMinutes, setDynamicMinutes] = useState<number | null>(null);
+  const [sampleSize, setSampleSize] = useState<number | null>(null);
+  const [fellBack, setFellBack] = useState(false);
   const canEdit = isAdminRole(role);
+
+  function applyServerState(s: HostSettings) {
+    setEtaMode(s.etaMode);
+    setTurnTime(String(s.avgTurnTimeMinutes ?? 8));
+    setEffective(s.effectiveMinutes);
+    setDynamicMinutes(s.dynamicMinutes ?? null);
+    setSampleSize(s.sampleSize ?? null);
+    setFellBack(!!s.fellBackToManual);
+  }
 
   useEffect(() => {
     (async () => {
       if (!locationId) return;
       try {
         const s = await statsApi.getSettings(locationId);
-        setEtaMode(s.etaMode);
-        setTurnTime(String(s.avgTurnTimeMinutes ?? 8));
-        setEffective(s.effectiveMinutes);
+        applyServerState(s);
         setDirty(false);
       } catch (err) {
         setError((err as Error).message || 'Failed to load settings');
@@ -49,13 +59,25 @@ export default function SettingsScreen() {
     setError(null);
     try {
       const s = await statsApi.saveSettings(locationId, { etaMode, avgTurnTimeMinutes: parsed });
-      setEffective(s.effectiveMinutes);
+      applyServerState(s);
       setDirty(false);
     } catch (err) {
       setError((err as Error).message || 'Failed to save');
     } finally {
       setSaving(false);
     }
+  }
+
+  function openWebAdmin(path: string) {
+    const host = brand?.publicHost?.trim();
+    if (!host) {
+      Alert.alert(
+        'Public host not configured',
+        'Set a public host in Workspace → Location & web before opening the web admin.',
+      );
+      return;
+    }
+    void Linking.openURL(`https://${host}/admin${path}`);
   }
 
   return (
@@ -121,6 +143,23 @@ export default function SettingsScreen() {
         {effective !== null && (
           <Text style={styles.effective}>
             Active ETA · <Text style={styles.effectiveValue}>{effective}m</Text>
+            {etaMode === 'dynamic' && sampleSize !== null && (
+              <Text style={styles.sampleNote}> · {sampleSize} recent {sampleSize === 1 ? 'seating' : 'seatings'}</Text>
+            )}
+          </Text>
+        )}
+        {etaMode === 'dynamic' && fellBack && (
+          <View style={styles.warningBanner}>
+            <Text style={styles.warningTitle}>Dynamic mode is using the manual fallback</Text>
+            <Text style={styles.warningBody}>
+              Not enough recent seatings to compute a reliable estimate. The active ETA is the manual turn time
+              above. As your team seats more parties, dynamic will take over automatically.
+            </Text>
+          </View>
+        )}
+        {etaMode === 'dynamic' && !fellBack && dynamicMinutes !== null && (
+          <Text style={styles.dynamicNote}>
+            Dynamic estimate: <Text style={styles.dynamicValue}>{dynamicMinutes}m</Text>
           </Text>
         )}
         {!canEdit && (
@@ -142,6 +181,24 @@ export default function SettingsScreen() {
         <Text style={styles.saveButtonText}>{saving ? 'Saving...' : 'Save settings'}</Text>
       </Pressable>
 
+      {canEdit && (
+        <>
+          <View style={styles.divider} />
+          <View style={styles.section}>
+            <Text style={styles.sectionLabel}>More admin tools</Text>
+            <Text style={styles.sectionHelp}>
+              Hours, address, guest experience, and front-desk controls live in the Workspace tab. Staff invites
+              and menu management open in the web admin.
+            </Text>
+            <View style={styles.linkList}>
+              <LinkRow label="Manage staff (web admin)" onPress={() => openWebAdmin('#staff')} />
+              <LinkRow label="Edit menu (web admin)" onPress={() => openWebAdmin('#menu')} />
+              <LinkRow label="Website content (web admin)" onPress={() => openWebAdmin('#website')} />
+            </View>
+          </View>
+        </>
+      )}
+
       <View style={styles.divider} />
 
       <Pressable
@@ -153,6 +210,20 @@ export default function SettingsScreen() {
         <Text style={styles.logoutText}>Sign out</Text>
       </Pressable>
     </ScrollView>
+  );
+}
+
+function LinkRow({ label, onPress }: { label: string; onPress: () => void }) {
+  return (
+    <Pressable
+      accessibilityRole="link"
+      accessibilityLabel={label}
+      style={styles.linkRow}
+      onPress={onPress}
+    >
+      <Text style={styles.linkLabel}>{label}</Text>
+      <Text style={styles.linkArrow}>↗</Text>
+    </Pressable>
   );
 }
 
@@ -306,4 +377,58 @@ const styles = StyleSheet.create({
     borderRadius: theme.radius.md,
   },
   logoutText: { color: theme.color.warn, fontSize: 16, fontWeight: '700' },
+  sampleNote: { color: theme.color.textMuted, fontWeight: '400' },
+  warningBanner: {
+    marginTop: theme.space.md,
+    borderRadius: theme.radius.md,
+    borderWidth: 1,
+    borderColor: theme.color.warn,
+    backgroundColor: theme.color.surfaceRaised,
+    padding: theme.space.md,
+    gap: 4,
+  },
+  warningTitle: {
+    color: theme.color.warn,
+    fontWeight: '700',
+    fontSize: 13,
+  },
+  warningBody: {
+    color: theme.color.textMuted,
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  dynamicNote: {
+    color: theme.color.textMuted,
+    fontSize: 13,
+    marginTop: 4,
+  },
+  dynamicValue: {
+    color: theme.color.text,
+    fontWeight: '700',
+  },
+  linkList: {
+    gap: theme.space.sm,
+    marginTop: theme.space.sm,
+  },
+  linkRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: theme.space.md,
+    paddingHorizontal: theme.space.lg,
+    borderRadius: theme.radius.md,
+    borderWidth: 1,
+    borderColor: theme.color.line,
+    backgroundColor: theme.color.surfaceRaised,
+  },
+  linkLabel: {
+    color: theme.color.text,
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  linkArrow: {
+    color: theme.color.accent,
+    fontSize: 16,
+    fontWeight: '700',
+  },
 });

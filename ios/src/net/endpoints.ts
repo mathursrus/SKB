@@ -76,16 +76,44 @@ export interface PublicConfigResponse {
   guestFeatures?: GuestFeatures;
 }
 
+export interface LocationAddress {
+  street: string;
+  city: string;
+  state: string;
+  zip: string;
+}
+
+export interface ServiceWindow {
+  open: string; // HH:mm 24h
+  close: string; // HH:mm 24h
+}
+
+export type ServiceWindowKey = 'breakfast' | 'lunch' | 'special' | 'dinner';
+
+export interface DayHours {
+  breakfast?: ServiceWindow;
+  lunch?: ServiceWindow;
+  special?: ServiceWindow;
+  dinner?: ServiceWindow;
+}
+
+export type DayOfWeek = 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun';
+
+export type WeeklyHours = {
+  [K in DayOfWeek]?: DayHours | 'closed';
+};
+
 export interface SiteConfigResponse {
   name: string;
-  address: {
-    street: string;
-    city: string;
-    state: string;
-    zip: string;
-  } | null;
-  hours: Record<string, unknown> | null;
+  address: LocationAddress | null;
+  hours: WeeklyHours | null;
   publicHost: string;
+}
+
+export interface SiteConfigUpdate {
+  address?: LocationAddress | null;
+  hours?: WeeklyHours | null;
+  publicHost?: string | null;
 }
 
 export interface WebsiteConfigResponse {
@@ -223,6 +251,8 @@ export const config = {
     };
   },
   siteConfig: (locationId: string) => request<SiteConfigResponse>('/host/site-config', { locationId }),
+  saveSiteConfig: (locationId: string, body: SiteConfigUpdate) =>
+    request<SiteConfigResponse>('/host/site-config', { method: 'POST', body, locationId }),
   websiteConfig: (locationId: string) => request<WebsiteConfigResponse>('/host/website-config', { locationId }),
   messagingConfig: (locationId: string) => request<MessagingConfigResponse>('/host/messaging-config', { locationId }),
   voiceConfig: (locationId: string) => request<VoiceConfigResponse>('/host/voice-config', { locationId }),

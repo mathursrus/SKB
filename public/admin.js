@@ -2194,6 +2194,18 @@
 
     function restoreActiveTab() {
         let key = 'dashboard';
+        // Deep links from the iOS app and from Google OAuth use ?tab=<key>;
+        // honor that first so the link lands on the right panel.
+        try {
+            const fromQuery = new URLSearchParams(window.location.search).get('tab');
+            if (fromQuery) {
+                const normalized = normalizeTabKey(fromQuery);
+                if (TAB_KEYS.includes(normalized)) {
+                    activateTab(normalized);
+                    return;
+                }
+            }
+        } catch {}
         try {
             const saved = localStorage.getItem(adminTabStorageKey());
             if (saved) {

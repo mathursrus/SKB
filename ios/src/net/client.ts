@@ -48,6 +48,22 @@ export function buildUrl(path: string): string {
   return buildTenantUrl(defaultLocationId(), path);
 }
 
+/**
+ * Build a per-location web admin URL for opening in Safari from the iOS app.
+ * `tab` matches the data-tab attributes used in public/admin.html (dashboard,
+ * profile, website, menu, frontdesk, messaging, staff, integrations).
+ *
+ * We deliberately bypass the per-location `publicHost` (which may not have its
+ * DNS set up — see issue #45) and route through the canonical apiBaseUrl host
+ * with the `/r/:loc/` prefix that always works.
+ */
+export function buildAdminUrl(locationId: string, tab?: string): string {
+  const base = apiBaseUrl();
+  const loc = encodeURIComponent(locationId);
+  const query = tab ? `?tab=${encodeURIComponent(tab)}` : '';
+  return `${base}/r/${loc}/admin.html${query}`;
+}
+
 interface RequestOptions {
   method?: 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE';
   body?: unknown;

@@ -48,3 +48,32 @@ jobs:
           package: deploy-package
         env:
           SCM_DO_BUILD_DURING_DEPLOYMENT: 'false'
+
+      # Project rule #8 — authenticated post-deploy smoke is mandatory.
+      # Signs up a throwaway owner against the freshly-deployed app, hits
+      # /staff and /queue/state with cookie auth, asserts success-shape
+      # responses, then deletes the throwaway. The deploy is NOT successful
+      # until this passes. See scripts/post-deploy-smoke.sh for details and
+      # docs/retrospectives/sid.mathur@gmail.com-issue-93-staff-503-postmortem.md
+      # for the failure pattern this prevents.
+      - name: Wait for App Service warm-up
+        run: |
+          # Azure App Service can take ~20-40s after deploy to fully cycle the
+          # new build. Poll /health until it responds 200 (or fail after 90s).
+          deadline=$((SECONDS + 90))
+          until curl -sS --max-time 5 "https://${{ env.AZURE_WEBAPP_NAME }}.azurewebsites.net/health" -o /dev/null -w '%{http_code}' | grep -q '^200$'; do
+            if [ $SECONDS -ge $deadline ]; then
+              echo "App Service did not respond 200 on /health within 90s"
+              exit 1
+            fi
+            sleep 3
+          done
+          echo "App Service warm"
+
+      - name: Post-deploy authenticated smoke
+        env:
+          SMOKE_BASE_URL: https://${{ env.AZURE_WEBAPP_NAME }}.azurewebsites.net
+          SMOKE_OWNER_EMAIL: smoke@example.test
+          SMOKE_OWNER_PASSWORD: ${{ secrets.SMOKE_OWNER_PASSWORD }}
+          SMOKE_TENANT_SLUG: smoke-test
+        run: bash scripts/post-deploy-smoke.sh

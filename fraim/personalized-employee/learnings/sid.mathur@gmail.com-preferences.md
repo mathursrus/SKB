@@ -2,7 +2,7 @@
 
 Durable record of this user's tastes, style, and default preferences. Entries below are confirmed and active guidance.
 
-**Last synthesized**: 2026-04-12
+**Last synthesized**: 2026-04-27 (full corpus debrief)
 
 ---
 
@@ -49,6 +49,28 @@ Voice IVR flows must not record calls. Use streaming speech-to-text for name cap
 **First synthesized**: 2026-04-12
 
 For any automated flow (IVR, queue join form, chat agent), provide a human fallback path for edge cases the automation can't handle: large parties that exceed the standard size, blocked Caller ID, speech recognition failure, non-English speakers, TCPA opt-outs that still want to join. Transfer to the front desk or present a clearly-marked alternative — never hang up on the caller or send the diner away with a generic error. This is a hospitality default for the SKB product and a general design principle for any Frontline-adjacent feature.
+
+---
+
+### [P-MED] Spec mocks are self-contained HTML with inline styles — openable in a browser, reviewable by a non-technical owner
+
+**Score**: 5.0
+**Last seen**: 2026-04-15
+**Recurrences**: 1
+**First synthesized**: 2026-04-27
+
+When producing mocks during the feature-spec phase, write them as standalone HTML files with all styles inline so they can be opened directly in a browser by the restaurant owner without any build step or framework. The non-technical reviewer test applies: would the owner understand the feature by opening the HTML file alone? If they need to read code or run a dev server to see it, the mock is at the wrong abstraction level.
+
+---
+
+### [P-MED] Restaurant hours pages should embed a Google Maps card by default
+
+**Score**: 3.0
+**Last seen**: 2026-04-15
+**Recurrences**: 1
+**First synthesized**: 2026-04-27
+
+Discoverability over payload weight. When a feature touches the public restaurant page (hours, location, contact), the default is to include a Google Maps embed for the address — not just a text address. Diners arriving via search expect the map to be inline, not a separate click.
 
 ---
 

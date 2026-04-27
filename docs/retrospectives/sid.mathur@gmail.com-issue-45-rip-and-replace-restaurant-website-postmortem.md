@@ -1,7 +1,7 @@
 ---
 author: sid.mathur@gmail.com
 date: 2026-04-15
-synthesized:
+synthesized: 2026-04-27
 ---
 
 # Postmortem: Rip and Replace Restaurant Website - Issue #45

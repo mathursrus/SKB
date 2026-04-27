@@ -1,51 +1,80 @@
 # Manager Coaching — sid.mathur@gmail.com
 
-Observational coaching written BY the agent FOR you, based on patterns the agent has seen in how you operate as a manager, founder, and builder. Entries below are confirmed and active guidance.
+Things you (the user) can do differently when prompting the agent to get better outcomes. **Strictly user-actionable prompting changes.** Generic observations about your behavior or systemic agent fixes belong elsewhere — agent failures go in `mistake-patterns.md`, structural fixes go in `rules/project_rules.md`.
 
-**Last synthesized**: 2026-04-12
+**Last synthesized**: 2026-04-27 (full corpus debrief; rescoped per user correction)
 
 ---
 
 ## Confirmed entries
 
-### [P-HIGH] Your post-commit review catches load-bearing errors reliably, but you're absorbing fix-forward cost that a pre-commit ritual would eliminate
+### [P-MED] Push back on at least one bold pick when stakes are high
 
-**Score**: 8.0
+**Score**: 5.0
 **Last seen**: 2026-04-10
+**Recurrences**: 1
+**First synthesized**: 2026-04-12
+
+Observed pattern from the 2026-04-10 Frontline business-plan session: you said "be bold" as your kickoff framing, the agent responded with 8 opinionated defaults across founder posture / capital / ICP / pricing / brand / outcome, and you approved all 8 with "love it... you nailed all." Zero overrides. That is fine for low-stakes work, but the 2026-04-10 session locked founder-level commitments (when to go full-time, pre-seed target, ICP tip-of-the-spear, rebrand decision).
+
+**Prompt change**: for high-stakes decision sets, force a rule on yourself — push back on exactly one bold pick per session, even if you secretly agree with all of them. The act of disagreeing on one forces the agent to re-examine its reasoning on the adjacent picks, which is where hidden assumptions live. If the agent's defense of the disputed pick is weak, the adjacent picks deserve a second look too.
+
+---
+
+### [P-MED] Open every cross-domain context switch with a 2-sentence grounding prompt
+
+**Score**: 5.0
+**Last seen**: 2026-04-12
+**Recurrences**: 1
+**First synthesized**: 2026-04-12
+
+In a single session you routinely move through: GBP setup → business plan → PDF authoring → Twilio unit economics → competitor pricing → feature impl → bug fix → end-of-day debrief. Six-plus distinct context domains with significant re-grounding between each. You handle it fine — your intuition carries across domains and you can re-enter a context quickly. The agent has to re-read files, re-validate assumptions, and re-establish patterns each time, which costs tokens and introduces drift risk (the fabricated COGS error happened at exactly this kind of strategic-to-tactical handoff).
+
+**Prompt change**: when you switch contexts mid-session, open the new context with a two-sentence grounding prompt — "we're switching from X to Y; the current state is A; the goal is B" — instead of letting the agent infer the pivot from a one-line cue. Cheap, captures most of the benefit of dedicated batched sessions without requiring scheduling discipline.
+
+---
+
+### [P-MED] When delegating into a context with a broken empirical loop, add an explicit validation constraint
+
+**Score**: 5.0
+**Last seen**: 2026-04-27
+**Recurrences**: 1
+**First synthesized**: 2026-04-27
+
+Pattern from issue #93: when you delegate a simple-loop task ("set up TestFlight," "open this URL and click through"), the agent has clear empirical signals — HTTP responses, browser DOM, file outputs — and the delegation works well. When you delegate a task where the empirical loop has a gap (deployed environment we can't directly observe, third-party API behavior, hardware device, real user account), the agent fills the gap with local proxies (notablescan ≈ Cosmos, mocks ≈ real UI, anonymous probe ≈ authenticated probe) that look like validation but aren't. Your "you do everything" delegation in those cases ends with you running the integration test (because the agent didn't).
+
+**Prompt change**: when delegating into a context with a broken empirical loop, add an explicit constraint to the delegation: *"...and validate against the actual <X> before declaring done"* where `<X>` is the deployed environment, the real third-party endpoint, the live device, etc. Without the explicit constraint, the agent's defaults are too soft.
+
+There's a structural fix in flight too (project rule #8 — authenticated post-deploy smoke as deploy gate); once that lands, this prompt change becomes a belt-and-suspenders rather than the primary defense.
+
+---
+
+### [P-MED] When invoking a validation phase, name the target environment + the runnable surface explicitly
+
+**Score**: 5.0
+**Last seen**: 2026-04-19
 **Recurrences**: 2
-**First synthesized**: 2026-04-12
+**First synthesized**: 2026-04-27
 
-You consistently catch substantive errors in committed work within hours — the fabricated "600 SMS/month" COGS assumption in the Frontline business plan, the voice-IVR "fix" that promised a beep the TwiML never played, the phone-confirmation-gap in the IVR spec. Your catch rate is near-100% for load-bearing errors, and that's excellent. But each catch costs you a revert-or-fix-forward commit, a coaching moment, and 30–90 minutes of context-switching back to the already-closed work. For high-stakes deliverables (pricing, strategy, production behavior), consider inserting a single pre-commit question before you approve: **"What's the one number or claim in this work that would sink the whole thing if it were wrong?"** If the agent can answer that question with provenance ("grounded in this log excerpt" / "derived from this telemetry pull"), commit. If it can't, push back before the commit lands. You would have caught the COGS error 2–4 hours earlier this way, and the voice-IVR regression before Sid-with-phone ever heard the failing greeting.
+Two recurrences where ambiguous validation-phase prompts let the agent pick the wrong target:
+- 2026-04-19 issue-#51 prod-bugbash — agent assumed validation against PR-merge state; production was a different DB, so demo@osh.test wasn't there.
+- 2026-04-24 issue-#69 ui-polish — agent ran polish against a static HTML mock because the real admin page wasn't built yet.
 
----
+**Prompt change**: when invoking `/fraim ui polish` or `/fraim bug bash` or similar, name the target explicitly. Examples:
+- "validate against `https://skb-waitlist.azurewebsites.net` using a fresh tenant signup"
+- "validate against the live admin page; if the page doesn't exist yet, stop and tell me"
 
-### [P-HIGH] Run `end-of-day-debrief` as a terminal step of any session that captured a coaching moment, or schedule it
-
-**Score**: 8.0
-**Last seen**: 2026-04-12
-**Recurrences**: 1
-**First synthesized**: 2026-04-12
-
-Your FRAIM L0 queue accumulated **13 unprocessed signals** (9 coaching moments + 7 retrospectives missing `synthesized` dates) before today's debrief ran — starting from 2026-04-06, so roughly one week of drift. FRAIM warned you about this explicitly at the start of every session today ("synthesis overdue with 13 unprocessed signals — run `end-of-day-debrief` before starting today's work"), but we didn't actually run it until you remembered at the end of the day. L0 signals lose fidelity the longer they sit: today you were synthesizing a "skipped retrospectives" coaching moment from 6 days ago whose context is already partially faded. Two options: **(a)** make `end-of-day-debrief` a terminal step of any session where at least one coaching moment was captured — bolt it on by habit, not by memory; **(b)** use the `/schedule` or `CronCreate` facility to run it automatically at the end of each working day and review pending proposals the following morning. Either approach beats "I'll do it when I remember."
+There's a structural fix in flight (project rule #18 — validation phase tripwires); the prompt change becomes optional once that lands.
 
 ---
 
-### [P-MED] Your "be bold" signal is effective as a decisiveness shortcut, but you're approving 100% of bold picks without pushback — consider forcing one deliberate disagreement on high-stakes decision sets
+### [P-MED] For "still broken" reports, attach the URL + timestamp + cookie-context
 
 **Score**: 5.0
-**Last seen**: 2026-04-10
+**Last seen**: 2026-04-27
 **Recurrences**: 1
-**First synthesized**: 2026-04-12
+**First synthesized**: 2026-04-27
 
-Observed pattern from the 2026-04-10 Frontline business plan session: you said "be bold" as your kickoff framing, the agent responded with 8 opinionated defaults across founder posture / capital / ICP / pricing / brand / outcome, and you approved all 8 with "love it... you nailed all." Zero overrides. That result is either (a) extraordinarily good first-pass agent judgment, (b) you trust the agent's taste on those decisions more than you consciously realize, or (c) "be bold" is functioning as a decisiveness shortcut when your own priors aren't strong enough to push back. Any of the three is fine for low-stakes work, but the 2026-04-10 session was the opposite of low-stakes — it locked founder-level commitments (when to go full-time, pre-seed target, ICP tip-of-the-spear, rebrand decision). For decisions in that tier, consider forcing a rule on yourself: **push back on exactly one bold pick per session, even if you secretly agree with all of them**. The act of disagreeing on one forces the agent to re-examine its reasoning on the adjacent picks, which is where hidden assumptions live. If the agent's defense of the disputed pick is weak, the adjacent picks deserve a second look too.
+Pattern from issue #93: you reported "still 503 db_throw" after a deploy. The agent (incorrectly) went into deep local repro instead of curling prod. With the right structural fix (project rule #8) the prod state would already be smoke-tested; without it, the agent is guessing whether your report is current state or stale cache.
 
----
-
-### [P-MED] You context-switch between strategic and tactical work fluidly, which is efficient for you but expensive on agent context — consider batching
-
-**Score**: 5.0
-**Last seen**: 2026-04-12
-**Recurrences**: 1
-**First synthesized**: 2026-04-12
-
-In a single conversation session today you moved through: Google Business Profile setup → business plan creation (11 FRAIM phases) → PDF authoring → Twilio unit economics → competitor pricing research → feature 1 implementation (auto-refresh, 12 FRAIM phases) → feature 2 implementation (dynamic ETA, 12 FRAIM phases) → work-completion → end-of-day-debrief. Six-plus distinct context domains with significant re-grounding between each. You handled it fine — your intuition carries across domains and you can re-enter a context quickly. But the agent has to re-read files, re-validate assumptions, and re-establish patterns each time, which costs tokens and introduces drift risk (the fabricated COGS error happened at exactly this kind of strategic-to-tactical handoff). Two levers worth considering: **(a)** batch sessions by type — strategy in one session, shipping code in another, so the agent's cache of relevant files stays hot and drift accumulates in smaller chunks; **(b)** when you do need to switch mid-session, open the new context with a two-sentence grounding prompt ("we're switching from business plan to feature impl — the current state is X, the goal is Y") rather than letting the agent infer the pivot. The second lever is cheap and captures 80% of the benefit without requiring scheduling discipline.
+**Prompt change** (until rule #8 lands): when reporting "still broken" after a deploy you just saw me ship, attach what you observed: "I just hit `<URL>` at `<HH:MM>` with the owner cookie in `<browser>` and got `<status> <body>`." That short report disambiguates between (a) prod actually still broken, (b) browser/CDN cache, (c) eventual consistency on a Cosmos index propagation. Without it the agent will sometimes chase ghosts.

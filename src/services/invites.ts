@@ -165,6 +165,11 @@ export async function createInvite(input: CreateInviteInput): Promise<CreateInvi
  */
 export async function listPendingInvites(locationId: string): Promise<PublicInvite[]> {
     const db = await getDb();
+    // Hint the (locationId, createdAt) compound index by name. Without the
+    // hint, Mongo's planner non-deterministically picks one of several
+    // candidate indexes for `find({locationId, …})` — and on Azure Cosmos DB
+    // any plan that adds an in-memory SORT stage (e.g. picking the bare
+    // `(locationId, email)` index) is rejected and the route 503s. Issue #93.
     const rows = await invitesColl(db)
         .find({
             locationId,
@@ -173,6 +178,7 @@ export async function listPendingInvites(locationId: string): Promise<PublicInvi
             expiresAt: { $gt: new Date() },
         })
         .sort({ createdAt: 1 })
+        .hint('invite_loc_createdAt_for_staff_list')
         .toArray();
     return rows.flatMap((row) => {
         const invite = toPublicInvite(row);
@@ -396,9 +402,12 @@ export interface StaffRow {
 }
 export async function listStaffAtLocation(locationId: string): Promise<StaffRow[]> {
     const db = await getDb();
+    // Hint the (locationId, createdAt) compound index by name. See
+    // listPendingInvites above for the full Cosmos rationale (issue #93).
     const members = await membershipsColl(db)
         .find({ locationId, revokedAt: { $exists: false } })
         .sort({ createdAt: 1 })
+        .hint('location_createdAt_for_staff_list')
         .toArray();
     if (members.length === 0) return [];
     const normalized = members.flatMap((member) => {

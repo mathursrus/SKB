@@ -69,22 +69,23 @@ function collectStageNames(node: PlanStage | undefined): string[] {
 
 const cases: T[] = [
     {
-        name: 'memberships find+sort plan has NO blocking SORT stage (Cosmos compatibility)',
-        description: 'listStaffAtLocation runs find({locationId, revokedAt:{$exists:false}}).sort({createdAt:1}). Cosmos requires the sort to be satisfied by an index. If the explain plan contains a SORT stage, Cosmos rejects the query and prod 503s.',
+        name: 'memberships /staff query (with index hint) has NO blocking SORT stage',
+        description: 'listStaffAtLocation hints the (locationId, createdAt) compound index by name so Cosmos always picks a plan that satisfies the sort from the index. This test confirms the named index exists AND the planner uses it without a SORT stage. Issue #93.',
         tags: ['unit', 'index', 'cosmos', 'issue-93'],
         testFn: async () => {
             const db = await getDb();
             const explain = (await memberships(db)
                 .find({ locationId: 'plan-probe-loc', revokedAt: { $exists: false } })
                 .sort({ createdAt: 1 })
+                .hint('location_createdAt_for_staff_list')
                 .explain('queryPlanner')) as ExplainResult;
             const stages = collectStageNames(explain.queryPlanner?.winningPlan);
             return !stages.includes('SORT');
         },
     },
     {
-        name: 'invites find+sort plan has NO blocking SORT stage (Cosmos compatibility)',
-        description: 'listPendingInvites runs find with $exists filters and sort by createdAt. Same Cosmos requirement applies.',
+        name: 'invites /staff query (with index hint) has NO blocking SORT stage',
+        description: 'listPendingInvites hints invite_loc_createdAt_for_staff_list. Same Cosmos rationale as memberships.',
         tags: ['unit', 'index', 'cosmos', 'issue-93'],
         testFn: async () => {
             const db = await getDb();
@@ -96,6 +97,7 @@ const cases: T[] = [
                     expiresAt: { $gt: new Date() },
                 })
                 .sort({ createdAt: 1 })
+                .hint('invite_loc_createdAt_for_staff_list')
                 .explain('queryPlanner')) as ExplainResult;
             const stages = collectStageNames(explain.queryPlanner?.winningPlan);
             return !stages.includes('SORT');

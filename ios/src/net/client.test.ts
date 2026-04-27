@@ -12,7 +12,7 @@
 // path structure that follows the `/r/:loc/` prefix.
 // ============================================================================
 
-import { buildAdminUrl, buildUrl } from './client';
+import { ApiError, buildAdminUrl, buildUrl, request } from './client';
 
 describe('buildUrl (Issue #30 PIN 404 regression)', () => {
   it('inserts /api after /r/:loc/ in the resulting URL', () => {
@@ -33,6 +33,79 @@ describe('buildUrl (Issue #30 PIN 404 regression)', () => {
   it('must NOT produce a /r/:loc/host/* path (that was the 404 bug)', () => {
     const url = buildUrl('/host/login');
     expect(url).not.toMatch(/\/r\/[^/]+\/host\//);
+  });
+});
+
+describe('ApiError diagnostic body parsing (issue #93)', () => {
+  // The server returns 503 with structured error bodies like
+  //   { error: 'temporarily unavailable', code: 'db_throw', detail: '...' }
+  // The client should prefer the more specific `code` over `error` so callers
+  // can distinguish failure modes, and surface `detail` in the message in dev.
+  // We exercise the parser via a fake fetch response.
+
+  function makeErrorResponse(body: unknown, status = 503): Response {
+    return new Response(JSON.stringify(body), {
+      status,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
+  function originalFetch(): typeof fetch | undefined {
+    return (global as unknown as { fetch?: typeof fetch }).fetch;
+  }
+
+  function setFetch(impl: typeof fetch | undefined): void {
+    (global as unknown as { fetch?: typeof fetch }).fetch = impl as typeof fetch;
+  }
+
+  it('uses body.code (db_throw) over body.error (temporarily unavailable)', async () => {
+    const saved = originalFetch();
+    setFetch(((async () => makeErrorResponse({
+      error: 'temporarily unavailable',
+      code: 'db_throw',
+      detail: 'connection reset',
+    })) as unknown) as typeof fetch);
+    try {
+      await request<unknown>('/staff', { locationId: 'skb' });
+      throw new Error('should have thrown');
+    } catch (err) {
+      expect(err).toBeInstanceOf(ApiError);
+      const apiErr = err as InstanceType<typeof ApiError>;
+      expect(apiErr.status).toBe(503);
+      expect(apiErr.code).toBe('db_throw');
+      expect(apiErr.message).toContain('connection reset');
+    } finally {
+      setFetch(saved);
+    }
+  });
+
+  it('falls back to body.error when body.code is missing (legacy responses)', async () => {
+    const saved = originalFetch();
+    setFetch(((async () => makeErrorResponse({ error: 'unauthorized' }, 401)) as unknown) as typeof fetch);
+    try {
+      await request<unknown>('/staff', { locationId: 'skb' });
+      throw new Error('should have thrown');
+    } catch (err) {
+      const apiErr = err as InstanceType<typeof ApiError>;
+      expect(apiErr.status).toBe(401);
+      expect(apiErr.code).toBe('unauthorized');
+    } finally {
+      setFetch(saved);
+    }
+  });
+
+  it('falls back to http_error when body has no code or error field', async () => {
+    const saved = originalFetch();
+    setFetch(((async () => makeErrorResponse({ message: 'something' }, 500)) as unknown) as typeof fetch);
+    try {
+      await request<unknown>('/staff', { locationId: 'skb' });
+      throw new Error('should have thrown');
+    } catch (err) {
+      const apiErr = err as InstanceType<typeof ApiError>;
+      expect(apiErr.code).toBe('http_error');
+    } finally {
+      setFetch(saved);
+    }
   });
 });
 

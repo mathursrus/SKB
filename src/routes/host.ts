@@ -27,6 +27,8 @@ import type { HostSentiment } from '../types/hostSentiment.js';
 import { getHostStats } from '../services/stats.js';
 import { getAnalytics } from '../services/analytics.js';
 import { getCallerStats } from '../services/callerStats.js';
+import { emitDbError } from '../services/dbError.js';
+import { sendEmail } from '../services/mailer.js';
 import {
     getLocation,
     getGuestFeatures,
@@ -1137,7 +1139,7 @@ export function hostRouter(): Router {
                 listPendingInvites(loc(req)),
             ]);
             res.json({ staff, pending });
-        } catch (err) { dbError(res, err); }
+        } catch (err) { dbError(res, err, '/staff'); }
     });
 
     r.post('/staff/invite', requireOwner, async (req: Request, res: Response) => {
@@ -1164,7 +1166,10 @@ export function hostRouter(): Router {
                 locationId: loc(req),
                 invitedByUserId: new ObjectId(uid),
             });
-            // Dev-mode log: the invite link. A real mailer wires in later.
+            // The audit-log line keeps the magic link grep-able for ops/dev
+            // walkthroughs. Then we attempt a real send via the mailer; if
+            // ACS isn't configured the mailer falls back to log-only so the
+            // invite link is still recoverable from logs.
             const base = process.env.PLATFORM_PUBLIC_URL ?? '';
             const link = `${base}/accept-invite?t=${encodeURIComponent(token)}`;
             console.log(JSON.stringify({
@@ -1175,12 +1180,29 @@ export function hostRouter(): Router {
                 email: invite.email,
                 role: invite.role,
                 invitedBy: uid,
-                // Log the token in dev so tests + manual walkthroughs can
-                // click through without SMTP. Production should gate this
-                // line off (same trade-off as password resets).
                 token,
                 link,
             }));
+            // Fire-and-forget the email send so invite acceptance never
+            // blocks on mail latency. `sendEmail` is documented to never
+            // throw, but await with .catch as a belt-and-suspenders.
+            void sendEmail({
+                to: invite.email,
+                subject: `You're invited to join ${loc(req)} on OSH`,
+                text: buildStaffInviteEmail({
+                    inviteeName: invite.name,
+                    locationId: loc(req),
+                    role: invite.role,
+                    link,
+                }),
+            }).catch((err: unknown) => {
+                console.log(JSON.stringify({
+                    t: new Date().toISOString(),
+                    level: 'error',
+                    msg: 'staff.invite.email_failed',
+                    detail: err instanceof Error ? err.message : String(err),
+                }));
+            });
             res.json({ invite });
         } catch (err) {
             if (err instanceof Error) {
@@ -1293,7 +1315,36 @@ export function hostRouter(): Router {
     return r;
 }
 
-function dbError(res: Response, err: unknown): void {
-    console.log(JSON.stringify({ t: new Date().toISOString(), level: 'error', msg: 'db.error', detail: err instanceof Error ? err.message : String(err) }));
-    res.status(503).json({ error: 'temporarily unavailable' });
+// Backward-compatible wrapper that delegates to the structured `emitDbError`
+// helper so existing callers (~30 sites in this file) keep their two-arg
+// signature while the response gains a `code` field and the log line gains
+// route attribution. New code can call `emitDbError` directly to specify a
+// route or a non-default code.
+function dbError(res: Response, err: unknown, route?: string): void {
+    emitDbError({ res, err, code: 'db_throw', route });
+}
+
+/**
+ * Plain-text body for the staff-invite email. Hospitality tone — this is the
+ * recipient's first touch with OSH so it should sound warm, not transactional.
+ */
+function buildStaffInviteEmail(input: {
+    inviteeName: string;
+    locationId: string;
+    role: string;
+    link: string;
+}): string {
+    const greeting = input.inviteeName ? `Hi ${input.inviteeName},` : 'Hi,';
+    return [
+        greeting,
+        '',
+        `You've been invited to join ${input.locationId} on OSH (the host-stand and front-desk app) as a ${input.role}.`,
+        '',
+        `Tap the link below to accept and set up your account:`,
+        input.link,
+        '',
+        `If you weren't expecting this, you can safely ignore the email — the invite expires automatically.`,
+        '',
+        '— The OSH team',
+    ].join('\n');
 }

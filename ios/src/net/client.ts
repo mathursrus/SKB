@@ -107,10 +107,29 @@ async function requestInternal<T>(
 
     if (!res.ok) {
       const errBody = await safeJson(res);
-      const code = (errBody && typeof errBody === 'object' && 'error' in errBody
-        ? String((errBody as { error: unknown }).error)
-        : 'http_error') as string;
-      throw new ApiError(res.status, code, `${method} ${path} -> ${res.status} ${code}`, errBody);
+      // The server's structured error body looks like
+      //   { error: 'temporarily unavailable', code: 'db_throw', detail?: '...' }
+      // The `code` field (issue #93) is more specific than `error` and lets
+      // the iOS client distinguish failure modes (e.g. db_throw vs
+      // membership_lookup vs auth_unconfigured). Fall back to `error` for
+      // legacy responses, then to a generic 'http_error' for non-JSON 4xx/5xx.
+      const codeFromBody = (() => {
+        if (!errBody || typeof errBody !== 'object') return null;
+        const obj = errBody as { code?: unknown; error?: unknown };
+        if (typeof obj.code === 'string' && obj.code.length > 0) return obj.code;
+        if (typeof obj.error === 'string' && obj.error.length > 0) return obj.error;
+        return null;
+      })();
+      const code = codeFromBody ?? 'http_error';
+      const detail = (() => {
+        if (!errBody || typeof errBody !== 'object') return undefined;
+        const obj = errBody as { detail?: unknown };
+        return typeof obj.detail === 'string' ? obj.detail : undefined;
+      })();
+      const message = detail
+        ? `${method} ${path} -> ${res.status} ${code}: ${detail}`
+        : `${method} ${path} -> ${res.status} ${code}`;
+      throw new ApiError(res.status, code, message, errBody);
     }
 
     if (res.status === 204) return undefined as unknown as T;

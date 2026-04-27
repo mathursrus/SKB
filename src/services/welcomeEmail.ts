@@ -16,6 +16,7 @@
 // ============================================================================
 
 import type { PublicUser } from '../types/identity.js';
+import { sendEmail } from './mailer.js';
 
 export interface WelcomeEmailInput {
     user: PublicUser;
@@ -50,7 +51,7 @@ export async function sendWelcomeEmail(input: WelcomeEmailInput): Promise<void> 
             'If you get stuck, reply to this email or write to sid.mathur@gmail.com.',
         ].join('\n');
 
-        // eslint-disable-next-line no-console -- intentional dev/prod stub
+        // eslint-disable-next-line no-console -- audit trail for operator debugging
         console.log(JSON.stringify({
             t: new Date().toISOString(),
             level: 'info',
@@ -64,6 +65,10 @@ export async function sendWelcomeEmail(input: WelcomeEmailInput): Promise<void> 
             // by setting SKB_LOG_EMAIL_BODY=0.
             body: process.env.SKB_LOG_EMAIL_BODY === '0' ? undefined : body,
         }));
+        // Attempt the real send. `sendEmail` falls back to log-only when
+        // ACS env vars are missing, and never throws — both safe for the
+        // signup path which has already committed by this point.
+        await sendEmail({ to: input.user.email, subject, text: body });
     } catch {
         // Intentional: swallow. Welcome email is a side-effect; signup is
         // already committed by this point.

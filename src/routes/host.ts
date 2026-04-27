@@ -67,7 +67,19 @@ import {
     isInvitableRole,
 } from '../services/invites.js';
 import { ObjectId } from 'mongodb';
-import { getDb, memberships as membershipsColl, locations as locationsColl } from '../core/db/mongo.js';
+import {
+    getDb,
+    memberships as membershipsColl,
+    locations as locationsColl,
+    users as usersColl,
+    queueEntries as queueEntriesColl,
+    queueMessages as queueMessagesColl,
+    partyOrders as partyOrdersColl,
+    voiceCallSessions as voiceCallSessionsColl,
+    settings as settingsColl,
+    googleTokens as googleTokensColl,
+    invites as invitesColl,
+} from '../core/db/mongo.js';
 import { timingSafeEqual } from 'node:crypto';
 import QRCode from 'qrcode';
 import {
@@ -1123,6 +1135,99 @@ export function hostRouter(): Router {
             }
             res.json(toPublicLocation(location));
         } catch (err) { dbError(res, err); }
+    });
+
+    // ----------------------------------------------------------------------
+    // Owner self-deletion of their restaurant. A real product feature (an
+    // owner can leave the platform) and the cleanup hook for the
+    // post-deploy smoke (project rule #8) — smoke signs up a throwaway
+    // tenant, exercises probes, then deletes via this same route.
+    //
+    // Auth: owner only. requireOwner enforces session-source + role and
+    // tenant binding (the cookie's `lid` must equal `req.params.loc`).
+    //
+    // Confirm-name guard: body must include `confirmName` matching the
+    // location's name exactly. Prevents accidental deletes from a stale
+    // tab / fat-fingered curl. The shape mirrors common destructive-op
+    // confirms (GitHub, Stripe, etc.).
+    //
+    // Cascade: deletes every collection scoped by `locationId`, then the
+    // location itself. The owner user is deleted only if they have no
+    // other active membership — multi-tenant owners stay around.
+    // ----------------------------------------------------------------------
+    r.delete('/tenant', requireOwner, async (req: Request, res: Response) => {
+        const locationId = loc(req);
+        const ownerUid = req.hostAuth?.uid;
+        if (!ownerUid) {
+            // requireOwner guarantees source='session', so uid must be set.
+            // Defensive check keeps TS happy and fails closed.
+            res.status(401).json({ error: 'unauthorized' });
+            return;
+        }
+        const ownerOid = (() => { try { return new ObjectId(ownerUid); } catch { return null; } })();
+        if (!ownerOid) { res.status(401).json({ error: 'unauthorized' }); return; }
+
+        const body = (req.body ?? {}) as { confirmName?: unknown };
+        const confirmName = typeof body.confirmName === 'string' ? body.confirmName : '';
+        if (!confirmName) {
+            res.status(400).json({ error: 'confirmName required', field: 'confirmName' });
+            return;
+        }
+        try {
+            const db = await getDb();
+            const location = await getLocation(locationId);
+            if (!location) {
+                // Idempotent: already gone.
+                res.json({ ok: true, locationId, deleted: { location: false } });
+                return;
+            }
+            if (confirmName !== location.name) {
+                res.status(400).json({
+                    error: 'confirmName does not match restaurant name',
+                    field: 'confirmName',
+                });
+                return;
+            }
+
+            // Delete child data first so any orphan checks elsewhere stay
+            // consistent. Order matches the dependency graph.
+            const result = {
+                queueEntries: (await queueEntriesColl(db).deleteMany({ locationId })).deletedCount,
+                queueMessages: (await queueMessagesColl(db).deleteMany({ locationId })).deletedCount,
+                partyOrders: (await partyOrdersColl(db).deleteMany({ locationId })).deletedCount,
+                voiceCallSessions: (await voiceCallSessionsColl(db).deleteMany({ locationId })).deletedCount,
+                settings: (await settingsColl(db).deleteMany({ _id: locationId })).deletedCount,
+                googleTokens: (await googleTokensColl(db).deleteMany({ locationId })).deletedCount,
+                invites: (await invitesColl(db).deleteMany({ locationId })).deletedCount,
+                memberships: (await membershipsColl(db).deleteMany({ locationId })).deletedCount,
+                user: 0,
+                location: 0,
+            };
+            // Delete the owner user only if no other active memberships remain
+            // (multi-tenant owners stay; a single-tenant owner who deleted
+            // their only restaurant is fully removed).
+            const otherActive = await membershipsColl(db).findOne({
+                userId: ownerOid,
+                revokedAt: { $exists: false },
+            });
+            if (!otherActive) {
+                result.user = (await usersColl(db).deleteOne({ _id: ownerOid })).deletedCount;
+            }
+            result.location = (await locationsColl(db).deleteOne({ _id: locationId })).deletedCount;
+
+            console.log(JSON.stringify({
+                t: new Date().toISOString(),
+                level: 'info',
+                msg: 'tenant.deleted',
+                locationId,
+                ownerUid,
+                ownerUserDeleted: result.user > 0,
+                deleted: result,
+            }));
+            res.json({ ok: true, locationId, deleted: result });
+        } catch (err) {
+            dbError(res, err, '/tenant');
+        }
     });
 
     // ----------------------------------------------------------------------

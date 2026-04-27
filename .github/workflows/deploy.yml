@@ -50,10 +50,12 @@ jobs:
           SCM_DO_BUILD_DURING_DEPLOYMENT: 'false'
 
       # Project rule #8 — authenticated post-deploy smoke is mandatory.
-      # Signs up a throwaway owner against the freshly-deployed app, hits
-      # /staff and /queue/state with cookie auth, asserts success-shape
-      # responses, then deletes the throwaway. The deploy is NOT successful
-      # until this passes. See scripts/post-deploy-smoke.sh for details and
+      # Signs up a throwaway tenant against the freshly-deployed app, hits
+      # /staff, /queue/state, and the host/queue write+remove paths with
+      # cookie auth, then deletes the throwaway tenant via the owner
+      # self-deletion route (no special test endpoints, no persistent
+      # credentials). The deploy is NOT successful until this passes.
+      # See scripts/post-deploy-smoke.sh for details and
       # docs/retrospectives/sid.mathur@gmail.com-issue-93-staff-503-postmortem.md
       # for the failure pattern this prevents.
       - name: Wait for App Service warm-up
@@ -73,7 +75,4 @@ jobs:
       - name: Post-deploy authenticated smoke
         env:
           SMOKE_BASE_URL: https://${{ env.AZURE_WEBAPP_NAME }}.azurewebsites.net
-          SMOKE_OWNER_EMAIL: smoke@example.test
-          SMOKE_OWNER_PASSWORD: ${{ secrets.SMOKE_OWNER_PASSWORD }}
-          SMOKE_TENANT_SLUG: smoke-test
         run: bash scripts/post-deploy-smoke.sh

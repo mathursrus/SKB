@@ -134,11 +134,44 @@ const cases: T[] = [
     {
         name: 'in production, response omits detail (no leaking error internals)',
         tags: ['unit', 'db-error', 'issue-93'],
-        testFn: async () => withEnv({ NODE_ENV: 'production' }, () => {
+        testFn: async () => withEnv({ NODE_ENV: 'production', SKB_EXPOSE_DB_ERROR_DETAIL: undefined }, () => {
             const { res, state } = makeRes();
             withCapturedLogs(() => emitDbError({ res, err: new Error('mongo password leaked: secret123'), code: 'db_throw' }));
             const body = state.body as { detail?: string };
             return body.detail === undefined;
+        }),
+    },
+    {
+        name: 'in production with SKB_EXPOSE_DB_ERROR_DETAIL=true, includes detail (operator opt-in)',
+        tags: ['unit', 'db-error', 'issue-93'],
+        testFn: async () => withEnv({ NODE_ENV: 'production', SKB_EXPOSE_DB_ERROR_DETAIL: 'true' }, () => {
+            const { res, state } = makeRes();
+            withCapturedLogs(() => emitDbError({ res, err: new Error('connection reset'), code: 'db_throw' }));
+            const body = state.body as { detail?: string };
+            return body.detail === 'connection reset';
+        }),
+    },
+    {
+        name: 'always includes errorName so client can distinguish DB vs code bug even in prod',
+        tags: ['unit', 'db-error', 'issue-93'],
+        testFn: async () => withEnv({ NODE_ENV: 'production' }, () => {
+            // Build a custom error subclass to mimic e.g. MongoNetworkError
+            class MongoNetworkError extends Error { override name = 'MongoNetworkError'; }
+            const { res, state } = makeRes();
+            withCapturedLogs(() => emitDbError({ res, err: new MongoNetworkError('x'), code: 'db_throw' }));
+            const body = state.body as { errorName?: string };
+            return body.errorName === 'MongoNetworkError';
+        }),
+    },
+    {
+        name: 'includes errorCode (numeric) when error has one (e.g. Mongo enum)',
+        tags: ['unit', 'db-error', 'issue-93'],
+        testFn: async () => withEnv({ NODE_ENV: 'production' }, () => {
+            const err = Object.assign(new Error('duplicate key'), { code: 11000 });
+            const { res, state } = makeRes();
+            withCapturedLogs(() => emitDbError({ res, err, code: 'db_throw' }));
+            const body = state.body as { errorCode?: number };
+            return body.errorCode === 11000;
         }),
     },
 ];

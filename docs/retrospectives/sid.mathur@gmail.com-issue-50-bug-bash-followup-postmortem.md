@@ -1,7 +1,7 @@
 ---
 author: sid.mathur@gmail.com
 date: 2026-04-15
-synthesized:
+synthesized: 2026-04-27
 ---
 
 # Postmortem: Issue #50 bug-bash follow-up — 5 fixes + FRAIM revalidation

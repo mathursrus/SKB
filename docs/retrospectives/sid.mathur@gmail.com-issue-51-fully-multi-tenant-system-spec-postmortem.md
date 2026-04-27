@@ -1,7 +1,7 @@
 ---
 author: sid.mathur@gmail.com
 date: 2026-04-17
-synthesized:
+synthesized: 2026-04-27
 ---
 
 # Postmortem: Fully multi-tenant system — feature-specification — Issue #51

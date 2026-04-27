@@ -2,7 +2,7 @@
 author: sid.mathur@gmail.com
 date: 2026-04-13
 context: issue-37 spec + technical-design workflow
-synthesized:
+synthesized: 2026-04-27
 ---
 
 # Retrospective — Issue #37: Waitlist transparency, host chat/call, table on seat

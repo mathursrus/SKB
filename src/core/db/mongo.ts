@@ -193,6 +193,20 @@ async function bootstrapIndexes(db: Db): Promise<void> {
         { locationId: 1 },
         { name: 'location_memberships' },
     );
+    // Compound index for the Staff page (issue #93). listStaffAtLocation runs
+    //   find({locationId, revokedAt:{$exists:false}}).sort({createdAt:1})
+    // Azure Cosmos DB / Mongo API rejects the query plan if the sort isn't
+    // satisfied by an index — even when an indexed find is available — so the
+    // pre-existing single-field `location_memberships` index isn't enough on
+    // Cosmos. Real Mongo masks the bug with an in-memory SORT stage. This
+    // compound index lets the planner serve both the find and the sort from
+    // one IXSCAN, eliminating the SORT stage entirely. See
+    // fraim/ai-employee/skills/azure/cosmos-db-mongodb-setup.md for the
+    // upstream rule.
+    await memberships(db).createIndex(
+        { locationId: 1, createdAt: 1 },
+        { name: 'location_createdAt_for_staff_list' },
+    );
     await passwordResets(db).createIndex(
         { tokenHash: 1 },
         { name: 'token_unique', unique: true },
@@ -219,6 +233,16 @@ async function bootstrapIndexes(db: Db): Promise<void> {
     await invites(db).createIndex(
         { locationId: 1, email: 1 },
         { name: 'invite_loc_email' },
+    );
+    // Compound index for the Staff page's pending-invites query (issue #93).
+    // listPendingInvites runs find({locationId, acceptedAt:{$exists:false},
+    // revokedAt:{$exists:false}, expiresAt:{$gt:now}}).sort({createdAt:1}).
+    // Same Cosmos rule as memberships above — this compound (locationId,
+    // createdAt) lets the planner serve the find filter and the sort from a
+    // single IXSCAN, avoiding the SORT stage that Cosmos rejects.
+    await invites(db).createIndex(
+        { locationId: 1, createdAt: 1 },
+        { name: 'invite_loc_createdAt_for_staff_list' },
     );
     await invites(db).createIndex(
         { expiresAt: 1 },

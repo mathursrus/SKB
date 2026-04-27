@@ -1716,7 +1716,26 @@
                 tbody.innerHTML = '<tr><td colspan="5" style="padding:14px;color:#78716c">You do not have permission to view staff.</td></tr>';
                 return;
             }
-            if (!r.ok) throw new Error('fetch failed: ' + r.status);
+            if (!r.ok) {
+                // Issue #93: the server's structured 503 body now carries
+                // { code, detail } so we can show the real failure mode
+                // instead of an opaque "fetch failed: 503". Fall back to the
+                // generic message if the body isn't JSON or lacks the fields.
+                let errCode = 'fetch failed';
+                let errDetail = '';
+                try {
+                    const errBody = await r.json();
+                    if (errBody && typeof errBody === 'object') {
+                        if (typeof errBody.code === 'string' && errBody.code.length > 0) errCode = errBody.code;
+                        else if (typeof errBody.error === 'string' && errBody.error.length > 0) errCode = errBody.error;
+                        if (typeof errBody.detail === 'string' && errBody.detail.length > 0) errDetail = errBody.detail;
+                    }
+                } catch { /* non-JSON body — keep defaults */ }
+                const msg = errDetail
+                    ? `${errCode}: ${errDetail} (HTTP ${r.status})`
+                    : `${errCode} (HTTP ${r.status})`;
+                throw new Error(msg);
+            }
             const data = await r.json();
             const staff = Array.isArray(data.staff) ? data.staff : [];
             const pending = Array.isArray(data.pending) ? data.pending : [];

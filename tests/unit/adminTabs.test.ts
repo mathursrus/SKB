@@ -257,6 +257,18 @@ const cases: BaseTestCase[] = [
         },
     },
 
+    // ─── deep-link fix: ?tab= query param honored by restoreActiveTab ──
+    {
+        name: 'admin.js restoreActiveTab honors ?tab= query param before localStorage',
+        tags: ['unit', 'admin-tabs', 'admin-js', 'deep-link'],
+        testFn: async () => {
+            // The fix prepends a check for URLSearchParams('tab') inside
+            // restoreActiveTab, so iOS deep-links into a specific tab work.
+            return /restoreActiveTab[\s\S]{0,400}URLSearchParams\(window\.location\.search\)/.test(ADMIN_JS)
+                && /restoreActiveTab[\s\S]{0,500}\.get\(['"]tab['"]\)/.test(ADMIN_JS);
+        },
+    },
+
     // ─── wordmark preserved ───────────────────────────────────────────
     {
         name: 'topbar retains OSH · OS for Hospitality wordmark (spec §5)',

@@ -10,12 +10,14 @@ import type {
 } from '@/core/party';
 import type {
   BrandContext,
-  GuestFeatures,
   MembershipOption,
   PublicUser,
   StaffRole,
   WebsiteTemplate,
 } from '@/core/auth';
+import type { GuestFeatures } from '@/core/auth';
+
+export type { GuestFeatures };
 import type { GuestChatThread, GuestStatus, QueueState } from '@/core/guest';
 
 import { platformRequest, request } from './client';
@@ -76,16 +78,44 @@ export interface PublicConfigResponse {
   guestFeatures?: GuestFeatures;
 }
 
+export interface LocationAddress {
+  street: string;
+  city: string;
+  state: string;
+  zip: string;
+}
+
+export interface ServiceWindow {
+  open: string; // HH:mm 24h
+  close: string; // HH:mm 24h
+}
+
+export type ServiceWindowKey = 'breakfast' | 'lunch' | 'special' | 'dinner';
+
+export interface DayHours {
+  breakfast?: ServiceWindow;
+  lunch?: ServiceWindow;
+  special?: ServiceWindow;
+  dinner?: ServiceWindow;
+}
+
+export type DayOfWeek = 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun';
+
+export type WeeklyHours = {
+  [K in DayOfWeek]?: DayHours | 'closed';
+};
+
 export interface SiteConfigResponse {
   name: string;
-  address: {
-    street: string;
-    city: string;
-    state: string;
-    zip: string;
-  } | null;
-  hours: Record<string, unknown> | null;
+  address: LocationAddress | null;
+  hours: WeeklyHours | null;
   publicHost: string;
+}
+
+export interface SiteConfigUpdate {
+  address?: LocationAddress | null;
+  hours?: WeeklyHours | null;
+  publicHost?: string | null;
 }
 
 export interface WebsiteConfigResponse {
@@ -104,6 +134,106 @@ export interface MessagingConfigResponse {
   smsSenderName: string;
   sharedNumber: string;
   twilioVoiceNumber: string;
+}
+
+// ─── Menu types (matches src/types/queue.ts) ─────────────────────────
+export interface MenuItem {
+  id: string;
+  name: string;
+  description?: string;
+  price?: string;
+  image?: string;
+  availability?: 'available' | 'sold_out';
+}
+export interface MenuSection {
+  id: string;
+  title: string;
+  items: MenuItem[];
+}
+export interface LocationMenu {
+  sections: MenuSection[];
+}
+export interface MenuResponse {
+  menu: LocationMenu;
+  menuUrl: string;
+}
+
+// ─── Website content types ────────────────────────────────────────────
+export type WebsiteTemplateKey = 'saffron' | 'slate';
+export interface KnownForItem {
+  title: string;
+  desc: string;
+  image: string;
+}
+export interface LocationContent {
+  heroHeadline?: string;
+  heroSubhead?: string;
+  knownFor?: KnownForItem[];
+  about?: string;
+  contactEmail?: string;
+  instagramHandle?: string;
+  reservationsNote?: string;
+}
+export interface WebsiteConfigUpdate {
+  websiteTemplate?: WebsiteTemplateKey | null;
+  content?: LocationContent | null;
+}
+
+// ─── Staff types ──────────────────────────────────────────────────────
+export type InvitableRole = 'admin' | 'host';
+
+export interface StaffMember {
+  _id: string;
+  userId: string;
+  email?: string;
+  name?: string;
+  locationId: string;
+  role: 'owner' | 'admin' | 'host';
+  createdAt?: string;
+}
+
+export interface PendingInvite {
+  _id: string;
+  email: string;
+  name?: string;
+  role: InvitableRole;
+  locationId: string;
+  createdAt?: string;
+}
+
+export interface StaffResponse {
+  staff: StaffMember[];
+  pending: PendingInvite[];
+}
+
+// ─── Caller stats types (subset for the iOS funnel + outcomes) ────────
+export type CallerOutcome =
+  | 'dropped_before_choice'
+  | 'dropped_during_name'
+  | 'dropped_during_size'
+  | 'dropped_during_phone_confirmation'
+  | 'front_desk_transfer'
+  | 'catering_transfer'
+  | 'menu_only'
+  | 'hours_only'
+  | 'join_error'
+  | 'joined_waitlist';
+
+export interface CallerOutcomeStat {
+  key: CallerOutcome;
+  count: number;
+  share: number;
+}
+
+export interface CallerStatsResponse {
+  dateRange: { from: string; to: string };
+  funnel: {
+    inboundCalls: number;
+    joinIntent: number;
+    reachedPhoneConfirmation: number;
+    joinedWaitlist: number;
+  };
+  outcomes: CallerOutcomeStat[];
 }
 
 export interface VoiceConfigResponse {
@@ -223,7 +353,11 @@ export const config = {
     };
   },
   siteConfig: (locationId: string) => request<SiteConfigResponse>('/host/site-config', { locationId }),
+  saveSiteConfig: (locationId: string, body: SiteConfigUpdate) =>
+    request<SiteConfigResponse>('/host/site-config', { method: 'POST', body, locationId }),
   websiteConfig: (locationId: string) => request<WebsiteConfigResponse>('/host/website-config', { locationId }),
+  saveWebsiteConfig: (locationId: string, body: WebsiteConfigUpdate) =>
+    request<WebsiteConfigResponse>('/host/website-config', { method: 'POST', body, locationId }),
   messagingConfig: (locationId: string) => request<MessagingConfigResponse>('/host/messaging-config', { locationId }),
   voiceConfig: (locationId: string) => request<VoiceConfigResponse>('/host/voice-config', { locationId }),
   guestFeatures: (locationId: string) => request<GuestFeatures>('/host/guest-features', { locationId }),
@@ -235,6 +369,25 @@ export const config = {
     locationId: string,
     body: { voiceEnabled: boolean; frontDeskPhone: string; voiceLargePartyThreshold: number },
   ) => request<VoiceConfigResponse>('/host/voice-config', { method: 'POST', body, locationId }),
+};
+
+export const staff = {
+  list: (locationId: string) => request<StaffResponse>('/staff', { locationId }),
+  invite: (locationId: string, body: { email: string; name?: string; role: InvitableRole }) =>
+    request<{ invite: PendingInvite }>('/staff/invite', { method: 'POST', body, locationId }),
+  revoke: (locationId: string, body: { membershipId?: string; inviteId?: string }) =>
+    request<{ ok: true }>('/staff/revoke', { method: 'POST', body, locationId }),
+};
+
+export const menu = {
+  get: (locationId: string) => request<MenuResponse>('/menu', { locationId }),
+  save: (locationId: string, body: { menu?: LocationMenu; menuUrl?: string }) =>
+    request<MenuResponse>('/host/menu', { method: 'POST', body, locationId }),
+};
+
+export const callerStats = {
+  get: (locationId: string, range: '1' | '7' | '30') =>
+    request<CallerStatsResponse>(`/host/caller-stats?range=${range}`, { locationId }),
 };
 
 export const guest = {

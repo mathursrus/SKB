@@ -46,6 +46,15 @@ export interface EmitDbErrorOptions {
 export function emitDbError(opts: EmitDbErrorOptions): void {
     const code: DbErrorCode = opts.code ?? 'db_throw';
     const detail = opts.err instanceof Error ? opts.err.message : String(opts.err);
+    const errorName = opts.err instanceof Error ? opts.err.name : 'Unknown';
+    // Mongo errors (and many libraries) attach a numeric `code` to the error
+    // object — this is a class identifier (e.g. 11000 = duplicate key, 13 =
+    // unauthorized). It's safe to expose because it's an enum, not text.
+    const errorCode = (() => {
+        if (!(opts.err instanceof Error)) return undefined;
+        const c = (opts.err as Error & { code?: unknown }).code;
+        return typeof c === 'number' || typeof c === 'string' ? c : undefined;
+    })();
 
     // Always log so the audit trail exists in production too.
     // eslint-disable-next-line no-console -- structured log is the audit trail
@@ -55,14 +64,30 @@ export function emitDbError(opts: EmitDbErrorOptions): void {
         msg: 'db.error',
         code,
         route: opts.route,
+        errorName,
+        errorCode,
         detail,
     }));
 
-    const includeDetail = process.env.NODE_ENV !== 'production';
-    const body: { error: string; code: DbErrorCode; detail?: string } = {
+    const includeDetail = process.env.NODE_ENV !== 'production'
+        || process.env.SKB_EXPOSE_DB_ERROR_DETAIL === 'true';
+    const body: {
+        error: string;
+        code: DbErrorCode;
+        errorName?: string;
+        errorCode?: string | number;
+        detail?: string;
+    } = {
         error: 'temporarily unavailable',
         code,
+        // errorName + errorCode are always included — they're a class/enum,
+        // not free-text, so they don't leak query content or credentials but
+        // do tell the client (and operator) "this is a MongoNetworkError"
+        // vs "this is a TypeError" which is the difference between "DB is
+        // down" and "code bug".
+        errorName,
     };
+    if (errorCode !== undefined) body.errorCode = errorCode;
     if (includeDetail) body.detail = detail;
     opts.res.status(503).json(body);
 }

@@ -1,7 +1,7 @@
 # Feature: Mobile App Bugs
 Issue: #102  
 Feature Spec: No dedicated `docs/feature-specs/102-*.md`; completeness review used the GitHub issue body as the functional spec source of truth.  
-PR: N/A
+PR: https://github.com/mathursrus/SKB/pull/105
 
 ## Summary
 - Workflow type: design
@@ -11,7 +11,7 @@ PR: N/A
   - Created this design evidence document and recorded the completeness review outcome.
 - Remote status:
   - Branch: `feature/102-mobile-app-bugs`
-  - PR: Not created yet at the time this evidence document was written.
+  - PR: `#105` (`design(102): mobile app bugs technical design`)
 - Next steps:
   - Submit the design artifacts for review.
   - Use the RFC as the implementation handoff once review feedback is addressed.
@@ -32,7 +32,7 @@ PR: N/A
 
 ## Completeness Evidence
 - Issue tagged with label `phase:design`: Yes
-- Issue tagged with label `status:needs-review`: No
+- Issue tagged with label `status:needs-review`: Yes
 - All files committed/synced to branch: No
 
 | PR Comment | How Addressed |

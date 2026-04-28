@@ -1851,8 +1851,8 @@
             const email = $('invite-email').value.trim();
             const roleInput = document.querySelector('input[name="invite-role"]:checked');
             const role = roleInput ? roleInput.value : 'host';
-            if (!name || !email) {
-                setStatus(status, 'Name and email required', 'error');
+            if (!email) {
+                setStatus(status, 'Email required', 'error');
                 return;
             }
             submitBtn.disabled = true;
@@ -1860,7 +1860,7 @@
                 const r = await fetch('api/staff/invite', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ name, email, role }),
+                    body: JSON.stringify({ name: name || undefined, email, role }),
                 });
                 const data = await r.json().catch(() => ({}));
                 if (!r.ok) {

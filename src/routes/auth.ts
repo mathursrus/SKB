@@ -311,9 +311,12 @@ export function authRouter(): Router {
                 res.status(410).json({ error: 'invalid or expired invite' });
                 return;
             }
+            const existingUser = invite.name
+                ? null
+                : await findUserByEmail(invite.email);
             res.json({
                 email: invite.email,
-                name: invite.name,
+                name: invite.name || existingUser?.name || '',
                 role: invite.role,
                 locationId: invite.locationId,
                 expiresAt: invite.expiresAt,

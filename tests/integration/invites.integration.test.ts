@@ -267,6 +267,133 @@ const cases: BaseTestCase[] = [
         },
     },
 
+    {
+        name: 'owner POST /staff/invite with blank name → 200 + pending invite row',
+        tags: ['integration', 'invites55', 'validation'],
+        testFn: async () => {
+            if (!ownerCookie) return false;
+            const email = 'blank-name-route@example.test';
+            const r = await fetch(`${getTestServerUrl()}/r/${LOC}/api/staff/invite`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', Cookie: ownerCookie },
+                body: JSON.stringify({ email, role: 'host' }),
+            });
+            if (!r.ok) return false;
+            const body = await r.json() as {
+                invite?: { email?: string; name?: string; role?: string };
+            };
+            if (body.invite?.email !== email) return false;
+            if ((body.invite?.name ?? '') !== '') return false;
+            if (body.invite?.role !== 'host') return false;
+            const db = await getDb();
+            const inviteDoc = await invitesColl(db).findOne({
+                locationId: LOC,
+                email,
+                acceptedAt: { $exists: false },
+                revokedAt: { $exists: false },
+            });
+            return inviteDoc?.name === '';
+        },
+    },
+
+    {
+        name: 'accept-invite with blank invited name → 200 + later login works with accepted password',
+        tags: ['integration', 'invites55', 'R1'],
+        testFn: async () => {
+            const { createInvite } = await import('../../src/services/invites.js');
+            const db = await getDb();
+            const ownerUser = await usersColl(db).findOne({ email: OWNER_EMAIL });
+            if (!ownerUser) return false;
+            const email = 'blank-name-accept@example.test';
+            const password = 'blank-name-login-123';
+            const { token } = await createInvite({
+                email,
+                name: '',
+                role: 'host',
+                locationId: LOC,
+                invitedByUserId: ownerUser._id,
+            });
+            const accept = await fetch(`${getTestServerUrl()}/api/accept-invite`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ token, password, name: 'Blank Name Host' }),
+            });
+            if (!accept.ok) return false;
+            const login = await fetch(`${getTestServerUrl()}/api/login`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email, password, locationId: LOC }),
+            });
+            if (!login.ok) return false;
+            const cookie = getCookie(login as unknown as Response, 'skb_session');
+            return cookie !== null;
+        },
+    },
+
+    {
+        name: 'accept-invite for existing account updates password and reuses existing profile name',
+        tags: ['integration', 'invites55', 'R1'],
+        testFn: async () => {
+            const existingEmail = 'existing-invitee@example.test';
+            const oldPassword = 'existing-user-password';
+            const newPassword = 'updated-via-invite-123';
+            await createOwnerUser({
+                email: existingEmail,
+                password: oldPassword,
+                name: 'Existing Invitee',
+                locationId: OTHER_LOC,
+            });
+            const { createInvite } = await import('../../src/services/invites.js');
+            const db = await getDb();
+            const ownerUser = await usersColl(db).findOne({ email: OWNER_EMAIL });
+            if (!ownerUser) return false;
+            const { token } = await createInvite({
+                email: existingEmail,
+                name: '',
+                role: 'host',
+                locationId: LOC,
+                invitedByUserId: ownerUser._id,
+            });
+            const peek = await fetch(`${getTestServerUrl()}/api/accept-invite?t=${encodeURIComponent(token)}`);
+            if (!peek.ok) return false;
+            const peekBody = await peek.json() as { name?: string; email?: string };
+            if (peekBody.email !== existingEmail) return false;
+            if (peekBody.name !== 'Existing Invitee') return false;
+
+            const accept = await fetch(`${getTestServerUrl()}/api/accept-invite`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ token, password: newPassword }),
+            });
+            if (!accept.ok) return false;
+
+            const oldLogin = await fetch(`${getTestServerUrl()}/api/login`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email: existingEmail, password: oldPassword, locationId: LOC }),
+            });
+            if (oldLogin.ok) return false;
+
+            const newLogin = await fetch(`${getTestServerUrl()}/api/login`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email: existingEmail, password: newPassword, locationId: LOC }),
+            });
+            if (!newLogin.ok) return false;
+            const cookie = getCookie(newLogin as unknown as Response, 'skb_session');
+            if (!cookie) return false;
+            const existingUser = await usersColl(db).findOne({ email: existingEmail });
+            if (!existingUser) return false;
+            const membership = await membershipsColl(db).findOne({
+                userId: existingUser._id,
+                locationId: LOC,
+                role: 'host',
+                revokedAt: { $exists: false },
+            });
+            return membership !== null;
+        },
+    },
+
     // ---- GET /r/:loc/api/staff as owner → includes newly-accepted host ----
     {
         name: 'GET /staff as owner → returns active staff + pending invites',

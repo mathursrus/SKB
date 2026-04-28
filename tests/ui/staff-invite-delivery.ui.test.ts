@@ -138,6 +138,7 @@ const cases: BaseTestCase[] = [
                         }, { timeout: 5000 });
 
                         const email = `invite-${viewport.label}-${theme.label}-${RUN_ID}@example.test`;
+                        const name = viewport.label === 'mobile' ? '' : `${viewport.label} ${theme.label}`;
                         await page.evaluate(({ name, email: inviteEmail }) => {
                             const nameInput = document.getElementById('invite-name') as HTMLInputElement | null;
                             const emailInput = document.getElementById('invite-email') as HTMLInputElement | null;
@@ -148,7 +149,7 @@ const cases: BaseTestCase[] = [
                             nameInput.value = name;
                             emailInput.value = inviteEmail;
                             form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
-                        }, { name: `${viewport.label} ${theme.label}`, email });
+                        }, { name, email });
                         await page.waitForFunction(() => {
                             const el = document.getElementById('invite-status');
                             return !!el && /not configured in this environment/i.test(el.textContent || '');

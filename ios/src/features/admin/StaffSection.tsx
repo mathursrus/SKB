@@ -10,6 +10,8 @@ import {
 } from '@/net/endpoints';
 import { theme } from '@/ui/theme';
 
+import { getStaffErrorMessage } from './staffErrors';
+
 const ROLE_OPTIONS: ReadonlyArray<{ key: InvitableRole; label: string; help: string }> = [
   { key: 'host', label: 'Host', help: 'Floor-only — manage queue, seat parties, send chats.' },
   { key: 'admin', label: 'Admin', help: 'Host + edit settings, hours, voice, brand. Cannot manage staff.' },
@@ -39,7 +41,7 @@ export function StaffSection({ locationId, role }: { locationId: string; role: A
       setStaff(next.staff);
       setPending(next.pending);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load staff');
+      setError(getStaffErrorMessage(err, 'Failed to load staff'));
     }
   }
 
@@ -70,7 +72,7 @@ export function StaffSection({ locationId, role }: { locationId: string; role: A
       await load();
       Alert.alert(result.delivery.delivered ? 'Invite emailed' : 'Invite created', result.deliveryMessage);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to send invite');
+      setError(getStaffErrorMessage(err, 'Failed to send invite'));
     } finally {
       setInviting(false);
     }
@@ -95,7 +97,7 @@ export function StaffSection({ locationId, role }: { locationId: string; role: A
       await staffApi.revoke(locationId, { membershipId });
       await load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to revoke');
+      setError(getStaffErrorMessage(err, 'Failed to revoke'));
     } finally {
       setRevokingId(null);
     }
@@ -119,7 +121,7 @@ export function StaffSection({ locationId, role }: { locationId: string; role: A
       await staffApi.revoke(locationId, { inviteId });
       await load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to cancel invite');
+      setError(getStaffErrorMessage(err, 'Failed to cancel invite'));
     } finally {
       setRevokingId(null);
     }

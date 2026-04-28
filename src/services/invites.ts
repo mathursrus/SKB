@@ -86,7 +86,7 @@ export function toPublicInvite(inv: Invite): PublicInvite | null {
 
 export interface CreateInviteInput {
     email: string;
-    name: string;
+    name?: string;
     role: 'admin' | 'host';
     locationId: string;
     invitedByUserId: ObjectId;
@@ -98,6 +98,12 @@ export interface CreateInviteResult {
     token: string;
 }
 
+function normalizeInviteName(name: unknown): string {
+    const trimmed = String(name ?? '').trim();
+    if (!trimmed) return '';
+    return validateName(trimmed);
+}
+
 /**
  * Create a pending invite. If a pending invite already exists for the
  * same (email, locationId), it is replaced (the old token becomes
@@ -106,7 +112,7 @@ export interface CreateInviteResult {
  */
 export async function createInvite(input: CreateInviteInput): Promise<CreateInviteResult> {
     const email = validateEmail(input.email);
-    const name = validateName(input.name);
+    const name = normalizeInviteName(input.name);
     if (!isInvitableRole(input.role)) {
         throw new Error('role must be admin or host');
     }
@@ -286,21 +292,23 @@ export async function acceptInvite(input: AcceptInviteInput): Promise<AcceptInvi
 
     const invite = claim;
     const emailNormalized = normalizeEmail(invite.email);
-    const passwordHash = await hashPassword(password);
-    const nameOverride = input.name !== undefined
-        ? validateName(input.name)
-        : invite.name;
+    const providedName = String(input.name ?? '').trim();
+    const acceptedName = providedName.length > 0
+        ? validateName(providedName)
+        : normalizeInviteName(invite.name);
 
     // Step 2: find-or-create the user. If an account already exists for
     // this email (e.g. the invitee is owner elsewhere), we attach a new
     // membership to the existing user. Otherwise we create a user.
     let user = await usersColl(db).findOne({ email: emailNormalized });
     if (!user) {
+        if (!acceptedName) throw new Error('name is required');
+        const passwordHash = await hashPassword(password);
         const userDoc: User = {
             _id: new ObjectId(),
             email: emailNormalized,
             passwordHash,
-            name: nameOverride,
+            name: acceptedName,
             createdAt: now,
         };
         try {
@@ -316,9 +324,18 @@ export async function acceptInvite(input: AcceptInviteInput): Promise<AcceptInvi
             if (isDuplicateKeyError(err)) throw new Error('email already registered');
             throw err;
         }
+    } else {
+        const updateFields: Partial<Pick<User, 'passwordHash' | 'name'>> = {
+            passwordHash: await hashPassword(password),
+        };
+        if (providedName.length > 0 && acceptedName !== user.name) {
+            updateFields.name = acceptedName;
+        }
+        await usersColl(db).updateOne({ _id: user._id }, { $set: updateFields });
+        user = { ...user, ...updateFields };
     }
-    // If the user already existed, we do NOT rewrite their password —
-    // they already own it. The accept flow just attaches membership.
+    // Existing accounts keep their identity, but the password entered
+    // during invite acceptance becomes the next login password.
 
     // Step 3: insert the membership. If one somehow already exists active
     // for this (user, location), we bail with a clear error. The partial

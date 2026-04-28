@@ -12,23 +12,32 @@ interface Props {
   party: WaitingParty;
   onSeat: () => void;
   onNotify: () => void;
-  onCustomSms: () => void;
-  onCustomCall: () => void;
   onRemove: () => void;
 }
 
-export function RowActions({
-  party,
-  onSeat,
-  onNotify,
-  onCustomSms,
-  onCustomCall,
-  onRemove,
-}: Props) {
+/**
+ * Three host comm channels: Notify, Chat, Call. Custom SMS and Custom
+ * Call were retired — compose lives in Chat, the Call button doesn't
+ * need a separate confirm dialog. Mirrors the web host stand exactly
+ * (issue #102).
+ *
+ * Reachability:
+ *   - SMS goes out when the diner consented (smsCapable=true).
+ *   - In-app chat appears in the diner's queue page when the tenant has
+ *     features.chat=true.
+ *   - The host's compose surface is enabled whenever EITHER channel can
+ *     deliver — so a SMS-consenting diner is reachable even if the tenant
+ *     turned off the in-app chat panel, and a chat-only diner is reachable
+ *     even if they didn't consent to SMS.
+ */
+export function RowActions({ party, onSeat, onNotify, onRemove }: Props) {
   const phoneOk = hasDialablePhone(party);
   const locationId = useAuthStore((s) => s.locationId);
+  const chatFeatureOn = useAuthStore((s) => s.brand?.guestFeatures.chat ?? true);
   const openChat = useChatStore((s) => s.openChat);
   const isCalled = party.state === 'called';
+  const smsCapable = party.smsCapable === true;
+  const reachable = phoneOk && (smsCapable || chatFeatureOn);
 
   function handleCall() {
     if (!party.phoneForDial || !locationId) return;
@@ -51,12 +60,12 @@ export function RowActions({
         icon="notifications"
         variant={isCalled ? 'primary' : 'default'}
         onPress={onNotify}
-        disabled={!phoneOk}
+        disabled={!reachable}
       />
       <Button
         label="Chat"
         icon="chatbubble-ellipses"
-        disabled={!phoneOk}
+        disabled={!reachable}
         badge={party.unreadChat}
         onPress={() => void openChat(party.id, party.code)}
         accessibilityLabel={`Chat with ${party.name}`}
@@ -67,20 +76,6 @@ export function RowActions({
         disabled={!phoneOk}
         onPress={handleCall}
         accessibilityLabel={`Call ${party.name}`}
-      />
-      <Button
-        label="SMS…"
-        icon="create"
-        disabled={!phoneOk}
-        onPress={onCustomSms}
-        accessibilityLabel="Custom SMS"
-      />
-      <Button
-        label="Dial…"
-        icon="keypad"
-        disabled={!phoneOk}
-        onPress={onCustomCall}
-        accessibilityLabel="Confirm before dial"
       />
       <Button
         label="No-show"

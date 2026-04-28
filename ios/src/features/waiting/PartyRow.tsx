@@ -12,8 +12,6 @@ interface Props {
   baseAt: number;
   onSeat: (party: WaitingParty) => void;
   onNotify: (party: WaitingParty) => void;
-  onCustomSms: (party: WaitingParty) => void;
-  onCustomCall: (party: WaitingParty) => void;
   onRemove: (party: WaitingParty) => void;
 }
 
@@ -45,7 +43,7 @@ function PartyRowImpl(props: Props) {
                 <Text style={styles.badgeCalledText}>CALLED</Text>
               </View>
             )}
-            {party.onMyWayAt !== null && (
+            {party.onMyWayAt != null && party.onMyWayAt !== '' && (
               <View style={[styles.badge, styles.badgeOnTheWay]}>
                 <Text style={styles.badgeOnTheWayText}>ON THE WAY</Text>
               </View>
@@ -78,8 +76,6 @@ function PartyRowImpl(props: Props) {
           party={party}
           onSeat={() => props.onSeat(party)}
           onNotify={() => props.onNotify(party)}
-          onCustomSms={() => props.onCustomSms(party)}
-          onCustomCall={() => props.onCustomCall(party)}
           onRemove={() => props.onRemove(party)}
         />
       </View>

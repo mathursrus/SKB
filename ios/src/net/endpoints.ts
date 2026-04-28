@@ -182,23 +182,28 @@ export interface WebsiteConfigUpdate {
 // ─── Staff types ──────────────────────────────────────────────────────
 export type InvitableRole = 'admin' | 'host';
 
+// Field names match the server's StaffRow / PublicInvite shape (see
+// src/services/invites.ts → StaffRow.membershipId, src/types/identity.ts
+// → PublicInvite.id). Mismatching here silently sends `{membershipId:
+// undefined}` to /staff/revoke and the Remove button does nothing —
+// that was the issue #102 #6 bug.
 export interface StaffMember {
-  _id: string;
+  membershipId: string;
   userId: string;
   email?: string;
   name?: string;
-  locationId: string;
   role: 'owner' | 'admin' | 'host';
   createdAt?: string;
 }
 
 export interface PendingInvite {
-  _id: string;
+  id: string;
   email: string;
   name?: string;
   role: InvitableRole;
   locationId: string;
   createdAt?: string;
+  expiresAt?: string;
 }
 
 export interface EmailDeliveryResult {
@@ -309,9 +314,17 @@ export const chat = {
 };
 
 export const calls = {
+  // Logs that the host opened the dialer for this party. Fire-and-forget;
+  // the actual `tel:` URL is opened by the OS.
   log: (locationId: string, id: PartyId) =>
     request<{ ok: true }>(`/host/queue/${id}/call-log`, { method: 'POST', locationId }),
-  customCall: (locationId: string, id: PartyId) =>
+  // "Your table is ready" notification. Sends SMS when the diner
+  // consented, AND writes an outbound row to the chat thread (so the
+  // diner sees it in their queue page when features.chat is on, and the
+  // host always has a record of what they sent). Server endpoint is
+  // historically named /call; this client method is `notify` because
+  // that's what hosts call it. Issue #102 #5.
+  notify: (locationId: string, id: PartyId) =>
     request<{ ok: true; smsStatus: string }>(`/host/queue/${id}/call`, { method: 'POST', locationId }),
 };
 

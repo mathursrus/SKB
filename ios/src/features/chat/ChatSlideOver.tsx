@@ -1,4 +1,4 @@
-import { ActivityIndicator, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { useChatStore } from '@/state/chat';
 import { useWaitlistStore } from '@/state/waitlist';
@@ -14,6 +14,8 @@ export function ChatSlideOver() {
   const threads = useChatStore((s) => s.threads);
   const templates = useChatStore((s) => s.templates);
   const loading = useChatStore((s) => s.loading);
+  const error = useChatStore((s) => s.error);
+  const clearError = useChatStore((s) => s.clearError);
   const sendMessage = useChatStore((s) => s.sendMessage);
 
   const waiting = useWaitlistStore((s) => s.waiting);
@@ -34,6 +36,17 @@ export function ChatSlideOver() {
       ) : (
         <ChatThread messages={messages} />
       )}
+      {error !== null && (
+        <Pressable
+          accessibilityRole="alert"
+          accessibilityLabel={`${error}. Tap to dismiss.`}
+          onPress={clearError}
+          style={styles.errorBanner}
+        >
+          <Text style={styles.errorText}>{error}</Text>
+          <Text style={styles.errorDismiss}>Dismiss</Text>
+        </Pressable>
+      )}
       <ChatComposer
         templates={templates}
         disabled={!openPartyId}
@@ -44,3 +57,30 @@ export function ChatSlideOver() {
     </SlideOver>
   );
 }
+
+const styles = StyleSheet.create({
+  errorBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    backgroundColor: 'rgba(185, 28, 28, 0.08)',
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(185, 28, 28, 0.35)',
+  },
+  errorText: {
+    flex: 1,
+    color: theme.color.warn,
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  errorDismiss: {
+    color: theme.color.warn,
+    fontSize: 12,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+});

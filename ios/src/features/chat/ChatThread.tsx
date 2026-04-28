@@ -30,26 +30,31 @@ export function ChatThread({ messages }: Props) {
       keyExtractor={(m, idx) => `${m.at}-${idx}-${m.direction}`}
       style={styles.list}
       contentContainerStyle={styles.content}
-      renderItem={({ item }) => (
-        <View
-          style={[
-            styles.msg,
-            item.direction === 'outbound' ? styles.msgOut : styles.msgIn,
-          ]}
-        >
-          <Text style={item.direction === 'outbound' ? styles.bodyOut : styles.bodyIn}>
-            {item.body}
-          </Text>
-          <Text
+      renderItem={({ item }) => {
+        const failed = item.smsStatus === 'failed';
+        return (
+          <View
             style={[
-              styles.timestamp,
-              item.direction === 'outbound' && styles.timestampOut,
+              styles.msg,
+              item.direction === 'outbound' ? styles.msgOut : styles.msgIn,
+              failed && styles.msgFailed,
             ]}
           >
-            {formatTime(item.at)}
-          </Text>
-        </View>
-      )}
+            <Text style={item.direction === 'outbound' ? styles.bodyOut : styles.bodyIn}>
+              {item.body}
+            </Text>
+            <Text
+              style={[
+                styles.timestamp,
+                item.direction === 'outbound' && styles.timestampOut,
+                failed && styles.timestampFailed,
+              ]}
+            >
+              {failed ? 'Not delivered' : formatTime(item.at)}
+            </Text>
+          </View>
+        );
+      }}
       ListEmptyComponent={<Text style={styles.empty}>No messages yet.</Text>}
     />
   );
@@ -80,6 +85,12 @@ const styles = StyleSheet.create({
     backgroundColor: theme.color.accent,
     borderBottomRightRadius: 4,
   },
+  msgFailed: {
+    opacity: 0.7,
+    backgroundColor: 'rgba(185, 28, 28, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(185, 28, 28, 0.45)',
+  },
   bodyIn: {
     color: theme.color.text,
     fontSize: 14,
@@ -97,6 +108,10 @@ const styles = StyleSheet.create({
   },
   timestampOut: {
     color: 'rgba(42,26,0,0.6)',
+  },
+  timestampFailed: {
+    color: theme.color.warn,
+    fontWeight: '700',
   },
   empty: {
     color: theme.color.textMuted,

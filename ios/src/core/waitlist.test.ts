@@ -21,7 +21,6 @@ function mkWaiting(over: Partial<WaitingParty> & Pick<WaitingParty, 'id' | 'posi
     waitingMinutes: 0,
     state: 'waiting',
     unreadChat: 0,
-    onMyWayAt: null,
     calls: [],
   };
   return { ...base, ...over };

@@ -2,6 +2,7 @@ import { create } from 'zustand';
 
 import { events, logger } from '@/core/logger';
 import type { ChatMessage, PartyId } from '@/core/party';
+import { getChatErrorMessage } from '@/features/chat/chatErrors';
 import { chat as chatApi } from '@/net/endpoints';
 import { useAuthStore } from '@/state/auth';
 
@@ -27,6 +28,7 @@ interface ChatState {
   openChat: (partyId: PartyId, code: string) => Promise<void>;
   closeChat: () => void;
   sendMessage: (partyId: PartyId, body: string) => Promise<void>;
+  clearError: () => void;
 }
 
 export const useChatStore = create<ChatState>((set, get) => ({
@@ -62,11 +64,11 @@ export const useChatStore = create<ChatState>((set, get) => ({
       }));
       void chatApi.markRead(locationId, partyId).catch(() => {});
     } catch (err) {
-      set({ loading: false, error: (err as Error).message });
+      set({ loading: false, error: getChatErrorMessage(err) });
     }
   },
 
-  closeChat: () => set({ openPartyId: null, openPartyCode: null }),
+  closeChat: () => set({ openPartyId: null, openPartyCode: null, error: null }),
 
   sendMessage: async (partyId, body) => {
     const locationId = useAuthStore.getState().locationId;
@@ -82,6 +84,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       at: new Date().toISOString(),
     };
     set((s) => ({
+      error: null,
       threads: {
         ...s.threads,
         [partyId]: [...(s.threads[partyId] ?? []), optimistic],
@@ -96,15 +99,22 @@ export const useChatStore = create<ChatState>((set, get) => ({
         },
       }));
     } catch (err) {
+      // Issue #102 #3: previously we stripped the optimistic message on
+      // failure, which made the host's text appear and then vanish — no
+      // recourse, no retry. Mark it as `failed` instead so it stays in
+      // the thread with a visible status, and surface a friendly error
+      // banner via `error`. The host can read what they tried to send,
+      // copy it, or retype.
       set((s) => ({
         threads: {
           ...s.threads,
-          [partyId]: (s.threads[partyId] ?? []).filter((m) => m !== optimistic),
+          [partyId]: markOptimisticFailed(s.threads[partyId] ?? [], optimistic),
         },
-        error: (err as Error).message,
+        error: getChatErrorMessage(err),
       }));
     }
   },
+  clearError: () => set({ error: null }),
 }));
 
 function replaceOptimistic(
@@ -115,4 +125,11 @@ function replaceOptimistic(
   const idx = thread.lastIndexOf(optimistic);
   if (idx < 0) return [...thread, server];
   return [...thread.slice(0, idx), server, ...thread.slice(idx + 1)];
+}
+
+function markOptimisticFailed(thread: ChatMessage[], optimistic: ChatMessage): ChatMessage[] {
+  const idx = thread.lastIndexOf(optimistic);
+  if (idx < 0) return thread;
+  const failed: ChatMessage = { ...optimistic, smsStatus: 'failed' };
+  return [...thread.slice(0, idx), failed, ...thread.slice(idx + 1)];
 }

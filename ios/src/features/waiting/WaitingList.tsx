@@ -8,10 +8,9 @@ import { useAuthStore } from '@/state/auth';
 import { useWaitlistStore } from '@/state/waitlist';
 import { theme } from '@/ui/theme';
 
+import { getChatErrorMessage } from '../chat/chatErrors';
 import { SeatDialog } from '../seat-dialog/SeatDialog';
 import { AddPartySheet } from './AddPartySheet';
-import { CustomCallDialog } from './CustomCallDialog';
-import { CustomSmsDialog } from './CustomSmsDialog';
 import { PartyRow } from './PartyRow';
 
 export function WaitingList() {
@@ -25,8 +24,6 @@ export function WaitingList() {
 
   const [refreshing, setRefreshing] = useState(false);
   const [seatTarget, setSeatTarget] = useState<WaitingParty | null>(null);
-  const [smsTarget, setSmsTarget] = useState<WaitingParty | null>(null);
-  const [callTarget, setCallTarget] = useState<WaitingParty | null>(null);
   const [notifying, setNotifying] = useState<string | null>(null);
   const [addOpen, setAddOpen] = useState(false);
 
@@ -56,12 +53,21 @@ export function WaitingList() {
     setNotifying(party.id);
     try {
       if (!locationId) throw new Error('No restaurant selected');
-      await calls.customCall(locationId, party.id);
+      const result = await calls.notify(locationId, party.id);
       await poll(); // refresh so the "called" state + re-notify UI reflect
       const action = party.state === 'called' ? 'Re-notified' : 'Notified';
-      Alert.alert('SMS sent', `${action} ${party.name}.`);
+      // Issue #102 #5: SMS may not have gone out if the diner didn't
+      // consent — surface that explicitly so the host knows whether the
+      // diner actually got an SMS or only the in-app notification.
+      const channelNote =
+        result.smsStatus === 'sent'
+          ? 'SMS sent.'
+          : result.smsStatus === 'not_configured'
+            ? 'No SMS — they didn’t opt in. They’ll see the notice in their web view.'
+            : 'SMS failed to send. They’ll see the notice in their web view.';
+      Alert.alert(`${action} ${party.name}`, channelNote);
     } catch (err) {
-      Alert.alert('Notify failed', (err as Error).message || 'Could not send SMS.');
+      Alert.alert('Notify failed', getChatErrorMessage(err));
     } finally {
       setNotifying(null);
     }
@@ -94,8 +100,6 @@ export function WaitingList() {
             baseAt={lastPolledAt ?? Date.now()}
             onSeat={(party) => setSeatTarget(party)}
             onNotify={(party) => void handleNotify(party)}
-            onCustomSms={(party) => setSmsTarget(party)}
-            onCustomCall={(party) => setCallTarget(party)}
             onRemove={handleRemove}
           />
         )}
@@ -118,8 +122,6 @@ export function WaitingList() {
         seated={seated}
         onClose={() => setSeatTarget(null)}
       />
-      <CustomSmsDialog party={smsTarget} onClose={() => setSmsTarget(null)} />
-      <CustomCallDialog party={callTarget} onClose={() => setCallTarget(null)} />
       <AddPartySheet visible={addOpen} onClose={() => setAddOpen(false)} />
     </View>
   );

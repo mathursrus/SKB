@@ -27,7 +27,16 @@ export interface WaitingParty {
   waitingMinutes: number;
   state: 'waiting' | 'called';
   unreadChat: number;
-  onMyWayAt: string | null;
+  // Whether the diner consented to SMS at join time. Drives the Notify
+  // button's "this will SMS them" path on the host side. Combined with
+  // the tenant-level `features.chat`, the host's compose surface is
+  // reachable when EITHER channel can deliver.
+  smsCapable?: boolean;
+  // Set ONLY after the diner taps "I'm on my way". The server omits the
+  // field entirely when unset (so it arrives as `undefined`, not `null`)
+  // — every consumer must check `onMyWayAt != null` (or just truthiness)
+  // rather than `!== null`, which would render the badge for every party.
+  onMyWayAt?: string;
   calls: { minutesAgo: number; smsStatus: string }[];
 }
 

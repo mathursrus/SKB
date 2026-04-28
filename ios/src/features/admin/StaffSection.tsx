@@ -85,7 +85,7 @@ export function StaffSection({ locationId, role }: { locationId: string; role: A
       'They will lose access to this restaurant immediately.',
       [
         { text: 'Cancel', style: 'cancel' },
-        { text: 'Remove', style: 'destructive', onPress: () => void revokeMember(member._id) },
+        { text: 'Remove', style: 'destructive', onPress: () => void revokeMember(member.membershipId) },
       ],
     );
   }
@@ -109,7 +109,7 @@ export function StaffSection({ locationId, role }: { locationId: string; role: A
       'The pending invite link will stop working.',
       [
         { text: 'Keep', style: 'cancel' },
-        { text: 'Cancel invite', style: 'destructive', onPress: () => void cancelInvite(invite._id) },
+        { text: 'Cancel invite', style: 'destructive', onPress: () => void cancelInvite(invite.id) },
       ],
     );
   }
@@ -138,9 +138,9 @@ export function StaffSection({ locationId, role }: { locationId: string; role: A
         {!loading && staff.length === 0 && <Text style={styles.muted}>No staff members yet.</Text>}
         {staff.map((m) => {
           const isOwnerRow = m.role === 'owner';
-          const isRevoking = revokingId === m._id;
+          const isRevoking = revokingId === m.membershipId;
           return (
-            <View key={m._id} style={styles.row}>
+            <View key={m.membershipId} style={styles.row}>
               <View style={styles.rowText}>
                 <Text style={styles.rowPrimary}>{m.name || m.email || 'Unknown'}</Text>
                 {m.email && m.name && <Text style={styles.rowSecondary}>{m.email}</Text>}
@@ -168,9 +168,9 @@ export function StaffSection({ locationId, role }: { locationId: string; role: A
         <View>
           <Text style={styles.sectionLabel}>Pending invites ({pending.length})</Text>
           {pending.map((p) => {
-            const isRevoking = revokingId === p._id;
+            const isRevoking = revokingId === p.id;
             return (
-              <View key={p._id} style={styles.row}>
+              <View key={p.id} style={styles.row}>
                 <View style={styles.rowText}>
                   <Text style={styles.rowPrimary}>{p.email}</Text>
                   {p.name && <Text style={styles.rowSecondary}>{p.name}</Text>}

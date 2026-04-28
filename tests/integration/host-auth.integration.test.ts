@@ -648,7 +648,7 @@ const cases: BaseTestCase[] = [
             const seatRes = await fetch(`${getTestServerUrl()}/api/host/queue/${party.id}/remove`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', Cookie: cookieValue },
-                body: JSON.stringify({ reason: 'seated', tableNumber: 44 }),
+                body: JSON.stringify({ reason: 'seated', tableNumber: 44, override: true }),
             });
             if (!seatRes.ok) return false;
 

@@ -71,8 +71,8 @@ const cases: BaseTestCase[] = [
             const js = await r.text();
             return js.includes('smsCapable')
                 && js.includes('web only')
-                && js.includes('Notify unavailable')
-                && js.includes('Custom SMS unavailable');
+                && js.includes('will go via SMS')
+                && js.includes('will appear in the diner');
         },
     },
     {

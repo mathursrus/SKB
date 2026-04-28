@@ -119,18 +119,22 @@
                     : '';
                 const notifyLabel = p.state === 'called' ? 'Re-notify' : 'Notify';
                 const hasPhone = !!p.phoneMasked && p.phoneMasked !== '—';
-                const disabledAttr = hasPhone ? '' : ' disabled';
                 const smsCapable = p.smsCapable === true;
-                const smsDisabledAttr = hasPhone && smsCapable ? '' : ' disabled';
-                const notifyTitle = !hasPhone
-                    ? 'Notify unavailable — no phone on file.'
-                    : (smsCapable ? '' : 'Notify unavailable \u2014 ' + SMS_OPT_IN_REASON);
-                const chatTitle = !hasPhone
-                    ? 'Chat unavailable — no phone on file.'
-                    : (smsCapable ? '' : 'Chat is web only \u2014 ' + SMS_OPT_IN_REASON);
-                const customSmsTitle = !hasPhone
-                    ? 'Custom SMS unavailable — no phone on file.'
-                    : (smsCapable ? 'Custom message' : 'Custom SMS unavailable \u2014 ' + SMS_OPT_IN_REASON);
+                // Notify and Chat reach the diner via SMS (when consented)
+                // AND via the in-app chat thread (when the tenant has chat
+                // enabled). The button stays enabled if EITHER channel works.
+                const inAppOk = features.chat;
+                const reachable = hasPhone && (smsCapable || inAppOk);
+                const reachDisabledAttr = reachable ? '' : ' disabled';
+                const channelHint = (verb) => {
+                    if (!hasPhone) return verb + ' unavailable \u2014 no phone on file.';
+                    if (smsCapable && inAppOk) return verb + ' will go via SMS and the diner\u2019s web chat.';
+                    if (smsCapable) return verb + ' will go via SMS.';
+                    if (inAppOk) return verb + ' will appear in the diner\u2019s web chat (no SMS \u2014 ' + SMS_OPT_IN_REASON + ').';
+                    return verb + ' unavailable \u2014 ' + SMS_OPT_IN_REASON;
+                };
+                const notifyTitle = channelHint(notifyLabel);
+                const chatTitle = channelHint('Chat');
                 const onWayBadge = p.onMyWayAt
                     ? ' <span class="badge-on-way">On the way</span>'
                     : '';
@@ -144,15 +148,11 @@
                 const rowActions = [
                     renderSentimentSelect(safeName, p.sentiment, p.sentimentSource),
                     '<button class="seat-btn" data-action="seat" aria-label="Seat ' + safeName + '">Seat</button>',
-                    '<button class="notify-btn" data-action="notify" aria-label="' + notifyLabel + ' ' + safeName + '"' + smsDisabledAttr + (notifyTitle ? ' title="' + escapeHtml(notifyTitle) + '"' : '') + '>' + notifyLabel + '</button>',
-                    features.chat
-                        ? '<button class="chat-btn" data-action="chat" aria-label="Chat with ' + safeName + (unread ? ', ' + unread + ' unread' : '') + '"' + disabledAttr + (chatTitle ? ' title="' + escapeHtml(chatTitle) + '"' : '') + '>Chat' + unreadDot + '</button>'
+                    '<button class="notify-btn" data-action="notify" aria-label="' + notifyLabel + ' ' + safeName + '"' + reachDisabledAttr + ' title="' + escapeHtml(notifyTitle) + '">' + notifyLabel + '</button>',
+                    inAppOk
+                        ? '<button class="chat-btn" data-action="chat" aria-label="Chat with ' + safeName + (unread ? ', ' + unread + ' unread' : '') + '"' + (hasPhone ? '' : ' disabled') + ' title="' + escapeHtml(chatTitle) + '">Chat' + unreadDot + '</button>'
                         : '',
                     '<a class="call-dial-btn rowbtn" data-action="call" href="' + callHref + '" aria-label="Call ' + safeName + '"' + callDisabled + '>Call</a>',
-                    features.sms
-                        ? '<button class="custom-sms-btn more-btn" data-action="custom-sms" aria-label="Custom message to ' + safeName + '"' + smsDisabledAttr + ' title="' + escapeHtml(customSmsTitle) + '">\u2709</button>'
-                        : '',
-                    '<button class="custom-call-btn more-btn" data-action="custom-call" aria-label="Confirm-and-call ' + safeName + '"' + disabledAttr + ' title="Confirm call">\u260E</button>',
                     '<button class="remove" data-reason="no_show" aria-label="Mark ' + safeName + ' as no-show">No-show</button>',
                 ].filter(Boolean).join('');
                 // data-label drives the mobile card-mode column labels
@@ -782,139 +782,6 @@
         });
     }
 
-    // ========================================================================
-    // Custom SMS (one-off free-text compose) + Custom Call (confirm dialer)
-    // ========================================================================
-    const customSmsDialog = document.getElementById('custom-sms-dialog');
-    const customSmsForm = document.getElementById('custom-sms-form');
-    const customSmsBody = document.getElementById('custom-sms-body');
-    const customSmsSendBtn = document.getElementById('custom-sms-send');
-    const customSmsToName = document.getElementById('custom-sms-to-name');
-    const customSmsToPhone = document.getElementById('custom-sms-to-phone');
-    const customSmsAlert = document.getElementById('custom-sms-alert');
-    const customSmsCharCount = document.getElementById('custom-sms-charcount');
-    const customSmsCancel = document.getElementById('custom-sms-cancel');
-    const customSmsCloseBtn = document.getElementById('custom-sms-close');
-    let customSmsTargetId = null;
-    let customSmsSubmitting = false;
-
-    function openCustomSms(id, name, phoneMasked) {
-        if (!customSmsDialog) return;
-        customSmsTargetId = id;
-        customSmsToName.textContent = name;
-        customSmsToPhone.textContent = phoneMasked || '';
-        customSmsBody.value = '';
-        customSmsCharCount.textContent = '0';
-        customSmsSendBtn.disabled = true;
-        customSmsAlert.style.display = 'none';
-        customSmsAlert.textContent = '';
-        if (typeof customSmsDialog.showModal === 'function') customSmsDialog.showModal();
-        else customSmsDialog.setAttribute('open', '');
-        setTimeout(() => customSmsBody.focus(), 0);
-    }
-
-    function closeCustomSms() {
-        if (!customSmsDialog) return;
-        if (typeof customSmsDialog.close === 'function') customSmsDialog.close();
-        else customSmsDialog.removeAttribute('open');
-        customSmsTargetId = null;
-    }
-
-    if (customSmsBody) {
-        customSmsBody.addEventListener('input', () => {
-            const len = customSmsBody.value.length;
-            customSmsCharCount.textContent = String(len);
-            customSmsSendBtn.disabled = customSmsBody.value.trim().length === 0;
-        });
-    }
-    if (customSmsCancel) customSmsCancel.addEventListener('click', (e) => { e.preventDefault(); closeCustomSms(); });
-    if (customSmsCloseBtn) customSmsCloseBtn.addEventListener('click', (e) => { e.preventDefault(); closeCustomSms(); });
-    if (customSmsForm) {
-        customSmsForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            if (customSmsSubmitting || !customSmsTargetId) return;
-            const body = customSmsBody.value.trim();
-            if (!body) {
-                customSmsAlert.textContent = 'Message cannot be empty.';
-                customSmsAlert.style.display = '';
-                return;
-            }
-            customSmsSubmitting = true;
-            customSmsSendBtn.disabled = true;
-            const oldLabel = customSmsSendBtn.textContent;
-            customSmsSendBtn.textContent = 'Sending…';
-            try {
-                const r = await fetch('api/host/queue/' + encodeURIComponent(customSmsTargetId) + '/chat', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ body }),
-                });
-                if (r.status === 401) { showLogin(); return; }
-                if (!r.ok) {
-                    const err = await r.json().catch(() => ({}));
-                    customSmsAlert.textContent = err.error || 'Send failed.';
-                    customSmsAlert.style.display = '';
-                    return;
-                }
-                closeCustomSms();
-                // Refresh host list so unread / delivery-status icons update.
-                refreshWaiting();
-            } catch {
-                customSmsAlert.textContent = 'Network error. Try again.';
-                customSmsAlert.style.display = '';
-            } finally {
-                customSmsSubmitting = false;
-                customSmsSendBtn.disabled = false;
-                customSmsSendBtn.textContent = oldLabel;
-            }
-        });
-    }
-
-    const customCallDialog = document.getElementById('custom-call-dialog');
-    const customCallToName = document.getElementById('custom-call-to-name');
-    const customCallToPhone = document.getElementById('custom-call-to-phone');
-    const customCallConfirm = document.getElementById('custom-call-confirm');
-    const customCallCancel = document.getElementById('custom-call-cancel');
-    const customCallCloseBtn = document.getElementById('custom-call-close');
-    let customCallTargetId = null;
-
-    function openCustomCall(id, name, phoneMasked, phoneDial) {
-        if (!customCallDialog) return;
-        customCallTargetId = id;
-        customCallToName.textContent = name;
-        customCallToPhone.textContent = phoneMasked || '';
-        if (phoneDial) {
-            customCallConfirm.setAttribute('href', 'tel:' + phoneDial);
-            customCallConfirm.removeAttribute('aria-disabled');
-        } else {
-            customCallConfirm.setAttribute('href', '#');
-            customCallConfirm.setAttribute('aria-disabled', 'true');
-        }
-        if (typeof customCallDialog.showModal === 'function') customCallDialog.showModal();
-        else customCallDialog.setAttribute('open', '');
-    }
-
-    function closeCustomCall() {
-        if (!customCallDialog) return;
-        if (typeof customCallDialog.close === 'function') customCallDialog.close();
-        else customCallDialog.removeAttribute('open');
-        customCallTargetId = null;
-    }
-
-    if (customCallCancel) customCallCancel.addEventListener('click', (e) => { e.preventDefault(); closeCustomCall(); });
-    if (customCallCloseBtn) customCallCloseBtn.addEventListener('click', (e) => { e.preventDefault(); closeCustomCall(); });
-    if (customCallConfirm) {
-        customCallConfirm.addEventListener('click', (e) => {
-            if (customCallConfirm.getAttribute('aria-disabled') === 'true') {
-                e.preventDefault();
-                return;
-            }
-            if (customCallTargetId) onCallLog(customCallTargetId);
-            // Let the browser handle the tel: navigation, then dismiss
-            setTimeout(closeCustomCall, 100);
-        });
-    }
-
     async function onAdvance(id, state) {
         const r = await fetch('api/host/queue/' + encodeURIComponent(id) + '/advance', {
             method: 'POST',
@@ -1030,22 +897,6 @@
                 return;
             }
             onCallLog(id);
-            return;
-        }
-        // Custom SMS — opens a one-off compose modal (distinct from the
-        // Chat drawer which carries the persistent thread context).
-        const customSmsBtn = target.closest('button.custom-sms-btn');
-        if (customSmsBtn) {
-            if (customSmsBtn.hasAttribute('disabled')) return;
-            openCustomSms(id, tr.dataset.name || '', tr.dataset.phoneMask || '');
-            return;
-        }
-        // Custom Call — opens a confirm-before-dial modal (safer on a
-        // shared device where accidental taps would otherwise auto-dial).
-        const customCallBtn = target.closest('button.custom-call-btn');
-        if (customCallBtn) {
-            if (customCallBtn.hasAttribute('disabled')) return;
-            openCustomCall(id, tr.dataset.name || '', tr.dataset.phoneMask || '', tr.dataset.phoneDial || '');
             return;
         }
         // No-show — still a direct remove

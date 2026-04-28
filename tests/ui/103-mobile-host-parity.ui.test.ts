@@ -33,17 +33,18 @@ import { startTestServer, stopTestServer, getTestServerUrl } from '../shared-ser
 
 const BASE = () => getTestServerUrl();
 
-// host.js:144-156 enumerates the Waiting-row action surface. Every selector
-// here MUST appear in the served host.js or the mobile redesign has
-// regressed feature parity vs. the desktop table (R12).
+// host.js Waiting-row action surface. Every selector here MUST appear in
+// the served host.js or the mobile redesign has regressed feature parity
+// vs. the desktop table (R12). Custom-SMS and Custom-Call were retired:
+// compose merged into the Chat drawer; the Call anchor needs no separate
+// confirm dialog. Only the three host comm channels — Notify, Chat, Call
+// — and Sentiment/Seat/No-show remain.
 const WAITING_ACTIONS = [
     'data-action="sentiment"',
     'data-action="seat"',
     'data-action="notify"',
     'data-action="chat"',
     'data-action="call"',
-    'data-action="custom-sms"',
-    'data-action="custom-call"',
     'data-reason="no_show"',
 ];
 
@@ -106,7 +107,7 @@ const cases: BaseTestCase[] = [
         },
     },
     {
-        name: 'host.js preserves all 8 Waiting row actions on mobile (R12 / §2a)',
+        name: 'host.js preserves all Waiting row actions on mobile (R12 / §2a)',
         tags: ['ui', 'issue-103', 'parity', 'waiting'],
         testFn: async () => {
             const r = await fetch(`${BASE()}/host.js`);

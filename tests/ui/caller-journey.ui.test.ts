@@ -50,14 +50,17 @@ async function seedCallerJourney(): Promise<void> {
         locationId: LOC,
     });
 
-    const startedAt = new Date('2026-04-25T19:00:00.000Z');
+    // Seed relative to now so the session always falls inside the admin
+     // page's default `range=1` (today-only) caller-stats filter.
+    const startedAt = new Date(Date.now() - 4 * 60 * 1000);
+    const stepAt = (offsetSec: number) => new Date(startedAt.getTime() + offsetSec * 1000);
     await voiceCallSessions(db).insertOne({
         locationId: LOC,
         callSid: 'CA-ui-journey',
         serviceDay: serviceDay(startedAt),
         startedAt,
-        lastEventAt: new Date('2026-04-25T19:04:00.000Z'),
-        endedAt: new Date('2026-04-25T19:04:00.000Z'),
+        lastEventAt: stepAt(240),
+        endedAt: stepAt(240),
         callerLast4: '0199',
         firstMenuChoice: 'join_waitlist',
         joinIntent: true,
@@ -69,12 +72,12 @@ async function seedCallerJourney(): Promise<void> {
         finalOutcome: 'joined_waitlist',
         steps: [
             { at: startedAt, event: 'incoming' },
-            { at: new Date('2026-04-25T19:00:10.000Z'), event: 'menu_choice', detail: 'join_waitlist' },
-            { at: new Date('2026-04-25T19:00:10.000Z'), event: 'join_intent' },
-            { at: new Date('2026-04-25T19:01:00.000Z'), event: 'name_captured', detail: 'normal' },
-            { at: new Date('2026-04-25T19:02:00.000Z'), event: 'size_captured', detail: '2' },
-            { at: new Date('2026-04-25T19:03:00.000Z'), event: 'phone_source', detail: 'caller_id' },
-            { at: new Date('2026-04-25T19:04:00.000Z'), event: 'joined', detail: 'SKB-123' },
+            { at: stepAt(10), event: 'menu_choice', detail: 'join_waitlist' },
+            { at: stepAt(10), event: 'join_intent' },
+            { at: stepAt(60), event: 'name_captured', detail: 'normal' },
+            { at: stepAt(120), event: 'size_captured', detail: '2' },
+            { at: stepAt(180), event: 'phone_source', detail: 'caller_id' },
+            { at: stepAt(240), event: 'joined', detail: 'SKB-123' },
         ],
     });
 }

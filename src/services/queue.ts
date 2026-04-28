@@ -4,7 +4,7 @@
 
 import { ObjectId } from 'mongodb';
 
-import { getDb, queueEntries } from '../core/db/mongo.js';
+import { getDb, queueEntries, queueMessages } from '../core/db/mongo.js';
 import { generateCode } from './codes.js';
 import { getAvgTurnTime } from './settings.js';
 import { addMinutes, minutesBetween, serviceDay } from '../core/utils/time.js';
@@ -471,16 +471,38 @@ export async function callParty(
     const entry = await queueEntries(db).findOne({ _id, state: { $in: ACTIVE_STATES } });
     if (!entry) return { ok: false, smsStatus: 'not_configured' };
 
-    // 2. Send SMS — but only if the diner opted in to messaging (TFV 30513).
-    // For non-consenting diners the host must signal in person or call.
+    // 2. Send the notification on whichever channels are configured.
+    //
+    //   - SMS goes out only when the tenant has SMS enabled AND the diner
+    //     consented (TFV 30513).
+    //   - When the tenant has in-app chat enabled, the same notification
+    //     also lands in the persistent queue_messages thread so the diner
+    //     sees it on their queue.html status page. This is the "in addition
+    //     to SMS" channel — both fire when both are on; either alone still
+    //     reaches the diner.
     const callCount = (entry.calls?.length ?? 0) + 1;
     const message = callCount === 1
         ? firstCallMessage(entry.code)
         : repeatCallMessage(entry.code, callCount);
-    const smsEnabled = getGuestFeatures(await getLocation(entry.locationId)).sms;
-    const smsResult = smsEnabled && entry.smsConsent === true
+    const features = getGuestFeatures(await getLocation(entry.locationId));
+    const smsResult = features.sms && entry.smsConsent === true
         ? await sendSms(entry.phone, message, { locationId: entry.locationId })
         : { successful: false, status: 'not_configured' as const, messageId: '' };
+
+    if (features.chat) {
+        await queueMessages(db).insertOne({
+            locationId: entry.locationId,
+            entryCode: entry.code,
+            entryId: id,
+            direction: 'outbound',
+            body: message,
+            createdAt: now,
+            twilioSid: smsResult.messageId || undefined,
+            smsStatus: smsResult.successful
+                ? 'sent'
+                : (smsResult.status === 'not_configured' ? 'not_configured' : 'failed'),
+        });
+    }
 
     // 3. Update state + push CallRecord (SMS failure does NOT block this)
     const callRecord: CallRecord = {

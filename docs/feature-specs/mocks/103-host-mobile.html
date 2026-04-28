@@ -1,0 +1,591 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Mock #103 — Host stand (mobile-first)</title>
+<link href="https://fonts.googleapis.com/css2?family=Fira+Sans:wght@400;600;700&display=swap" rel="stylesheet" />
+<style>
+  /* ============================================================
+     Mock #103 — Host stand, mobile-first redesign.
+
+     The current host page hard-codes viewport=1024 so on a phone
+     the entire layout shrinks. This redesign restores
+     width=device-width and converts the data tables into stacked
+     party cards while preserving the full host action surface and
+     all Seated-tab transition metrics.
+
+     v2 (2026-04-28, post-PR-feedback): Earlier draft trimmed the
+     8-action Waiting row to 4 buttons and dropped the Seated tab's
+     transition durations + state badge + sentiment + advance
+     ladder. This version restores all of:
+       - Waiting actions: Sentiment, Seat, Notify (incl. "Re-notify"),
+         Chat (with unread dot), Call (instant tel:), Custom SMS,
+         Custom Call (confirm-then-dial), No-show
+       - Waiting badges: called, on-way, sentiment, unread
+       - Seated metrics: Waited / To Order / To Serve / To Checkout
+         / state / In state / Total at table
+       - Seated actions: sentiment select, advance to next state
+         (Ordered/Served/Checkout/Departed ladder), Departed shortcut,
+         tap-to-expand timeline
+     ============================================================ */
+  :root {
+    --bg: #ffffff; --fg: #111111; --muted: #4d4c4c;
+    --accent: #e3bf3d; --border: #eaeaea; --divider: #f3f3f3;
+    --surface-alt: #fafafa; --danger: #b91c1c; --ok: #15803d;
+    --warn-bg: #fef3c7; --warn-border: #fde68a; --warn-fg: #92400e;
+    --info-bg: #eff6ff; --info-border: #bfdbfe; --info-fg: #1d4ed8;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 24px;
+    font-family: 'Fira Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: #ececec; color: var(--fg);
+  }
+  h1.mockTitle { font-size: 18px; font-weight: 700; margin: 0 0 4px; }
+  p.mockNote { color: #555; font-size: 13px; margin: 0 0 18px; max-width: 760px; }
+  .mockGrid { display: flex; gap: 32px; flex-wrap: wrap; align-items: flex-start; }
+  .phoneFrame {
+    width: 375px; height: 740px; background: #fff;
+    border: 8px solid #111; border-radius: 32px; overflow: hidden;
+    box-shadow: 0 12px 28px rgba(0,0,0,0.18); position: relative;
+  }
+  .phoneCaption {
+    text-align: center; margin-top: 10px; font-size: 13px;
+    color: #444; max-width: 375px;
+  }
+  .phoneCaption strong { color: #111; }
+  .desktopFrame {
+    width: 1024px; height: 540px; background: #fff;
+    border: 4px solid #111; border-radius: 8px; overflow: hidden;
+    box-shadow: 0 12px 28px rgba(0,0,0,0.14); position: relative;
+  }
+
+  /* ---------- Host page ---------- */
+  .host { background: var(--surface-alt); height: 100%; overflow-y: auto;
+          display: flex; flex-direction: column; }
+  .host .topbar {
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px 12px; background: #111; color: #fff;
+    border-bottom: 2px solid var(--accent);
+  }
+  .host .topbar .brand {
+    font-size: 13px; font-weight: 700; letter-spacing: 0.4px;
+    color: var(--accent); flex: 1; min-width: 0; white-space: nowrap;
+    overflow: hidden; text-overflow: ellipsis;
+  }
+  .host .topbar .iconbtn {
+    width: 36px; height: 36px; border-radius: 8px; border: none;
+    background: rgba(255,255,255,0.08); color: #fff; font-size: 16px;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+  }
+  .host .counts {
+    display: flex; gap: 0; padding: 6px 12px; background: #fff;
+    border-bottom: 1px solid var(--border); font-size: 12px;
+  }
+  .host .counts > div { flex: 1; text-align: center; padding: 4px 6px; }
+  .host .counts > div + div { border-left: 1px solid var(--divider); }
+  .host .counts strong {
+    display: block; font-size: 18px; color: #111; line-height: 1.1;
+  }
+  .host .counts .lbl { font-size: 10px; letter-spacing: 1px; color: var(--muted); text-transform: uppercase; }
+
+  .host .tabs {
+    display: flex; gap: 0; background: #fff; border-bottom: 1px solid var(--border);
+  }
+  .host .tabs .tab {
+    flex: 1; min-height: 44px; padding: 10px 6px; border: none; background: transparent;
+    font: inherit; font-size: 13px; font-weight: 600; color: var(--muted);
+    cursor: pointer; position: relative;
+  }
+  .host .tabs .tab.active { color: #111; }
+  .host .tabs .tab.active::after {
+    content: ''; position: absolute; left: 8px; right: 8px; bottom: 0;
+    height: 3px; background: var(--accent); border-radius: 2px;
+  }
+  .host .tabs .badge {
+    display: inline-block; min-width: 20px; padding: 1px 6px;
+    background: var(--surface-alt); border: 1px solid var(--border);
+    border-radius: 10px; font-size: 11px; margin-left: 4px;
+  }
+  .host .tabs .tab.active .badge {
+    background: #111; color: #fff; border-color: #111;
+  }
+
+  .host main { flex: 1; padding: 10px 12px 96px; overflow-y: auto; }
+
+  /* ----- Waiting card (full action surface) ----- */
+  .partyCard {
+    background: #fff; border: 1px solid var(--border); border-radius: 12px;
+    padding: 12px; margin-bottom: 10px; box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+    position: relative;
+  }
+  .partyCard.row-called { border-color: var(--accent); background: #fffdf3; }
+  .partyCard .row1 {
+    display: flex; align-items: center; gap: 8px; margin-bottom: 6px;
+  }
+  .partyCard .pos {
+    font-size: 18px; font-weight: 700; color: var(--accent);
+    min-width: 30px; text-align: left;
+  }
+  .partyCard .name {
+    font-size: 16px; font-weight: 600; color: #111; flex: 1;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .partyCard .size {
+    font-size: 12px; padding: 2px 8px; background: var(--surface-alt);
+    border: 1px solid var(--border); border-radius: 999px; color: var(--muted);
+    white-space: nowrap;
+  }
+
+  /* Inline name badges (called / on-way / unread) */
+  .badge {
+    display: inline-block; font-size: 10px; padding: 2px 6px; border-radius: 999px;
+    font-weight: 600; letter-spacing: 0.3px; vertical-align: middle;
+    margin-left: 4px;
+  }
+  .badge.called { background: var(--accent); color: #111; }
+  .badge.on-way { background: var(--info-bg); color: var(--info-fg); border: 1px solid var(--info-border); }
+  .badge.unread { background: var(--danger); color: #fff; }
+  .sentiment-dot {
+    display: inline-block; width: 8px; height: 8px; border-radius: 50%;
+    margin-left: 6px; vertical-align: middle;
+  }
+  .sentiment-dot.happy   { background: #16a34a; }
+  .sentiment-dot.neutral { background: #facc15; }
+  .sentiment-dot.upset   { background: #dc2626; }
+
+  .partyCard .meta {
+    font-size: 12px; color: var(--muted); margin-bottom: 10px;
+    display: flex; gap: 6px; flex-wrap: wrap;
+  }
+  .partyCard .meta .pill {
+    background: var(--surface-alt); border: 1px solid var(--border);
+    padding: 2px 8px; border-radius: 999px;
+  }
+  .partyCard .meta .pill.warn { background: var(--warn-bg); border-color: var(--warn-border); color: var(--warn-fg); }
+
+  /* Action row — primary line + secondary row icons + sentiment + no-show */
+  .partyCard .actions-primary {
+    display: grid; grid-template-columns: 1.2fr 1fr; gap: 8px; margin-bottom: 6px;
+  }
+  .partyCard .actions-secondary {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px;
+  }
+  .partyCard .actions-tertiary {
+    display: grid; grid-template-columns: 1fr auto; gap: 8px; margin-top: 6px;
+    align-items: center;
+  }
+  .partyCard button, .partyCard a.btn, .partyCard select {
+    min-height: 44px; padding: 8px 10px; border-radius: 8px;
+    font: inherit; font-size: 13px; font-weight: 600; cursor: pointer;
+    background: #fff; color: #111; border: 1px solid var(--border);
+    text-align: center; text-decoration: none;
+    display: flex; align-items: center; justify-content: center; gap: 4px;
+  }
+  .partyCard button.primary, .partyCard a.btn.primary {
+    background: #111; color: #fff; border-color: #111;
+  }
+  .partyCard button.notify, .partyCard a.btn.notify {
+    background: var(--accent); color: #111; border-color: var(--accent);
+  }
+  .partyCard button.danger { color: var(--danger); border-color: #fecaca; }
+  .partyCard button.icon { font-size: 16px; padding: 8px 6px; }
+  .partyCard .unread-mini {
+    display: inline-flex; align-items: center; justify-content: center;
+    min-width: 16px; height: 16px; padding: 0 4px; margin-left: 4px;
+    border-radius: 8px; background: var(--danger); color: #fff;
+    font-size: 10px; font-weight: 700;
+  }
+  .partyCard select.sentiment {
+    background: #fff;
+    background-image:
+      linear-gradient(45deg, transparent 50%, var(--muted) 50%),
+      linear-gradient(135deg, var(--muted) 50%, transparent 50%);
+    background-position: calc(100% - 14px) 50%, calc(100% - 9px) 50%;
+    background-size: 5px 5px, 5px 5px;
+    background-repeat: no-repeat;
+    appearance: none; padding-right: 24px; flex: 1;
+    text-align: left; justify-content: flex-start;
+  }
+
+  /* ----- Seated card (preserves all 7 metric columns + state ladder) ----- */
+  .seatedCard {
+    background: #fff; border: 1px solid var(--border); border-radius: 12px;
+    padding: 12px; margin-bottom: 10px; box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+  }
+  .seatedCard .row1 { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+  .seatedCard .table-num {
+    font-size: 11px; letter-spacing: 0.5px; text-transform: uppercase; color: var(--muted);
+    background: #111; color: var(--accent); padding: 4px 10px; border-radius: 6px;
+    font-weight: 700;
+  }
+  .seatedCard .table-num strong { font-size: 16px; }
+  .seatedCard .name { font-size: 15px; font-weight: 600; color: #111; flex: 1; }
+  .seatedCard .size {
+    font-size: 12px; padding: 2px 8px; background: var(--surface-alt);
+    border: 1px solid var(--border); border-radius: 999px; color: var(--muted);
+  }
+  .seatedCard .state-row {
+    display: flex; align-items: center; gap: 6px; margin-bottom: 8px;
+    font-size: 12px; color: var(--muted);
+  }
+  .state-badge {
+    font-size: 11px; padding: 3px 8px; border-radius: 6px; font-weight: 600;
+    letter-spacing: 0.3px; text-transform: uppercase;
+  }
+  .state-badge.state-seated { background: var(--info-bg); color: var(--info-fg); }
+  .state-badge.state-ordered { background: #fef3c7; color: #92400e; }
+  .state-badge.state-served { background: #dcfce7; color: #166534; }
+  .state-badge.state-checkout { background: #ede9fe; color: #6b21a8; }
+
+  /* Transition pills row — Waited / To Order / To Serve / To Checkout */
+  .transitions {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px;
+    margin-bottom: 8px; font-size: 11px;
+  }
+  .transit-pill {
+    text-align: center; padding: 4px 6px; border-radius: 6px;
+    background: var(--surface-alt); border: 1px solid var(--divider);
+  }
+  .transit-pill .lbl {
+    display: block; font-size: 9px; letter-spacing: 0.4px;
+    text-transform: uppercase; color: var(--muted);
+  }
+  .transit-pill .val { font-weight: 700; color: #111; font-size: 13px; }
+  .transit-pill.empty .val { color: #cbd5e1; }
+  .transit-pill.filled { background: #fff; border-color: var(--accent); }
+  .transit-pill.filled .val { color: var(--accent); }
+
+  .seatedCard .totals {
+    display: flex; gap: 8px; font-size: 11px; color: var(--muted); margin-bottom: 10px;
+  }
+  .seatedCard .totals .pill {
+    background: var(--surface-alt); border: 1px solid var(--divider);
+    padding: 2px 8px; border-radius: 999px;
+  }
+  .seatedCard .actions-row {
+    display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 6px;
+  }
+  .seatedCard button, .seatedCard select {
+    min-height: 44px; padding: 8px 10px; border-radius: 8px;
+    font: inherit; font-size: 13px; font-weight: 600; cursor: pointer;
+    background: #fff; color: #111; border: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .seatedCard button.primary { background: #111; color: #fff; border-color: #111; }
+  .seatedCard button.depart { color: var(--muted); }
+  .seatedCard select.sentiment {
+    appearance: none; padding: 8px 10px; min-height: 44px;
+  }
+  .seatedCard .timeline-toggle {
+    display: block; width: 100%; margin-top: 8px;
+    padding: 6px; font-size: 11px; color: var(--muted);
+    background: transparent; border: none; cursor: pointer; letter-spacing: 0.3px;
+  }
+  .seatedCard .timeline-toggle:hover { color: #111; }
+
+  /* Sticky bottom action bar */
+  .actionBar {
+    position: absolute; left: 0; right: 0; bottom: 0;
+    display: flex; gap: 8px; padding: 10px 12px;
+    background: rgba(255,255,255,0.96);
+    border-top: 1px solid var(--border);
+    box-shadow: 0 -4px 12px rgba(0,0,0,0.06);
+    backdrop-filter: blur(6px);
+  }
+  .actionBar .add {
+    flex: 1.4; min-height: 48px; border-radius: 10px;
+    background: var(--accent); color: #111; font-weight: 700;
+    border: none; font-size: 15px; cursor: pointer;
+  }
+  .actionBar .eta {
+    display: flex; align-items: center; gap: 6px;
+    background: var(--surface-alt); border: 1px solid var(--border);
+    border-radius: 10px; padding: 6px 10px; font-size: 13px;
+  }
+  .actionBar .eta select, .actionBar .eta input {
+    background: transparent; border: none; font: inherit;
+    font-weight: 600; color: #111; padding: 0; min-width: 0;
+  }
+  .actionBar .eta input { width: 36px; text-align: center; }
+
+  /* Desktop view */
+  .desktopFrame .host main { padding: 16px 20px 16px; }
+  .desktopFrame table {
+    width: 100%; border-collapse: collapse; background: #fff;
+    border: 1px solid var(--border); border-radius: 8px; overflow: hidden;
+    font-size: 13px;
+  }
+  .desktopFrame th, .desktopFrame td {
+    padding: 8px 10px; border-bottom: 1px solid var(--divider); text-align: left;
+  }
+  .desktopFrame th { background: var(--surface-alt); font-weight: 600; color: var(--muted); font-size: 11px; letter-spacing: 0.5px; text-transform: uppercase; }
+  .desktopFrame .desktopBar {
+    display: flex; gap: 8px; align-items: center; padding: 8px 12px;
+    background: #111; color: #fff; border-bottom: 2px solid var(--accent);
+  }
+  .desktopFrame .desktopBar .brand { color: var(--accent); font-weight: 700; font-size: 14px; }
+  .desktopFrame .desktopBar .grow { flex: 1; }
+  .desktopFrame .desktopBar .pill { padding: 4px 10px; background: rgba(255,255,255,0.08); border-radius: 6px; font-size: 12px; }
+  .desktopFrame .desktopBar .add { background: var(--accent); color: #111; border: none; padding: 8px 14px; border-radius: 8px; font-weight: 700; cursor: pointer; }
+  .desktopFrame .desktopBar .iconbtn { width: 32px; height: 32px; border-radius: 6px; background: rgba(255,255,255,0.08); border: none; color: #fff; cursor: pointer; }
+
+</style>
+</head>
+<body>
+
+<h1 class="mockTitle">Mock #103b — Host stand (375 × 740 mobile + 1024 desktop)</h1>
+<p class="mockNote">
+  <strong>v2 (2026-04-28).</strong> Restores the full host action surface that was trimmed in v1.
+  <strong>Waiting card</strong> now shows all 8 row actions (Sentiment · Seat · Notify/Re-notify ·
+  Chat · Call · Custom SMS · Custom Call · No-show) plus all status badges (called, on-way, unread,
+  sentiment dot). <strong>Seated card</strong> preserves all 7 metric columns from the desktop table
+  (Waited / To Order / To Serve / To Checkout / state / In state / Total at table) plus the full
+  state-advance ladder (Ordered → Served → Checkout → Departed) and tap-to-expand timeline. Phone
+  height is 740 px in this mock so a single full card is visible without crop; on a real iPhone-SE
+  667 px screen the topbar + counts + tabs + first card all fit, with cards 2+ revealed by scroll
+  (which is expected — the existing desktop table also scrolls when there are many parties).
+</p>
+
+<div class="mockGrid">
+
+  <!-- MOBILE: Waiting tab — full action surface -->
+  <div>
+    <div class="phoneFrame">
+      <div class="host">
+        <div class="topbar">
+          <div class="brand">SKB Host Stand</div>
+          <button class="iconbtn" title="Theme">☀</button>
+          <button class="iconbtn" title="Admin">⚙</button>
+          <button class="iconbtn" title="Log out">⎋</button>
+        </div>
+        <div class="counts">
+          <div><strong>5</strong><span class="lbl">Waiting</span></div>
+          <div><strong>8</strong><span class="lbl">Dining</span></div>
+          <div><strong>22m</strong><span class="lbl">Oldest</span></div>
+        </div>
+        <div class="tabs">
+          <button class="tab active">Waiting <span class="badge">5</span></button>
+          <button class="tab">Seated <span class="badge">8</span></button>
+          <button class="tab">Complete</button>
+        </div>
+        <main>
+          <!-- Card 1: called party with on-way + unread chat -->
+          <div class="partyCard row-called">
+            <div class="row1">
+              <span class="pos">#1</span>
+              <span class="name">
+                Patel, R.
+                <span class="sentiment-dot happy" title="Happy"></span>
+                <span class="badge called">CALLED</span>
+                <span class="badge on-way">ON WAY</span>
+              </span>
+              <span class="size">4 ppl</span>
+            </div>
+            <div class="meta">
+              <span class="pill">📞 (•••) •••-1234</span>
+              <span class="pill warn">22m waiting</span>
+              <span class="pill">Promised 7:32</span>
+            </div>
+            <div class="actions-primary">
+              <button class="primary">Seat</button>
+              <button class="notify">Re-notify</button>
+            </div>
+            <div class="actions-secondary">
+              <a href="tel:..." class="btn icon" title="Call now">📞 Call</a>
+              <button class="icon" title="Chat">💬 Chat<span class="unread-mini">2</span></button>
+              <button class="icon" title="Custom SMS">✉ SMS</button>
+              <button class="icon" title="Confirm-and-call">☎ Conf</button>
+            </div>
+            <div class="actions-tertiary">
+              <select class="sentiment" aria-label="Sentiment">
+                <option>😊 Happy</option>
+                <option>😐 Neutral</option>
+                <option>😠 Upset</option>
+              </select>
+              <button class="danger">No-show</button>
+            </div>
+          </div>
+
+          <!-- Card 2: standard waiting party -->
+          <div class="partyCard">
+            <div class="row1">
+              <span class="pos">#2</span>
+              <span class="name">Krishnan, M.</span>
+              <span class="size">2 ppl</span>
+            </div>
+            <div class="meta">
+              <span class="pill">📞 (•••) •••-0007</span>
+              <span class="pill">14m waiting</span>
+            </div>
+            <div class="actions-primary">
+              <button class="primary">Seat</button>
+              <button class="notify">Notify</button>
+            </div>
+            <div class="actions-secondary">
+              <a href="tel:..." class="btn icon">📞 Call</a>
+              <button class="icon">💬 Chat</button>
+              <button class="icon">✉ SMS</button>
+              <button class="icon">☎ Conf</button>
+            </div>
+            <div class="actions-tertiary">
+              <select class="sentiment"><option>Set sentiment</option></select>
+              <button class="danger">No-show</button>
+            </div>
+          </div>
+        </main>
+        <div class="actionBar">
+          <button class="add">+ Add party</button>
+          <div class="eta">
+            <span>ETA</span>
+            <select><option>Manual</option><option>Dynamic</option></select>
+            <input value="8" />
+            <span>m</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="phoneCaption">
+      <strong>Waiting tab.</strong> Full 8-action surface + all badges preserved.
+    </div>
+  </div>
+
+  <!-- MOBILE: Seated tab — preserves all 7 metric columns -->
+  <div>
+    <div class="phoneFrame">
+      <div class="host">
+        <div class="topbar">
+          <div class="brand">SKB Host Stand</div>
+          <button class="iconbtn" title="Theme">☀</button>
+          <button class="iconbtn" title="Admin">⚙</button>
+          <button class="iconbtn" title="Log out">⎋</button>
+        </div>
+        <div class="counts">
+          <div><strong>5</strong><span class="lbl">Waiting</span></div>
+          <div><strong>8</strong><span class="lbl">Dining</span></div>
+          <div><strong>22m</strong><span class="lbl">Oldest</span></div>
+        </div>
+        <div class="tabs">
+          <button class="tab">Waiting <span class="badge">5</span></button>
+          <button class="tab active">Seated <span class="badge">8</span></button>
+          <button class="tab">Complete</button>
+        </div>
+        <main>
+          <div class="seatedCard">
+            <div class="row1">
+              <span class="table-num">T<strong>7</strong></span>
+              <span class="name">Iyer, S. <span class="sentiment-dot happy"></span></span>
+              <span class="size">3 ppl</span>
+            </div>
+            <div class="state-row">
+              <span class="state-badge state-ordered">Ordered</span>
+              <span>· in state <strong style="color:#111">6m</strong></span>
+            </div>
+            <div class="transitions">
+              <div class="transit-pill filled"><span class="lbl">Waited</span><span class="val">14m</span></div>
+              <div class="transit-pill filled"><span class="lbl">To order</span><span class="val">12m</span></div>
+              <div class="transit-pill empty"><span class="lbl">To serve</span><span class="val">—</span></div>
+              <div class="transit-pill empty"><span class="lbl">Dining</span><span class="val">—</span></div>
+            </div>
+            <div class="totals">
+              <span class="pill">@ table <strong style="color:#111">18m</strong></span>
+            </div>
+            <div class="actions-row">
+              <button class="primary">Mark served</button>
+              <button class="depart">Depart</button>
+              <select class="sentiment"><option>😊</option><option>😐</option><option>😠</option></select>
+            </div>
+            <button class="timeline-toggle">▾ Show timeline</button>
+          </div>
+
+          <div class="seatedCard">
+            <div class="row1">
+              <span class="table-num">T<strong>3</strong></span>
+              <span class="name">Rao, V.</span>
+              <span class="size">2 ppl</span>
+            </div>
+            <div class="state-row">
+              <span class="state-badge state-served">Served</span>
+              <span>· in state <strong style="color:#111">14m</strong></span>
+            </div>
+            <div class="transitions">
+              <div class="transit-pill filled"><span class="lbl">Waited</span><span class="val">8m</span></div>
+              <div class="transit-pill filled"><span class="lbl">To order</span><span class="val">6m</span></div>
+              <div class="transit-pill filled"><span class="lbl">To serve</span><span class="val">10m</span></div>
+              <div class="transit-pill empty"><span class="lbl">Dining</span><span class="val">—</span></div>
+            </div>
+            <div class="totals">
+              <span class="pill">@ table <strong style="color:#111">32m</strong></span>
+            </div>
+            <div class="actions-row">
+              <button class="primary">Checkout</button>
+              <button class="depart">Depart</button>
+              <select class="sentiment"><option>Set</option></select>
+            </div>
+            <button class="timeline-toggle">▾ Show timeline</button>
+          </div>
+        </main>
+        <div class="actionBar">
+          <button class="add">+ Add party</button>
+          <div class="eta">
+            <span>ETA</span>
+            <select><option>Manual</option><option>Dynamic</option></select>
+            <input value="8" />
+            <span>m</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="phoneCaption">
+      <strong>Seated tab.</strong> All 7 metric columns + state ladder + sentiment + timeline preserved.
+    </div>
+  </div>
+
+  <!-- DESKTOP -->
+  <div style="width:100%;margin-top:24px">
+    <h2 style="font-size:15px;font-weight:600;margin:0 0 6px;">Desktop ≥ 1024 px (tablet host stand)</h2>
+    <div class="desktopFrame">
+      <div class="host">
+        <div class="desktopBar">
+          <div class="brand">SKB Host Stand</div>
+          <div class="pill"><strong>5</strong> waiting</div>
+          <div class="pill"><strong>8</strong> dining</div>
+          <div class="pill">oldest <strong>22m</strong></div>
+          <div class="grow"></div>
+          <div class="pill" style="display:flex;gap:6px;align-items:center">
+            ETA <select style="background:transparent;border:none;color:#fff"><option>Manual</option></select>
+            <input style="width:36px;background:transparent;border:none;color:#fff;text-align:center" value="8" /> m
+          </div>
+          <button class="add">+ Add party</button>
+          <button class="iconbtn">☀</button>
+          <button class="iconbtn">⚙</button>
+          <button class="iconbtn">⎋</button>
+        </div>
+        <div class="tabs" style="border-bottom:1px solid var(--border)">
+          <button class="tab active">Waiting <span class="badge">5</span></button>
+          <button class="tab">Seated <span class="badge">8</span></button>
+          <button class="tab">Complete</button>
+        </div>
+        <main>
+          <table>
+            <thead><tr><th>#</th><th>Name</th><th>Size</th><th>Phone</th><th>Promised</th><th>Waiting</th><th>Actions</th></tr></thead>
+            <tbody>
+              <tr><td>1</td><td>Patel, R. <span class="badge called" style="font-size:9px">CALLED</span></td><td>4</td><td>(•••) •••-1234</td><td>7:32 PM</td><td>22m</td><td style="font-size:11px">Sent. · Seat · Re-notify · Chat · Call · ✉ · ☎ · No-show</td></tr>
+              <tr><td>2</td><td>Krishnan, M.</td><td>2</td><td>(•••) •••-0007</td><td>7:40 PM</td><td>14m</td><td style="font-size:11px">Sent. · Seat · Notify · Chat · Call · ✉ · ☎ · No-show</td></tr>
+              <tr><td>3</td><td>Singh, A.</td><td>6</td><td>(•••) •••-9911</td><td>7:55 PM</td><td>9m</td><td style="font-size:11px">…full action set…</td></tr>
+            </tbody>
+          </table>
+        </main>
+      </div>
+    </div>
+    <p class="phoneCaption" style="text-align:left;margin-top:6px;max-width:1024px">
+      <strong>Desktop.</strong> Existing table density preserved at 1024+ — same data, same actions, same code path; the breakpoint is purely a CSS swap.
+    </p>
+  </div>
+
+</div>
+
+</body>
+</html>

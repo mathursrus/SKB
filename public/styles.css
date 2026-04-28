@@ -4123,4 +4123,375 @@ a#custom-call-confirm[aria-disabled="true"] {
 }
 .admin-toast-success { background: #166534; }
 .admin-toast-info { background: #1f2937; }
+
+/* ============================================================================
+   Issue #103 — mobile usability (operator feedback)
+   ============================================================================
+   Two-block responsive uplift driven by spec
+   docs/feature-specs/103-mobile-usability-waitlist-and-host.md.
+
+     1. Diner waitlist block (<=480px): trims the .diner header and replaces
+        the .status card with a slim strip so the join form sits above the
+        667 px fold (R1). Adds the .form-2up grid for size+phone (R3).
+        Compacts #conf-card so the post-join public list stays in viewport
+        (R11).
+
+     2. Host stand block (<=720px): table-to-card transform via display
+        swaps; column labels via td::before { content: attr(data-label) }
+        (R5); >=44 px tap targets (R6); sticky bottom action bar replaces
+        the topbar add-party + ETA controls (R7); compact topbar icons
+        (R8); zero horizontal overflow (R9). Same DOM as desktop, full
+        feature parity per R12 / Validation §2a.
+
+   Order matters: this block is at the end of styles.css so its rules win
+   over any earlier @media (max-width: 640|600|360) blocks targeting the
+   same elements.
+   ============================================================================ */
+
+/* ----- 1. Diner waitlist mobile (R1, R3, R11) ----- */
+
+/* Form 2-up grid (size + phone share a row at 321-480 px). At >480 px the
+   wrapper is a no-op block, so the inputs render full-width as before. */
+.form-2up {
+    display: grid;
+    grid-template-columns: 1fr 1.6fr;
+    gap: 10px;
+}
+.form-2up .form-2up-cell label { margin-top: 0; }
+
+/* Below 320 px (older Android budget devices) the 2-up cramps the phone
+   input. Fall back to a single column. */
+@media (max-width: 320px) {
+    .form-2up { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 480px) {
+    /* Compact diner header — trims ~70 px from the top of the page so the
+       join form lands above the 667 px fold. Brand mark is inlined with
+       the name to drop the second visual row entirely; "Place in Line"
+       sub is hidden on this breakpoint per spec OQ-1 default. */
+    .diner header {
+        padding: 10px 16px 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        flex-wrap: wrap;
+    }
+    .diner header .mark {
+        font-size: 14px;
+        letter-spacing: 4px;
+        padding: 2px 8px;
+        margin-bottom: 0;
+        border-width: 1.5px;
+    }
+    .diner header h1 { font-size: 15px; }
+    .diner header .sub { display: none; }
+    .diner header .theme-toggle-btn {
+        position: absolute;
+        right: 10px;
+        top: 8px;
+    }
+
+    .diner main { padding: 12px 16px; }
+
+    /* Status card -> slim horizontal strip. We keep the card class names
+       (queue.js writes to #line-len, #eta-new) but reshape the visual
+       container into a one-line summary. */
+    .diner .card.status {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 8px 12px;
+        margin-bottom: 12px;
+        border-radius: 10px;
+    }
+    .status .line-len {
+        font-size: 22px;
+        line-height: 1;
+    }
+    .status .line-label {
+        font-size: 11px;
+        margin-top: 0;
+    }
+    .status .eta {
+        margin-top: 0;
+        padding-top: 0;
+        border-top: none;
+        font-size: 13px;
+        margin-left: auto;
+    }
+
+    /* Join card padding tightens so the form fits in the remaining space
+       above the fold. Submit-button min-height stays at the existing
+       48 px (set on button.primary at the top of this file) for tap. */
+    .diner .card { padding: 14px; }
+    .card label { margin-top: 8px; }
+    input[type=text], input[type=tel], input[type=number], input[type=password] {
+        padding: 10px 12px;
+    }
+
+    /* Compact post-join confirmation card — keeps #public-list-card's
+       first row inside the 667 px viewport (R11). We DO NOT hide any of
+       the post-join surfaces (callout, chat-card, public-list-card);
+       only the visual chrome of #conf-card shrinks. */
+    .card.confirmation {
+        padding: 16px;
+    }
+    .confirmation .pos {
+        font-size: 44px;
+        line-height: 1;
+    }
+    .confirmation .pos-label {
+        font-size: 10px;
+    }
+    .confirmation .code {
+        font-size: 12px;
+    }
+    .confirmation .eta-time {
+        margin-top: 8px;
+        font-size: 13px;
+    }
+    .confirmation .hint {
+        margin-top: 6px;
+        font-size: 11px;
+    }
+}
+
+/* ----- 2. Host stand mobile (R4, R5, R6, R7, R8, R9, R12) ----- */
+
+/* Mobile sticky action bar wrapper. Hidden on tablet/desktop where the
+   topbar already carries these controls. Uses position:fixed so it stays
+   thumb-reachable regardless of card-list scroll. */
+body.host:not(.admin-page) .mobile-action-bar { display: none; }
+
+@media (max-width: 720px) {
+    /* Reserve space at the bottom of the host page so the sticky action
+       bar doesn't cover the last party card. */
+    body.host:not(.admin-page) { padding-bottom: 96px; }
+
+    /* Topbar collapse — icons only for theme/admin/logout, brand
+       truncated. Counts stay readable; turn-time + add-party MOVE to the
+       sticky bottom bar via display:none here. */
+    body.host:not(.admin-page) .topbar {
+        flex-wrap: wrap;
+        gap: 6px;
+        padding: 8px 10px;
+    }
+    body.host:not(.admin-page) .topbar .brand {
+        flex: 1 1 auto;
+        min-width: 0;
+        font-size: 13px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    body.host:not(.admin-page) .topbar .counts {
+        flex: 1 1 100%;
+        order: 2;
+        gap: 6px;
+        font-size: 12px;
+        padding: 4px 0;
+    }
+    body.host:not(.admin-page) .topbar .counts > div {
+        flex: 1;
+        text-align: center;
+    }
+    /* The topbar's add-party button + ETA wrapper are duplicated in the
+       sticky mobile-action-bar at this breakpoint; hide the originals so
+       the host doesn't see two of each. */
+    body.host:not(.admin-page) .topbar .turn,
+    body.host:not(.admin-page) .topbar-add-btn,
+    body.host:not(.admin-page) #open-admin-link {
+        display: none;
+    }
+    body.host:not(.admin-page) .topbar .logout,
+    body.host:not(.admin-page) .topbar .theme-toggle-btn {
+        min-height: 36px;
+        min-width: 36px;
+    }
+
+    /* Tab strip — full-width 44 px tap targets. */
+    body.host:not(.admin-page) .tabs .tab {
+        min-height: 44px;
+        font-size: 13px;
+        padding: 10px 6px;
+    }
+
+    /* Table -> card-stack transform. Each <tr> becomes a card; each <td>
+       becomes a labelled row inside it. The label is sourced from
+       data-label which host.js attaches to every td (parity with the
+       desktop <th> cells). This pattern preserves the ENTIRE existing
+       DOM and JS — no parallel renderer, full feature parity (R12). */
+    body.host:not(.admin-page) main { padding: 10px 12px; }
+    body.host:not(.admin-page) table { display: block; width: 100%; }
+    body.host:not(.admin-page) thead { display: none; }
+    body.host:not(.admin-page) tbody { display: block; }
+    body.host:not(.admin-page) tr {
+        display: block;
+        background: #fff;
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 10px 12px;
+        margin-bottom: 10px;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+    }
+    body.host:not(.admin-page) tr.row-called {
+        border-color: var(--accent);
+        background: #fffdf3;
+    }
+    body.host:not(.admin-page) tr.timeline-row {
+        padding: 0;
+        margin-top: -8px;
+        margin-bottom: 10px;
+    }
+    body.host:not(.admin-page) td {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        padding: 6px 0;
+        border-bottom: 1px solid var(--divider);
+        text-align: left;
+    }
+    body.host:not(.admin-page) td:last-child { border-bottom: none; }
+    body.host:not(.admin-page) td[data-label]:not([data-label=""])::before {
+        content: attr(data-label);
+        flex: 0 0 auto;
+        font-size: 10px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        color: var(--muted);
+    }
+    /* Empty data-label still suppresses ::before — `td.actions` and other
+       chromeless cells use data-label="" so they don't print "ACTIONS:". */
+    body.host:not(.admin-page) td[data-label=""]::before { content: none; }
+
+    /* td.empty (the "No completed parties." placeholder) needs to look
+       like a card body, not a labelled row. */
+    body.host:not(.admin-page) td.empty {
+        justify-content: center;
+        padding: 16px;
+        color: var(--muted);
+        border-bottom: none;
+    }
+
+    /* Number / table cell — accent-coloured, full row when paired with name. */
+    body.host:not(.admin-page) td.num,
+    body.host:not(.admin-page) td.table-num {
+        font-size: 14px;
+        font-weight: 700;
+        color: var(--accent);
+    }
+
+    /* Actions cell wraps and lays out buttons in a 4-up grid so all 8
+       Waiting actions remain visible without overflow. justify-content
+       changes from space-between to flex-start for actions because the
+       row-buttons themselves do the spacing. */
+    body.host:not(.admin-page) td.actions {
+        flex-wrap: wrap;
+        justify-content: flex-start;
+        gap: 6px;
+        padding-top: 10px;
+    }
+    body.host:not(.admin-page) td.actions::before { content: none; }
+    body.host:not(.admin-page) td.actions > * {
+        flex: 1 1 calc(25% - 6px);
+        min-height: 44px;
+        min-width: 44px;
+        font-size: 12px;
+        padding: 8px 6px;
+    }
+    /* The notify button gets the gold accent in card mode so the
+       highest-frequency host action stands out. */
+    body.host:not(.admin-page) td.actions > .notify-btn {
+        background: var(--accent);
+        color: #111;
+        border-color: var(--accent);
+    }
+    /* The sentiment select takes a full row to keep the dropdown
+       readable on a narrow screen. */
+    body.host:not(.admin-page) td.actions > .sentiment-select {
+        flex: 1 1 100%;
+        min-height: 44px;
+    }
+
+    /* Transit cells — render as inline metric pills inside the labelled
+       row, not as the desktop's separate columns. */
+    body.host:not(.admin-page) td.transit-cell .filled,
+    body.host:not(.admin-page) td.transit-cell.filled,
+    body.host:not(.admin-page) td.transit-cell.empty {
+        font-weight: 700;
+    }
+
+    /* Sticky bottom action bar — visible only at <720px (display: flex
+       overrides the body.host:not(.admin-page) .mobile-action-bar { display: none } above). */
+    body.host:not(.admin-page) .mobile-action-bar {
+        display: flex;
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        gap: 8px;
+        padding: 10px 12px;
+        background: rgba(255,255,255,0.96);
+        border-top: 1px solid var(--border);
+        box-shadow: 0 -4px 12px rgba(0,0,0,0.06);
+        z-index: 10;
+    }
+    body.host:not(.admin-page) .mobile-action-bar .mobile-add-btn {
+        flex: 1.4;
+        min-height: 48px;
+        margin-top: 0;
+        background: var(--accent);
+        color: #111;
+        border: none;
+        border-radius: 10px;
+        font-weight: 700;
+    }
+    body.host:not(.admin-page) .mobile-action-bar .mobile-eta {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        background: var(--surface-alt);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 6px 10px;
+        min-height: 48px;
+    }
+    body.host:not(.admin-page) .mobile-action-bar .mobile-eta-label {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 12px;
+        color: var(--muted);
+    }
+    body.host:not(.admin-page) .mobile-action-bar select,
+    body.host:not(.admin-page) .mobile-action-bar input {
+        background: transparent;
+        border: none;
+        font-family: inherit;
+        font-size: 13px;
+        font-weight: 600;
+        color: #111;
+        padding: 0;
+        min-width: 0;
+    }
+    body.host:not(.admin-page) .mobile-action-bar input { width: 36px; text-align: center; }
+
+    /* Dialog tightening at narrow phone widths. The seat/add-party/
+       custom-sms dialogs already respond to viewport via earlier media
+       blocks, but the buttons inside the footer benefit from full-width
+       layout below 480 px. */
+    body.host:not(.admin-page) .seat-dialog .seat-dialog-footer button {
+        flex: 1;
+        min-height: 44px;
+    }
+
+    /* Theme toggle stays compact in the topbar, not full-width. */
+    body.host:not(.admin-page) .theme-toggle-btn { width: 36px; height: 36px; padding: 0; }
+}
+
+/* End of issue-#103 block. */
 .admin-toast-error { background: #b42318; }

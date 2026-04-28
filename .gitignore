@@ -15,6 +15,12 @@ coverage/
 npm-debug.log*
 pnpm-debug.log*
 
+# Local deployment artifacts
+deploy-package/
+deploy-package.zip
+deploy-package-tar.zip
+node_modules.deploy.tar.gz
+
 # OS
 .DS_Store
 Thumbs.db

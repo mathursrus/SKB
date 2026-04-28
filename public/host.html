@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<meta name="viewport" content="width=1024,initial-scale=1" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>Host Stand</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -113,6 +113,29 @@
             </table>
         </div>
     </main>
+
+    <!-- Mobile sticky action bar (issue #103). Visible only at <720px via
+         CSS; on tablet/desktop the same controls live in the topbar. The
+         "+ Add party" and ETA controls duplicate the topbar versions
+         (#add-party-btn, #eta-mode, #turn) so a phone host has them
+         thumb-reachable without scrolling. host.js binds both sets of
+         controls to the same handlers and keeps their values in sync. -->
+    <div class="mobile-action-bar" aria-hidden="false">
+        <button type="button" class="primary mobile-add-btn" id="add-party-btn-mobile" aria-label="Add walk-in to waitlist">+ Add party</button>
+        <div class="mobile-eta">
+            <label class="mobile-eta-label">
+                ETA
+                <select id="eta-mode-mobile" aria-label="ETA mode">
+                    <option value="manual">Manual</option>
+                    <option value="dynamic">Dynamic</option>
+                </select>
+            </label>
+            <label class="mobile-eta-label">
+                <span id="turn-label-mobile">min</span>
+                <input type="number" id="turn-mobile" min="1" max="60" value="8" aria-label="Turn time in minutes" />
+            </label>
+        </div>
+    </div>
 
     <!-- Host-initiated add for walk-ins. Host types name/size/phone and
          drops the party straight into the waitlist (no confirmation SMS

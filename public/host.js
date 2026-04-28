@@ -155,14 +155,19 @@
                     '<button class="custom-call-btn more-btn" data-action="custom-call" aria-label="Confirm-and-call ' + safeName + '"' + disabledAttr + ' title="Confirm call">\u260E</button>',
                     '<button class="remove" data-reason="no_show" aria-label="Mark ' + safeName + ' as no-show">No-show</button>',
                 ].filter(Boolean).join('');
+                // data-label drives the mobile card-mode column labels
+                // (styles.css @media <=720px renders td::before { content:
+                // attr(data-label) }) so the same DOM serves both the
+                // desktop table and the phone card stack \u2014 no parallel
+                // renderer, full feature parity (R12 / Validation \u00a72a).
                 return '<tr data-id="' + p.id + '" data-code="' + escapeHtml(p.code || '') + '" data-name="' + safeName + '" data-size="' + p.partySize + '" data-wait="' + p.waitingMinutes + '" data-phone-mask="' + (p.phoneMasked || '') + '" data-phone-dial="' + escapeHtml(phoneForDial) + '" data-sms-capable="' + (smsCapable ? '1' : '0') + '" class="' + (p.state === 'called' ? 'row-called' : '') + '">' +
-                    '<td class="num">' + p.position + '</td>' +
-                    '<td>' + safeName + sentimentBadge + calledBadge + onWayBadge + '</td>' +
-                    '<td class="size">' + p.partySize + '</td>' +
-                    '<td class="phone">' + (p.phoneMasked || '\u2014') + '</td>' +
-                    '<td class="eta">' + fmtTime(p.etaAt) + '</td>' +
-                    '<td class="wait">' + p.waitingMinutes + 'm</td>' +
-                    '<td class="actions">' + rowActions + '</td></tr>';
+                    '<td class="num" data-label="#">' + p.position + '</td>' +
+                    '<td data-label="Name">' + safeName + sentimentBadge + calledBadge + onWayBadge + '</td>' +
+                    '<td class="size" data-label="Size">' + p.partySize + '</td>' +
+                    '<td class="phone" data-label="Phone">' + (p.phoneMasked || '\u2014') + '</td>' +
+                    '<td class="eta" data-label="Promised">' + fmtTime(p.etaAt) + '</td>' +
+                    '<td class="wait" data-label="Waiting">' + p.waitingMinutes + 'm</td>' +
+                    '<td class="actions" data-label="">' + rowActions + '</td></tr>';
             }).join('');
         } catch (e) {
             console.error('refresh error', e);
@@ -183,10 +188,14 @@
     function mins(n) {
         return (typeof n === 'number') ? (n + 'm') : '\u2014';
     }
-    function transitCell(n) {
+    function transitCell(n, label) {
         const filled = typeof n === 'number';
         const cls = filled ? 'transit-cell filled' : 'transit-cell empty';
-        return '<td class="' + cls + '">' + mins(n) + '</td>';
+        // data-label powers the mobile card-mode column headers (R12).
+        // The label arg is the same string the desktop table <th> uses so
+        // the two layouts read identically.
+        const labelAttr = label ? ' data-label="' + label + '"' : '';
+        return '<td class="' + cls + '"' + labelAttr + '>' + mins(n) + '</td>';
     }
 
     async function refreshDining() {
@@ -217,17 +226,17 @@
                 ].filter(Boolean).join('');
                 const tbl = (typeof p.tableNumber === 'number') ? String(p.tableNumber) : '\u2014';
                 html += '<tr class="expandable" data-dining-id="' + p.id + '" data-id="' + p.id + '">' +
-                    '<td class="table-num"><strong>' + tbl + '</strong></td>' +
-                    '<td>' + safeName + sentimentBadge + '</td>' +
-                    '<td class="size">' + p.partySize + '</td>' +
-                    transitCell(p.waitMinutes) +
-                    transitCell(p.toOrderMinutes) +
-                    transitCell(p.toServeMinutes) +
-                    transitCell(p.toCheckoutMinutes) +
-                    '<td><span class="state-badge state-' + p.state + '">' + p.state + '</span></td>' +
-                    '<td>' + p.timeInStateMinutes + 'm</td>' +
-                    '<td>' + p.totalTableMinutes + 'm</td>' +
-                    '<td class="actions">' + actions + '</td>' +
+                    '<td class="table-num" data-label="Table"><strong>' + tbl + '</strong></td>' +
+                    '<td data-label="Name">' + safeName + sentimentBadge + '</td>' +
+                    '<td class="size" data-label="Size">' + p.partySize + '</td>' +
+                    transitCell(p.waitMinutes, 'Waited') +
+                    transitCell(p.toOrderMinutes, 'To Order') +
+                    transitCell(p.toServeMinutes, 'To Serve') +
+                    transitCell(p.toCheckoutMinutes, 'Dining') +
+                    '<td data-label="State"><span class="state-badge state-' + p.state + '">' + p.state + '</span></td>' +
+                    '<td data-label="In State">' + p.timeInStateMinutes + 'm</td>' +
+                    '<td data-label="Total">' + p.totalTableMinutes + 'm</td>' +
+                    '<td class="actions" data-label="">' + actions + '</td>' +
                     '</tr>';
                 // Timeline expansion row
                 if (expandedTimelineId === p.id) {
@@ -268,15 +277,15 @@
                 // but all the post-seat transitions are null. transitCell
                 // renders those as a dimmed em-dash.
                 html += '<tr class="expandable" data-completed-id="' + p.id + '">' +
-                    '<td>' + escapeHtml(p.name) + '</td>' +
-                    '<td class="size">' + p.partySize + '</td>' +
-                    '<td><span class="state-badge state-' + p.state + '">' + p.state.replace('_', '-') + '</span></td>' +
-                    transitCell(p.waitTimeMinutes) +
-                    transitCell(p.toOrderMinutes) +
-                    transitCell(p.toServeMinutes) +
-                    transitCell(p.toCheckoutMinutes) +
-                    transitCell(p.toDepartMinutes) +
-                    '<td>' + p.totalTimeMinutes + 'm</td>' +
+                    '<td data-label="Name">' + escapeHtml(p.name) + '</td>' +
+                    '<td class="size" data-label="Size">' + p.partySize + '</td>' +
+                    '<td data-label="State"><span class="state-badge state-' + p.state + '">' + p.state.replace('_', '-') + '</span></td>' +
+                    transitCell(p.waitTimeMinutes, 'Waited') +
+                    transitCell(p.toOrderMinutes, 'To Order') +
+                    transitCell(p.toServeMinutes, 'To Serve') +
+                    transitCell(p.toCheckoutMinutes, 'Dining') +
+                    transitCell(p.toDepartMinutes, 'Paying') +
+                    '<td data-label="Total">' + p.totalTimeMinutes + 'm</td>' +
                     '</tr>';
                 if (expandedTimelineId === p.id) {
                     html += '<tr class="timeline-row" data-timeline-for="' + p.id + '"><td colspan="9"><div class="timeline-detail" id="timeline-' + p.id + '">Loading...</div></td></tr>';
@@ -969,6 +978,17 @@
                 turnInput.readOnly = false;
                 turnInfo.style.display = 'none';
             }
+            // Mirror the desktop ETA controls into the mobile sticky bar
+            // (issue #103). Idempotent — safe to call when the mobile bar
+            // is hidden or the elements are absent.
+            const tm = document.getElementById('turn-mobile');
+            const em = document.getElementById('eta-mode-mobile');
+            if (tm) { tm.value = turnInput.value; tm.readOnly = turnInput.readOnly; }
+            if (em) {
+                em.value = etaModeSelect.value;
+                const dynOpt = em.querySelector('option[value="dynamic"]');
+                if (dynOpt) dynOpt.hidden = !dynamicAvailable;
+            }
         } catch {
             // non-blocking
         }
@@ -1095,6 +1115,27 @@
         window.location.href = loginPageUrl();
     });
 
+    // Mobile sticky action bar (issue #103). When the host changes a
+    // value on the mobile bar, mirror it onto the hidden desktop input
+    // and fire the existing handler — refreshSettings then mirrors the
+    // post-fetch value back into the mobile bar (see line ~980 above).
+    // Visibility is purely CSS, so both controls coexist in the DOM and
+    // there's no need for a separate render path.
+    const turnInputMobile = $('turn-mobile');
+    const etaModeSelectMobile = $('eta-mode-mobile');
+    if (turnInputMobile) {
+        turnInputMobile.addEventListener('change', async () => {
+            turnInput.value = turnInputMobile.value;
+            await onTurnChange();
+        });
+    }
+    if (etaModeSelectMobile) {
+        etaModeSelectMobile.addEventListener('change', async () => {
+            etaModeSelect.value = etaModeSelectMobile.value;
+            await onEtaModeChange();
+        });
+    }
+
     // Host-initiated add-party dialog (walk-ins who didn't scan the QR)
     const addPartyBtn = $('add-party-btn');
     const addPartyDialog = $('add-party-dialog');
@@ -1122,6 +1163,9 @@
         else addPartyDialog.removeAttribute('open');
     }
     if (addPartyBtn) addPartyBtn.addEventListener('click', openAddPartyDialog);
+    // Mobile sticky-action-bar duplicate (issue #103)
+    const addPartyBtnMobile = $('add-party-btn-mobile');
+    if (addPartyBtnMobile) addPartyBtnMobile.addEventListener('click', openAddPartyDialog);
     if (addPartyCancel) addPartyCancel.addEventListener('click', closeAddPartyDialog);
     if (addPartyClose) addPartyClose.addEventListener('click', closeAddPartyDialog);
     if (addPartyForm) addPartyForm.addEventListener('submit', async (e) => {

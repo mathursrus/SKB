@@ -201,6 +201,18 @@ export interface PendingInvite {
   createdAt?: string;
 }
 
+export interface EmailDeliveryResult {
+  delivered: boolean;
+  mode: 'log-only' | 'acs';
+  reason: string;
+}
+
+export interface StaffInviteResponse {
+  invite: PendingInvite;
+  delivery: EmailDeliveryResult;
+  deliveryMessage: string;
+}
+
 export interface StaffResponse {
   staff: StaffMember[];
   pending: PendingInvite[];
@@ -374,7 +386,7 @@ export const config = {
 export const staff = {
   list: (locationId: string) => request<StaffResponse>('/staff', { locationId }),
   invite: (locationId: string, body: { email: string; name?: string; role: InvitableRole }) =>
-    request<{ invite: PendingInvite }>('/staff/invite', { method: 'POST', body, locationId }),
+    request<StaffInviteResponse>('/staff/invite', { method: 'POST', body, locationId }),
   revoke: (locationId: string, body: { membershipId?: string; inviteId?: string }) =>
     request<{ ok: true }>('/staff/revoke', { method: 'POST', body, locationId }),
 };

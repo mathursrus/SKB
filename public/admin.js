@@ -1867,7 +1867,11 @@
                     setStatus(status, data.error || 'Invite failed', 'error');
                     return;
                 }
-                setStatus(status, 'Invite sent \u2713', 'success');
+                setStatus(
+                    status,
+                    data.deliveryMessage || 'Invite created \u2713',
+                    data.delivery && data.delivery.delivered ? 'success' : '',
+                );
                 form.reset();
                 const hostRadio = document.querySelector('input[name="invite-role"][value="host"]');
                 if (hostRadio) hostRadio.checked = true;

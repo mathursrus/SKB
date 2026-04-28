@@ -520,6 +520,7 @@
     async function staffSend() {
         if (!state.staffQueue.length) return false;
         var errors = [];
+        var warnings = [];
         for (var i = 0; i < state.staffQueue.length; i++) {
             var inv = state.staffQueue[i];
             var r = await fetchJson('staff/invite', {
@@ -528,10 +529,14 @@
                 body: JSON.stringify(inv),
             });
             if (!r.ok) errors.push(inv.email + ': ' + (r.body.error || 'failed'));
+            else if (r.body && r.body.delivery && !r.body.delivery.delivered) {
+                warnings.push(r.body.deliveryMessage || ('Invite created for ' + inv.email + ', but email was not sent.'));
+            }
         }
         if (errors.length) { setValidation('staff', errors.join('; ')); return false; }
         state.staffQueue = [];
         renderStaffQueue();
+        setValidation('staff', warnings.join('; '));
         await completeStep('staff');
         return true;
     }

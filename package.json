@@ -21,6 +21,7 @@
     "stress:heavy": "STRESS_NUM_DINERS=500 STRESS_DURATION_MS=120000 tsx tests/stress/waitlist-stress.ts"
   },
   "dependencies": {
+    "@azure/communication-email": "^1.1.0",
     "@azure/communication-phone-numbers": "^1.5.0",
     "@azure/communication-sms": "^1.2.0-beta.4",
     "@modelcontextprotocol/sdk": "^1.0.4",

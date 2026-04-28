@@ -9,9 +9,12 @@
   /* ============================================================
      Mock #103 — Diner waitlist join, mobile-first redesign.
      Standalone HTML so the owner can open it in a browser and
-     judge the experience without running a dev server. The
-     styling mirrors public/styles.css (gold #e3bf3d on black/white,
-     Fira Sans). Two viewport demos shown side by side.
+     judge the experience without running a dev server.
+
+     v2 (2026-04-28, post-PR-feedback): post-join state preserves
+     the full public waitlist list view (R3 from issue #37 — every
+     party in line, names redacted, "first name + last initial").
+     Earlier draft accidentally hid it; restored here.
      ============================================================ */
   :root {
     --bg: #ffffff; --fg: #111111; --muted: #4d4c4c;
@@ -66,10 +69,6 @@
   .diner header h1 {
     margin: 0; font-size: 15px; font-weight: 600; letter-spacing: 0.3px;
   }
-  .diner header .sub {
-    color: #cfcbba; font-size: 11px; letter-spacing: 1px;
-    text-transform: uppercase;
-  }
   .diner main { padding: 12px 16px 24px; max-width: 480px; margin: 0 auto; }
 
   /* Compact status strip — replaces the 165px tall status card. */
@@ -80,8 +79,7 @@
     font-size: 13px; color: var(--muted);
   }
   .status-strip .num {
-    font-size: 22px; font-weight: 700; color: #111;
-    line-height: 1;
+    font-size: 22px; font-weight: 700; color: #111; line-height: 1;
   }
   .status-strip .lbl {
     font-size: 11px; letter-spacing: 1px; text-transform: uppercase;
@@ -107,11 +105,7 @@
     border: 1px solid var(--border); border-radius: 8px; background: #fff;
     color: var(--fg);
   }
-  /* Two-up: party size + phone share a row to save vertical space.
-     R3: stays single-column on viewport <= 320px (phones below iPhone SE). */
-  .row-2up {
-    display: grid; grid-template-columns: 1fr 1.6fr; gap: 10px;
-  }
+  .row-2up { display: grid; grid-template-columns: 1fr 1.6fr; gap: 10px; }
   @media (max-width: 320px) { .row-2up { grid-template-columns: 1fr; } }
 
   .sms-consent {
@@ -130,23 +124,51 @@
     letter-spacing: 0.5px; cursor: pointer;
   }
 
-  /* Right-hand mock: AFTER the user has joined, the status info naturally
-     rises into prominence and the form is replaced by the position card. */
-  .pos-card { text-align: center; padding: 22px 16px; }
-  .pos-card .pos-label { font-size: 11px; letter-spacing: 1.5px; color: var(--muted); text-transform: uppercase; }
-  .pos-card .pos { font-size: 56px; font-weight: 700; color: #111; line-height: 1; margin: 4px 0; }
-  .pos-card .code { font-size: 13px; color: var(--muted); letter-spacing: 1.5px; }
-  .pos-card .eta-time { margin-top: 12px; font-size: 14px; color: var(--muted); }
+  /* Post-join: position card stays compact so the public list (R3) is
+     immediately visible below it without a long scroll. */
+  .pos-card { text-align: center; padding: 16px 16px; }
+  .pos-card .pos-label { font-size: 10px; letter-spacing: 1.5px; color: var(--muted); text-transform: uppercase; }
+  .pos-card .pos { font-size: 44px; font-weight: 700; color: #111; line-height: 1; margin: 2px 0; }
+  .pos-card .code { font-size: 12px; color: var(--muted); letter-spacing: 1.5px; }
+  .pos-card .eta-time { margin-top: 8px; font-size: 13px; color: var(--muted); }
+  .pos-card .hint { margin-top: 6px; font-size: 11px; color: #6b7280; }
+
+  /* Public-list-card (R3 from issue #37) — preserved on the post-join screen. */
+  .public-list { padding: 14px 14px 12px; }
+  .public-list .head {
+    display: flex; align-items: baseline; justify-content: space-between;
+    margin-bottom: 8px;
+  }
+  .public-list .head strong { font-size: 14px; color: #111; }
+  .public-list .sub { font-size: 11px; color: var(--muted); letter-spacing: 0.5px; }
+  .public-list .rows { display: flex; flex-direction: column; gap: 4px; }
+  .public-list .row {
+    display: grid; grid-template-columns: 28px 1fr auto; align-items: center;
+    padding: 6px 8px; background: var(--surface-alt);
+    border: 1px solid var(--divider); border-radius: 6px; font-size: 13px;
+  }
+  .public-list .row.you {
+    background: #fff8d5; border-color: var(--accent); font-weight: 600;
+  }
+  .public-list .row .pos { color: var(--accent); font-weight: 700; }
+  .public-list .row.you .pos { color: #111; }
+  .public-list .row .name { color: #111; }
+  .public-list .row .meta { font-size: 11px; color: var(--muted); }
+  .public-list .footer {
+    margin-top: 8px; font-size: 10px; color: #9ca3af;
+    letter-spacing: 0.3px; text-align: center;
+  }
 </style>
 </head>
 <body>
 
-<h1 class="mockTitle">Mock #103a — Diner waitlist join (375 × 667 viewport)</h1>
+<h1 class="mockTitle">Mock #103a — Diner waitlist (375 × 667 viewport)</h1>
 <p class="mockNote">
-  The redesign collapses the 165 px-tall "parties waiting" status card into a slim 36 px strip and
-  trims the header padding so the join form starts at ~110 px. The "Join the line" button now sits
-  inside the first 667 px of the page (no scroll required). When a diner is already in line (right-hand
-  view), the position card naturally takes over the full screen.
+  <strong>v2 (2026-04-28).</strong> The redesign collapses the 165 px-tall "parties waiting" status card
+  into a slim 36 px strip and trims the header padding so the join form starts at ~110 px. The "Join
+  the line" button now sits inside the first 667 px of the page (no scroll required). Once the diner
+  joins (right view), the position card stays compact so the <strong>public waitlist list</strong>
+  (R3, issue #37 — every party in line, first name + last initial only) remains immediately visible.
 </p>
 
 <div class="mockGrid">
@@ -170,7 +192,7 @@
           <div class="card">
             <p class="lead">Join the line</p>
             <label for="name">Your name</label>
-            <input type="text" id="name" placeholder="" />
+            <input type="text" id="name" />
             <div class="row-2up">
               <div>
                 <label for="size">Party size</label>
@@ -200,7 +222,7 @@
     </div>
   </div>
 
-  <!-- RIGHT: post-join state -->
+  <!-- RIGHT: post-join state — position card + full public list -->
   <div>
     <div class="phoneFrame">
       <div class="diner">
@@ -220,12 +242,31 @@
             <div class="pos">7</div>
             <div class="code">SKB-A4Q</div>
             <div class="eta-time">Promised by <strong>7:48 PM</strong> · 18 min</div>
+            <div class="hint">We'll call your name and code when your table is ready.</div>
+          </div>
+          <div class="card public-list">
+            <div class="head">
+              <strong>Who's in line</strong>
+              <span class="sub">12 parties</span>
+            </div>
+            <div class="rows">
+              <div class="row"><span class="pos">1</span><span class="name">Patel, R.</span><span class="meta">4 · called</span></div>
+              <div class="row"><span class="pos">2</span><span class="name">Krishnan, M.</span><span class="meta">2</span></div>
+              <div class="row"><span class="pos">3</span><span class="name">Singh, A.</span><span class="meta">6</span></div>
+              <div class="row"><span class="pos">4</span><span class="name">Chen, L.</span><span class="meta">2</span></div>
+              <div class="row"><span class="pos">5</span><span class="name">Iyer, R.</span><span class="meta">3</span></div>
+              <div class="row"><span class="pos">6</span><span class="name">Roy, P.</span><span class="meta">5</span></div>
+              <div class="row you"><span class="pos">7</span><span class="name">You · M.</span><span class="meta">2</span></div>
+              <div class="row"><span class="pos">8</span><span class="name">Banks, T.</span><span class="meta">2</span></div>
+              <div class="row"><span class="pos">9</span><span class="name">Murthy, S.</span><span class="meta">4</span></div>
+            </div>
+            <div class="footer">Updates automatically · First name and last initial only</div>
           </div>
         </main>
       </div>
     </div>
     <div class="phoneCaption">
-      <strong>Post-join.</strong> Position dominates; form is gone.
+      <strong>Post-join.</strong> Compact position card + full public list (R3) visible together.
     </div>
   </div>
 

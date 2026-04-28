@@ -1,15 +1,21 @@
 import { memo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
-import type { WaitingParty } from '@/core/party';
+import type { HostSentiment, WaitingParty } from '@/core/party';
+import { useWaitlistStore } from '@/state/waitlist';
 import { theme } from '@/ui/theme';
 
 import { LiveClock } from './LiveClock';
 import { RowActions } from './RowActions';
+import { SentimentPicker } from './Sentiment';
+
+/** Inline status surfaced briefly after a Notify completes. */
+export type NotifyFlashStatus = 'sent' | 'failed' | 'not_configured';
 
 interface Props {
   party: WaitingParty;
   baseAt: number;
+  notifyFlash?: NotifyFlashStatus;
   onSeat: (party: WaitingParty) => void;
   onNotify: (party: WaitingParty) => void;
   onRemove: (party: WaitingParty) => void;
@@ -22,7 +28,8 @@ function formatClockTime(iso: string): string {
 }
 
 function PartyRowImpl(props: Props) {
-  const { party, baseAt } = props;
+  const { party, baseAt, notifyFlash } = props;
+  const setSentiment = useWaitlistStore((s) => s.setSentiment);
   return (
     <View
       accessibilityRole="summary"
@@ -38,6 +45,12 @@ function PartyRowImpl(props: Props) {
             <Text style={styles.name} numberOfLines={1}>
               {party.name}
             </Text>
+            <SentimentPicker
+              partyName={party.name}
+              sentiment={party.sentiment}
+              source={party.sentimentSource}
+              onChange={(next) => void setSentiment(party.id, next)}
+            />
             {party.state === 'called' && (
               <View style={[styles.badge, styles.badgeCalled]}>
                 <Text style={styles.badgeCalledText}>CALLED</Text>
@@ -48,11 +61,29 @@ function PartyRowImpl(props: Props) {
                 <Text style={styles.badgeOnTheWayText}>ON THE WAY</Text>
               </View>
             )}
+            {notifyFlash !== undefined && (
+              <View
+                style={[
+                  styles.badge,
+                  notifyFlash === 'sent' && styles.badgeFlashOk,
+                  notifyFlash === 'failed' && styles.badgeFlashFail,
+                  notifyFlash === 'not_configured' && styles.badgeFlashMuted,
+                ]}
+              >
+                <Text style={styles.badgeFlashText}>
+                  {notifyFlash === 'sent'
+                    ? '✓ SMS sent'
+                    : notifyFlash === 'failed'
+                      ? '✗ SMS failed'
+                      : 'In-app only'}
+                </Text>
+              </View>
+            )}
           </View>
           <Text style={styles.meta} numberOfLines={1}>
             {party.partySize} · {party.phoneMasked}
             {party.calls[0] &&
-              ` · ${party.calls.length === 1 ? 'called' : `${party.calls.length}× called`} ${party.calls[0].minutesAgo}m ago`}
+              ` · ${party.calls.length === 1 ? 'called' : `${party.calls.length}× called`} ${party.calls[0].minutesAgo}m ago${callIcon(party.calls)}`}
           </Text>
         </View>
         <View style={styles.timesBlock}>
@@ -83,6 +114,19 @@ function PartyRowImpl(props: Props) {
   );
 }
 
+/** Mirrors the web's per-call ✓/✗ icon next to the "Nm ago" text. */
+function callIcon(calls: WaitingParty['calls']): string {
+  const last = calls[calls.length - 1];
+  if (!last) return '';
+  if (last.smsStatus === 'sent') return ' ✓';
+  if (last.smsStatus === 'failed') return ' ✗';
+  return '';
+}
+
+function sentimentChanged(a: WaitingParty, b: WaitingParty): boolean {
+  return a.sentiment !== b.sentiment || a.sentimentSource !== b.sentimentSource;
+}
+
 export const PartyRow = memo(PartyRowImpl, (prev, next) => {
   const a = prev.party;
   const b = next.party;
@@ -99,7 +143,9 @@ export const PartyRow = memo(PartyRowImpl, (prev, next) => {
     a.waitingMinutes === b.waitingMinutes &&
     a.unreadChat === b.unreadChat &&
     a.onMyWayAt === b.onMyWayAt &&
-    a.calls.length === b.calls.length
+    a.calls.length === b.calls.length &&
+    !sentimentChanged(a, b) &&
+    prev.notifyFlash === next.notifyFlash
   );
 });
 
@@ -150,6 +196,15 @@ const styles = StyleSheet.create({
   badgeOnTheWay: { backgroundColor: theme.color.ok },
   badgeOnTheWayText: {
     color: theme.color.surface,
+    fontSize: 9,
+    fontWeight: '800',
+    letterSpacing: 0.6,
+  },
+  badgeFlashOk: { backgroundColor: 'rgba(16, 185, 129, 0.85)' },
+  badgeFlashFail: { backgroundColor: 'rgba(248, 113, 113, 0.9)' },
+  badgeFlashMuted: { backgroundColor: theme.color.surfaceRaised, borderWidth: 1, borderColor: theme.color.line },
+  badgeFlashText: {
+    color: '#fff',
     fontSize: 9,
     fontWeight: '800',
     letterSpacing: 0.6,

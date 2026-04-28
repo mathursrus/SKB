@@ -58,6 +58,17 @@ export function SeatDialog({ party, seated, onClose }: Props) {
       : clientState;
 
   const recent = useMemo(() => recentTableNumbers(seated, 5), [seated]);
+  // Occupied tables get rendered as visually disabled chips so the host
+  // can SEE which tables are off-limits before they tap (matches the
+  // web's chip-occupied styling). Without this the host has to guess
+  // and only finds out after the seat conflict comes back from the
+  // server.
+  const occupiedTables = useMemo(
+    () => Array.from(new Set(seated.map((p) => p.tableNumber).filter((n): n is number => typeof n === 'number'))),
+    [seated],
+  );
+  const recentSet = new Set(recent);
+  const occupiedNotInRecent = occupiedTables.filter((n) => !recentSet.has(n));
 
   async function handleConfirm() {
     if (!party) return;
@@ -134,16 +145,39 @@ export function SeatDialog({ party, seated, onClose }: Props) {
           onSubmitEditing={() => void handleConfirm()}
         />
 
-        {recent.length > 0 && (
+        {(recent.length > 0 || occupiedNotInRecent.length > 0) && (
           <>
             <Text style={styles.chipsLabel}>RECENT TABLES</Text>
             <View style={styles.chips}>
-              {recent.map((n) => (
+              {recent.map((n) => {
+                const isOccupied = occupiedTables.includes(n);
+                return (
+                  <Pressable
+                    key={n}
+                    accessibilityRole="button"
+                    accessibilityLabel={
+                      isOccupied
+                        ? `Table ${n} is occupied — tap to override conflict`
+                        : `Use table ${n}`
+                    }
+                    style={[styles.chip, isOccupied && styles.chipOccupied]}
+                    onPress={() => {
+                      setRaw(String(n));
+                      setOverrideArmed(false);
+                      setApiError(null);
+                      setServerConflict(null);
+                    }}
+                  >
+                    <Text style={[styles.chipText, isOccupied && styles.chipTextOccupied]}>{n}</Text>
+                  </Pressable>
+                );
+              })}
+              {occupiedNotInRecent.map((n) => (
                 <Pressable
-                  key={n}
+                  key={`occ-${n}`}
                   accessibilityRole="button"
-                  accessibilityLabel={`Use table ${n}`}
-                  style={styles.chip}
+                  accessibilityLabel={`Table ${n} is occupied — tap to override conflict`}
+                  style={[styles.chip, styles.chipOccupied]}
                   onPress={() => {
                     setRaw(String(n));
                     setOverrideArmed(false);
@@ -151,7 +185,7 @@ export function SeatDialog({ party, seated, onClose }: Props) {
                     setServerConflict(null);
                   }}
                 >
-                  <Text style={styles.chipText}>{n}</Text>
+                  <Text style={[styles.chipText, styles.chipTextOccupied]}>{n}</Text>
                 </Pressable>
               ))}
             </View>
@@ -276,6 +310,18 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
     fontVariant: ['tabular-nums'],
+  },
+  chipOccupied: {
+    // Don't go fully ghosted — the chip stays tappable so the host can
+    // queue a seat-override flow. Dashed border + strikethrough makes
+    // the "occupied" state legible without disabling the affordance.
+    opacity: 0.7,
+    borderStyle: 'dashed',
+    borderColor: theme.color.warn,
+  },
+  chipTextOccupied: {
+    textDecorationLine: 'line-through',
+    color: theme.color.textMuted,
   },
   alert: {
     marginTop: theme.space.md,

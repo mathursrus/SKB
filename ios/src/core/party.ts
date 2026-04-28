@@ -11,6 +11,16 @@ export type PartyState =
 export type PartyId = string;
 
 /**
+ * Per-row sentiment matches the website host stand exactly. The
+ * `sentimentSource` field disambiguates whether the value is the host's
+ * manual override or the system's automatic derivation from wait time —
+ * the picker UI defaults to "Auto" when the source is automatic, and to
+ * the explicit emoji when the host has set an override.
+ */
+export type HostSentiment = 'happy' | 'neutral' | 'upset';
+export type HostSentimentSource = 'manual' | 'automatic';
+
+/**
  * Waiting / called row. Matches the backend HostPartyDTO returned by
  * GET /r/:loc/host/queue → { parties: WaitingParty[] }.
  */
@@ -32,6 +42,8 @@ export interface WaitingParty {
   // the tenant-level `features.chat`, the host's compose surface is
   // reachable when EITHER channel can deliver.
   smsCapable?: boolean;
+  sentiment?: HostSentiment;
+  sentimentSource?: HostSentimentSource;
   // Set ONLY after the diner taps "I'm on my way". The server omits the
   // field entirely when unset (so it arrives as `undefined`, not `null`)
   // — every consumer must check `onMyWayAt != null` (or just truthiness)
@@ -58,6 +70,8 @@ export interface SeatedParty {
   toOrderMinutes: number | null;
   toServeMinutes: number | null;
   toCheckoutMinutes: number | null;
+  sentiment?: HostSentiment;
+  sentimentSource?: HostSentimentSource;
 }
 
 /**

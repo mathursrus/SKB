@@ -49,7 +49,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         restaurantName: session.locationId,
         websiteTemplate: 'saffron' as const,
         publicHost: '',
-        guestFeatures: { sms: true, chat: true, order: true },
+        guestFeatures: { menu: true, sms: true, chat: true, order: true },
       }));
       set({
         status: 'loggedIn',

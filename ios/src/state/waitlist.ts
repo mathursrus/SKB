@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 
 import { events, logger } from '@/core/logger';
-import type { CompletedParty, CompletedSummary, PartyId, SeatedParty, WaitingParty } from '@/core/party';
+import type { CompletedParty, CompletedSummary, HostSentiment, PartyId, SeatedParty, WaitingParty } from '@/core/party';
 import { sortByPosition } from '@/core/waitlist';
 import { ApiError } from '@/net/client';
 import { waitlist as waitlistApi } from '@/net/endpoints';
@@ -26,6 +26,7 @@ interface WaitlistState {
     override?: boolean,
   ) => Promise<{ ok: true } | { ok: false; conflict: { tableNumber: number; occupiedBy: string } } | { ok: false; error: string }>;
   removeParty: (id: PartyId) => Promise<void>;
+  setSentiment: (id: PartyId, sentiment: HostSentiment | null) => Promise<boolean>;
 }
 
 const emptySummary: CompletedSummary = {
@@ -150,6 +151,40 @@ export const useWaitlistStore = create<WaitlistState>((set, get) => ({
     } catch (err) {
       set({ waiting: before });
       throw err;
+    }
+  },
+
+  setSentiment: async (id, sentiment) => {
+    const locationId = useAuthStore.getState().locationId;
+    if (!locationId) return false;
+    // Optimistic patch into both lists — sentiment is editable on
+    // Waiting AND Seated rows on the server side. Mirrors the
+    // web's behaviour where the badge updates immediately and the
+    // refresh-poll reconciles the automatic-derivation.
+    const before = { waiting: get().waiting, seated: get().seated };
+    const apply = <T extends { id: PartyId; sentiment?: HostSentiment; sentimentSource?: 'manual' | 'automatic' }>(
+      list: T[],
+    ): T[] =>
+      list.map((p) =>
+        p.id === id
+          ? sentiment === null
+            ? { ...p, sentiment: undefined, sentimentSource: 'automatic' as const }
+            : { ...p, sentiment, sentimentSource: 'manual' as const }
+          : p,
+      );
+    set({ waiting: apply(before.waiting), seated: apply(before.seated) });
+    try {
+      await waitlistApi.setSentiment(locationId, id, sentiment);
+      // Re-poll so the automatic derivation comes back from the server
+      // when the host clears the override. The optimistic patch only
+      // sets `sentiment: undefined`; the server will fill in the real
+      // automatic value on the next poll.
+      void get().poll();
+      return true;
+    } catch (err) {
+      set({ waiting: before.waiting, seated: before.seated });
+      logger.warn(events.waitlistPollError, { msg: (err as Error).message });
+      return false;
     }
   },
 }));

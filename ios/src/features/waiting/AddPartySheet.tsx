@@ -54,8 +54,11 @@ export function AddPartySheet({ visible, onClose }: { visible: boolean; onClose:
       setError('Party size must be 1–10');
       return;
     }
-    if (cleanedPhone.length !== 10) {
-      setError('Phone must be exactly 10 digits');
+    // Phone is OPTIONAL for walk-ins — matches the website. If the host
+    // typed any digits the count must be exactly 10 (US format); empty
+    // is fine and the server accepts the walk-in without a phone.
+    if (cleanedPhone.length > 0 && cleanedPhone.length !== 10) {
+      setError('Phone must be exactly 10 digits, or leave it blank');
       return;
     }
     setSubmitting(true);
@@ -73,7 +76,11 @@ export function AddPartySheet({ visible, onClose }: { visible: boolean; onClose:
     }
   }
 
-  const canSubmit = !submitting && name.trim().length > 0 && size.length > 0 && phone.replace(/[^\d]/g, '').length === 10;
+  const phoneDigits = phone.replace(/[^\d]/g, '').length;
+  const canSubmit = !submitting
+    && name.trim().length > 0
+    && size.length > 0
+    && (phoneDigits === 0 || phoneDigits === 10);
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
@@ -128,7 +135,7 @@ export function AddPartySheet({ visible, onClose }: { visible: boolean; onClose:
                 returnKeyType="next"
               />
 
-              <Text style={styles.label}>Phone</Text>
+              <Text style={styles.label}>Phone (optional)</Text>
               <TextInput
                 value={phone}
                 onChangeText={setPhone}
@@ -137,11 +144,13 @@ export function AddPartySheet({ visible, onClose }: { visible: boolean; onClose:
                 placeholderTextColor={theme.color.textMuted}
                 style={styles.input}
                 maxLength={14}
-                accessibilityLabel="Phone number"
+                accessibilityLabel="Phone number, optional"
                 returnKeyType="done"
                 onSubmitEditing={() => { if (canSubmit) void handleSubmit(); }}
               />
-              <Text style={styles.hint}>10 digits. We'll text the status code to this number.</Text>
+              <Text style={styles.hint}>
+                10 digits — we'll text the status code. Leave blank for walk-ins without a phone.
+              </Text>
 
               {error !== null && <Text style={styles.error}>{error}</Text>}
 

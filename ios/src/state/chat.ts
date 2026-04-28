@@ -21,11 +21,15 @@ export interface ChatTemplate {
 interface ChatState {
   openPartyId: PartyId | null;
   openPartyCode: string | null;
+  // True iff the diner consented to SMS at join time. Drives the
+  // "web only" banner inside the slide-over so the host knows the
+  // outbound message will reach the diner via in-app chat alone.
+  openPartySmsCapable: boolean;
   threads: Record<PartyId, ChatMessage[]>;
   templates: ChatTemplate[];
   loading: boolean;
   error: string | null;
-  openChat: (partyId: PartyId, code: string) => Promise<void>;
+  openChat: (partyId: PartyId, code: string, smsCapable: boolean) => Promise<void>;
   closeChat: () => void;
   sendMessage: (partyId: PartyId, body: string) => Promise<void>;
   clearError: () => void;
@@ -34,17 +38,24 @@ interface ChatState {
 export const useChatStore = create<ChatState>((set, get) => ({
   openPartyId: null,
   openPartyCode: null,
+  openPartySmsCapable: true,
   threads: {},
   templates: FALLBACK_TEMPLATES,
   loading: false,
   error: null,
 
-  openChat: async (partyId, code) => {
+  openChat: async (partyId, code, smsCapable) => {
     const locationId = useAuthStore.getState().locationId;
     if (!locationId) return;
 
     logger.info(events.chatOpen, { partyId });
-    set({ openPartyId: partyId, openPartyCode: code, loading: true, error: null });
+    set({
+      openPartyId: partyId,
+      openPartyCode: code,
+      openPartySmsCapable: smsCapable,
+      loading: true,
+      error: null,
+    });
     try {
       const [thread, templates] = await Promise.all([
         chatApi.thread(locationId, partyId),
@@ -68,7 +79,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     }
   },
 
-  closeChat: () => set({ openPartyId: null, openPartyCode: null, error: null }),
+  closeChat: () => set({ openPartyId: null, openPartyCode: null, openPartySmsCapable: true, error: null }),
 
   sendMessage: async (partyId, body) => {
     const locationId = useAuthStore.getState().locationId;

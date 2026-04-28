@@ -10,6 +10,7 @@ import { ChatThread } from './ChatThread';
 
 export function ChatSlideOver() {
   const openPartyId = useChatStore((s) => s.openPartyId);
+  const smsCapable = useChatStore((s) => s.openPartySmsCapable);
   const closeChat = useChatStore((s) => s.closeChat);
   const threads = useChatStore((s) => s.threads);
   const templates = useChatStore((s) => s.templates);
@@ -29,12 +30,19 @@ export function ChatSlideOver() {
       subtitle={party?.phoneMasked}
       onClose={closeChat}
     >
+      {!smsCapable && openPartyId !== null && (
+        <View accessibilityRole="alert" style={styles.modeNotice}>
+          <Text style={styles.modeNoticeText}>
+            SMS unavailable — this thread is web only because the diner did not opt into SMS updates.
+          </Text>
+        </View>
+      )}
       {loading ? (
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
           <ActivityIndicator color={theme.color.accent} />
         </View>
       ) : (
-        <ChatThread messages={messages} />
+        <ChatThread messages={messages} smsCapable={smsCapable} />
       )}
       {error !== null && (
         <Pressable
@@ -82,5 +90,17 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
+  },
+  modeNotice: {
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    backgroundColor: 'rgba(192, 135, 46, 0.12)',
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(192, 135, 46, 0.4)',
+  },
+  modeNoticeText: {
+    color: theme.color.text,
+    fontSize: 12,
+    lineHeight: 16,
   },
 });

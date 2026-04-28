@@ -11,7 +11,7 @@ import { theme } from '@/ui/theme';
 import { getChatErrorMessage } from '../chat/chatErrors';
 import { SeatDialog } from '../seat-dialog/SeatDialog';
 import { AddPartySheet } from './AddPartySheet';
-import { PartyRow } from './PartyRow';
+import { PartyRow, type NotifyFlashStatus } from './PartyRow';
 
 export function WaitingList() {
   const locationId = useAuthStore((s) => s.locationId);
@@ -25,6 +25,7 @@ export function WaitingList() {
   const [refreshing, setRefreshing] = useState(false);
   const [seatTarget, setSeatTarget] = useState<WaitingParty | null>(null);
   const [notifying, setNotifying] = useState<string | null>(null);
+  const [notifyFlash, setNotifyFlash] = useState<Record<string, NotifyFlashStatus>>({});
   const [addOpen, setAddOpen] = useState(false);
 
   async function handleRefresh() {
@@ -48,25 +49,34 @@ export function WaitingList() {
     );
   }
 
+  function flashNotify(partyId: string, status: NotifyFlashStatus) {
+    setNotifyFlash((prev) => ({ ...prev, [partyId]: status }));
+    setTimeout(() => {
+      setNotifyFlash((prev) => {
+        if (prev[partyId] !== status) return prev;
+        const next = { ...prev };
+        delete next[partyId];
+        return next;
+      });
+    }, 4_000);
+  }
+
   async function handleNotify(party: WaitingParty) {
     if (notifying === party.id) return; // prevent double-tap
     setNotifying(party.id);
     try {
       if (!locationId) throw new Error('No restaurant selected');
       const result = await calls.notify(locationId, party.id);
-      await poll(); // refresh so the "called" state + re-notify UI reflect
-      const action = party.state === 'called' ? 'Re-notified' : 'Notified';
-      // Issue #102 #5: SMS may not have gone out if the diner didn't
-      // consent — surface that explicitly so the host knows whether the
-      // diner actually got an SMS or only the in-app notification.
-      const channelNote =
+      const status: NotifyFlashStatus =
         result.smsStatus === 'sent'
-          ? 'SMS sent.'
+          ? 'sent'
           : result.smsStatus === 'not_configured'
-            ? 'No SMS — they didn’t opt in. They’ll see the notice in their web view.'
-            : 'SMS failed to send. They’ll see the notice in their web view.';
-      Alert.alert(`${action} ${party.name}`, channelNote);
+            ? 'not_configured'
+            : 'failed';
+      flashNotify(party.id, status);
+      await poll(); // refresh so the "called" state + re-notify UI reflect
     } catch (err) {
+      flashNotify(party.id, 'failed');
       Alert.alert('Notify failed', getChatErrorMessage(err));
     } finally {
       setNotifying(null);
@@ -98,6 +108,7 @@ export function WaitingList() {
           <PartyRow
             party={item}
             baseAt={lastPolledAt ?? Date.now()}
+            notifyFlash={notifyFlash[item.id]}
             onSeat={(party) => setSeatTarget(party)}
             onNotify={(party) => void handleNotify(party)}
             onRemove={handleRemove}

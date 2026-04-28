@@ -256,6 +256,7 @@ export interface CallerStatsResponse {
 export interface VoiceConfigResponse {
   voiceEnabled: boolean;
   frontDeskPhone: string;
+  cateringPhone: string;
   voiceLargePartyThreshold: number;
 }
 
@@ -296,6 +297,20 @@ export const waitlist = {
     request<{ ok: true }>(`/host/queue/${id}/advance`, {
       method: 'POST',
       body: { state },
+      locationId,
+    }),
+  // Set or clear the host's manual sentiment override for a party. Pass
+  // null to clear back to the automatic derivation. Mirrors the web's
+  // per-row Auto/Happy/Neutral/Upset selector. Active on Waiting AND
+  // Seated rows on the server side.
+  setSentiment: (
+    locationId: string,
+    id: PartyId,
+    sentiment: 'happy' | 'neutral' | 'upset' | null,
+  ) =>
+    request<{ ok: true }>(`/host/queue/${id}/sentiment`, {
+      method: 'POST',
+      body: { sentiment },
       locationId,
     }),
 };
@@ -353,6 +368,7 @@ export const config = {
       websiteTemplate: data.websiteTemplate ?? 'saffron',
       publicHost: data.publicHost ?? '',
       guestFeatures: {
+        menu: data.guestFeatures?.menu !== false,
         sms: data.guestFeatures?.sms !== false,
         chat: data.guestFeatures?.chat !== false,
         order: data.guestFeatures?.order !== false,
@@ -371,6 +387,7 @@ export const config = {
       websiteTemplate: website.websiteTemplate ?? 'saffron',
       publicHost: site.publicHost ?? '',
       guestFeatures: {
+        menu: guestFeatures.menu !== false,
         sms: guestFeatures.sms !== false,
         chat: guestFeatures.chat !== false,
         order: guestFeatures.order !== false,
@@ -392,7 +409,7 @@ export const config = {
     request<MessagingConfigResponse>('/host/messaging-config', { method: 'POST', body, locationId }),
   saveVoiceConfig: (
     locationId: string,
-    body: { voiceEnabled: boolean; frontDeskPhone: string; voiceLargePartyThreshold: number },
+    body: { voiceEnabled: boolean; frontDeskPhone: string; cateringPhone: string; voiceLargePartyThreshold: number },
   ) => request<VoiceConfigResponse>('/host/voice-config', { method: 'POST', body, locationId }),
 };
 

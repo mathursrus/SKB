@@ -18,6 +18,7 @@ export interface MembershipOption {
 }
 
 export interface GuestFeatures {
+  menu: boolean;
   sms: boolean;
   chat: boolean;
   order: boolean;

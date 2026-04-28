@@ -6,6 +6,28 @@ import { theme } from '@/ui/theme';
 
 interface Props {
   messages: readonly ChatMessage[];
+  smsCapable?: boolean;
+}
+
+/**
+ * Per-message status decoration. Mirrors the website's chat status icons:
+ *   - sent → ✓ (faint, beside timestamp)
+ *   - failed → "Not delivered" red label
+ *   - not_configured → "SMS unavailable" or "web only" depending on
+ *     whether the diner consented at all (the banner above the thread
+ *     covers the broader "this thread is web-only" notice; here we just
+ *     mark each individual message that didn't go over SMS).
+ */
+function statusDecoration(
+  smsStatus: string | undefined,
+  smsCapable: boolean,
+): { label: string | null; failed: boolean; muted: boolean } {
+  if (smsStatus === 'failed') return { label: 'Not delivered', failed: true, muted: false };
+  if (smsStatus === 'not_configured') {
+    return { label: smsCapable ? 'SMS unavailable' : 'web only', failed: false, muted: true };
+  }
+  if (smsStatus === 'sent') return { label: '✓', failed: false, muted: false };
+  return { label: null, failed: false, muted: false };
 }
 
 function formatTime(iso: string): string {
@@ -14,7 +36,7 @@ function formatTime(iso: string): string {
   return d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
 }
 
-export function ChatThread({ messages }: Props) {
+export function ChatThread({ messages, smsCapable = true }: Props) {
   const listRef = useRef<FlatList<ChatMessage>>(null);
 
   useEffect(() => {
@@ -31,27 +53,40 @@ export function ChatThread({ messages }: Props) {
       style={styles.list}
       contentContainerStyle={styles.content}
       renderItem={({ item }) => {
-        const failed = item.smsStatus === 'failed';
+        const isOut = item.direction === 'outbound';
+        const deco = isOut ? statusDecoration(item.smsStatus, smsCapable) : null;
         return (
           <View
             style={[
               styles.msg,
-              item.direction === 'outbound' ? styles.msgOut : styles.msgIn,
-              failed && styles.msgFailed,
+              isOut ? styles.msgOut : styles.msgIn,
+              deco?.failed && styles.msgFailed,
             ]}
           >
-            <Text style={item.direction === 'outbound' ? styles.bodyOut : styles.bodyIn}>
-              {item.body}
-            </Text>
-            <Text
-              style={[
-                styles.timestamp,
-                item.direction === 'outbound' && styles.timestampOut,
-                failed && styles.timestampFailed,
-              ]}
-            >
-              {failed ? 'Not delivered' : formatTime(item.at)}
-            </Text>
+            <Text style={isOut ? styles.bodyOut : styles.bodyIn}>{item.body}</Text>
+            <View style={styles.metaLine}>
+              <Text
+                style={[
+                  styles.timestamp,
+                  isOut && styles.timestampOut,
+                  deco?.failed && styles.timestampFailed,
+                ]}
+              >
+                {formatTime(item.at)}
+              </Text>
+              {deco?.label !== null && deco?.label !== undefined && (
+                <Text
+                  style={[
+                    styles.statusTag,
+                    isOut && styles.statusTagOut,
+                    deco.failed && styles.statusTagFailed,
+                    deco.muted && styles.statusTagMuted,
+                  ]}
+                >
+                  {deco.label}
+                </Text>
+              )}
+            </View>
           </View>
         );
       }}
@@ -113,6 +148,20 @@ const styles = StyleSheet.create({
     color: theme.color.warn,
     fontWeight: '700',
   },
+  metaLine: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 4,
+  },
+  statusTag: {
+    fontSize: 10,
+    color: theme.color.textMuted,
+    fontWeight: '600',
+  },
+  statusTagOut: { color: 'rgba(42,26,0,0.7)' },
+  statusTagFailed: { color: theme.color.warn, fontWeight: '700' },
+  statusTagMuted: { color: theme.color.textMuted, fontStyle: 'italic' },
   empty: {
     color: theme.color.textMuted,
     textAlign: 'center',

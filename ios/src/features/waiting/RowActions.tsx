@@ -67,7 +67,7 @@ export function RowActions({ party, onSeat, onNotify, onRemove }: Props) {
         icon="chatbubble-ellipses"
         disabled={!reachable}
         badge={party.unreadChat}
-        onPress={() => void openChat(party.id, party.code)}
+        onPress={() => void openChat(party.id, party.code, smsCapable)}
         accessibilityLabel={`Chat with ${party.name}`}
       />
       <Button

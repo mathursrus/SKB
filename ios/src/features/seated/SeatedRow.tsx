@@ -2,6 +2,8 @@ import { memo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import type { SeatedParty } from '@/core/party';
+import { SentimentPicker } from '@/features/waiting/Sentiment';
+import { useWaitlistStore } from '@/state/waitlist';
 import { Button } from '@/ui/Button';
 import { theme } from '@/ui/theme';
 
@@ -31,6 +33,12 @@ function mins(n: number | null): string {
 function SeatedRowImpl({ party, onAdvance }: Props) {
   const next = NEXT_STATE[party.state];
   const label = NEXT_LABEL[party.state];
+  const setSentiment = useWaitlistStore((s) => s.setSentiment);
+  // The web exposes a separate "Departed" shortcut alongside the next-
+  // state advance for any non-checkout state (so a host can mark a party
+  // as departed without first walking them through ordered → served →
+  // checkout when, e.g., they ducked out unexpectedly).
+  const showDepartShortcut = party.state !== 'checkout';
 
   return (
     <View
@@ -44,9 +52,17 @@ function SeatedRowImpl({ party, onAdvance }: Props) {
           <Text style={styles.tableNumber}>{party.tableNumber ?? '—'}</Text>
         </View>
         <View style={styles.main}>
-          <Text style={styles.name} numberOfLines={1}>
-            {party.name}
-          </Text>
+          <View style={styles.nameRow}>
+            <Text style={styles.name} numberOfLines={1}>
+              {party.name}
+            </Text>
+            <SentimentPicker
+              partyName={party.name}
+              sentiment={party.sentiment}
+              source={party.sentimentSource}
+              onChange={(next) => void setSentiment(party.id, next)}
+            />
+          </View>
           <View style={styles.metaRow}>
             <Text style={styles.meta}>{party.partySize}</Text>
             <View style={[styles.stateBadge, stateBadgeStyles[party.state]]}>
@@ -73,6 +89,14 @@ function SeatedRowImpl({ party, onAdvance }: Props) {
           onPress={() => onAdvance(next)}
           accessibilityLabel={`Advance ${party.name} to ${next}`}
         />
+        {showDepartShortcut && (
+          <Button
+            label="Departed"
+            variant="ghost"
+            onPress={() => onAdvance('departed')}
+            accessibilityLabel={`Mark ${party.name} as departed`}
+          />
+        )}
       </View>
     </View>
   );
@@ -101,7 +125,9 @@ export const SeatedRow = memo(SeatedRowImpl, (prev, next) => {
     a.waitMinutes === b.waitMinutes &&
     a.toOrderMinutes === b.toOrderMinutes &&
     a.toServeMinutes === b.toServeMinutes &&
-    a.toCheckoutMinutes === b.toCheckoutMinutes
+    a.toCheckoutMinutes === b.toCheckoutMinutes &&
+    a.sentiment === b.sentiment &&
+    a.sentimentSource === b.sentimentSource
   );
 });
 
@@ -149,7 +175,13 @@ const styles = StyleSheet.create({
     fontVariant: ['tabular-nums'],
   },
   main: { flex: 1 },
-  name: { color: theme.color.text, fontSize: 16, fontWeight: '600' },
+  nameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.space.xs,
+    flexWrap: 'wrap',
+  },
+  name: { color: theme.color.text, fontSize: 16, fontWeight: '600', flexShrink: 1 },
   metaRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -187,5 +219,5 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
     marginTop: 2,
   },
-  actions: { flexDirection: 'row', justifyContent: 'flex-end' },
+  actions: { flexDirection: 'row', justifyContent: 'flex-end', gap: theme.space.sm },
 });

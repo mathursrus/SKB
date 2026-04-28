@@ -46,9 +46,10 @@ export default function SettingsScreen() {
   const [address, setAddress] = useState<LocationAddress>(EMPTY_ADDRESS);
   const [publicHost, setPublicHost] = useState('');
   const [restaurantName, setRestaurantName] = useState('');
-  const [guestFeatures, setGuestFeatures] = useState<GuestFeatures>({ sms: true, chat: true, order: true });
+  const [guestFeatures, setGuestFeatures] = useState<GuestFeatures>({ menu: true, sms: true, chat: true, order: true });
   const [voiceEnabled, setVoiceEnabled] = useState(false);
   const [frontDeskPhone, setFrontDeskPhone] = useState('');
+  const [cateringPhone, setCateringPhone] = useState('');
   const [voiceThreshold, setVoiceThreshold] = useState('10');
   const [smsSenderName, setSmsSenderName] = useState('');
   const [savingKey, setSavingKey] = useState<string | null>(null);
@@ -85,6 +86,7 @@ export default function SettingsScreen() {
           setRestaurantName(site.name);
           setVoiceEnabled(voice.voiceEnabled);
           setFrontDeskPhone(voice.frontDeskPhone);
+          setCateringPhone(voice.cateringPhone ?? '');
           setVoiceThreshold(String(voice.voiceLargePartyThreshold));
           setSmsSenderName(messaging.smsSenderName);
           setGuestFeatures(features);
@@ -147,10 +149,12 @@ export default function SettingsScreen() {
       const next = await configApi.saveVoiceConfig(locationId, {
         voiceEnabled,
         frontDeskPhone,
+        cateringPhone,
         voiceLargePartyThreshold: parseInt(voiceThreshold, 10) || 10,
       });
       setVoiceEnabled(next.voiceEnabled);
       setFrontDeskPhone(next.frontDeskPhone);
+      setCateringPhone(next.cateringPhone ?? '');
       setVoiceThreshold(String(next.voiceLargePartyThreshold));
       Alert.alert('Saved', 'Front desk settings updated.');
     } catch (err) {
@@ -303,6 +307,11 @@ export default function SettingsScreen() {
           >
             <Text style={styles.cardHelp}>Toggle the channels guests can use during their wait.</Text>
             <SettingRow
+              label="Menu browsing"
+              value={guestFeatures.menu}
+              onChange={(v) => setGuestFeatures((s: GuestFeatures) => ({ ...s, menu: v }))}
+            />
+            <SettingRow
               label="SMS updates"
               value={guestFeatures.sms}
               onChange={(v) => setGuestFeatures((s: GuestFeatures) => ({ ...s, sms: v }))}
@@ -346,6 +355,19 @@ export default function SettingsScreen() {
               keyboardType="phone-pad"
               accessibilityLabel="Front desk phone"
             />
+            <Text style={styles.fieldLabel}>Catering phone</Text>
+            <TextInput
+              value={cateringPhone}
+              onChangeText={setCateringPhone}
+              placeholder="2065551234 (or leave blank)"
+              placeholderTextColor={theme.color.textMuted}
+              style={styles.input}
+              keyboardType="phone-pad"
+              accessibilityLabel="Catering phone"
+            />
+            <Text style={styles.cardHelp}>
+              Press 5 in the IVR routes large or special-event callers here. Leave blank to hide that menu option.
+            </Text>
             <Text style={styles.fieldLabel}>Large party threshold</Text>
             <TextInput
               value={voiceThreshold}

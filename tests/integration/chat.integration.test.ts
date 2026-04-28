@@ -16,7 +16,7 @@ delete process.env.TWILIO_ACCOUNT_SID;
 delete process.env.TWILIO_AUTH_TOKEN;
 delete process.env.TWILIO_PHONE_NUMBER;
 
-import { closeDb, getDb, queueEntries, queueMessages } from '../../src/core/db/mongo.js';
+import { closeDb, getDb, queueEntries, queueMessages, locations } from '../../src/core/db/mongo.js';
 import {
     sendChatMessage,
     getChatThread,
@@ -27,11 +27,19 @@ import {
     countUnreadForEntries,
 } from '../../src/services/chat.js';
 import { joinQueue } from '../../src/services/queue.js';
+import { ensureLocation, updateLocationGuestFeatures } from '../../src/services/locations.js';
 
 async function resetDb(): Promise<void> {
     const db = await getDb();
     await queueEntries(db).deleteMany({});
     await queueMessages(db).deleteMany({});
+    // Reset features.chat to default-on between cases. The "features.chat=false"
+    // tests below explicitly flip it; without this reset the next case would
+    // inherit the disabled flag.
+    await locations(db).updateOne(
+        { _id: 'test' },
+        { $unset: { guestFeatures: '' } },
+    );
 }
 
 async function seedConsenting(): Promise<{ id: string; code: string }> {
@@ -248,6 +256,96 @@ const cases: BaseTestCase[] = [
         testFn: async () => {
             const map = await countUnreadForEntries('test', []);
             return map.size === 0;
+        },
+    },
+    // ---------- features.chat=false: host-side ops keep working ----------
+    // features.chat now ONLY gates the diner-side queue.html panel. The host
+    // must still be able to message SMS-consenting diners and see the audit
+    // thread, regardless of whether the diner gets a web chat surface.
+    {
+        name: 'features.chat=false: sendChatMessage still persists outbound and sends SMS to consenting diner',
+        tags: ['integration', 'chat', 'features-chat', 'host-surface'],
+        testFn: async () => {
+            await resetDb();
+            await ensureLocation('test', 'Test Restaurant', '1234');
+            await updateLocationGuestFeatures('test', { chat: false });
+            const r = await joinQueue('test', { name: 'OptIn', partySize: 2, phone: '2065551240', smsConsent: true });
+            const db = await getDb();
+            const doc = await queueEntries(db).findOne({ code: r.code });
+            const id = String(doc?._id ?? '');
+            const send = await sendChatMessage(id, 'See you in 5');
+            const msgs = await queueMessages(db).find({ entryCode: r.code }).toArray();
+            return send.ok === true
+                && msgs.length === 1
+                && msgs[0]?.direction === 'outbound'
+                && msgs[0]?.body === 'See you in 5';
+        },
+    },
+    {
+        name: 'features.chat=false: getChatThread still returns the host\'s thread',
+        tags: ['integration', 'chat', 'features-chat', 'host-surface'],
+        testFn: async () => {
+            await resetDb();
+            await ensureLocation('test', 'Test Restaurant', '1234');
+            await updateLocationGuestFeatures('test', { chat: false });
+            const r = await joinQueue('test', { name: 'NoPanel', partySize: 2, phone: '2065551241', smsConsent: false });
+            const db = await getDb();
+            const doc = await queueEntries(db).findOne({ code: r.code });
+            const id = String(doc?._id ?? '');
+            await sendChatMessage(id, 'audit-only');
+            const thread = await getChatThread(id);
+            return !!thread
+                && thread.messages.length === 1
+                && thread.messages[0]?.body === 'audit-only';
+        },
+    },
+    {
+        name: 'features.chat=false: markThreadRead still updates the host\'s unread state',
+        tags: ['integration', 'chat', 'features-chat', 'host-surface'],
+        testFn: async () => {
+            await resetDb();
+            await ensureLocation('test', 'Test Restaurant', '1234');
+            await updateLocationGuestFeatures('test', { chat: false });
+            const r = await joinQueue('test', { name: 'Inbox', partySize: 2, phone: '2065551242', smsConsent: false });
+            const db = await getDb();
+            const doc = await queueEntries(db).findOne({ code: r.code });
+            const id = String(doc?._id ?? '');
+            await appendInbound('test', '+12065551242', 'reply', 'SMtfck');
+            const res = await markThreadRead(id);
+            const thread = await getChatThread(id);
+            return res.updated === 1 && thread?.unread === 0;
+        },
+    },
+    {
+        name: 'features.chat=false: getChatThreadByCode (diner surface) STILL rejects with chat.disabled',
+        tags: ['integration', 'chat', 'features-chat', 'diner-side'],
+        testFn: async () => {
+            await resetDb();
+            await ensureLocation('test', 'Test Restaurant', '1234');
+            await updateLocationGuestFeatures('test', { chat: false });
+            const r = await joinQueue('test', { name: 'Diner', partySize: 2, phone: '2065551243', smsConsent: true });
+            try {
+                await getChatThreadByCode('test', r.code);
+                return false;
+            } catch (err) {
+                return (err as Error).message === 'chat.disabled';
+            }
+        },
+    },
+    {
+        name: 'features.chat=false: appendInboundFromCode (diner surface) STILL rejects with chat.disabled',
+        tags: ['integration', 'chat', 'features-chat', 'diner-side'],
+        testFn: async () => {
+            await resetDb();
+            await ensureLocation('test', 'Test Restaurant', '1234');
+            await updateLocationGuestFeatures('test', { chat: false });
+            const r = await joinQueue('test', { name: 'Diner', partySize: 2, phone: '2065551244', smsConsent: true });
+            try {
+                await appendInboundFromCode('test', r.code, 'hi');
+                return false;
+            } catch (err) {
+                return (err as Error).message === 'chat.disabled';
+            }
         },
     },
     {

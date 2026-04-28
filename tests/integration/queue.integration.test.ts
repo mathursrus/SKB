@@ -6,7 +6,8 @@ import { runTests, type BaseTestCase } from '../test-utils.js';
 process.env.MONGODB_DB_NAME = 'skb_queue_integration_test';
 process.env.FRAIM_BRANCH = '';
 
-import { closeDb, getDb, queueEntries, settings } from '../../src/core/db/mongo.js';
+import { closeDb, getDb, queueEntries, queueMessages, settings, locations } from '../../src/core/db/mongo.js';
+import { updateLocationGuestFeatures, ensureLocation } from '../../src/services/locations.js';
 import {
     getQueueState,
     joinQueue,
@@ -37,7 +38,14 @@ type HostDiningPartyWithSentiment = {
 async function resetDb(): Promise<void> {
     const db = await getDb();
     await queueEntries(db).deleteMany({});
+    await queueMessages(db).deleteMany({});
     await settings(db).deleteMany({});
+    // Reset features.chat to default-on for the shared 'test' tenant so any
+    // prior test that flipped it off doesn't bleed into the next case.
+    await locations(db).updateOne(
+        { _id: 'test' },
+        { $unset: { guestFeatures: '' } },
+    );
 }
 
 const cases: BaseTestCase[] = [
@@ -523,6 +531,91 @@ const cases: BaseTestCase[] = [
                 && result.smsStatus === 'not_configured'
                 && doc?.state === 'called'
                 && (doc?.calls?.[0]?.smsStatus === 'not_configured');
+        },
+    },
+    // ---------- Notify always lands in the chat thread ----------
+    // The host's notification body is now persisted to queue_messages on
+    // every callParty, regardless of features.chat. The thread is the
+    // host's record-of-truth for what they sent; the diner-side surface
+    // is gated separately (getChatThreadByCode) — that test lives in
+    // guest-capability-toggles.integration.test.ts.
+    {
+        name: 'callParty: notification body persists to queue_messages thread (consenting)',
+        tags: ['integration', 'queue', 'call', 'notify-thread'],
+        testFn: async () => {
+            await resetDb();
+            const t0 = new Date('2026-04-05T20:00:00Z');
+            const r = await joinQueue('test', { name: 'OptIn', partySize: 2, phone: '2065551234', smsConsent: true }, t0);
+            const list = await listHostQueue('test', t0);
+            const id = list.parties[0]?.id ?? '';
+            const t5 = new Date(t0.getTime() + 5 * 60_000);
+            await callParty(id, t5);
+            const db = await getDb();
+            const msgs = await queueMessages(db).find({ entryCode: r.code }).toArray();
+            return msgs.length === 1
+                && msgs[0]?.direction === 'outbound'
+                && msgs[0]?.body.includes(r.code)
+                && msgs[0]?.body.toLowerCase().includes('table is ready');
+        },
+    },
+    {
+        name: 'callParty: notification persists even when SMS path is not_configured (no consent)',
+        tags: ['integration', 'queue', 'call', 'notify-thread', 'sms-consent'],
+        testFn: async () => {
+            await resetDb();
+            const t0 = new Date('2026-04-05T20:00:00Z');
+            const r = await joinQueue('test', { name: 'NoSms', partySize: 2, phone: '2065551235', smsConsent: false }, t0);
+            const list = await listHostQueue('test', t0);
+            const id = list.parties[0]?.id ?? '';
+            await callParty(id, new Date(t0.getTime() + 5 * 60_000));
+            const db = await getDb();
+            const msgs = await queueMessages(db).find({ entryCode: r.code }).toArray();
+            // Body persists for host audit; smsStatus reflects the missing leg.
+            return msgs.length === 1
+                && msgs[0]?.direction === 'outbound'
+                && msgs[0]?.smsStatus === 'not_configured';
+        },
+    },
+    {
+        name: 'callParty: notification persists even when features.chat is OFF (host audit)',
+        tags: ['integration', 'queue', 'call', 'notify-thread', 'features-chat'],
+        testFn: async () => {
+            await resetDb();
+            await ensureLocation('test', 'Test Restaurant', '1234');
+            await updateLocationGuestFeatures('test', { chat: false });
+            const t0 = new Date('2026-04-05T20:00:00Z');
+            const r = await joinQueue('test', { name: 'NoPanel', partySize: 2, phone: '2065551236', smsConsent: true }, t0);
+            const list = await listHostQueue('test', t0);
+            const id = list.parties[0]?.id ?? '';
+            await callParty(id, new Date(t0.getTime() + 5 * 60_000));
+            const db = await getDb();
+            const msgs = await queueMessages(db).find({ entryCode: r.code }).toArray();
+            // features.chat only gates the diner-side panel; the host's audit
+            // trail must still capture every notification that fired.
+            return msgs.length === 1
+                && msgs[0]?.direction === 'outbound'
+                && msgs[0]?.body.includes(r.code);
+        },
+    },
+    {
+        name: 'callParty: re-notify appends a second thread row with the repeat-call body',
+        tags: ['integration', 'queue', 'call', 'notify-thread'],
+        testFn: async () => {
+            await resetDb();
+            const t0 = new Date('2026-04-05T20:00:00Z');
+            const r = await joinQueue('test', { name: 'TwoCalls', partySize: 2, phone: '2065551237', smsConsent: true }, t0);
+            const list = await listHostQueue('test', t0);
+            const id = list.parties[0]?.id ?? '';
+            await callParty(id, new Date(t0.getTime() + 5 * 60_000));
+            await callParty(id, new Date(t0.getTime() + 8 * 60_000));
+            const db = await getDb();
+            const msgs = await queueMessages(db)
+                .find({ entryCode: r.code, direction: 'outbound' })
+                .sort({ createdAt: 1 })
+                .toArray();
+            return msgs.length === 2
+                && msgs[0]?.body.toLowerCase().includes('table is ready')
+                && msgs[1]?.body.toLowerCase().includes('reminder');
         },
     },
     {

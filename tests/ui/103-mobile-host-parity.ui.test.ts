@@ -120,6 +120,33 @@ const cases: BaseTestCase[] = [
         },
     },
     {
+        // The Chat button must render for every row regardless of features.chat.
+        // features.chat only gates the diner-facing queue.html chat panel —
+        // the host needs the compose surface to SMS opted-in diners even when
+        // the in-app panel is disabled. We assert this by source inspection:
+        // the chat-btn render must NOT be wrapped in an `inAppOk ? ... : ''`
+        // (or `features.chat ? ... : ''`) ternary that would suppress it.
+        name: 'host.js renders Chat button unconditionally (no features.chat ternary gate)',
+        tags: ['ui', 'host-js', 'chat', 'features-chat'],
+        testFn: async () => {
+            const r = await fetch(`${BASE()}/host.js`);
+            const js = await r.text();
+            // Remove whitespace + line breaks so a multi-line ternary like
+            //     inAppOk
+            //         ? '<button class="chat-btn" ...>'
+            //         : ''
+            // collapses into a single comparable string.
+            const compact = js.replace(/\s+/g, ' ');
+            const gateBeforeChatBtn =
+                /(features\.chat|inAppOk)\s*\?\s*'?<button class="chat-btn"/.test(compact);
+            if (gateBeforeChatBtn) {
+                throw new Error('host.js still gates the Chat button render on features.chat / inAppOk');
+            }
+            // And the action selector itself must be present in the source.
+            return js.includes('data-action="chat"') && js.includes('class="chat-btn"');
+        },
+    },
+    {
         name: 'host.js preserves Seated state-ladder + metric cells (R12 / §2a)',
         tags: ['ui', 'issue-103', 'parity', 'seated'],
         testFn: async () => {

@@ -172,6 +172,33 @@ const cases: BaseTestCase[] = [
         },
     },
     {
+        // features.chat ONLY gates the diner-facing queue.html panel.
+        // Host-side compose, fetch, and quick-reply templates must keep
+        // working so the host can still SMS-consenting diners.
+        name: 'host chat endpoints stay 200 when features.chat is disabled',
+        tags: ['integration', 'guest-capabilities', 'chat', 'host-surface'],
+        testFn: async () => {
+            const db = await getDb();
+            const entry = await queueEntries(db).findOne({ code: guestCode });
+            const id = String(entry?._id ?? '');
+            if (!id) return false;
+            const [templatesRes, threadRes, sendRes] = await Promise.all([
+                fetch(`${getTestServerUrl()}/r/${LOC}/api/host/chat/templates?code=${encodeURIComponent(guestCode)}`, {
+                    headers: { Cookie: ownerCookie! },
+                }),
+                fetch(`${getTestServerUrl()}/r/${LOC}/api/host/queue/${encodeURIComponent(id)}/chat`, {
+                    headers: { Cookie: ownerCookie! },
+                }),
+                fetch(`${getTestServerUrl()}/r/${LOC}/api/host/queue/${encodeURIComponent(id)}/chat`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', Cookie: ownerCookie! },
+                    body: JSON.stringify({ body: 'host-side ping' }),
+                }),
+            ]);
+            return templatesRes.ok && threadRes.ok && sendRes.ok;
+        },
+    },
+    {
         name: 'mixed capability save keeps notify-compatible SMS off while chat and order are on',
         tags: ['integration', 'guest-capabilities', 'mixed'],
         testFn: async () => {

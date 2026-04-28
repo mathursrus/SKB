@@ -124,7 +124,7 @@ const cases: BaseTestCase[] = [
 
     // ---- R1 step 1: owner creates invite ----
     {
-        name: 'R1: owner POST /r/:loc/api/staff/invite → 200 + invite row + server logs token',
+        name: 'R1: owner POST /r/:loc/api/staff/invite → 200 + invite row + delivery status',
         tags: ['integration', 'invites55', 'R1'],
         testFn: async () => {
             if (!ownerCookie) return false;
@@ -134,9 +134,15 @@ const cases: BaseTestCase[] = [
                 body: JSON.stringify({ email: 'host-invitee@example.test', name: 'Host Invitee', role: 'host' }),
             });
             if (!r.ok) return false;
-            const body = await r.json() as { invite?: { email?: string; role?: string } };
+            const body = await r.json() as {
+                invite?: { email?: string; role?: string };
+                delivery?: { delivered?: boolean; mode?: string; reason?: string };
+            };
             if (body.invite?.email !== 'host-invitee@example.test') return false;
             if (body.invite?.role !== 'host') return false;
+            if (body.delivery?.mode !== 'log-only') return false;
+            if (body.delivery?.delivered !== false) return false;
+            if (body.delivery?.reason !== 'missing_connection_string') return false;
             // Pull the token straight from DB — we know the tokenHash
             // row was just inserted; reverse-engineer the token from
             // our test path by picking the pending invite for this email.

@@ -26,7 +26,12 @@ npm start                    # http://localhost:3000
 | `PORT` | No | Server port (auto-assigned if not set) |
 | `SKB_HOST_PIN` | Yes | Host-stand PIN used to bootstrap the default `skb` location |
 | `SKB_COOKIE_SECRET` | No | Cookie signing secret for host sessions |
+| `ACS_EMAIL_CONNECTION_STRING` | No | Azure Communication Services Email connection string; required for real outbound invite/welcome emails |
+| `ACS_EMAIL_SENDER` | No | Verified ACS sender address used for outbound invite/welcome emails |
+| `PLATFORM_PUBLIC_URL` | No | Absolute app base URL used to build invite and welcome links, e.g. `https://skb-waitlist.azurewebsites.net` |
 | `TZ` | No | Timezone for service-day partitioning (default: `America/Los_Angeles`) |
+
+If `ACS_EMAIL_CONNECTION_STRING` or `ACS_EMAIL_SENDER` is missing, invite and welcome emails fall back to log-only mode in development. In production, owner staff invites now fail closed with `503 invite_email_unavailable` instead of creating a dead invite the recipient can never receive.
 
 ## Google Maps Waitlist Integration
 

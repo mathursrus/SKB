@@ -28,7 +28,7 @@ import { getHostStats } from '../services/stats.js';
 import { getAnalytics } from '../services/analytics.js';
 import { getCallerStats } from '../services/callerStats.js';
 import { emitDbError } from '../services/dbError.js';
-import { sendEmail } from '../services/mailer.js';
+import { sendEmail, type EmailResult } from '../services/mailer.js';
 import {
     getLocation,
     getGuestFeatures,
@@ -1288,10 +1288,7 @@ export function hostRouter(): Router {
                 token,
                 link,
             }));
-            // Fire-and-forget the email send so invite acceptance never
-            // blocks on mail latency. `sendEmail` is documented to never
-            // throw, but await with .catch as a belt-and-suspenders.
-            void sendEmail({
+            const delivery = await sendEmail({
                 to: invite.email,
                 subject: `You're invited to join ${loc(req)} on OSH`,
                 text: buildStaffInviteEmail({
@@ -1300,15 +1297,22 @@ export function hostRouter(): Router {
                     role: invite.role,
                     link,
                 }),
-            }).catch((err: unknown) => {
-                console.log(JSON.stringify({
-                    t: new Date().toISOString(),
-                    level: 'error',
-                    msg: 'staff.invite.email_failed',
-                    detail: err instanceof Error ? err.message : String(err),
-                }));
             });
-            res.json({ invite });
+            if (process.env.NODE_ENV === 'production' && !delivery.delivered) {
+                await revokeInvite(loc(req), invite.id);
+                res.status(503).json({
+                    error: 'invite email delivery unavailable',
+                    code: 'invite_email_unavailable',
+                    delivery,
+                    deliveryMessage: buildInviteDeliveryMessage(invite.email, delivery),
+                });
+                return;
+            }
+            res.json({
+                invite,
+                delivery,
+                deliveryMessage: buildInviteDeliveryMessage(invite.email, delivery),
+            });
         } catch (err) {
             if (err instanceof Error) {
                 const msg = err.message;
@@ -1452,4 +1456,19 @@ function buildStaffInviteEmail(input: {
         '',
         '— The OSH team',
     ].join('\n');
+}
+
+function buildInviteDeliveryMessage(email: string, delivery: EmailResult): string {
+    if (delivery.delivered) {
+        return `Invite email sent to ${email}.`;
+    }
+    switch (delivery.reason) {
+        case 'missing_connection_string':
+        case 'missing_sender':
+            return `Invite created for ${email}, but email delivery is not configured in this environment.`;
+        case 'acs_client_unavailable':
+            return `Invite created for ${email}, but the email service is unavailable in this environment.`;
+        default:
+            return `Invite created for ${email}, but the email could not be sent (${delivery.reason}).`;
+    }
 }

@@ -63,12 +63,12 @@ export function StaffSection({ locationId, role }: { locationId: string; role: A
     setInviting(true);
     setError(null);
     try {
-      await staffApi.invite(locationId, { email, name: name || undefined, role: inviteRole });
+      const result = await staffApi.invite(locationId, { email, name: name || undefined, role: inviteRole });
       setInviteEmail('');
       setInviteName('');
       setInviteRole('host');
       await load();
-      Alert.alert('Invite sent', `${email} will receive an invite link.`);
+      Alert.alert(result.delivery.delivered ? 'Invite emailed' : 'Invite created', result.deliveryMessage);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to send invite');
     } finally {

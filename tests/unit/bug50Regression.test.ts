@@ -449,13 +449,19 @@ const cases: BaseTestCase[] = [
         },
     },
     {
-        name: 'ios: has AddPartySheet + CustomSmsDialog + CustomCallDialog components',
+        // Issue #102 #5: CustomSmsDialog + CustomCallDialog were retired
+        // — compose lives inside Chat, the Call button needs no separate
+        // confirm dialog. The iOS host row now renders only Seat,
+        // Notify, Chat, Call, No-show. AddPartySheet stays. This test
+        // pins the new contract so a future refactor can't reintroduce
+        // either dialog without an explicit conversation.
+        name: 'ios: AddPartySheet exists; Custom SMS / Custom Call dialogs are retired',
         tags: ['unit', 'ios', 'host-parity'],
         testFn: async () => {
             const base = path.resolve(__dirname, '..', '..', 'ios', 'src', 'features', 'waiting');
             return fs.existsSync(path.join(base, 'AddPartySheet.tsx'))
-                && fs.existsSync(path.join(base, 'CustomSmsDialog.tsx'))
-                && fs.existsSync(path.join(base, 'CustomCallDialog.tsx'));
+                && !fs.existsSync(path.join(base, 'CustomSmsDialog.tsx'))
+                && !fs.existsSync(path.join(base, 'CustomCallDialog.tsx'));
         },
     },
     {

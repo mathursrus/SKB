@@ -149,9 +149,7 @@
                     renderSentimentSelect(safeName, p.sentiment, p.sentimentSource),
                     '<button class="seat-btn" data-action="seat" aria-label="Seat ' + safeName + '">Seat</button>',
                     '<button class="notify-btn" data-action="notify" aria-label="' + notifyLabel + ' ' + safeName + '"' + reachDisabledAttr + ' title="' + escapeHtml(notifyTitle) + '">' + notifyLabel + '</button>',
-                    inAppOk
-                        ? '<button class="chat-btn" data-action="chat" aria-label="Chat with ' + safeName + (unread ? ', ' + unread + ' unread' : '') + '"' + (hasPhone ? '' : ' disabled') + ' title="' + escapeHtml(chatTitle) + '">Chat' + unreadDot + '</button>'
-                        : '',
+                    '<button class="chat-btn" data-action="chat" aria-label="Chat with ' + safeName + (unread ? ', ' + unread + ' unread' : '') + '"' + reachDisabledAttr + ' title="' + escapeHtml(chatTitle) + '">Chat' + unreadDot + '</button>',
                     '<a class="call-dial-btn rowbtn" data-action="call" href="' + callHref + '" aria-label="Call ' + safeName + '"' + callDisabled + '>Call</a>',
                     '<button class="remove" data-reason="no_show" aria-label="Mark ' + safeName + ' as no-show">No-show</button>',
                 ].filter(Boolean).join('');

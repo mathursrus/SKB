@@ -475,11 +475,11 @@ export async function callParty(
     //
     //   - SMS goes out only when the tenant has SMS enabled AND the diner
     //     consented (TFV 30513).
-    //   - When the tenant has in-app chat enabled, the same notification
-    //     also lands in the persistent queue_messages thread so the diner
-    //     sees it on their queue.html status page. This is the "in addition
-    //     to SMS" channel — both fire when both are on; either alone still
-    //     reaches the diner.
+    //   - The notification body is always persisted to queue_messages so
+    //     the host sees a complete record of what they sent. When the
+    //     tenant has in-app chat enabled, the diner also sees it on their
+    //     queue.html status page (their visibility is the only thing
+    //     features.chat actually gates).
     const callCount = (entry.calls?.length ?? 0) + 1;
     const message = callCount === 1
         ? firstCallMessage(entry.code)
@@ -489,20 +489,18 @@ export async function callParty(
         ? await sendSms(entry.phone, message, { locationId: entry.locationId })
         : { successful: false, status: 'not_configured' as const, messageId: '' };
 
-    if (features.chat) {
-        await queueMessages(db).insertOne({
-            locationId: entry.locationId,
-            entryCode: entry.code,
-            entryId: id,
-            direction: 'outbound',
-            body: message,
-            createdAt: now,
-            twilioSid: smsResult.messageId || undefined,
-            smsStatus: smsResult.successful
-                ? 'sent'
-                : (smsResult.status === 'not_configured' ? 'not_configured' : 'failed'),
-        });
-    }
+    await queueMessages(db).insertOne({
+        locationId: entry.locationId,
+        entryCode: entry.code,
+        entryId: id,
+        direction: 'outbound',
+        body: message,
+        createdAt: now,
+        twilioSid: smsResult.messageId || undefined,
+        smsStatus: smsResult.successful
+            ? 'sent'
+            : (smsResult.status === 'not_configured' ? 'not_configured' : 'failed'),
+    });
 
     // 3. Update state + push CallRecord (SMS failure does NOT block this)
     const callRecord: CallRecord = {

@@ -20,6 +20,15 @@ import type { ChatMessage, ChatMessageDTO, ChatThreadDTO } from '../types/chat.j
 const MAX_THREAD_LIMIT = 200;
 const DEFAULT_THREAD_LIMIT = 50;
 
+/**
+ * Diner-facing chat surface gate. `features.chat` controls whether the diner
+ * sees a chat panel on their queue.html status page — it does NOT gate the
+ * host's ability to message the diner via SMS. Host-side functions
+ * (`sendChatMessage`, `getChatThread`, `markThreadRead`) always run; the
+ * thread doubles as the host's audit trail of what was sent. Only the
+ * diner-facing endpoints (`appendInboundFromCode`, `getChatThreadByCode`)
+ * call this guard.
+ */
 async function assertChatEnabled(locationId: string): Promise<void> {
     const location = await getLocation(locationId);
     if (location && !getGuestFeatures(location).chat) throw new Error('chat.disabled');
@@ -41,7 +50,6 @@ export async function sendChatMessage(
     try { _id = new ObjectId(id); } catch { throw new Error('invalid id'); }
     const entry = await queueEntries(db).findOne({ _id });
     if (!entry) return { ok: false };
-    await assertChatEnabled(entry.locationId);
     if (!entry.phone) return { ok: false };
 
     // TFV 30513: only text diners who explicitly opted in. Non-consenting
@@ -85,7 +93,6 @@ export async function getChatThread(
     try { _id = new ObjectId(id); } catch { throw new Error('invalid id'); }
     const entry = await queueEntries(db).findOne({ _id });
     if (!entry) return null;
-    await assertChatEnabled(entry.locationId);
     const limit = Math.min(Math.max(1, opts.limit ?? DEFAULT_THREAD_LIMIT), MAX_THREAD_LIMIT);
     const filter: Record<string, unknown> = { locationId: entry.locationId, entryCode: entry.code };
     if (opts.before) filter.createdAt = { $lt: opts.before };
@@ -120,7 +127,6 @@ export async function markThreadRead(id: string, now: Date = new Date()): Promis
     try { _id = new ObjectId(id); } catch { throw new Error('invalid id'); }
     const entry = await queueEntries(db).findOne({ _id });
     if (!entry) return { updated: 0 };
-    await assertChatEnabled(entry.locationId);
     const res = await queueMessages(db).updateMany(
         {
             locationId: entry.locationId,

@@ -438,10 +438,10 @@ export function hostRouter(): Router {
     r.get('/host/chat/templates', requireHost, async (req: Request, res: Response) => {
         const code = String(req.query.code ?? '');
         if (!code) { res.status(400).json({ error: 'code required', field: 'code' }); return; }
-        if (!getGuestFeatures(await getLocation(loc(req))).chat) {
-            res.status(403).json({ error: 'chat.disabled' });
-            return;
-        }
+        // No features.chat gate here — quick-reply templates are part of the
+        // host's compose surface, which always works (SMS goes out when the
+        // diner consented; the thread persists for audit either way). The
+        // diner-side panel is the surface that features.chat actually gates.
         res.json({
             almostReady: chatAlmostReadyMessage(code),
             needMoreTime: chatNeedMoreTimeMessage(code),

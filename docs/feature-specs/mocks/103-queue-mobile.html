@@ -1,0 +1,235 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Mock #103 — Diner waitlist (mobile-first)</title>
+<link href="https://fonts.googleapis.com/css2?family=Fira+Sans:wght@400;600;700&display=swap" rel="stylesheet" />
+<style>
+  /* ============================================================
+     Mock #103 — Diner waitlist join, mobile-first redesign.
+     Standalone HTML so the owner can open it in a browser and
+     judge the experience without running a dev server. The
+     styling mirrors public/styles.css (gold #e3bf3d on black/white,
+     Fira Sans). Two viewport demos shown side by side.
+     ============================================================ */
+  :root {
+    --bg: #ffffff; --fg: #111111; --muted: #4d4c4c;
+    --accent: #e3bf3d; --border: #eaeaea; --divider: #f3f3f3;
+    --surface-alt: #fafafa;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 24px;
+    font-family: 'Fira Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: #ececec; color: var(--fg);
+  }
+  h1.mockTitle { font-size: 18px; font-weight: 700; margin: 0 0 4px; }
+  p.mockNote { color: #555; font-size: 13px; margin: 0 0 18px; max-width: 760px; }
+  .mockGrid { display: flex; gap: 32px; flex-wrap: wrap; align-items: flex-start; }
+  .phoneFrame {
+    width: 375px; height: 667px; background: var(--surface-alt);
+    border: 8px solid #111; border-radius: 32px; overflow: hidden;
+    box-shadow: 0 12px 28px rgba(0,0,0,0.18); position: relative;
+  }
+  .phoneFrame .scrollLine {
+    position: absolute; left: 0; right: 0; bottom: 0;
+    height: 0; border-top: 1px dashed rgba(220,38,38,0.6);
+    pointer-events: none;
+  }
+  .phoneFrame .scrollLabel {
+    position: absolute; right: 8px; bottom: 4px;
+    background: rgba(220,38,38,0.9); color: #fff;
+    font-size: 10px; padding: 2px 6px; border-radius: 4px;
+    letter-spacing: 0.5px;
+  }
+  .phoneCaption {
+    text-align: center; margin-top: 10px; font-size: 13px;
+    color: #444; max-width: 375px;
+  }
+  .phoneCaption strong { color: #111; }
+
+  /* ---------- Diner page (mirrors styles.css .diner) ---------- */
+  .diner { background: var(--surface-alt); height: 100%; overflow-y: auto; }
+  .diner header {
+    background: #000; color: #fff;
+    padding: 10px 16px 10px;          /* was 24px 16px 20px */
+    text-align: center;
+    border-bottom: 3px solid var(--accent);
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+  }
+  .diner header .mark {
+    display: inline-block; font-weight: 700; font-size: 14px;
+    letter-spacing: 4px; color: var(--accent);
+    border: 1.5px solid var(--accent); padding: 2px 8px; border-radius: 3px;
+  }
+  .diner header h1 {
+    margin: 0; font-size: 15px; font-weight: 600; letter-spacing: 0.3px;
+  }
+  .diner header .sub {
+    color: #cfcbba; font-size: 11px; letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+  .diner main { padding: 12px 16px 24px; max-width: 480px; margin: 0 auto; }
+
+  /* Compact status strip — replaces the 165px tall status card. */
+  .status-strip {
+    display: flex; align-items: center; gap: 10px;
+    background: #fff; border: 1px solid var(--border);
+    border-radius: 10px; padding: 8px 12px; margin-bottom: 12px;
+    font-size: 13px; color: var(--muted);
+  }
+  .status-strip .num {
+    font-size: 22px; font-weight: 700; color: #111;
+    line-height: 1;
+  }
+  .status-strip .lbl {
+    font-size: 11px; letter-spacing: 1px; text-transform: uppercase;
+  }
+  .status-strip .div { color: #d6d3d1; }
+  .status-strip .eta { color: var(--muted); }
+
+  .card {
+    background: #fff; border: 1px solid var(--border);
+    border-radius: 12px; padding: 16px; margin-bottom: 14px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+  }
+  .card .lead {
+    font-size: 16px; font-weight: 700; color: #111; margin: 0 0 10px;
+  }
+  .card label {
+    display: block; font-size: 11px; font-weight: 600; color: var(--muted);
+    text-transform: uppercase; letter-spacing: 1px; margin: 10px 0 4px;
+  }
+  .card label:first-of-type { margin-top: 0; }
+  input[type=text], input[type=tel], input[type=number] {
+    width: 100%; padding: 10px 12px; font-family: inherit; font-size: 16px;
+    border: 1px solid var(--border); border-radius: 8px; background: #fff;
+    color: var(--fg);
+  }
+  /* Two-up: party size + phone share a row to save vertical space.
+     R3: stays single-column on viewport <= 320px (phones below iPhone SE). */
+  .row-2up {
+    display: grid; grid-template-columns: 1fr 1.6fr; gap: 10px;
+  }
+  @media (max-width: 320px) { .row-2up { grid-template-columns: 1fr; } }
+
+  .sms-consent {
+    margin-top: 12px; padding: 10px;
+    background: var(--surface-alt); border: 1px solid var(--divider);
+    border-radius: 8px; font-size: 12px; line-height: 1.4; color: var(--muted);
+  }
+  .sms-consent label { display: flex; gap: 8px; margin: 0; align-items: flex-start; text-transform: none; letter-spacing: 0; font-size: 12px; font-weight: 400; color: var(--muted); }
+  .sms-consent strong { color: #111; }
+  .sms-consent .hint { font-size: 11px; color: #6b7280; margin-top: 6px; }
+
+  button.primary {
+    display: block; width: 100%; margin-top: 14px; min-height: 48px;
+    background: #000; color: #fff; border: none; border-radius: 8px;
+    font-family: inherit; font-size: 15px; font-weight: 600;
+    letter-spacing: 0.5px; cursor: pointer;
+  }
+
+  /* Right-hand mock: AFTER the user has joined, the status info naturally
+     rises into prominence and the form is replaced by the position card. */
+  .pos-card { text-align: center; padding: 22px 16px; }
+  .pos-card .pos-label { font-size: 11px; letter-spacing: 1.5px; color: var(--muted); text-transform: uppercase; }
+  .pos-card .pos { font-size: 56px; font-weight: 700; color: #111; line-height: 1; margin: 4px 0; }
+  .pos-card .code { font-size: 13px; color: var(--muted); letter-spacing: 1.5px; }
+  .pos-card .eta-time { margin-top: 12px; font-size: 14px; color: var(--muted); }
+</style>
+</head>
+<body>
+
+<h1 class="mockTitle">Mock #103a — Diner waitlist join (375 × 667 viewport)</h1>
+<p class="mockNote">
+  The redesign collapses the 165 px-tall "parties waiting" status card into a slim 36 px strip and
+  trims the header padding so the join form starts at ~110 px. The "Join the line" button now sits
+  inside the first 667 px of the page (no scroll required). When a diner is already in line (right-hand
+  view), the position card naturally takes over the full screen.
+</p>
+
+<div class="mockGrid">
+
+  <!-- LEFT: pre-join state -->
+  <div>
+    <div class="phoneFrame">
+      <div class="diner">
+        <header>
+          <span class="mark">SKB</span>
+          <h1>Shri Krishna Bhavan</h1>
+        </header>
+        <main>
+          <div class="status-strip">
+            <span class="num">12</span>
+            <span class="lbl">in line</span>
+            <span class="div">·</span>
+            <span class="eta">~25 min wait</span>
+          </div>
+
+          <div class="card">
+            <p class="lead">Join the line</p>
+            <label for="name">Your name</label>
+            <input type="text" id="name" placeholder="" />
+            <div class="row-2up">
+              <div>
+                <label for="size">Party size</label>
+                <input type="number" id="size" value="2" />
+              </div>
+              <div>
+                <label for="phone">Phone number</label>
+                <input type="tel" id="phone" placeholder="206 555 1234" />
+              </div>
+            </div>
+            <div class="sms-consent">
+              <label>
+                <input type="checkbox" />
+                <span><strong>Text me updates</strong> from OSH about my wait at SKB. Msg &amp; data rates may apply. Reply STOP to opt out.</span>
+              </label>
+              <div class="hint">Optional — keep this page open and your spot updates live.</div>
+            </div>
+            <button type="button" class="primary">Join the line</button>
+          </div>
+        </main>
+      </div>
+      <div class="scrollLine" style="bottom:0"></div>
+      <div class="scrollLabel">667 px fold</div>
+    </div>
+    <div class="phoneCaption">
+      <strong>Pre-join.</strong> Submit button visible above the fold.
+    </div>
+  </div>
+
+  <!-- RIGHT: post-join state -->
+  <div>
+    <div class="phoneFrame">
+      <div class="diner">
+        <header>
+          <span class="mark">SKB</span>
+          <h1>Shri Krishna Bhavan</h1>
+        </header>
+        <main>
+          <div class="status-strip">
+            <span class="num">12</span>
+            <span class="lbl">in line</span>
+            <span class="div">·</span>
+            <span class="eta">~25 min wait</span>
+          </div>
+          <div class="card pos-card">
+            <div class="pos-label">your place</div>
+            <div class="pos">7</div>
+            <div class="code">SKB-A4Q</div>
+            <div class="eta-time">Promised by <strong>7:48 PM</strong> · 18 min</div>
+          </div>
+        </main>
+      </div>
+    </div>
+    <div class="phoneCaption">
+      <strong>Post-join.</strong> Position dominates; form is gone.
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>

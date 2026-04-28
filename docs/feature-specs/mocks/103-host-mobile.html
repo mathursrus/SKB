@@ -1,0 +1,405 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Mock #103 — Host stand (mobile-first)</title>
+<link href="https://fonts.googleapis.com/css2?family=Fira+Sans:wght@400;600;700&display=swap" rel="stylesheet" />
+<style>
+  /* ============================================================
+     Mock #103 — Host stand, mobile-first redesign.
+
+     The current host page hard-codes viewport=1024 so on a phone
+     the entire layout shrinks. This redesign restores
+     width=device-width and converts the data table into stacked
+     party cards, plus a sticky bottom action bar that keeps the
+     primary host actions ("+ Add party" + ETA controls) thumb-
+     reachable without scrolling.
+     ============================================================ */
+  :root {
+    --bg: #ffffff; --fg: #111111; --muted: #4d4c4c;
+    --accent: #e3bf3d; --border: #eaeaea; --divider: #f3f3f3;
+    --surface-alt: #fafafa; --danger: #b91c1c; --ok: #15803d;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 24px;
+    font-family: 'Fira Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: #ececec; color: var(--fg);
+  }
+  h1.mockTitle { font-size: 18px; font-weight: 700; margin: 0 0 4px; }
+  p.mockNote { color: #555; font-size: 13px; margin: 0 0 18px; max-width: 760px; }
+  .mockGrid { display: flex; gap: 32px; flex-wrap: wrap; align-items: flex-start; }
+  .phoneFrame {
+    width: 375px; height: 667px; background: #fff;
+    border: 8px solid #111; border-radius: 32px; overflow: hidden;
+    box-shadow: 0 12px 28px rgba(0,0,0,0.18); position: relative;
+  }
+  .phoneCaption {
+    text-align: center; margin-top: 10px; font-size: 13px;
+    color: #444; max-width: 375px;
+  }
+  .phoneCaption strong { color: #111; }
+  .desktopFrame {
+    width: 1024px; height: 540px; background: #fff;
+    border: 4px solid #111; border-radius: 8px; overflow: hidden;
+    box-shadow: 0 12px 28px rgba(0,0,0,0.14); position: relative;
+  }
+
+  /* ---------- Host page ---------- */
+  .host { background: var(--surface-alt); height: 100%; overflow-y: auto;
+          display: flex; flex-direction: column; }
+  .host .topbar {
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px 12px; background: #111; color: #fff;
+    border-bottom: 2px solid var(--accent);
+  }
+  .host .topbar .brand {
+    font-size: 13px; font-weight: 700; letter-spacing: 0.4px;
+    color: var(--accent); flex: 1; min-width: 0; white-space: nowrap;
+    overflow: hidden; text-overflow: ellipsis;
+  }
+  .host .topbar .iconbtn {
+    width: 36px; height: 36px; border-radius: 8px; border: none;
+    background: rgba(255,255,255,0.08); color: #fff; font-size: 16px;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+  }
+  .host .counts {
+    display: flex; gap: 0; padding: 6px 12px; background: #fff;
+    border-bottom: 1px solid var(--border); font-size: 12px;
+  }
+  .host .counts > div {
+    flex: 1; text-align: center; padding: 4px 6px;
+  }
+  .host .counts > div + div { border-left: 1px solid var(--divider); }
+  .host .counts strong {
+    display: block; font-size: 18px; color: #111; line-height: 1.1;
+  }
+  .host .counts .lbl { font-size: 10px; letter-spacing: 1px; color: var(--muted); text-transform: uppercase; }
+
+  .host .tabs {
+    display: flex; gap: 0; background: #fff; border-bottom: 1px solid var(--border);
+  }
+  .host .tabs .tab {
+    flex: 1; min-height: 44px; padding: 10px 6px; border: none; background: transparent;
+    font: inherit; font-size: 13px; font-weight: 600; color: var(--muted);
+    cursor: pointer; position: relative;
+  }
+  .host .tabs .tab.active {
+    color: #111;
+  }
+  .host .tabs .tab.active::after {
+    content: ''; position: absolute; left: 8px; right: 8px; bottom: 0;
+    height: 3px; background: var(--accent); border-radius: 2px;
+  }
+  .host .tabs .badge {
+    display: inline-block; min-width: 20px; padding: 1px 6px;
+    background: var(--surface-alt); border: 1px solid var(--border);
+    border-radius: 10px; font-size: 11px; margin-left: 4px;
+  }
+  .host .tabs .tab.active .badge {
+    background: #111; color: #fff; border-color: #111;
+  }
+
+  .host main { flex: 1; padding: 10px 12px 96px; overflow-y: auto; }
+  .partyCard {
+    background: #fff; border: 1px solid var(--border); border-radius: 12px;
+    padding: 12px; margin-bottom: 10px; box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+  }
+  .partyCard .row1 {
+    display: flex; align-items: baseline; gap: 8px; margin-bottom: 4px;
+  }
+  .partyCard .pos {
+    font-size: 18px; font-weight: 700; color: var(--accent);
+    min-width: 28px; text-align: left;
+  }
+  .partyCard .name { font-size: 16px; font-weight: 600; color: #111; flex: 1; }
+  .partyCard .size {
+    font-size: 12px; padding: 2px 8px; background: var(--surface-alt);
+    border: 1px solid var(--border); border-radius: 999px; color: var(--muted);
+  }
+  .partyCard .meta {
+    font-size: 12px; color: var(--muted); margin-bottom: 10px;
+    display: flex; gap: 8px; flex-wrap: wrap;
+  }
+  .partyCard .meta .pill {
+    background: var(--surface-alt); border: 1px solid var(--border);
+    padding: 2px 8px; border-radius: 999px;
+  }
+  .partyCard .meta .pill.warn { background: #fef3c7; border-color: #fde68a; color: #92400e; }
+  .partyCard .actions {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+  }
+  .partyCard .actions .full { grid-column: 1 / -1; }
+  .partyCard .actions button {
+    min-height: 44px; padding: 8px 10px; border-radius: 8px;
+    font: inherit; font-size: 13px; font-weight: 600; cursor: pointer;
+    background: #fff; color: #111; border: 1px solid var(--border);
+  }
+  .partyCard .actions button.primary { background: #111; color: #fff; border-color: #111; }
+  .partyCard .actions button.danger { color: var(--danger); border-color: #fecaca; }
+  .partyCard .actions button.chat { background: var(--surface-alt); }
+
+  /* Sticky bottom action bar — keeps the two most-used host actions
+     (+ Add party, ETA controls) thumb-reachable on a 667 px screen
+     without scrolling. */
+  .actionBar {
+    position: absolute; left: 0; right: 0; bottom: 0;
+    display: flex; gap: 8px; padding: 10px 12px;
+    background: rgba(255,255,255,0.96);
+    border-top: 1px solid var(--border);
+    box-shadow: 0 -4px 12px rgba(0,0,0,0.06);
+    backdrop-filter: blur(6px);
+  }
+  .actionBar .add {
+    flex: 1.4; min-height: 48px; border-radius: 10px;
+    background: var(--accent); color: #111; font-weight: 700;
+    border: none; font-size: 15px; cursor: pointer;
+  }
+  .actionBar .eta {
+    display: flex; align-items: center; gap: 6px;
+    background: var(--surface-alt); border: 1px solid var(--border);
+    border-radius: 10px; padding: 6px 10px; font-size: 13px;
+  }
+  .actionBar .eta select, .actionBar .eta input {
+    background: transparent; border: none; font: inherit;
+    font-weight: 600; color: #111; padding: 0; min-width: 0;
+  }
+  .actionBar .eta input { width: 36px; text-align: center; }
+
+  /* ---------- Desktop view ---------- */
+  .desktopFrame .host main { padding: 16px 20px 16px; }
+  .desktopFrame table {
+    width: 100%; border-collapse: collapse; background: #fff;
+    border: 1px solid var(--border); border-radius: 8px; overflow: hidden;
+    font-size: 13px;
+  }
+  .desktopFrame th, .desktopFrame td {
+    padding: 8px 10px; border-bottom: 1px solid var(--divider); text-align: left;
+  }
+  .desktopFrame th { background: var(--surface-alt); font-weight: 600; color: var(--muted); font-size: 11px; letter-spacing: 0.5px; text-transform: uppercase; }
+  .desktopFrame .desktopBar {
+    display: flex; gap: 8px; align-items: center; padding: 8px 12px;
+    background: #111; color: #fff; border-bottom: 2px solid var(--accent);
+  }
+  .desktopFrame .desktopBar .brand { color: var(--accent); font-weight: 700; font-size: 14px; }
+  .desktopFrame .desktopBar .grow { flex: 1; }
+  .desktopFrame .desktopBar .pill {
+    padding: 4px 10px; background: rgba(255,255,255,0.08); border-radius: 6px;
+    font-size: 12px;
+  }
+  .desktopFrame .desktopBar .add {
+    background: var(--accent); color: #111; border: none; padding: 8px 14px;
+    border-radius: 8px; font-weight: 700; cursor: pointer;
+  }
+  .desktopFrame .desktopBar .iconbtn {
+    width: 32px; height: 32px; border-radius: 6px; background: rgba(255,255,255,0.08);
+    border: none; color: #fff; cursor: pointer;
+  }
+
+</style>
+</head>
+<body>
+
+<h1 class="mockTitle">Mock #103b — Host stand (375 × 667 mobile + 1024 desktop)</h1>
+<p class="mockNote">
+  Today the host page sets <code>viewport=width=1024</code> so phones shrink the whole layout. This
+  redesign restores <code>width=device-width</code>, converts the wide tables into stacked party
+  cards on phone-width, and floats the two highest-frequency actions ("+ Add party" + ETA control)
+  in a sticky bottom bar that's always thumb-reachable. Tap targets are ≥ 44 px throughout. The
+  desktop layout (right) keeps the existing table density for the 1024+ tablet/desktop host stand.
+</p>
+
+<div class="mockGrid">
+
+  <!-- MOBILE: Waiting tab -->
+  <div>
+    <div class="phoneFrame">
+      <div class="host">
+        <div class="topbar">
+          <div class="brand">SKB Host Stand</div>
+          <button class="iconbtn" title="Theme">☀</button>
+          <button class="iconbtn" title="Admin">⚙</button>
+          <button class="iconbtn" title="Log out">⎋</button>
+        </div>
+        <div class="counts">
+          <div><strong>5</strong><span class="lbl">Waiting</span></div>
+          <div><strong>8</strong><span class="lbl">Dining</span></div>
+          <div><strong>22m</strong><span class="lbl">Oldest</span></div>
+        </div>
+        <div class="tabs">
+          <button class="tab active">Waiting <span class="badge">5</span></button>
+          <button class="tab">Seated <span class="badge">8</span></button>
+          <button class="tab">Complete</button>
+        </div>
+        <main>
+          <div class="partyCard">
+            <div class="row1">
+              <span class="pos">#1</span>
+              <span class="name">Patel, R.</span>
+              <span class="size">4 ppl</span>
+            </div>
+            <div class="meta">
+              <span class="pill">📞 206 555 1234</span>
+              <span class="pill warn">22m waiting</span>
+              <span class="pill">Promised 7:32</span>
+            </div>
+            <div class="actions">
+              <button class="primary">Call</button>
+              <button>Seat</button>
+              <button class="chat">Chat</button>
+              <button class="danger">No-show</button>
+            </div>
+          </div>
+          <div class="partyCard">
+            <div class="row1">
+              <span class="pos">#2</span>
+              <span class="name">Krishnan, M.</span>
+              <span class="size">2 ppl</span>
+            </div>
+            <div class="meta">
+              <span class="pill">📞 425 555 0007</span>
+              <span class="pill">14m waiting</span>
+            </div>
+            <div class="actions">
+              <button class="primary">Call</button>
+              <button>Seat</button>
+              <button class="chat">Chat</button>
+              <button class="danger">No-show</button>
+            </div>
+          </div>
+        </main>
+        <div class="actionBar">
+          <button class="add">+ Add party</button>
+          <div class="eta">
+            <span>ETA</span>
+            <select><option>Manual</option><option>Dynamic</option></select>
+            <input value="8" />
+            <span>m</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="phoneCaption">
+      <strong>Phone — Waiting tab.</strong> Cards stack; primary actions docked.
+    </div>
+  </div>
+
+  <!-- MOBILE: Seated tab (the worst case — 11 columns today) -->
+  <div>
+    <div class="phoneFrame">
+      <div class="host">
+        <div class="topbar">
+          <div class="brand">SKB Host Stand</div>
+          <button class="iconbtn" title="Theme">☀</button>
+          <button class="iconbtn" title="Admin">⚙</button>
+          <button class="iconbtn" title="Log out">⎋</button>
+        </div>
+        <div class="counts">
+          <div><strong>5</strong><span class="lbl">Waiting</span></div>
+          <div><strong>8</strong><span class="lbl">Dining</span></div>
+          <div><strong>22m</strong><span class="lbl">Oldest</span></div>
+        </div>
+        <div class="tabs">
+          <button class="tab">Waiting <span class="badge">5</span></button>
+          <button class="tab active">Seated <span class="badge">8</span></button>
+          <button class="tab">Complete</button>
+        </div>
+        <main>
+          <div class="partyCard">
+            <div class="row1">
+              <span class="pos">T7</span>
+              <span class="name">Iyer, S.</span>
+              <span class="size">3 ppl</span>
+            </div>
+            <div class="meta">
+              <span class="pill">State: <strong style="color:#111">Ordered</strong></span>
+              <span class="pill">@table 18m</span>
+              <span class="pill">In state 6m</span>
+            </div>
+            <div class="actions">
+              <button class="full primary">Mark served</button>
+              <button>Checkout</button>
+              <button class="danger">Cancel</button>
+            </div>
+          </div>
+          <div class="partyCard">
+            <div class="row1">
+              <span class="pos">T3</span>
+              <span class="name">Rao, V.</span>
+              <span class="size">2 ppl</span>
+            </div>
+            <div class="meta">
+              <span class="pill">State: <strong style="color:#111">Served</strong></span>
+              <span class="pill">@table 32m</span>
+              <span class="pill">In state 14m</span>
+            </div>
+            <div class="actions">
+              <button class="full primary">Checkout</button>
+            </div>
+          </div>
+        </main>
+        <div class="actionBar">
+          <button class="add">+ Add party</button>
+          <div class="eta">
+            <span>ETA</span>
+            <select><option>Manual</option><option>Dynamic</option></select>
+            <input value="8" />
+            <span>m</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="phoneCaption">
+      <strong>Phone — Seated tab.</strong> 11-col table → cards. Most-likely action is primary.
+    </div>
+  </div>
+
+  <!-- DESKTOP: keep table density at 1024+ -->
+  <div style="width:100%;margin-top:24px">
+    <h2 style="font-size:15px;font-weight:600;margin:0 0 6px;">Desktop ≥ 1024 px (tablet host stand)</h2>
+    <div class="desktopFrame">
+      <div class="host">
+        <div class="desktopBar">
+          <div class="brand">SKB Host Stand</div>
+          <div class="pill"><strong>5</strong> waiting</div>
+          <div class="pill"><strong>8</strong> dining</div>
+          <div class="pill">oldest <strong>22m</strong></div>
+          <div class="grow"></div>
+          <div class="pill" style="display:flex;gap:6px;align-items:center">
+            ETA <select style="background:transparent;border:none;color:#fff"><option>Manual</option></select>
+            <input style="width:36px;background:transparent;border:none;color:#fff;text-align:center" value="8" /> m
+          </div>
+          <button class="add">+ Add party</button>
+          <button class="iconbtn">☀</button>
+          <button class="iconbtn">⚙</button>
+          <button class="iconbtn">⎋</button>
+        </div>
+        <div class="tabs" style="border-bottom:1px solid var(--border)">
+          <button class="tab active">Waiting <span class="badge">5</span></button>
+          <button class="tab">Seated <span class="badge">8</span></button>
+          <button class="tab">Complete</button>
+        </div>
+        <main>
+          <table>
+            <thead><tr><th>#</th><th>Name</th><th>Size</th><th>Phone</th><th>Promised</th><th>Waiting</th><th></th></tr></thead>
+            <tbody>
+              <tr><td>1</td><td>Patel, R.</td><td>4</td><td>206 555 1234</td><td>7:32 PM</td><td>22m</td><td><button class="add" style="padding:6px 10px;font-size:12px">Call</button></td></tr>
+              <tr><td>2</td><td>Krishnan, M.</td><td>2</td><td>425 555 0007</td><td>7:40 PM</td><td>14m</td><td><button class="add" style="padding:6px 10px;font-size:12px">Call</button></td></tr>
+              <tr><td>3</td><td>Singh, A.</td><td>6</td><td>425 555 9911</td><td>7:55 PM</td><td>9m</td><td><button class="add" style="padding:6px 10px;font-size:12px">Call</button></td></tr>
+            </tbody>
+          </table>
+        </main>
+      </div>
+    </div>
+    <p class="phoneCaption" style="text-align:left;margin-top:6px;max-width:1024px">
+      <strong>Desktop.</strong> Existing table density preserved at 1024+ — the breakpoint is the
+      single switch between the card layout and the table layout, not a separate code path.
+    </p>
+  </div>
+
+</div>
+
+</body>
+</html>

@@ -2,7 +2,7 @@
   "name": "skb-host-stand",
   "version": "0.1.0",
   "private": true,
-  "description": "SKB (Shri Krishna Bhavan) host stand iOS app — waitlist management for restaurant staff",
+  "description": "OSH iOS app — restaurant operations: host queue, admin workspace, and guest queue tracker",
   "main": "expo-router/entry",
   "scripts": {
     "start": "expo start",

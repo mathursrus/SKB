@@ -66,12 +66,12 @@ waitlist,restaurant,host,queue,hospitality,admin,guest,seating,osh,diner
 
 ### Support URL
 ```
-https://skb-waitlist.azurewebsites.net
+https://osh.wellnessatwork.me
 ```
 
 ### Marketing URL
 ```
-https://skb-waitlist.azurewebsites.net
+https://osh.wellnessatwork.me
 ```
 
 ### Copyright
@@ -83,13 +83,13 @@ https://skb-waitlist.azurewebsites.net
 
 | Field | Value |
 |---|---|
-| Version | 0.1.0 |
-| Build | 1 (auto-increment via EAS production profile) |
+| Version | 1.0.0 |
+| Build | 7 (auto-increment via EAS production profile) |
 | What's new in this version | First public release. Includes: role-aware login (host / admin / owner / guest); host floor view with live queue, seat-with-table capture, two-way SMS chat, one-tap call; admin workspace (charts, staff, menu, hours, website settings, integrations); guest queue tracker by restaurant slug; OTA updates applied on startup. |
 
 ## App Privacy (App Store Connect "Data Types" section)
 
-Per `docs/COMPLIANCE.md` §1, the answer to "Do you or your third-party partners collect data from this app?" is **No**. The app reads guest data from the SKB backend for display but does not persist or transmit it elsewhere, and the only data stored on-device is the host session cookie (in Keychain), which is not user-scoped identity data.
+Per `docs/COMPLIANCE.md` §1, the answer to "Do you or your third-party partners collect data from this app?" is **No**. The app reads guest data from the OSH backend for display but does not persist or transmit it elsewhere, and the only data stored on-device is the host session cookie (in Keychain), which is not user-scoped identity data.
 
 Select in App Store Connect:
 - **Data Not Collected** → Yes
@@ -116,17 +116,23 @@ A 15-30s screen recording walking through: login → Waiting tab → tap Seat on
 
 ## Review notes for App Review (private)
 
-> **Action required before submission:** the reviewer demo account below is a placeholder. Create a real demo account on `https://skb-waitlist.azurewebsites.net` with `host` (or `admin`) role at location `skb`, then paste the actual email + password into the block below. App Review WILL reject under Guideline 2.1 if these credentials don't sign in.
+These are the demo credentials and reviewer narrative pasted into App Store Connect → App Review Information. The account and seeded queue are live on the prod backend; reviewer can sign in immediately.
 
 ```
 OSH is a restaurant operations app. Staff sign in with email + password to manage the host floor and admin workspace; guests enter a restaurant slug (no account needed) to open a public queue tracker.
 
-To review the staff experience, sign in on the "Staff" tab with:
-  Email:    REPLACE_WITH_DEMO_EMAIL
-  Password: REPLACE_WITH_DEMO_PASSWORD
-This account is provisioned with `host` role at location `skb` on our production backend (https://skb-waitlist.azurewebsites.net). After sign-in you will land on the Waiting tab. Tap any party's amber "Seat" button to see the Seat-with-table dialog, and any "Chat" badge to see the SMS slide-over. The "Call" button opens the iOS dialer pre-filled with a test number.
+DEMO ACCOUNT (also in the Sign-In Information fields above):
+  Email:    apple-demo-owner@osh.app
+  Password: AppleDemoOwner!2026
+This account is owner-role at location `apple-demo` on our production backend (https://osh.wellnessatwork.me). Owner role has access to every part of the app.
 
-To review the guest experience, switch to the "Guest" tab on the login screen, enter slug `skb`, and tap Continue. You'll land on the public queue tracker for that restaurant.
+WHAT TO DO IN THE APP:
+1. On the login screen, make sure the "Staff" tab is selected (top of the card).
+2. Enter the demo email + password and tap Sign in.
+3. You'll land in the host workspace. Tap any party's amber "Seat" button to see the Seat-with-table dialog. Tap a "Chat" badge on a row to see the SMS slide-over. The "Call" button opens the iOS dialer pre-filled with a test number.
+4. The Workspace and Settings tabs at the bottom switch into the admin views (charts, staff management, hours, website settings, integrations).
+
+GUEST EXPERIENCE (no account needed): on the login screen, switch to the "Guest" tab, enter slug `apple-demo`, and tap Continue.
 
 The app does not collect any data from the reviewer. Guest names and phone numbers shown in the staff view are pre-populated test parties on the demo location.
 

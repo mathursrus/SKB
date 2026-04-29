@@ -23,7 +23,7 @@
 
 ## Creating the assets
 
-1. **Icon (1024×1024):** Figma/Sketch/any vector tool, export at 1x. Use the brand palette from `src/ui/theme.ts`: surface `#171a21`, accent `#ffb347`. A minimalist "SKB" monogram works. Apple does not allow a transparent background.
+1. **Icon (1024×1024):** Figma/Sketch/any vector tool, export at 1x. Use the brand palette from `src/ui/theme.ts`: surface `#171a21`, accent `#ffb347`. The current icon is a bold "OSH" wordmark — when refining, keep the contrast and avoid a transparent background (Apple rejects icons with alpha).
 2. **Splash:** same visual on the surface color.
 3. **Screenshots:** easiest path is to run the app in an iPad Pro 12.9" simulator, sign in with the demo PIN, seed staging data, and use Simulator → File → Screenshot (⌘S). For proper 2048×2732 exports, use `xcrun simctl io booted screenshot`. These need to be captured on a Mac or via a MacInCloud/EAS macOS build worker.
 

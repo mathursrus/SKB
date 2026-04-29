@@ -162,14 +162,14 @@ export default function LoginScreen() {
                   label="Restaurant slug"
                   value={guestLocation}
                   onChangeText={setGuestLocation}
-                  placeholder="skb"
+                  placeholder="your-restaurant"
                   autoCapitalize="none"
                 />
                 <Field
                   label="Party code (optional)"
                   value={guestCode}
                   onChangeText={setGuestCode}
-                  placeholder="SKB-7Q3"
+                  placeholder="ABC-1234"
                   autoCapitalize="characters"
                 />
 

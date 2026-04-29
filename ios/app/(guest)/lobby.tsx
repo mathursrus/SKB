@@ -117,7 +117,7 @@ export default function GuestLobbyScreen() {
 
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Track a party</Text>
-        <Field label="Party code" value={trackedCode} onChangeText={setTrackedCode} placeholder="SKB-7Q3" autoCapitalize="characters" />
+        <Field label="Party code" value={trackedCode} onChangeText={setTrackedCode} placeholder="ABC-1234" autoCapitalize="characters" />
         <PrimaryButton label={refreshing ? 'Refreshing...' : 'Track code'} disabled={refreshing || !trackedCode.trim()} onPress={() => void handleTrack()} />
         {status && (
           <View style={styles.statusCard}>

@@ -399,7 +399,7 @@ export default function SettingsScreen() {
             <TextInput
               value={smsSenderName}
               onChangeText={setSmsSenderName}
-              placeholder="Shri Krishna Bhavan"
+              placeholder="Your restaurant name"
               placeholderTextColor={theme.color.textMuted}
               style={styles.input}
               accessibilityLabel="SMS sender name"

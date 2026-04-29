@@ -1,6 +1,6 @@
-# SKB Host Stand iOS — Compliance & Privacy
+# OSH iOS — Compliance & Privacy
 
-This document covers App Store Review Guidelines, privacy manifest, accessibility, and export-control decisions for the SKB Host Stand iOS app. The app is an **internal operations tool** for restaurant staff — not a consumer app — which materially narrows the compliance surface.
+This document covers App Store Review Guidelines, privacy manifest, accessibility, and export-control decisions for the OSH iOS app. The app is a **restaurant operations tool** for staff (host / admin / owner) plus a guest queue tracker — which materially narrows the compliance surface.
 
 ## 1. Data collection inventory
 
@@ -15,7 +15,7 @@ This document covers App Store Review Guidelines, privacy manifest, accessibilit
 | Contacts | **Never** | — | — | — |
 | Photos | **Never** | — | — | — |
 
-Because the app renders guest data fetched from the SKB backend and never writes guest PII to device storage, the app's App Store privacy label is expected to be **"Data Not Collected"** from the user (the host). The SKB backend's privacy posture is a separate concern documented in the main SKB repo.
+Because the app renders guest data fetched from the OSH backend and never writes guest PII to device storage, the app's App Store privacy label is expected to be **"Data Not Collected"** from the user (the host). The OSH backend's privacy posture is a separate concern documented in the main repo.
 
 ## 2. Privacy manifest (`PrivacyInfo.xcprivacy`)
 
@@ -41,7 +41,7 @@ If Phase 7 adds Sentry or another observability SDK, it may require additional `
 Covered by the spec (§4, Issue #30) at the **backend** layer: consent is captured at guest check-in time when the guest enters their phone. The iOS app:
 - Does NOT have a path to acquire new SMS consent from within the app.
 - Only triggers SMS on parties whose phone was already collected with consent.
-- Chat templates are the same ones reviewed by SKB operations; no ad-hoc wording that could violate TCPA tone rules.
+- Chat templates are the same ones reviewed by OSH operations; no ad-hoc wording that could violate TCPA tone rules.
 
 ## 5. Accessibility (WCAG 2.1 AA + iOS VoiceOver)
 
@@ -76,14 +76,14 @@ Justification: the app uses only HTTPS (standard TLS via iOS URL loading system)
 | 2.1 App Completeness | ✅ All screens load, login flow works, no placeholder copy reaches users (only the Waiting tab's "Notify / Custom SMS / Custom Call" action stubs need wiring — see Phase 9 review). |
 | 2.3.12 App Privacy Details | ✅ See §1. "Data Not Collected." |
 | 4.0 Design | ✅ Uses native RN/Expo chrome; tab bar, modal, slide-over all native. |
-| 4.3 Spam | ✅ Purpose is unique to SKB, not a template-clone. |
+| 4.3 Spam | ✅ Purpose is unique to OSH (multi-tenant restaurant operations), not a template-clone. |
 | 5.1.1 Data Collection and Storage | ✅ Only host PIN → Keychain. No guest PII persisted on device. |
 | 5.1.1(vii) Consent for tracking | ✅ Not applicable — `NSPrivacyTracking: false`. |
 | 5.1.2 Data Use & Sharing | ✅ Backend is a private first-party API; no SDK data sharing. |
 
 ## 8. Content moderation
 
-**Not applicable.** The Host Stand app renders waitlist entries created by restaurant guests via the SKB public queue form. Content moderation on those names lives in the backend (`tests/unit/nameRedact.test.ts` exists in the main SKB repo) — the iOS client faithfully displays whatever the server sends. The host is the only user of this app and they have an explicit PIN-gated session.
+**Not applicable.** The app renders waitlist entries created by restaurant guests via the OSH public queue form. Content moderation on those names lives in the backend (`tests/unit/nameRedact.test.ts` exists in the main repo) — the iOS client faithfully displays whatever the server sends. Hosts and admins are the only authenticated users of this app, and they sign in with email + password.
 
 ## 9. Outstanding work
 

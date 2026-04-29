@@ -6,11 +6,14 @@ This runbook covers taking the `OSH` iOS app from the current state (EAS project
 
 - ✅ EAS project created: `@smathur97/skb-host-stand-ios` (project ID `daea0683-3bd3-4e56-8b49-0bda8be60ddf`)
 - ✅ Bundle identifier: `com.skbwaitlist.hoststand`
-- ✅ `eas.json` profiles: development / preview / production
-- ✅ Typecheck clean, 17/17 tests green
-- ❌ iOS distribution credentials (cert + provisioning profile) — pending first interactive build
-- ❌ Asset PNGs — pending design pass (see `ASSETS.md`)
-- ❌ Apple Team ID + ASC App ID in `eas.json` submit profile
+- ✅ `eas.json` profiles: development / preview / production / submit
+- ✅ Apple Team ID (`9TKF9YQDND`) + ASC App ID (`6763905189`) wired in `eas.json` submit profile
+- ✅ ASC API key (`AuthKey_7GTJ43FK2C.p8`) present at the path `eas.json` references — non-interactive `eas submit` is unblocked
+- ✅ Asset PNGs present and referenced by `app.json` (`icon.png` flattened to RGB to satisfy ITMS — see `ASSETS.md`)
+- ✅ Privacy manifest, encryption export declaration, Info.plist usage strings all set
+- ❌ iOS distribution credentials (cert + provisioning profile) — pending first interactive `eas build`
+- ❌ Real demo-account credentials in `APP_STORE_METADATA.md` "Review notes" — placeholders today; reviewer cannot sign in until you fill these in
+- ❌ Screenshots (3+ iPad Pro 12.9", 3+ iPhone 6.7") — required for public App Store listing; capture on a Mac simulator
 
 ## Prerequisites checklist
 

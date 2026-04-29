@@ -1,15 +1,17 @@
 # Asset checklist
 
-App.json currently does NOT reference any asset files, so `expo start` and type checking succeed without them. Before running the first EAS production build, drop the following assets into `assets/` and uncomment the `image` paths in `app.json` plugin configuration.
+`app.json` references all four files below, and they exist in `assets/`. Build is unblocked. The current PNGs are placeholders (icon, splash, and adaptive are byte-identical) — replace with real designed assets before final public launch to reduce App Review 4.0/4.3 risk.
+
+> **2026-04 note:** `icon.png` was originally exported as RGBA. Apple's ITMS validator rejects iOS app icons with an alpha channel, so it has been flattened onto the brand surface color (`#171a21`) and re-saved as 8-bit RGB. The pre-flatten file lives in git history if you need to recover it. When designing the real icon, export it WITHOUT transparency.
 
 ## Required for EAS production build
 
 | File | Size | Purpose | Notes |
 |---|---|---|---|
-| `assets/icon.png` | 1024×1024 | App icon | Flat (no transparency, no rounded corners — Apple applies the mask). Brand accent `#ffb347` on `#171a21` surface. |
-| `assets/splash-icon.png` | 1024×1024 | Splash logo | Centered on `#171a21`. Uncomment `image` under `expo-splash-screen` plugin once this lands. |
-| `assets/notification-icon.png` | 96×96 transparent PNG | Push notification icon | Uncomment `icon` under `expo-notifications` plugin once this lands. |
-| `assets/adaptive-icon.png` | 1024×1024 | Android adaptive icon | Only needed if Android support is added; skipping for iOS-only. |
+| `assets/icon.png` | 1024×1024 RGB (no alpha) | App icon | Flat, no transparency, no rounded corners — Apple applies the mask. Brand accent `#ffb347` on `#171a21`. |
+| `assets/splash-icon.png` | 1024×1024 | Splash logo | Centered on `#171a21`. Wired in `expo-splash-screen` plugin. |
+| `assets/notification-icon.png` | 96×96 transparent PNG | Push notification icon | Wired in `expo-notifications` plugin. Transparency IS allowed here. |
+| `assets/adaptive-icon.png` | 1024×1024 | Android adaptive icon | Present but unused on iOS. |
 
 ## Required for App Store Connect listing
 
@@ -31,27 +33,4 @@ This repo is Windows-origin and was scaffolded remotely. Asset creation is defer
 
 ## Unblocking the first EAS build
 
-After dropping the asset files, re-add the `image` keys to `app.json`:
-
-```diff
- "plugins": [
-   ...
-   [
-     "expo-notifications",
-     {
-+      "icon": "./assets/notification-icon.png",
-       "color": "#ffb347"
-     }
-   ],
-   [
-     "expo-splash-screen",
-     {
-       "backgroundColor": "#171a21",
-+      "image": "./assets/splash-icon.png",
-       "imageWidth": 200
-     }
-   ]
- ],
-```
-
-And add `"icon": "./assets/icon.png"` under the top-level `expo` block.
+Already done — `app.json` references `./assets/icon.png` at the top level, `./assets/splash-icon.png` under the `expo-splash-screen` plugin, and `./assets/notification-icon.png` under `expo-notifications`. No further config changes needed.

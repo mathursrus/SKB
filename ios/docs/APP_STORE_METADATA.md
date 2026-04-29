@@ -6,7 +6,7 @@ Primary category: **Business**
 Secondary category: **Food & Drink**
 Age rating: **4+**
 Content descriptors: **None**
-Distribution: **Private** (Apple Business Manager / internal TestFlight). OSH is an operations tool for restaurant staff and guests, and is not intended for general App Store discovery. If public listing is preferred, remove this paragraph and set "Distribution: Public."
+Distribution: **Public** (App Store, worldwide). OSH is publicly downloadable. Staff sign in with their issued OSH account; guests enter a restaurant slug to open the branded queue tracker for the restaurant they are visiting.
 
 ## Listing copy
 
@@ -85,7 +85,7 @@ https://skb-waitlist.azurewebsites.net
 |---|---|
 | Version | 0.1.0 |
 | Build | 1 (auto-increment via EAS production profile) |
-| What's new in this version | Initial TestFlight build. Implements Issue #30 — waitlist transparency, host chat/call, seat-with-table capture. |
+| What's new in this version | First public release. Includes: role-aware login (host / admin / owner / guest); host floor view with live queue, seat-with-table capture, two-way SMS chat, one-tap call; admin workspace (charts, staff, menu, hours, website settings, integrations); guest queue tracker by restaurant slug; OTA updates applied on startup. |
 
 ## App Privacy (App Store Connect "Data Types" section)
 
@@ -116,10 +116,19 @@ A 15-30s screen recording walking through: login → Waiting tab → tap Seat on
 
 ## Review notes for App Review (private)
 
-```
-SKB Host Stand is an internal staff tool for a restaurant waitlist system. To test the app, reviewers can sign in with the demo PIN 1234 against the staging backend at https://skb-waitlist-staging.azurewebsites.net. The app does not collect any data from the reviewer. It displays guest names and phone numbers which are pre-populated test data on the staging backend.
+> **Action required before submission:** the reviewer demo account below is a placeholder. Create a real demo account on `https://skb-waitlist.azurewebsites.net` with `host` (or `admin`) role at location `skb`, then paste the actual email + password into the block below. App Review WILL reject under Guideline 2.1 if these credentials don't sign in.
 
-Issue #30 (this submission) adds: (1) the Seat-with-table dialog you'll see when tapping the amber "Seat" button on a row; (2) the Chat slide-over you'll see when tapping the "Chat" button with an unread-message badge; (3) the "Call" button which opens the device dialer with a test number.
+```
+OSH is a restaurant operations app. Staff sign in with email + password to manage the host floor and admin workspace; guests enter a restaurant slug (no account needed) to open a public queue tracker.
+
+To review the staff experience, sign in on the "Staff" tab with:
+  Email:    REPLACE_WITH_DEMO_EMAIL
+  Password: REPLACE_WITH_DEMO_PASSWORD
+This account is provisioned with `host` role at location `skb` on our production backend (https://skb-waitlist.azurewebsites.net). After sign-in you will land on the Waiting tab. Tap any party's amber "Seat" button to see the Seat-with-table dialog, and any "Chat" badge to see the SMS slide-over. The "Call" button opens the iOS dialer pre-filled with a test number.
+
+To review the guest experience, switch to the "Guest" tab on the login screen, enter slug `skb`, and tap Continue. You'll land on the public queue tracker for that restaurant.
+
+The app does not collect any data from the reviewer. Guest names and phone numbers shown in the staff view are pre-populated test parties on the demo location.
 
 Contact: sid.mathur@gmail.com
 ```

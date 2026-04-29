@@ -107,9 +107,9 @@ const cases: BaseTestCase[] = [
         testFn: async () => /Program name/i.test(terms),
     },
     {
-        name: 'terms.html identifies the Program as SKB Waitlist',
+        name: 'terms.html identifies the Program as OSH',
         tags: ['unit', 'compliance', 'terms'],
-        testFn: async () => /SKB Waitlist/i.test(terms),
+        testFn: async () => /Program name:<\/strong>\s*OSH\b/i.test(terms),
     },
     {
         name: 'terms.html discloses message frequency',

@@ -93,7 +93,7 @@
         const thread = chatThreadEl();
         if (!thread) return;
         if (!messages || messages.length === 0) {
-            thread.innerHTML = '<div class="chat-empty">No messages yet. Reply here or text the SKB number — we\'re listening on both.</div>';
+            thread.innerHTML = '<div class="chat-empty">No messages yet. Reply here or text the OSH number — we\'re listening on both.</div>';
             return;
         }
         const rows = messages.map((m) => {
@@ -871,7 +871,7 @@
                     if (navigator.vibrate) { try { navigator.vibrate([180, 80, 180, 80, 180]); } catch {} }
                     try {
                         if ('Notification' in window && Notification.permission === 'granted') {
-                            const title = renotified ? 'SKB: Called again — please come now' : 'SKB: Your table is ready';
+                            const title = renotified ? 'OSH: Called again — please come now' : 'OSH: Your table is ready';
                             new Notification(title, {
                                 body: renotified
                                     ? `The host has called ${currentCallCount} times. Please head to the front stand.`

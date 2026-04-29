@@ -40,13 +40,22 @@ async function asc(method, pathAndQuery, body) {
 
 const appId = sub.ascAppId;
 
-const builds = await asc('GET', `/v1/builds?filter[app]=${appId}&limit=20&fields[builds]=version,uploadedDate,processingState`);
+const builds = await asc('GET', `/v1/builds?filter[app]=${appId}&limit=20&include=preReleaseVersion&fields[builds]=version,uploadedDate,processingState,preReleaseVersion&fields[preReleaseVersions]=version`);
+const preReleaseVersions = new Map((builds.included ?? [])
+  .filter((x) => x.type === 'preReleaseVersions')
+  .map((x) => [x.id, x.attributes.version]));
 const sorted = builds.data
-  .map((b) => ({ id: b.id, ...b.attributes }))
+  .map((b) => ({
+    id: b.id,
+    buildNumber: b.attributes.version,
+    uploadedDate: b.attributes.uploadedDate,
+    processingState: b.attributes.processingState,
+    marketingVersion: preReleaseVersions.get(b.relationships?.preReleaseVersion?.data?.id) ?? null,
+  }))
   .sort((a, b) => new Date(b.uploadedDate) - new Date(a.uploadedDate));
 const latest = sorted[0];
 if (!latest) { console.error('No builds found in ASC'); process.exit(1); }
-console.log(`Latest build: id=${latest.id}  CFBundleShortVersionString="${latest.version}"  state=${latest.processingState}  uploaded=${latest.uploadedDate}`);
+console.log(`Latest build: id=${latest.id}  marketingVersion="${latest.marketingVersion}"  buildNumber="${latest.buildNumber}"  state=${latest.processingState}  uploaded=${latest.uploadedDate}`);
 
 if (latest.processingState !== 'VALID') {
   console.error(`\nLatest build is not VALID yet (state=${latest.processingState}). Re-run when state=VALID.`);
@@ -54,7 +63,7 @@ if (latest.processingState !== 'VALID') {
 }
 
 const versions = await asc('GET', `/v1/apps/${appId}/appStoreVersions?limit=10&fields[appStoreVersions]=versionString,appStoreState`);
-const targetVersionString = latest.version;
+const targetVersionString = latest.marketingVersion;
 const target = versions.data.find((v) => v.attributes.versionString === targetVersionString);
 
 if (!target) {
@@ -74,4 +83,4 @@ await asc('PATCH', `/v1/appStoreVersions/${target.id}/relationships/build`, {
   data: { type: 'builds', id: latest.id },
 });
 
-console.log(`\n✔ Attached build ${latest.id} (v${latest.version}) to App Store version ${target.id}.`);
+console.log(`\n✔ Attached build ${latest.id} (v${latest.marketingVersion} #${latest.buildNumber}) to App Store version ${target.id}.`);

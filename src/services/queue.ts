@@ -346,6 +346,33 @@ export interface RemoveResult {
     conflict?: { partyName: string; partyId: string };
 }
 
+/**
+ * Update an active party's promised ETA. Hosts use this to push the ETA back
+ * (kitchen is slow, longer turn times than expected) or pull it in. The new
+ * value is treated as the authoritative promised time; downstream waitMinutes
+ * / etaMinutes calculations re-derive from it.
+ */
+export async function setPartyEta(
+    id: string,
+    etaAt: Date,
+): Promise<{ ok: boolean }> {
+    const db = await getDb();
+    let _id: ObjectId;
+    try {
+        _id = new ObjectId(id);
+    } catch {
+        throw new Error('invalid id');
+    }
+    if (!(etaAt instanceof Date) || Number.isNaN(etaAt.valueOf())) {
+        throw new Error('invalid etaAt');
+    }
+    const res = await queueEntries(db).updateOne(
+        { _id, state: { $in: [...ACTIVE_STATES] } },
+        { $set: { promisedEtaAt: etaAt } },
+    );
+    return { ok: res.matchedCount === 1 };
+}
+
 export async function setPartySentimentOverride(
     id: string,
     sentiment: HostSentiment | null,

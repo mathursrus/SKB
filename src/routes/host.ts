@@ -4,7 +4,7 @@
 
 import { Router, type Request, type Response } from 'express';
 
-import { callParty, joinQueue, listHostQueue, removeFromQueue, logCallDial, setPartySentimentOverride } from '../services/queue.js';
+import { callParty, joinQueue, listHostQueue, removeFromQueue, logCallDial, setPartyEta, setPartySentimentOverride } from '../services/queue.js';
 import { sendChatMessage, getChatThread, markThreadRead } from '../services/chat.js';
 import {
     chatAlmostReadyMessage,
@@ -321,6 +321,39 @@ export function hostRouter(): Router {
         } catch (err) {
             if (err instanceof Error && err.message === 'invalid id') { res.status(400).json({ error: 'invalid id' }); return; }
             if (err instanceof Error && err.message === 'chat.disabled') { res.status(403).json({ error: err.message }); return; }
+            dbError(res, err);
+        }
+    });
+
+    r.post('/host/queue/:id/eta', requireHost, async (req: Request, res: Response) => {
+        const id = String(req.params.id);
+        const body = (req.body ?? {}) as { etaAt?: unknown };
+        if (typeof body.etaAt !== 'string' || body.etaAt.length === 0) {
+            res.status(400).json({ error: 'etaAt required (ISO 8601)', field: 'etaAt' });
+            return;
+        }
+        const eta = new Date(body.etaAt);
+        if (Number.isNaN(eta.valueOf())) {
+            res.status(400).json({ error: 'etaAt must be a valid date', field: 'etaAt' });
+            return;
+        }
+        try {
+            const result = await setPartyEta(id, eta);
+            if (!result.ok) { res.status(404).json({ error: 'not found or not editable' }); return; }
+            console.log(JSON.stringify({
+                t: new Date().toISOString(),
+                level: 'info',
+                msg: 'host.queue.eta',
+                loc: loc(req),
+                id,
+                etaAt: eta.toISOString(),
+            }));
+            res.json({ ok: true, etaAt: eta.toISOString() });
+        } catch (err) {
+            if (err instanceof Error && (err.message === 'invalid id' || err.message === 'invalid etaAt')) {
+                res.status(400).json({ error: err.message });
+                return;
+            }
             dbError(res, err);
         }
     });
@@ -1253,7 +1286,7 @@ export function hostRouter(): Router {
         const name = typeof body.name === 'string' ? body.name : '';
         const role = typeof body.role === 'string' ? body.role : '';
         if (!isInvitableRole(role)) {
-            res.status(400).json({ error: 'role must be admin or host', field: 'role' });
+            res.status(400).json({ error: 'role must be owner, admin, or host', field: 'role' });
             return;
         }
         const uid = req.hostAuth?.uid;
@@ -1317,7 +1350,7 @@ export function hostRouter(): Router {
             if (err instanceof Error) {
                 const msg = err.message;
                 if (msg === 'already a member'
-                    || msg === 'role must be admin or host'
+                    || msg === 'role must be owner, admin, or host'
                     || msg === 'locationId is required'
                     || msg.startsWith('email')
                     || msg.startsWith('name')) {

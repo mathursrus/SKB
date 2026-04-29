@@ -27,6 +27,7 @@ interface WaitlistState {
   ) => Promise<{ ok: true } | { ok: false; conflict: { tableNumber: number; occupiedBy: string } } | { ok: false; error: string }>;
   removeParty: (id: PartyId) => Promise<void>;
   setSentiment: (id: PartyId, sentiment: HostSentiment | null) => Promise<boolean>;
+  setEta: (id: PartyId, etaAt: Date) => Promise<boolean>;
 }
 
 const emptySummary: CompletedSummary = {
@@ -183,6 +184,26 @@ export const useWaitlistStore = create<WaitlistState>((set, get) => ({
       return true;
     } catch (err) {
       set({ waiting: before.waiting, seated: before.seated });
+      logger.warn(events.waitlistPollError, { msg: (err as Error).message });
+      return false;
+    }
+  },
+
+  setEta: async (id, etaAt) => {
+    const locationId = useAuthStore.getState().locationId;
+    if (!locationId) return false;
+    if (Number.isNaN(etaAt.valueOf())) return false;
+    const isoEta = etaAt.toISOString();
+    const before = get().waiting;
+    set({
+      waiting: before.map((p) => (p.id === id ? { ...p, etaAt: isoEta } : p)),
+    });
+    try {
+      await waitlistApi.setEta(locationId, id, isoEta);
+      void get().poll();
+      return true;
+    } catch (err) {
+      set({ waiting: before });
       logger.warn(events.waitlistPollError, { msg: (err as Error).message });
       return false;
     }

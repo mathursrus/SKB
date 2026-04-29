@@ -347,6 +347,7 @@
                                 <div class="wiz-field">
                                     <label>Role</label>
                                     <div class="wiz-role-radios">
+                                        <label><input type="radio" name="role" value="owner" /> Owner</label>
                                         <label><input type="radio" name="role" value="admin" checked /> Admin</label>
                                         <label><input type="radio" name="role" value="host" /> Host</label>
                                     </div>
@@ -973,6 +974,10 @@
                     <div>
                         <label style="font-size:12px;color:#78716c;font-weight:500;margin-top:14px;display:block">Role</label>
                         <div class="role-radio" style="display:flex;gap:6px;margin-top:10px">
+                            <label class="role-radio-option">
+                                <input type="radio" name="invite-role" value="owner" style="display:none" />
+                                <span><strong>Owner</strong><br/><span style="color:#78716c;font-size:11px;font-weight:400">Full access + manage staff</span></span>
+                            </label>
                             <label class="role-radio-option">
                                 <input type="radio" name="invite-role" value="admin" style="display:none" />
                                 <span><strong>Admin</strong><br/><span style="color:#78716c;font-size:11px;font-weight:400">Settings + analytics</span></span>

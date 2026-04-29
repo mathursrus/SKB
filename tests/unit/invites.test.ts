@@ -3,7 +3,7 @@
 // ============================================================================
 //
 // Covers the pure-logic surface:
-//   * isInvitableRole — rejects 'owner' and non-string
+//   * isInvitableRole — accepts owner / admin / host (issue #106 added owner)
 //   * hashToken — deterministic, 64-char hex
 //   * generateInviteToken — non-empty token, hash matches
 //   * toPublicInvite — projects PublicInvite, strips tokenHash
@@ -37,9 +37,9 @@ const cases: BaseTestCase[] = [
         testFn: async () => isInvitableRole('host'),
     },
     {
-        name: 'isInvitableRole: rejects owner (owners cannot invite owners)',
+        name: 'isInvitableRole: accepts owner (issue #106 — co-owners)',
         tags: ['unit', 'invites'],
-        testFn: async () => !isInvitableRole('owner'),
+        testFn: async () => isInvitableRole('owner'),
     },
     {
         name: 'isInvitableRole: rejects empty string',

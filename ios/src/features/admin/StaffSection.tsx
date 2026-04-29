@@ -15,6 +15,7 @@ import { getStaffErrorMessage } from './staffErrors';
 const ROLE_OPTIONS: ReadonlyArray<{ key: InvitableRole; label: string; help: string }> = [
   { key: 'host', label: 'Host', help: 'Floor-only — manage queue, seat parties, send chats.' },
   { key: 'admin', label: 'Admin', help: 'Host + edit settings, hours, voice, brand. Cannot manage staff.' },
+  { key: 'owner', label: 'Owner', help: 'Full access — admin + manage staff and invite other owners.' },
 ];
 
 export function StaffSection({ locationId, role }: { locationId: string; role: AppRole | null }) {

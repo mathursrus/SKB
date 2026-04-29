@@ -5,6 +5,7 @@ import type { HostSentiment, WaitingParty } from '@/core/party';
 import { useWaitlistStore } from '@/state/waitlist';
 import { theme } from '@/ui/theme';
 
+import { EtaEditor } from './EtaEditor';
 import { LiveClock } from './LiveClock';
 import { RowActions } from './RowActions';
 import { SentimentPicker } from './Sentiment';
@@ -21,15 +22,10 @@ interface Props {
   onRemove: (party: WaitingParty) => void;
 }
 
-function formatClockTime(iso: string): string {
-  const d = new Date(iso);
-  if (Number.isNaN(d.valueOf())) return '—';
-  return d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
-}
-
 function PartyRowImpl(props: Props) {
   const { party, baseAt, notifyFlash } = props;
   const setSentiment = useWaitlistStore((s) => s.setSentiment);
+  const setEta = useWaitlistStore((s) => s.setEta);
   return (
     <View
       accessibilityRole="summary"
@@ -89,7 +85,11 @@ function PartyRowImpl(props: Props) {
         <View style={styles.timesBlock}>
           <View style={styles.timeCol}>
             <Text style={styles.timeLabel}>ETA</Text>
-            <Text style={styles.timeValue}>{formatClockTime(party.etaAt)}</Text>
+            <EtaEditor
+              partyName={party.name}
+              currentEtaAt={party.etaAt}
+              onSave={(next) => void setEta(party.id, next)}
+            />
           </View>
           <View style={styles.timeCol}>
             <Text style={styles.timeLabel}>Wait</Text>

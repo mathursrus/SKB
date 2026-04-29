@@ -180,7 +180,7 @@ export interface WebsiteConfigUpdate {
 }
 
 // ─── Staff types ──────────────────────────────────────────────────────
-export type InvitableRole = 'admin' | 'host';
+export type InvitableRole = 'owner' | 'admin' | 'host';
 
 // Field names match the server's StaffRow / PublicInvite shape (see
 // src/services/invites.ts → StaffRow.membershipId, src/types/identity.ts
@@ -311,6 +311,13 @@ export const waitlist = {
     request<{ ok: true }>(`/host/queue/${id}/sentiment`, {
       method: 'POST',
       body: { sentiment },
+      locationId,
+    }),
+  // Update a waiting party's promised ETA. Body is an ISO 8601 string.
+  setEta: (locationId: string, id: PartyId, etaAt: string) =>
+    request<{ ok: true; etaAt: string }>(`/host/queue/${id}/eta`, {
+      method: 'POST',
+      body: { etaAt },
       locationId,
     }),
 };

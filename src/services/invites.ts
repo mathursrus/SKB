@@ -53,9 +53,9 @@ import type {
 const TOKEN_BYTES = 32;
 export const INVITE_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days (spec §6.3)
 
-const INVITABLE_ROLES: readonly Role[] = ['admin', 'host'] as const;
+const INVITABLE_ROLES: readonly Role[] = ['owner', 'admin', 'host'] as const;
 
-export function isInvitableRole(value: unknown): value is 'admin' | 'host' {
+export function isInvitableRole(value: unknown): value is 'owner' | 'admin' | 'host' {
     return typeof value === 'string'
         && (INVITABLE_ROLES as readonly string[]).includes(value);
 }
@@ -87,7 +87,7 @@ export function toPublicInvite(inv: Invite): PublicInvite | null {
 export interface CreateInviteInput {
     email: string;
     name?: string;
-    role: 'admin' | 'host';
+    role: 'owner' | 'admin' | 'host';
     locationId: string;
     invitedByUserId: ObjectId;
 }
@@ -114,7 +114,7 @@ export async function createInvite(input: CreateInviteInput): Promise<CreateInvi
     const email = validateEmail(input.email);
     const name = normalizeInviteName(input.name);
     if (!isInvitableRole(input.role)) {
-        throw new Error('role must be admin or host');
+        throw new Error('role must be owner, admin, or host');
     }
     if (!input.locationId || typeof input.locationId !== 'string') {
         throw new Error('locationId is required');

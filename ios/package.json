@@ -15,7 +15,8 @@
     "eas:build:preview": "eas build --profile preview --platform ios",
     "eas:build:prod": "eas build --profile production --platform ios",
     "eas:submit:prod": "eas submit --profile production --platform ios",
-    "asc:status": "node scripts/asc-status.mjs"
+    "asc:status": "node scripts/asc-status.mjs",
+    "asc:attach-latest": "node scripts/asc-attach-latest.mjs"
   },
   "dependencies": {
     "expo": "~52.0.0",

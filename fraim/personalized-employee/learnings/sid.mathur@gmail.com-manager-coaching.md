@@ -2,7 +2,7 @@
 
 Things you (the user) can do differently when prompting the agent to get better outcomes. **Strictly user-actionable prompting changes.** Generic observations about your behavior or systemic agent fixes belong elsewhere — agent failures go in `mistake-patterns.md`, structural fixes go in `rules/project_rules.md`.
 
-**Last synthesized**: 2026-04-27 (full corpus debrief; rescoped per user correction)
+**Last synthesized**: 2026-04-28 (issue-102 added one new prompt-change pattern)
 
 ---
 
@@ -78,3 +78,20 @@ There's a structural fix in flight (project rule #18 — validation phase tripwi
 Pattern from issue #93: you reported "still 503 db_throw" after a deploy. The agent (incorrectly) went into deep local repro instead of curling prod. With the right structural fix (project rule #8) the prod state would already be smoke-tested; without it, the agent is guessing whether your report is current state or stale cache.
 
 **Prompt change** (until rule #8 lands): when reporting "still broken" after a deploy you just saw me ship, attach what you observed: "I just hit `<URL>` at `<HH:MM>` with the owner cookie in `<browser>` and got `<status> <body>`." That short report disambiguates between (a) prod actually still broken, (b) browser/CDN cache, (c) eventual consistency on a Cosmos index propagation. Without it the agent will sometimes chase ghosts.
+
+---
+
+### [P-MED] When filing a "mobile app" issue, list the iOS surface paths in scope explicitly
+
+**Score**: 5.0
+**Last seen**: 2026-04-28
+**Recurrences**: 1
+**First synthesized**: 2026-04-28
+
+Pattern from issue #102 ("Mobile app bugs"): the issue body described 6 sub-bugs in user-facing terms ("when host sends SMS to a user, the error is 403 chat.disabled"). The follow-up RFC and standing work list named only `public/*` and `src/*` files. The agent followed the RFC and shipped a fix entirely on the web client, missing the actual iOS app at `ios/app/(host)/...` and `ios/src/features/...`. There's a structural fix in flight (the new mistake-pattern *"When the task references mobile/iOS, inspect the `ios/` surface BEFORE coding"* will cover the agent side); a complementary user-side prompting change is to anchor any "mobile" issue body with the in-scope iOS paths.
+
+**Prompt change**: when filing an issue whose title or body is about the mobile/iOS app, list the iOS surface paths explicitly. Examples:
+- "Mobile app bugs (host: `ios/src/features/waiting/RowActions.tsx`, `ios/src/features/chat/ChatSlideOver.tsx`; admin: `ios/src/features/admin/StaffSection.tsx`)"
+- "iOS Settings → Remove staff broken — `ios/app/(host)/settings.tsx` + `ios/src/features/admin/StaffSection.tsx`"
+
+This makes it impossible for an approved RFC to omit the iOS surface for a mobile-issue. Becomes a belt-and-suspenders once the agent-side mistake-pattern fires.

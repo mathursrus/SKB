@@ -2,7 +2,7 @@
 
 Durable record of this user's tastes, style, and default preferences. Entries below are confirmed and active guidance.
 
-**Last synthesized**: 2026-04-27 (full corpus debrief)
+**Last synthesized**: 2026-04-28 (issue-103 retro fired one recurrence)
 
 ---
 
@@ -54,12 +54,12 @@ For any automated flow (IVR, queue join form, chat agent), provide a human fallb
 
 ### [P-MED] Spec mocks are self-contained HTML with inline styles — openable in a browser, reviewable by a non-technical owner
 
-**Score**: 5.0
-**Last seen**: 2026-04-15
-**Recurrences**: 1
+**Score**: 7.5
+**Last seen**: 2026-04-28
+**Recurrences**: 2
 **First synthesized**: 2026-04-27
 
-When producing mocks during the feature-spec phase, write them as standalone HTML files with all styles inline so they can be opened directly in a browser by the restaurant owner without any build step or framework. The non-technical reviewer test applies: would the owner understand the feature by opening the HTML file alone? If they need to read code or run a dev server to see it, the mock is at the wrong abstraction level.
+When producing mocks during the feature-spec phase, write them as standalone HTML files with all styles inline so they can be opened directly in a browser by the restaurant owner without any build step or framework. The non-technical reviewer test applies: would the owner understand the feature by opening the HTML file alone? If they need to read code or run a dev server to see it, the mock is at the wrong abstraction level. Issue-103 retrospective confirms the preference fired correctly: Sid opened `103-queue-mobile.html` and `103-host-mobile.html` directly in his browser and visually caught two feature regressions in v1 mocks that the agent's text-based self-review had missed. Without inline styles he would have caught the regressions only at implementation review — a much more expensive cycle.
 
 ---
 

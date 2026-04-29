@@ -1,7 +1,7 @@
 ---
 author: sid.mathur@gmail.com
 date: 2026-04-28
-synthesized:
+synthesized: 2026-04-28
 ---
 
 # Postmortem: Mobile usability fixes for diner waitlist + host stand — Issue #103

@@ -2,7 +2,7 @@
 
 Durable record of recurring agent mistakes that have been observed and must be avoided in future work. Entries below are confirmed and active guidance.
 
-**Last synthesized**: 2026-04-27 (full corpus debrief: all 13 retros + 6 raw L0 signals)
+**Last synthesized**: 2026-04-28 (issue-102 + issue-103 cycle: 2 raw L0 signals + 1 retrospective)
 
 ---
 
@@ -82,6 +82,28 @@ Recurrences:
 - 2026-04-08 issue-#29 — assumed ACS phone purchase without spiking subscription eligibility
 - 2026-04-09 issue-#31 — Twilio Voice TwiML (initially "no spike needed"); 11 findings caught later
 - 2026-04-25 issue-#83 — RFC built before validating Twilio Voice/Gather webhook payload schema
+
+---
+
+### [P-HIGH] When the task references "mobile" or "iOS", inspect the `ios/` surface BEFORE coding
+
+**Score**: 8.0
+**Last seen**: 2026-04-28
+**Recurrences**: 1
+**First synthesized**: 2026-04-28
+
+For issue #102 ("Mobile app bugs") I read the approved RFC and standing work list — both of which named only `public/*` and `src/*` files — and implemented the bug fixes entirely in the web client. The user pointed out hours later that none of the changes touched the actual iOS app in `ios/`, which is present in this repo and contains matching waiting / chat / staff surfaces. The fix was correct for the wrong client. Distinct from the existing P-MED entry "Read issue requirements literally" — that one is about the literal *words* of a requirement; this one is about the *client surface in scope*. The corrective action is concrete: when an issue title or body mentions a mobile/iOS context, run `ls ios/app ios/src/features` before writing the first line of code, compare against the RFC's file list, and flag the scope mismatch immediately if the design omits the mobile surface for what's clearly a mobile-app issue.
+
+---
+
+### [P-HIGH] When redesigning an existing surface for a new constraint, default to feature-parity-first not feature-minimum
+
+**Score**: 8.0
+**Last seen**: 2026-04-28
+**Recurrences**: 1
+**First synthesized**: 2026-04-28
+
+For issue #103 (mobile usability spec) I produced two HTML mocks that solved the stated mobile-fit problem by quietly removing existing features: the diner post-join mock dropped `#public-list-card` (R3 from issue #37), and the host Waiting-tab card collapsed 8 row actions (Sentiment, Seat, Notify, Chat, Call, Custom SMS, Custom Call, No-show) down to 4 plus dropped 7 of 11 Seated-tab metric columns and the state-advance ladder. The Phase-4 self-review checked spec completeness (R-tags map to sections, ACs exist) but did not run a "diff between v1 mock and existing live page" check, so the regressions slipped past the review. Sid caught all of them on PR review and a Round-1 errata cycle had to add R11 + R12 (parity requirements) and rewrite both mocks. **The rule**: when redesigning an existing UI for a new constraint, the default is feature-parity-first; before drafting any mock, inventory every action / badge / column / post-state surface in the existing source (`grep -E 'data-action=|class="[^"]*-btn"' …`) and treat the inventory as the parity baseline. If parity genuinely conflicts with the new constraint, surface the trade-off explicitly in the spec as a request for owner signoff — never bundled silently into the layout change. Phase-4 review must include a "mock vs. live page" diff step.
 
 ---
 

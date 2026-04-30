@@ -1,10 +1,43 @@
 // Unit tests for pure helpers in src/services/queue.ts
 import { runTests } from '../test-utils.js';
-import { computeEtaMinutes, positionInList } from '../../src/services/queue.js';
+import { computeEtaMinutes, positionInList, validateSetPartyEtaInput } from '../../src/services/queue.js';
 
 interface T { name: string; description?: string; tags?: string[]; testFn?: () => Promise<boolean>; }
 
 const cases: T[] = [
+    // -- ETA edit input validation (issue #106) --
+    {
+        name: 'validateSetPartyEtaInput: throws on malformed id',
+        tags: ['unit', 'queue', 'eta', 'issue-106'],
+        testFn: async () => {
+            try {
+                validateSetPartyEtaInput('not-an-objectid', new Date());
+                return false;
+            } catch (err) {
+                return err instanceof Error && err.message === 'invalid id';
+            }
+        },
+    },
+    {
+        name: 'validateSetPartyEtaInput: throws on invalid Date',
+        tags: ['unit', 'queue', 'eta', 'issue-106'],
+        testFn: async () => {
+            try {
+                validateSetPartyEtaInput('507f1f77bcf86cd799439011', new Date('not-a-date'));
+                return false;
+            } catch (err) {
+                return err instanceof Error && err.message === 'invalid etaAt';
+            }
+        },
+    },
+    {
+        name: 'validateSetPartyEtaInput: returns ObjectId for valid input',
+        tags: ['unit', 'queue', 'eta', 'issue-106'],
+        testFn: async () => {
+            const { _id } = validateSetPartyEtaInput('507f1f77bcf86cd799439011', new Date('2026-04-29T20:00:00Z'));
+            return _id.toHexString() === '507f1f77bcf86cd799439011';
+        },
+    },
     {
         name: 'computeEtaMinutes: position 1, turn 8 => 8',
         tags: ['unit', 'queue'],

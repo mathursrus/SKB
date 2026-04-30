@@ -15,6 +15,7 @@ import {
     listHostQueue,
     removeFromQueue,
     callParty,
+    setPartyEta,
 } from '../../src/services/queue.js';
 import {
     advanceParty,
@@ -261,6 +262,80 @@ const cases: BaseTestCase[] = [
             return manualParty?.sentiment === 'happy' && manualParty?.sentimentSource === 'manual';
         },
     },
+    // -- ETA edit (issue #106) -------------------------------------------------
+    {
+        name: 'setPartyEta: updates promisedEtaAt on a waiting party',
+        tags: ['integration', 'queue', 'eta', 'issue-106'],
+        testFn: async () => {
+            await resetDb();
+            const t0 = new Date('2026-04-05T20:00:00Z');
+            await joinQueue('test', { name: 'EtaEdit', partySize: 2, phone: '2065552220' }, t0);
+            const list = await listHostQueue('test', t0);
+            const party = list.parties.find((p) => p.name === 'EtaEdit');
+            if (!party) return false;
+            const newEta = new Date('2026-04-05T20:25:00Z'); // 25m from join
+            const result = await setPartyEta(party.id, newEta);
+            if (!result.ok) return false;
+            const after = await listHostQueue('test', t0);
+            const updated = after.parties.find((p) => p.name === 'EtaEdit');
+            return updated?.etaAt === newEta.toISOString();
+        },
+    },
+    {
+        name: 'setPartyEta: returns ok:false when id is well-formed but not found',
+        tags: ['integration', 'queue', 'eta', 'issue-106'],
+        testFn: async () => {
+            await resetDb();
+            // Valid 24-char hex string, but no party with this id exists.
+            const result = await setPartyEta('507f1f77bcf86cd799439011', new Date());
+            return result.ok === false;
+        },
+    },
+    {
+        name: 'setPartyEta: throws on malformed id',
+        tags: ['integration', 'queue', 'eta', 'issue-106'],
+        testFn: async () => {
+            try {
+                await setPartyEta('not-an-objectid', new Date());
+                return false;
+            } catch (err) {
+                return err instanceof Error && err.message === 'invalid id';
+            }
+        },
+    },
+    {
+        name: 'setPartyEta: throws on invalid Date',
+        tags: ['integration', 'queue', 'eta', 'issue-106'],
+        testFn: async () => {
+            try {
+                await setPartyEta('507f1f77bcf86cd799439011', new Date('not-a-date'));
+                return false;
+            } catch (err) {
+                return err instanceof Error && err.message === 'invalid etaAt';
+            }
+        },
+    },
+    {
+        name: 'setPartyEta: refuses to update seated parties (ACTIVE_STATES only)',
+        tags: ['integration', 'queue', 'eta', 'issue-106'],
+        testFn: async () => {
+            await resetDb();
+            const t0 = new Date('2026-04-05T20:00:00Z');
+            await joinQueue('test', { name: 'SeatedNoEta', partySize: 2, phone: '2065552221' }, t0);
+            const list = await listHostQueue('test', t0);
+            const id = list.parties[0].id;
+            await removeFromQueue(id, 'seated', { tableNumber: 5 }, new Date(t0.getTime() + 5 * 60_000));
+            // Now seated; setPartyEta should report ok:false (no row matched the
+            // ACTIVE_STATES filter), and the original promisedEtaAt should be
+            // untouched.
+            const before = await getDb().then((db) => queueEntries(db).findOne({ locationId: 'test', name: 'SeatedNoEta' }));
+            const beforeEta = before?.promisedEtaAt?.toISOString();
+            const result = await setPartyEta(id, new Date('2026-04-05T22:00:00Z'));
+            const after = await getDb().then((db) => queueEntries(db).findOne({ locationId: 'test', name: 'SeatedNoEta' }));
+            return result.ok === false && after?.promisedEtaAt?.toISOString() === beforeEta;
+        },
+    },
+
     // -- Dining lifecycle (issue #24) ------------------------------------------
     {
         name: 'seated: party moves to dining, seatedAt set, removedAt NOT set (R12)',

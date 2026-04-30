@@ -347,16 +347,11 @@ export interface RemoveResult {
 }
 
 /**
- * Update an active party's promised ETA. Hosts use this to push the ETA back
- * (kitchen is slow, longer turn times than expected) or pull it in. The new
- * value is treated as the authoritative promised time; downstream waitMinutes
- * / etaMinutes calculations re-derive from it.
+ * Validate inputs to setPartyEta. Pulled out as a pure helper so it can be
+ * exercised in unit tests without needing a live MongoDB connection.
+ * Throws an Error with one of: 'invalid id', 'invalid etaAt'.
  */
-export async function setPartyEta(
-    id: string,
-    etaAt: Date,
-): Promise<{ ok: boolean }> {
-    const db = await getDb();
+export function validateSetPartyEtaInput(id: string, etaAt: Date): { _id: ObjectId } {
     let _id: ObjectId;
     try {
         _id = new ObjectId(id);
@@ -366,6 +361,21 @@ export async function setPartyEta(
     if (!(etaAt instanceof Date) || Number.isNaN(etaAt.valueOf())) {
         throw new Error('invalid etaAt');
     }
+    return { _id };
+}
+
+/**
+ * Update an active party's promised ETA. Hosts use this to push the ETA back
+ * (kitchen is slow, longer turn times than expected) or pull it in. The new
+ * value is treated as the authoritative promised time; downstream waitMinutes
+ * / etaMinutes calculations re-derive from it. Issue #106.
+ */
+export async function setPartyEta(
+    id: string,
+    etaAt: Date,
+): Promise<{ ok: boolean }> {
+    const { _id } = validateSetPartyEtaInput(id, etaAt);
+    const db = await getDb();
     const res = await queueEntries(db).updateOne(
         { _id, state: { $in: [...ACTIVE_STATES] } },
         { $set: { promisedEtaAt: etaAt } },

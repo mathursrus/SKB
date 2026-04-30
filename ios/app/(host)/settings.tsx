@@ -28,7 +28,10 @@ export default function SettingsScreen() {
   const role = useAuthStore((s) => s.role);
   const locationId = useAuthStore((s) => s.locationId);
   const brand = useAuthStore((s) => s.brand);
+  // Issue #106: hosts can tune ETA settings (manual turn time + mode); other
+  // admin sections (hours, voice, messaging) stay owner/admin-only.
   const canEdit = isAdminRole(role);
+  const canEditEta = role === 'host' || canEdit;
 
   // ETA state (always loaded — hosts see read-only)
   const [etaMode, setEtaMode] = useState<'manual' | 'dynamic'>('manual');
@@ -187,7 +190,7 @@ export default function SettingsScreen() {
         <Text style={styles.subtitle}>
           {canEdit
             ? 'All restaurant configuration lives here. Tap a section to expand.'
-            : 'Hosts can view live ETA behavior. Admins and owners change restaurant-wide settings.'}
+            : 'Hosts can adjust ETA estimates. Admins and owners change other restaurant-wide settings.'}
         </Text>
       </View>
 
@@ -203,9 +206,9 @@ export default function SettingsScreen() {
           <SegmentButton
             label="Manual"
             active={etaMode === 'manual'}
-            disabled={!canEdit}
+            disabled={!canEditEta}
             onPress={() => {
-              if (!canEdit) return;
+              if (!canEditEta) return;
               setEtaMode('manual');
               setEtaDirty(true);
             }}
@@ -213,9 +216,9 @@ export default function SettingsScreen() {
           <SegmentButton
             label="Dynamic"
             active={etaMode === 'dynamic'}
-            disabled={!canEdit}
+            disabled={!canEditEta}
             onPress={() => {
-              if (!canEdit) return;
+              if (!canEditEta) return;
               setEtaMode('dynamic');
               setEtaDirty(true);
             }}
@@ -225,14 +228,14 @@ export default function SettingsScreen() {
         <TextInput
           value={turnTime}
           onChangeText={(v) => {
-            if (!canEdit) return;
+            if (!canEditEta) return;
             setTurnTime(v.replace(/[^\d]/g, ''));
             setEtaDirty(true);
           }}
           keyboardType="number-pad"
           maxLength={2}
-          editable={canEdit && etaMode === 'manual'}
-          style={[styles.input, styles.narrowInput, (!canEdit || etaMode !== 'manual') && styles.inputDisabled]}
+          editable={canEditEta && etaMode === 'manual'}
+          style={[styles.input, styles.narrowInput, (!canEditEta || etaMode !== 'manual') && styles.inputDisabled]}
           accessibilityLabel="Turn time minutes"
         />
         {effective !== null && (
@@ -260,7 +263,7 @@ export default function SettingsScreen() {
             Dynamic estimate: <Text style={styles.boldText}>{dynamicMinutes}m</Text>
           </Text>
         )}
-        {canEdit && (
+        {canEditEta && (
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Save ETA"
@@ -273,7 +276,7 @@ export default function SettingsScreen() {
         )}
         {!canEdit && (
           <Text style={styles.readOnlyNote}>
-            This screen is read-only for hosts. Sign in as an admin or owner to change restaurant-wide settings.
+            Hosts can adjust ETA above. Other restaurant-wide settings are admin/owner only.
           </Text>
         )}
       </View>

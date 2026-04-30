@@ -483,8 +483,10 @@ const cases: BaseTestCase[] = [
                 path.resolve(__dirname, '..', '..', 'ios', 'app', '(host)', 'settings.tsx'),
                 'utf-8',
             );
+            // Issue #106: gate variable was renamed canEdit → canEditEta when
+            // hosts gained ETA edit access (etaMode === 'manual' lock unchanged).
             return /editable=\{[^}]*etaMode\s*===\s*['"]manual['"][^}]*\}/.test(settings)
-                && /\(\s*!canEdit\s*\|\|\s*etaMode\s*!==\s*['"]manual['"]\s*\)\s*&&\s*styles\.inputDisabled/.test(settings);
+                && /\(\s*!canEdit(?:Eta)?\s*\|\|\s*etaMode\s*!==\s*['"]manual['"]\s*\)\s*&&\s*styles\.inputDisabled/.test(settings);
         },
     },
     {

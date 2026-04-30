@@ -1415,7 +1415,12 @@ export function hostRouter(): Router {
         } catch (err) { dbError(res, err); }
     });
 
-    r.post('/host/settings', requireAdmin, async (req: Request, res: Response) => {
+    // Issue #106: hosts need to adjust the manual turn-time without escalating
+    // to admin. The endpoint only writes etaMode + avgTurnTimeMinutes — both
+    // are operational tuning, not a security boundary — so opening it to
+    // requireHost is safe. Other settings sections (hours, voice, messaging)
+    // remain admin-only via their own routes.
+    r.post('/host/settings', requireHost, async (req: Request, res: Response) => {
         const body = req.body ?? {};
         const hasTurn = body.avgTurnTimeMinutes !== undefined && body.avgTurnTimeMinutes !== null;
         const hasMode = body.etaMode !== undefined && body.etaMode !== null;

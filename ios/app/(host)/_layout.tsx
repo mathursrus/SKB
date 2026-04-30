@@ -3,7 +3,7 @@ import { Redirect, Tabs } from 'expo-router';
 import { useEffect } from 'react';
 import { AppState } from 'react-native';
 
-import { isAdminRole, isStaffRole } from '@/core/auth';
+import { isStaffRole } from '@/core/auth';
 import { useAuthStore } from '@/state/auth';
 import { useWaitlistStore } from '@/state/waitlist';
 import { theme } from '@/ui/theme';
@@ -74,15 +74,16 @@ export default function HostLayout() {
         headerTitle: brand?.restaurantName ?? 'OSH',
       }}
     >
-      {isAdminRole(role) && (
-        <Tabs.Screen
-          name="workspace"
-          options={{
-            title: 'Workspace',
-            tabBarIcon: ({ color, size }) => <Ionicons name="grid-outline" size={size} color={color} />,
-          }}
-        />
-      )}
+      {/*
+       * Workspace tab removed per issue #106. The admin operations dashboard
+       * still lives at /workspace (the route file remains) for any code that
+       * navigates there directly, but it's no longer a bottom-tab destination.
+       * Owners and admins reach admin functionality through the Settings tab.
+       */}
+      <Tabs.Screen
+        name="workspace"
+        options={{ href: null }}
+      />
       <Tabs.Screen
         name="waiting"
         options={{

@@ -582,6 +582,122 @@ const cases: BaseTestCase[] = [
             && /target=["']_blank["']/.test(adminHtml)
             && /qrTestLink\.href/.test(adminJs),
     },
+
+    // ---------- Issue #106 — host ETA edit + co-owner invites ----------
+    {
+        name: 'issue106: backend exposes POST /host/queue/:id/eta gated by requireHost',
+        tags: ['unit', 'issue-106', 'route'],
+        testFn: async () =>
+            /r\.post\(\s*['"]\/host\/queue\/:id\/eta['"]\s*,\s*requireHost\s*,/.test(hostRoute),
+    },
+    {
+        name: 'issue106: /host/settings is gated by requireHost (not requireAdmin) so hosts can save ETA',
+        tags: ['unit', 'issue-106', 'route'],
+        testFn: async () =>
+            /r\.post\(\s*['"]\/host\/settings['"]\s*,\s*requireHost\s*,/.test(hostRoute)
+            // And the route must NOT be gated by requireAdmin anymore
+            && !/r\.post\(\s*['"]\/host\/settings['"]\s*,\s*requireAdmin\s*,/.test(hostRoute),
+    },
+    {
+        name: 'issue106: invites service INVITABLE_ROLES includes owner',
+        tags: ['unit', 'issue-106', 'invites'],
+        testFn: async () => {
+            const invitesService = fs.readFileSync(
+                path.resolve(__dirname, '..', '..', 'src', 'services', 'invites.ts'),
+                'utf-8',
+            );
+            return /INVITABLE_ROLES[^=]*=\s*\[[^\]]*['"]owner['"][^\]]*\]/.test(invitesService);
+        },
+    },
+    {
+        name: 'issue106: web admin invite form has owner radio',
+        tags: ['unit', 'issue-106', 'admin'],
+        testFn: async () =>
+            /<input[^>]*name=["']invite-role["'][^>]*value=["']owner["']/.test(adminHtml)
+            && /<input[^>]*name=["']invite-role["'][^>]*value=["']admin["']/.test(adminHtml)
+            && /<input[^>]*name=["']invite-role["'][^>]*value=["']host["']/.test(adminHtml),
+    },
+    {
+        name: 'issue106: web onboarding wizard staff step has owner radio',
+        tags: ['unit', 'issue-106', 'onboarding'],
+        testFn: async () =>
+            /<input[^>]*name=["']role["'][^>]*value=["']owner["']/.test(adminHtml),
+    },
+    {
+        name: 'issue106: ios (host)/_layout.tsx hides Workspace tab via href:null',
+        tags: ['unit', 'issue-106', 'ios'],
+        testFn: async () => {
+            const layout = fs.readFileSync(
+                path.resolve(__dirname, '..', '..', 'ios', 'app', '(host)', '_layout.tsx'),
+                'utf-8',
+            );
+            // Workspace must still be declared (so deep links resolve), but
+            // marked href:null so it doesn't render in the bottom tab bar.
+            return /name=["']workspace["'][\s\S]*?href:\s*null/.test(layout);
+        },
+    },
+    {
+        name: 'issue106: ios StaffSection ROLE_OPTIONS includes owner',
+        tags: ['unit', 'issue-106', 'ios'],
+        testFn: async () => {
+            const staffSection = fs.readFileSync(
+                path.resolve(__dirname, '..', '..', 'ios', 'src', 'features', 'admin', 'StaffSection.tsx'),
+                'utf-8',
+            );
+            return /ROLE_OPTIONS[\s\S]{0,400}key:\s*['"]owner['"]/.test(staffSection);
+        },
+    },
+    {
+        name: 'issue106: ios InvitableRole type includes owner',
+        tags: ['unit', 'issue-106', 'ios'],
+        testFn: async () => {
+            const endpoints = fs.readFileSync(
+                path.resolve(__dirname, '..', '..', 'ios', 'src', 'net', 'endpoints.ts'),
+                'utf-8',
+            );
+            return /InvitableRole\s*=\s*[^;]*['"]owner['"]/.test(endpoints);
+        },
+    },
+    {
+        name: 'issue106: ios PartyRow imports and renders EtaEditor',
+        tags: ['unit', 'issue-106', 'ios'],
+        testFn: async () => {
+            const partyRow = fs.readFileSync(
+                path.resolve(__dirname, '..', '..', 'ios', 'src', 'features', 'waiting', 'PartyRow.tsx'),
+                'utf-8',
+            );
+            return /import\s*\{\s*EtaEditor\s*\}\s*from\s*['"]\.\/EtaEditor['"]/.test(partyRow)
+                && /<EtaEditor/.test(partyRow);
+        },
+    },
+    {
+        name: 'issue106: ios setEta state action exists and posts ISO etaAt',
+        tags: ['unit', 'issue-106', 'ios'],
+        testFn: async () => {
+            const endpoints = fs.readFileSync(
+                path.resolve(__dirname, '..', '..', 'ios', 'src', 'net', 'endpoints.ts'),
+                'utf-8',
+            );
+            const waitlistState = fs.readFileSync(
+                path.resolve(__dirname, '..', '..', 'ios', 'src', 'state', 'waitlist.ts'),
+                'utf-8',
+            );
+            return /setEta:\s*\(/.test(endpoints)
+                && /\/host\/queue\/\$\{id\}\/eta/.test(endpoints)
+                && /setEta:\s*async/.test(waitlistState);
+        },
+    },
+    {
+        name: 'issue106: ios settings has canEditEta gate so hosts can edit ETA',
+        tags: ['unit', 'issue-106', 'ios'],
+        testFn: async () => {
+            const settings = fs.readFileSync(
+                path.resolve(__dirname, '..', '..', 'ios', 'app', '(host)', 'settings.tsx'),
+                'utf-8',
+            );
+            return /canEditEta\s*=/.test(settings);
+        },
+    },
 ];
 
 void runTests(cases, 'Bug #50 Regression');

@@ -688,6 +688,93 @@ const cases: BaseTestCase[] = [
                 && ['happy', 'neutral', 'upset'].includes(String(afterClear?.sentiment ?? ''));
         },
     },
+    // ---------- Issue #106 — host ETA edit + co-owner invites ----------
+    {
+        name: 'issue106: POST /api/host/queue/:id/eta without cookie → 401',
+        tags: ['integration', 'auth', 'issue-106', 'eta'],
+        testFn: async () => {
+            const res = await fetch(`${getTestServerUrl()}/api/host/queue/507f1f77bcf86cd799439011/eta`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ etaAt: '2026-04-29T20:00:00Z' }),
+            });
+            return res.status === 401;
+        },
+    },
+    {
+        name: 'issue106: POST /api/host/queue/:id/eta with empty body → 400',
+        tags: ['integration', 'auth', 'issue-106', 'eta'],
+        testFn: async () => {
+            const loginRes = await hostPinLogin('1234');
+            const cookieValue = (loginRes.headers.get('set-cookie') ?? '').split(';')[0];
+            const res = await fetch(`${getTestServerUrl()}/api/host/queue/507f1f77bcf86cd799439011/eta`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', Cookie: cookieValue },
+                body: JSON.stringify({}),
+            });
+            const body = await res.json() as { error?: string; field?: string };
+            return res.status === 400 && body.field === 'etaAt';
+        },
+    },
+    {
+        name: 'issue106: POST /api/host/queue/:id/eta with non-Date string → 400',
+        tags: ['integration', 'auth', 'issue-106', 'eta'],
+        testFn: async () => {
+            const loginRes = await hostPinLogin('1234');
+            const cookieValue = (loginRes.headers.get('set-cookie') ?? '').split(';')[0];
+            const res = await fetch(`${getTestServerUrl()}/api/host/queue/507f1f77bcf86cd799439011/eta`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', Cookie: cookieValue },
+                body: JSON.stringify({ etaAt: 'not-a-date' }),
+            });
+            return res.status === 400;
+        },
+    },
+    {
+        name: 'issue106: POST /api/host/queue/:id/eta with valid id but non-existent party → 404',
+        tags: ['integration', 'auth', 'issue-106', 'eta'],
+        testFn: async () => {
+            const loginRes = await hostPinLogin('1234');
+            const cookieValue = (loginRes.headers.get('set-cookie') ?? '').split(';')[0];
+            // Well-formed ObjectId, no party.
+            const res = await fetch(`${getTestServerUrl()}/api/host/queue/507f1f77bcf86cd799439011/eta`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', Cookie: cookieValue },
+                body: JSON.stringify({ etaAt: '2026-04-29T20:00:00Z' }),
+            });
+            return res.status === 404;
+        },
+    },
+    {
+        name: 'issue106: POST /api/host/settings as host role → 200 (was 403 under requireAdmin)',
+        tags: ['integration', 'auth', 'issue-106', 'settings'],
+        testFn: async () => {
+            const loginRes = await hostPinLogin('1234');
+            const cookieValue = (loginRes.headers.get('set-cookie') ?? '').split(';')[0];
+            const res = await fetch(`${getTestServerUrl()}/api/host/settings`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', Cookie: cookieValue },
+                body: JSON.stringify({ avgTurnTimeMinutes: 9 }),
+            });
+            const body = await res.json() as { avgTurnTimeMinutes?: number };
+            // Issue #106: hosts can now save ETA settings without escalating
+            // role. The route returns the post-save settings DTO on success.
+            return res.status === 200 && body.avgTurnTimeMinutes === 9;
+        },
+    },
+    {
+        name: 'issue106: POST /api/host/settings without cookie → 401',
+        tags: ['integration', 'auth', 'issue-106', 'settings'],
+        testFn: async () => {
+            const res = await fetch(`${getTestServerUrl()}/api/host/settings`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ avgTurnTimeMinutes: 9 }),
+            });
+            return res.status === 401;
+        },
+    },
+
     {
         name: 'host-auth: teardown',
         tags: ['integration', 'auth'],

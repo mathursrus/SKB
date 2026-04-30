@@ -3,6 +3,8 @@ import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { theme } from '@/ui/theme';
 
+import { adjustEta, isEtaDirty } from './etaMath';
+
 const ADJUSTMENTS: ReadonlyArray<{ delta: number; label: string }> = [
   { delta: -10, label: '−10m' },
   { delta: -5, label: '−5m' },
@@ -34,10 +36,10 @@ export function EtaEditor({
 
   const validDraft = !Number.isNaN(draft.valueOf());
   const validOriginal = !Number.isNaN(original.valueOf());
-  const dirty = validDraft && validOriginal && draft.valueOf() !== original.valueOf();
+  const dirty = isEtaDirty(draft, original);
 
   function adjust(deltaMinutes: number) {
-    setDraft((prev) => new Date(prev.valueOf() + deltaMinutes * 60_000));
+    setDraft((prev) => adjustEta(prev, deltaMinutes));
   }
 
   return (

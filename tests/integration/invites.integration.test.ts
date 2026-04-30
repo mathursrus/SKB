@@ -566,16 +566,29 @@ const cases: BaseTestCase[] = [
         },
     },
 
-    // ---- validation: bad role ----
+    // ---- role validation ----
     {
-        name: 'invite with role=owner → 400',
+        name: 'issue106: invite with role=owner → 200 (co-owners are allowed)',
+        tags: ['integration', 'invites55', 'validation', 'issue-106'],
+        testFn: async () => {
+            if (!ownerCookie) return false;
+            const r = await fetch(`${getTestServerUrl()}/r/${LOC}/api/staff/invite`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', Cookie: ownerCookie },
+                body: JSON.stringify({ email: 'co-owner@example.test', name: 'CoOwner', role: 'owner' }),
+            });
+            return r.status === 200;
+        },
+    },
+    {
+        name: 'invite with role=stranger → 400 (only owner/admin/host accepted)',
         tags: ['integration', 'invites55', 'validation'],
         testFn: async () => {
             if (!ownerCookie) return false;
             const r = await fetch(`${getTestServerUrl()}/r/${LOC}/api/staff/invite`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', Cookie: ownerCookie },
-                body: JSON.stringify({ email: 'x@example.test', name: 'x', role: 'owner' }),
+                body: JSON.stringify({ email: 'x@example.test', name: 'x', role: 'stranger' }),
             });
             return r.status === 400;
         },

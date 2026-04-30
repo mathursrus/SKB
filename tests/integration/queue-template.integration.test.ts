@@ -76,7 +76,9 @@ const cases: BaseTestCase[] = [
         testFn: async () => {
             await resetDb();
             const html = await renderQueuePage('test');
-            return html.includes('SKB') && html.includes('</html>') && html.includes('queue.js');
+            // Issue rebrand: was 'SKB' literal; now check the OSH brand
+            // reference that lives in the SMS-consent copy (queue.html line ~70).
+            return html.includes('OSH') && html.includes('</html>') && html.includes('queue.js');
         },
     },
     {
